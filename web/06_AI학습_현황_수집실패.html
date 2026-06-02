@@ -48,7 +48,7 @@
       <div class="prog-ch-row" style="margin-top:6px"><span class="prog-ch-name">인스타그램</span><span class="badge b-green">수집 완료</span></div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-danger btn-sm">실패 채널만 재학습</button>
+      <button class="btn btn-danger btn-sm" onclick="location.href='04_AI학습_수집중.html'" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 재학습 수집">실패 채널만 재학습</button>
       <button class="btn btn-ghost btn-sm" style="border-color:#FFC9C9;color:#C92A2A">전체 재학습</button>
     </div>
   </div>
@@ -73,7 +73,7 @@
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid #E2E8F0">
         <span style="font-size:12px;color:#4A5568">마지막 학습 이후 새로 등록된 콘텐츠를 수집하여 룰셋을 업데이트합니다.</span>
-        <button class="btn btn-primary btn-sm" onclick="location.href='04_AI학습_수집중.html'">지금 재학습</button>
+        <button class="btn btn-primary btn-sm" onclick="location.href='04_AI학습_수집중.html'" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 재학습 수집">지금 재학습</button>
       </div>
     </div>
   </div>
@@ -239,7 +239,7 @@ function showState(state, btn){
           <div class="prog-ch-row" style="margin-top:6px"><span class="prog-ch-name"><span class="icon-instagram" data-icon="instagram" data-size="13" data-color="currentColor"></span> 인스타그램</span><span class="badge b-green">수집 완료</span></div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-relearn').style.display='flex'">실패 채널만 재학습</button>
+          <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-relearn').style.display='flex'" data-flow-target="modal:relearn" data-flow-label="상태: 재학습 확인">실패 채널만 재학습</button>
           <button class="btn btn-ghost btn-sm" style="border-color:#FFC9C9;color:#C92A2A">전체 재학습</button>
         </div>
       </div>`;

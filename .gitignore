@@ -1,0 +1,4 @@
+node_modules/
+poc-server/node_modules/
+poc-server/data/
+.playwright-cli/

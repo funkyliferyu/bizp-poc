@@ -4,7 +4,26 @@
 <meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="common.css">
-
+<style>
+.blog-page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.auto-gen-settings{width:420px;background:#fff;border:1px solid #D8E0F0;border-radius:8px;padding:12px 14px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.auto-gen-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.auto-gen-title{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#1A1A2E}
+.auto-gen-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.auto-gen-field label{display:block;font-size:10px;font-weight:700;color:#7B8499;margin-bottom:4px}
+.auto-gen-field select,.auto-gen-field input{width:100%;height:30px}
+.auto-gen-next{font-size:11px;color:#7B8499;margin-top:8px}
+.auto-gen-next strong{color:#1A1A2E;font-weight:700}
+.auto-gen-radio{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.auto-gen-option{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:#4A5568;line-height:1.45}
+.auto-gen-option input{width:14px;height:14px;min-width:14px;margin-top:2px;accent-color:#3B5BDB;padding:0}
+.auto-gen-option strong{color:#1A1A2E;font-weight:700}
+.auto-gen-note{font-size:11px;color:#6B7280;line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid #EDF1F7}
+@media(max-width:900px){
+  .blog-page-head{flex-direction:column}
+  .auto-gen-settings{width:100%}
+}
+</style>
 </head>
 <body>
 <script src="icons.js"></script>
@@ -12,16 +31,47 @@
   <div class="topbar-breadcrumb">마케팅 채널관리 &rsaquo; <span>블로그 관리</span></div>
 </div>
 <div class="main-content">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+  <div class="blog-page-head">
     <div class="page-title" style="margin-bottom:0">블로그 관리</div>
-    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#4A5568">
-      <span>자동 생성 주기</span>
-      <select style="height:28px;font-size:12px;width:100px">
-        <option>매주</option>
-        <option selected>2주마다</option>
-        <option>매월</option>
-      </select>
-      <span style="color:#9AA0B4">다음 생성 예정일 <span style="color:#1A1A2E;font-weight:500">2026.05.30</span></span>
+    <div class="auto-gen-settings" id="blogAutoGenerationSettings">
+      <div class="auto-gen-head">
+        <div class="auto-gen-title"><span class="icon-settings" data-icon="settings" data-size="13" data-color="currentColor"></span> 자동 생성 설정</div>
+        <span class="badge b-blue">블로그 운영</span>
+      </div>
+      <div class="auto-gen-grid">
+        <div class="auto-gen-field">
+          <label>자동 생성 주기</label>
+          <select>
+            <option>매주</option>
+            <option selected>2주마다</option>
+            <option>매월</option>
+          </select>
+        </div>
+        <div class="auto-gen-field">
+          <label>생성 개수</label>
+          <select>
+            <option>1건</option>
+            <option selected>2건</option>
+            <option>3건</option>
+          </select>
+        </div>
+      </div>
+      <div class="auto-gen-next">다음 생성 예정일 <strong>2026.05.30</strong></div>
+      <div class="auto-gen-radio" aria-label="발행 요청 방식">
+        <label class="auto-gen-option">
+          <input type="radio" name="blog_publish_mode" checked>
+          <span><strong>승인 후 발행 요청</strong><br>생성된 콘텐츠를 블로그 관리에서 검토한 뒤 발행 요청합니다.</span>
+        </label>
+        <label class="auto-gen-option">
+          <input type="radio" name="blog_publish_mode">
+          <span><strong>자동 발행 요청</strong><br>생성 즉시 발행 요청으로 넘기고 완료 알림을 받습니다.</span>
+        </label>
+      </div>
+      <label class="auto-gen-option" style="margin-top:8px">
+        <input type="checkbox" checked>
+        <span>생성 완료 알림</span>
+      </label>
+      <div class="auto-gen-note">콘텐츠 생성과 발행 요청 방식은 블로그 관리에서 설정합니다.</div>
     </div>
   </div>
 
@@ -32,7 +82,7 @@
       <span style="font-size:13px;font-weight:600;color:#E8590C">승인 대기 2건</span>
       <span style="font-size:12px;color:#E8590C;opacity:.8">AI가 생성한 콘텐츠를 검토하고 발행 요청해 주세요.</span>
     </div>
-    <button class="btn btn-sm" style="background:#E8590C;color:#fff;border:none">지금 확인</button>
+    <button class="btn btn-sm" style="background:#E8590C;color:#fff;border:none" onclick="location.href='09_AI콘텐츠생성_상세.html'" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="다음: 콘텐츠 상세">지금 확인</button>
   </div>
 
   <div style="font-size:11px;color:#9AA0B4;margin-bottom:16px;display:flex;align-items:center;gap:5px">
@@ -79,7 +129,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr onclick="location.href='11_블로그_발행완료_상세.html'" style="cursor:pointer">
+        <tr onclick="location.href='11_블로그_발행완료_상세.html'" style="cursor:pointer" data-flow-target="11_블로그_발행완료_상세.html" data-flow-label="다음: 발행 완료 상세">
           <td class="td-link" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기
             <span style="margin-left:4px" class="icon-external-link" data-icon="external-link" data-size="11" data-color="#9AA0B4"></span>
@@ -91,7 +141,7 @@
           <td><span class="badge b-green" style="font-size:10px">84점</span></td>
           <td>05.14</td>
         </tr>
-        <tr onclick="location.href='10_블로그_발행대기_상세.html'" style="cursor:pointer">
+        <tr onclick="location.href='10_블로그_발행대기_상세.html'" style="cursor:pointer" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기 상세">
           <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             어버이날 케이크 당일 제작 가능해요
             <span style="margin-left:4px" class="icon-external-link" data-icon="external-link" data-size="11" data-color="#9AA0B4"></span>
@@ -103,7 +153,7 @@
           <td><span class="badge b-yellow" style="font-size:10px">71점</span></td>
           <td>05.30 예정</td>
         </tr>
-        <tr onclick="location.href='09_AI콘텐츠생성_상세.html'" style="cursor:pointer">
+        <tr onclick="location.href='09_AI콘텐츠생성_상세.html'" style="cursor:pointer" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="다음: 콘텐츠 상세">
           <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             분당 케이크 맛집 — AI 자동 생성 승인 대기 중
             <span style="margin-left:4px" class="icon-external-link" data-icon="external-link" data-size="11" data-color="#9AA0B4"></span>

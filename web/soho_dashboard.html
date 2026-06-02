@@ -27,6 +27,17 @@
 .store-count{font-size:11px;color:#9AA0B4}
 .btn-store-switch{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;color:#4A5568;background:#F7F8FA;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
 .btn-store-switch:hover{background:#EDF2F7}
+.store-switcher{position:relative}
+.store-switcher.open .store-menu{display:block}
+.store-menu{display:none;position:absolute;right:0;top:36px;width:280px;background:#fff;border:1px solid #D8E0EC;border-radius:8px;box-shadow:0 12px 28px rgba(15,20,32,.16);padding:6px;z-index:200}
+.store-menu-head{padding:7px 8px 8px;font-size:11px;font-weight:700;color:#4A5568;border-bottom:1px solid #EDF2F7;margin-bottom:4px}
+.store-option{width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:9px 8px;border:none;border-radius:6px;background:#fff;text-align:left;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
+.store-option:hover{background:#F7F8FA}
+.store-option.active{background:#EEF2FF}
+.store-option-main{min-width:0}
+.store-option-name{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:3px}
+.store-option-meta{font-size:11px;color:#9AA0B4;line-height:1.4}
+.store-option-status{font-size:10px;font-weight:700;color:#2F9E44;background:#EBFBEE;border-radius:10px;padding:2px 7px;white-space:nowrap}
 
 /* ── 2컬럼 ── */
 .layout{display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start}
@@ -159,7 +170,7 @@
 <div class="page-wrap">
 
   <!-- 상태 전환 (기획 확인용) -->
-  <div style="margin-bottom:4px;font-size:10px;color:#9AA0B4;font-weight:600;letter-spacing:.3px">▶ 화면 상태 전환 (기획 확인용)</div>
+  <div style="margin-bottom:4px;font-size:10px;color:#9AA0B4;font-weight:600;letter-spacing:.3px"># 화면 상태 전환 (기획 확인용)</div>
   <div style="display:flex;gap:6px;padding:6px;background:#F1F3F5;border-radius:8px;margin-bottom:20px;width:fit-content">
     <button id="btn-normal" onclick="showState('normal')" style="padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:'Noto Sans KR',sans-serif;background:#fff;color:#1A1A2E;box-shadow:0 1px 3px rgba(0,0,0,.1)">정상 운영 중</button>
     <button id="btn-no-ai" onclick="showState('no-ai')" style="padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:'Noto Sans KR',sans-serif;background:transparent;color:#9AA0B4">AI 학습 미완료</button>
@@ -176,20 +187,47 @@
         <span data-icon="map-pin" data-size="16" data-color="#3B5BDB"></span>
       </div>
       <div>
-        <div class="store-name">맛있는 떡볶이 홍대점</div>
-        <div class="store-meta">서울 마포구 · 분식 · 마지막 로그인 오늘 09:32</div>
+        <div class="store-name" data-store-field="name">맛있는 떡볶이 홍대점</div>
+        <div class="store-meta" data-store-field="meta">서울 마포구 · 분식 · 마지막 로그인 오늘 09:32</div>
       </div>
     </div>
     <div class="store-header-right">
       <span class="store-count">운영 중인 매장 3개</span>
-      <button class="btn-store-switch">
+      <button class="btn-store-switch" onclick="location.href='soho_store_register.html'" data-flow-target="soho_store_register.html" data-flow-label="다음: 매장 정보 등록">
         <span data-icon="plus" data-size="12" data-color="currentColor"></span>
         매장 추가
       </button>
-      <button class="btn-store-switch">
-        <span data-icon="refresh-cw" data-size="12" data-color="currentColor"></span>
-        매장 전환
-      </button>
+      <div class="store-switcher" data-store-count="3">
+        <button type="button" class="btn-store-switch" id="storeSwitchButton" onclick="toggleStoreMenu(event)" aria-expanded="false" aria-controls="storeMenu">
+          <span data-icon="refresh-cw" data-size="12" data-color="currentColor"></span>
+          매장 전환
+        </button>
+        <div class="store-menu" id="storeMenu" role="menu" aria-label="운영 중인 매장 전환">
+          <div class="store-menu-head">운영 중인 매장 3개</div>
+          <button type="button" class="store-option active" data-store-id="hongdae" onclick="selectStore('hongdae')" role="menuitem">
+            <span class="store-option-main">
+              <span class="store-option-name">맛있는 떡볶이 홍대점</span>
+              <span class="store-option-meta">서울 마포구 · 분식 · 네이버 플레이스 연결</span>
+            </span>
+            <span class="store-option-status">현재</span>
+          </button>
+          <button type="button" class="store-option" data-store-id="bundang" onclick="selectStore('bundang')" role="menuitem">
+            <span class="store-option-main">
+              <span class="store-option-name">맛있는 떡볶이 분당점</span>
+              <span class="store-option-meta">경기 성남시 분당구 · 분식 · 승인 대기 1건</span>
+            </span>
+            <span class="store-option-status">전환</span>
+          </button>
+          <button type="button" class="store-option" data-store-id="suji" onclick="selectStore('suji')" role="menuitem">
+            <span class="store-option-main">
+              <span class="store-option-name">맛있는 떡볶이 수지점</span>
+              <span class="store-option-meta">경기 용인시 수지구 · 분식 · AI 학습 정상</span>
+            </span>
+            <span class="store-option-status">전환</span>
+          </button>
+        </div>
+      </div>
+      <!-- /store-switcher -->
     </div>
   </div>
 
@@ -250,7 +288,7 @@
         </div>
         <div class="svc-cards">
 
-          <a class="svc-card" href="01_대시보드.html" target="main">
+          <a class="svc-card" href="01_대시보드_온보딩전.html" target="main" data-flow-target="01_대시보드_온보딩전.html" data-flow-label="다음: 마케팅 채널관리 진입">
             <div class="svc-card-top">
               <div class="svc-card-icon blue">
                 <span data-icon="file-text" data-size="15" data-color="#3B5BDB"></span>
@@ -278,7 +316,7 @@
               <div><div class="svc-stat-val">1,240</div><div class="svc-stat-label">발송 건수</div></div>
               <div><div class="svc-stat-val">83<span style="font-size:12px;font-weight:400">%</span></div><div class="svc-stat-label">성공률</div></div>
             </div>
-            <div class="svc-card-foot">잔여 크레딧 <span class="good">760건</span></div>
+            <div class="svc-card-foot">발송 예약 가능 <span class="good">760건</span></div>
           </a>
 
           <a class="svc-card" href="#">
@@ -330,7 +368,7 @@
             승인 대기 콘텐츠
             <span class="badge b-orange" style="font-size:10px;padding:1px 7px">2</span>
           </div>
-          <a class="pending-link" href="02_블로그관리.html" target="main">블로그관리 전체보기 →</a>
+          <a class="pending-link" href="02_블로그관리.html" target="main" data-flow-target="02_블로그관리.html" data-flow-label="다음: 블로그 관리">블로그관리 전체보기 →</a>
         </div>
         <div class="pending-list">
           <div class="pending-item">
@@ -373,7 +411,7 @@
       <div class="side-card">
         <div class="side-card-title">
           마케팅 전략 현황
-          <a href="07_마케팅전략룰셋.html" target="main">자세히 보기 →</a>
+          <a href="07_마케팅전략룰셋.html" target="main" data-flow-target="07_마케팅전략룰셋.html" data-flow-label="다음: 마케팅 전략 룰셋">자세히 보기 →</a>
         </div>
         <div class="strategy-meta">
           <span>마지막 학습 <strong style="color:#1A1A2E">2026.05.16</strong></span>
@@ -383,11 +421,11 @@
         </div>
         <div class="strategy-row">
           <div class="strategy-label">매장 특징</div>
-          <div class="strategy-val">분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div>
+          <div class="strategy-val">홍대 상권 즉석 떡볶이 전문점 / 매콤달콤 양념, 바삭한 튀김, 빠른 회전이 강점인 분식 맛집</div>
         </div>
         <div class="strategy-row">
           <div class="strategy-label">글쓰기 톤</div>
-          <div class="strategy-val">친근하고 감성적인 구어체 / 과장 없는 사실 기반</div>
+          <div class="strategy-val">활기차고 친근한 구어체 / 매운맛 단계, 세트메뉴, 방문 혜택을 구체적으로 안내</div>
         </div>
         <div class="strategy-row">
           <div class="strategy-label">발행 방식</div>
@@ -396,11 +434,11 @@
         <div class="strategy-row">
           <div class="strategy-label">대표 키워드</div>
           <div class="keyword-tags">
-            <span class="kw-tag">분당 케이크</span>
-            <span class="kw-tag">레터링케이크</span>
-            <span class="kw-tag">당일제작</span>
-            <span class="kw-tag">생일케이크</span>
-            <span class="kw-tag">커스텀케이크</span>
+            <span class="kw-tag">홍대 떡볶이</span>
+            <span class="kw-tag">즉석떡볶이</span>
+            <span class="kw-tag">분식 맛집</span>
+            <span class="kw-tag">튀김 세트</span>
+            <span class="kw-tag">매운맛 선택</span>
           </div>
         </div>
       </div>
@@ -411,23 +449,23 @@
         <div class="store-info-grid">
           <div>
             <div class="info-label">업종</div>
-            <div class="info-val">분식</div>
+            <div class="info-val" data-store-field="industry">분식</div>
           </div>
           <div>
             <div class="info-label">연락처</div>
-            <div class="info-val">02-1234-5678</div>
+            <div class="info-val" data-store-field="tel">02-1234-5678</div>
           </div>
           <div style="grid-column:1/-1">
             <div class="info-label">주소</div>
-            <div class="info-val">서울 마포구 홍익로 5길 12</div>
+            <div class="info-val" data-store-field="address">서울 마포구 홍익로 5길 12</div>
           </div>
           <div style="grid-column:1/-1">
             <div class="info-label">네이버 블로그</div>
-            <div class="info-val url">blog.naver.com/tteokstar</div>
+            <div class="info-val url" data-store-field="blog">blog.naver.com/tteokstar</div>
           </div>
           <div style="grid-column:1/-1">
             <div class="info-label">네이버 플레이스</div>
-            <div class="info-val url">naver.me/FxK2mNpQ</div>
+            <div class="info-val url" data-store-field="place">naver.me/FxK2mNpQ</div>
           </div>
         </div>
         <div class="store-info-footer">
@@ -510,7 +548,7 @@
       </div>
       <button class="btn btn-primary" style="height:40px;padding:0 28px;font-size:13px">
         <span data-icon="rss" data-size="14" data-color="#fff"></span>
-        AI 학습 설정하러 가기
+          AI 학습 설정하러 가기
       </button>
     </div>
 
@@ -567,7 +605,7 @@
         첫 번째 매장을 등록하고 마케팅을 시작해보세요<br>
         <span style="font-size:12px">매장 등록 후 AI 학습까지 완료하면 콘텐츠 자동 생성이 시작돼요</span>
       </div>
-      <button class="btn btn-primary" style="height:42px;padding:0 32px;font-size:14px">
+      <button class="btn btn-primary" onclick="location.href='soho_store_register.html'" data-flow-target="soho_store_register.html" data-flow-label="다음: 매장 정보 등록" style="height:42px;padding:0 32px;font-size:14px">
         <span data-icon="plus" data-size="15" data-color="#fff"></span>
         매장 등록하기
       </button>
@@ -578,6 +616,74 @@
 
 
 <script>
+const STORES = {
+  hongdae: {
+    name: '맛있는 떡볶이 홍대점',
+    meta: '서울 마포구 · 분식 · 마지막 로그인 오늘 09:32',
+    industry: '분식',
+    tel: '02-1234-5678',
+    address: '서울 마포구 홍익로 5길 12',
+    blog: 'blog.naver.com/tteokstar',
+    place: 'naver.me/FxK2mNpQ'
+  },
+  bundang: {
+    name: '맛있는 떡볶이 분당점',
+    meta: '경기 성남시 분당구 · 분식 · 마지막 로그인 어제 18:10',
+    industry: '분식',
+    tel: '031-789-1122',
+    address: '경기 성남시 분당구 정자일로 95',
+    blog: 'blog.naver.com/tteokbundang',
+    place: 'naver.me/Gb7Bundang'
+  },
+  suji: {
+    name: '맛있는 떡볶이 수지점',
+    meta: '경기 용인시 수지구 · 분식 · 마지막 로그인 오늘 10:04',
+    industry: '분식',
+    tel: '031-262-4455',
+    address: '경기 용인시 수지구 풍덕천로 120',
+    blog: 'blog.naver.com/tteoksuji',
+    place: 'naver.me/Hs3Suji'
+  }
+};
+
+function toggleStoreMenu(event){
+  event?.stopPropagation();
+  const switcher = document.querySelector('.store-switcher');
+  const button = document.getElementById('storeSwitchButton');
+  if (!switcher || !button) return;
+  const nextOpen = !switcher.classList.contains('open');
+  switcher.classList.toggle('open', nextOpen);
+  button.setAttribute('aria-expanded', String(nextOpen));
+}
+
+function closeStoreMenu(){
+  const switcher = document.querySelector('.store-switcher');
+  const button = document.getElementById('storeSwitchButton');
+  switcher?.classList.remove('open');
+  button?.setAttribute('aria-expanded', 'false');
+}
+
+function selectStore(storeId){
+  const store = STORES[storeId];
+  if (!store) return;
+  Object.entries(store).forEach(([field, value]) => {
+    document.querySelectorAll(`[data-store-field="${field}"]`).forEach((el) => {
+      el.textContent = value;
+    });
+  });
+  document.querySelectorAll('.store-option').forEach((option) => {
+    const active = option.dataset.storeId === storeId;
+    option.classList.toggle('active', active);
+    const status = option.querySelector('.store-option-status');
+    if (status) status.textContent = active ? '현재' : '전환';
+  });
+  closeStoreMenu();
+}
+
+document.addEventListener('click', (event) => {
+  if (!event.target.closest?.('.store-switcher')) closeStoreMenu();
+});
+
 function showState(s){
   ['normal','no-ai','no-store'].forEach(id=>{
     document.getElementById('state-'+id).style.display='none';

@@ -14,7 +14,45 @@
 .seo-bar{display:flex;align-items:center;gap:10px}
 .seo-track{flex:1;height:5px;background:#EDF2F7;border-radius:10px;overflow:hidden}
 .seo-fill{height:100%;background:#2F9E44;border-radius:10px;width:84%}
+.seo-breakdown{margin-top:12px;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;background:#fff}
+.seo-breakdown-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F7F8FA;border-bottom:1px solid #E2E8F0}
+.seo-breakdown-title{font-size:12px;font-weight:700;color:#1A1A2E}
+.seo-score-items{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
+.seo-score-item{padding:10px 12px;border-right:1px solid #EDF2F7;border-bottom:1px solid #EDF2F7}
+.seo-score-item:nth-child(2n){border-right:none}
+.seo-score-item:nth-last-child(-n+2){border-bottom:none}
+.seo-score-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.seo-score-name{font-size:11px;font-weight:700;color:#4A5568}
+.seo-score-val{font-size:12px;font-weight:800;color:#2F9E44}
+.seo-score-copy{font-size:11px;color:#6B7280;line-height:1.5}
+.content-body-box{font-size:12px;color:#1A1A2E;background:#F7F8FA;border:1px solid #E2E8F0;border-radius:6px;padding:12px 14px;line-height:1.8;max-height:260px;overflow:hidden}
+.content-body-box p{margin:0 0 12px}
+.content-body-box p:last-child{margin-bottom:0}
+.content-image-slot{margin:10px 0;padding:14px;border:1px dashed #BAC8FF;border-radius:8px;background:#EEF2FF;color:#3B5BDB;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.content-image-slot span{font-size:11px;font-weight:500;color:#4A5568}
+.blog-preview-modal{width:calc(100vw - 48px);height:calc(100vh - 48px);max-width:none;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.blog-preview-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #E2E8F0;background:#fff}
+.blog-preview-title{font-size:15px;font-weight:800;color:#1A1A2E;margin-bottom:4px}
+.blog-preview-sub{font-size:12px;color:#6B7280}
+.blog-preview-scroll{flex:1;overflow:auto;background:#F5F6FA;padding:20px}
+.blog-preview-shell{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:16px;max-width:1080px;margin:0 auto}
+.blog-preview-article{background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:28px;min-height:640px}
+.blog-preview-article h1{font-size:24px;line-height:1.35;color:#1A1A2E;margin:0 0 8px}
+.blog-preview-meta{font-size:12px;color:#9AA0B4;border-bottom:1px solid #EDF2F7;padding-bottom:14px;margin-bottom:18px}
+.blog-preview-body{font-size:15px;line-height:1.9;color:#1A1A2E}
+.blog-preview-body p{margin:0 0 16px}
+.blog-preview-image{height:220px;border:1px solid #D8E0EC;border-radius:8px;background:linear-gradient(135deg,#F7F8FA,#EEF2FF);display:flex;align-items:center;justify-content:center;color:#6B7280;font-size:12px;font-weight:700;margin:18px 0}
+.blog-preview-sidebar{display:flex;flex-direction:column;gap:10px}
+.blog-preview-side-card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:12px}
+.blog-preview-side-title{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:8px}
+.blog-preview-thumb{height:92px;border-radius:6px;background:#F7F8FA;border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#6B7280;margin-bottom:8px}
 .action-bar{background:#F7F8FA;border:1px solid #E2E8F0;border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px}
+@media(max-width:900px){
+  .seo-score-items{grid-template-columns:1fr}
+  .seo-score-item,.seo-score-item:nth-child(2n),.seo-score-item:nth-last-child(-n+2){border-right:none;border-bottom:1px solid #EDF2F7}
+  .seo-score-item:last-child{border-bottom:none}
+  .blog-preview-shell{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -34,17 +72,22 @@
         <div style="font-size:15px;font-weight:700;color:#1A1A2E;margin-bottom:4px">분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</div>
         <div style="font-size:11px;color:#9AA0B4">2026.05.23 생성 · 블로그</div>
       </div>
-      <span class="badge b-orange">승인 대기</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="openBlogPreviewBtn" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
+        <span class="badge b-orange">승인 대기</span>
+      </div>
     </div>
     <div class="card-body">
 
       <!-- 본문 -->
       <div style="margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:6px">본문</div>
-        <div style="font-size:12px;color:#1A1A2E;background:#F7F8FA;border:1px solid #E2E8F0;border-radius:6px;padding:12px 14px;line-height:1.8;max-height:160px;overflow:hidden">
-          분당에서 케이크 맛집을 찾고 계신다면 이곳을 추천드려요. 커스텀 레터링 케이크부터 당일 제작까지 가능한 베이커리인데요. 직접 방문해보니 매장 분위기도 깔끔하고 케이크 퀄리티가 생각보다 훨씬 좋았어요.<br><br>
-          특히 레터링 케이크는 원하는 문구를 자유롭게 넣을 수 있어서 생일, 기념일 선물로 딱이더라고요. 가격도 합리적인 편이고 당일 제작도 가능해서 급하게 필요할 때도 믿고 맡길 수 있어요.<br><br>
-          위치는 분당구 정자동에 있고, 주차도 가능합니다. 영업시간은 평일 10시부터 8시까지예요.
+        <div class="content-body-box" id="draftContentBody">
+          <p>분당에서 케이크 맛집을 찾고 계신다면 이곳을 추천드려요. 커스텀 레터링 케이크부터 당일 제작까지 가능한 베이커리인데요. 직접 방문해보니 매장 분위기도 깔끔하고 케이크 퀄리티가 생각보다 훨씬 좋았어요.</p>
+          <div class="content-image-slot" data-image-slot="1">[이미지1 배치] <span>대표 케이크 사진 · 본문 첫 화면 노출</span></div>
+          <p>특히 레터링 케이크는 원하는 문구를 자유롭게 넣을 수 있어서 생일, 기념일 선물로 딱이더라고요. 가격도 합리적인 편이고 당일 제작도 가능해서 급하게 필요할 때도 믿고 맡길 수 있어요.</p>
+          <div class="content-image-slot" data-image-slot="2">[이미지2 배치] <span>레터링 디테일 또는 매장 내부 사진</span></div>
+          <p>위치는 분당구 정자동에 있고, 주차도 가능합니다. 영업시간은 평일 10시부터 8시까지예요.</p>
         </div>
         <div style="font-size:11px;color:#3B5BDB;margin-top:6px;cursor:pointer">전체 보기 ↓</div>
       </div>
@@ -58,6 +101,38 @@
           <span style="font-size:22px;font-weight:700;color:#2F9E44">84</span>
           <div class="seo-track"><div class="seo-fill"></div></div>
           <span style="font-size:11px;color:#4A5568">지역 키워드 보강 권장</span>
+        </div>
+        <div class="seo-breakdown" id="seoScoreBreakdown">
+          <div class="seo-breakdown-head">
+            <div class="seo-breakdown-title">SEO 세부 평가</div>
+            <span class="badge b-green">총점 84점</span>
+          </div>
+          <div class="seo-score-items" id="seoScoreItems">
+            <div class="seo-score-item">
+              <div class="seo-score-top"><span class="seo-score-name">제목 키워드</span><span class="seo-score-val">18/20</span></div>
+              <div class="seo-score-copy">분당, 케이크 맛집, 커스텀 케이크가 제목에 포함되어 검색 의도가 명확합니다.</div>
+            </div>
+            <div class="seo-score-item">
+              <div class="seo-score-top"><span class="seo-score-name">본문 키워드</span><span class="seo-score-val">17/20</span></div>
+              <div class="seo-score-copy">지역과 메뉴 키워드는 충분하지만 수지, 레터링케이크 반복이 조금 더 필요합니다.</div>
+            </div>
+            <div class="seo-score-item">
+              <div class="seo-score-top"><span class="seo-score-name">메타 설명</span><span class="seo-score-val">14/15</span></div>
+              <div class="seo-score-copy">핵심 혜택이 요약되어 있으나 당일 제작 조건을 더 짧게 넣으면 좋습니다.</div>
+            </div>
+            <div class="seo-score-item">
+              <div class="seo-score-top"><span class="seo-score-name">이미지 ALT</span><span class="seo-score-val">12/15</span></div>
+              <div class="seo-score-copy">대표 이미지의 대체 텍스트는 적절하며, 두 번째 이미지는 메뉴명을 더 구체화해야 합니다.</div>
+            </div>
+            <div class="seo-score-item">
+              <div class="seo-score-top"><span class="seo-score-name">가독성</span><span class="seo-score-val">15/15</span></div>
+              <div class="seo-score-copy">문단 길이와 문장 흐름이 블로그 발행용으로 무난합니다.</div>
+            </div>
+            <div class="seo-score-item">
+              <div class="seo-score-top"><span class="seo-score-name">발행 준비도</span><span class="seo-score-val">10/10</span></div>
+              <div class="seo-score-copy">본문, 이미지 배치, 발행 요청 상태가 모두 준비되어 있습니다.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -93,8 +168,8 @@
       <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-cancel').style.display='flex'">취소</button>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost" onclick="document.getElementById('modal-schedule').style.display='flex'">일시 지정 발행 요청</button>
-      <button class="btn btn-primary">바로 발행 요청</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-schedule').style.display='flex'" data-flow-target="modal:schedule-publish" data-flow-label="상태: 발행 일시 모달">일시 지정 발행 요청</button>
+      <button class="btn btn-primary" onclick="location.href='10_블로그_발행대기_상세.html'" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">바로 발행 요청</button>
     </div>
   </div>
 </div>
@@ -110,7 +185,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-schedule').style.display='none'">취소</button>
-      <button class="btn btn-primary" onclick="document.getElementById('modal-schedule').style.display='none'">발행 요청</button>
+      <button class="btn btn-primary" onclick="location.href='10_블로그_발행대기_상세.html'" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">발행 요청</button>
     </div>
   </div>
 </div>
@@ -127,7 +202,61 @@
   </div>
 </div>
 
+<!-- 블로그 적용 미리보기 모달 -->
+<div id="modal-blog-preview" class="modal-backdrop" style="display:none">
+  <div class="modal blog-preview-modal">
+    <div class="blog-preview-head">
+      <div>
+        <div class="blog-preview-title">블로그 적용 미리보기</div>
+        <div class="blog-preview-sub">선택 이미지와 본문 이미지 슬롯이 블로그 화면에서 어떻게 보이는지 확인합니다.</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeBlogPreview()">닫기</button>
+    </div>
+    <div class="blog-preview-scroll">
+      <div class="blog-preview-shell">
+        <article class="blog-preview-article">
+          <h1>분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</h1>
+          <div class="blog-preview-meta">BizPlanet 블로그 · 2026.05.23 · AI 자동 생성 초안</div>
+          <div class="blog-preview-body" id="blogPreviewBody"></div>
+        </article>
+        <aside class="blog-preview-sidebar" id="blogPreviewImages">
+          <div class="blog-preview-side-card">
+            <div class="blog-preview-side-title">적용 이미지</div>
+            <div class="blog-preview-thumb">이미지 1 · 대표 케이크</div>
+            <div class="blog-preview-thumb">이미지 2 · 레터링 디테일</div>
+            <div class="blog-preview-thumb">이미지 3 · 매장 분위기</div>
+          </div>
+          <div class="blog-preview-side-card">
+            <div class="blog-preview-side-title">SEO 요약</div>
+            <div style="font-size:12px;color:#4A5568;line-height:1.6">총점 84점 · 제목 키워드 우수 · 이미지 ALT 보강 권장</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+
+function renderBlogPreview(){
+  const body = document.getElementById('blogPreviewBody');
+  body.innerHTML = `
+    <p>분당에서 케이크 맛집을 찾고 계신다면 이곳을 추천드려요. 커스텀 레터링 케이크부터 당일 제작까지 가능한 베이커리인데요. 직접 방문해보니 매장 분위기도 깔끔하고 케이크 퀄리티가 생각보다 훨씬 좋았어요.</p>
+    <div class="blog-preview-image">이미지 1 · 대표 케이크 사진</div>
+    <p>특히 레터링 케이크는 원하는 문구를 자유롭게 넣을 수 있어서 생일, 기념일 선물로 딱이더라고요. 가격도 합리적인 편이고 당일 제작도 가능해서 급하게 필요할 때도 믿고 맡길 수 있어요.</p>
+    <div class="blog-preview-image">이미지 2 · 레터링 디테일 사진</div>
+    <p>위치는 분당구 정자동에 있고, 주차도 가능합니다. 영업시간은 평일 10시부터 8시까지예요.</p>
+  `;
+}
+
+function openBlogPreview(){
+  renderBlogPreview();
+  document.getElementById('modal-blog-preview').style.display='flex';
+}
+
+function closeBlogPreview(){
+  document.getElementById('modal-blog-preview').style.display='none';
+}
 
 function selectImg(el){
   document.querySelectorAll('.img-card').forEach(c=>{

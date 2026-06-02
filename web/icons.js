@@ -41,6 +41,14 @@ function icon(name, size=14, color='currentColor'){
   return `<svg ${s}>${paths[name]||'<circle cx="12" cy="12" r="10"/>'}</svg>`;
 }
 
+function escapeSvgAttr(value){
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // data-icon 속성 가진 span을 SVG로 자동 교체
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('[data-icon]').forEach(el=>{
@@ -48,9 +56,210 @@ document.addEventListener('DOMContentLoaded', function(){
     const size = el.getAttribute('data-size') || '14';
     const color = el.getAttribute('data-color') || 'currentColor';
     const existingStyle = el.getAttribute('style') || '';
-    el.outerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;flex-shrink:0;${existingStyle}">${getPath(name)}</svg>`;
+    const preservedAttrs = ['id', 'class', 'aria-hidden', 'role']
+      .map((attr) => [attr, el.getAttribute(attr)])
+      .filter(([, value]) => value)
+      .map(([attr, value]) => `${attr}="${escapeSvgAttr(value)}"`);
+    preservedAttrs.push(`data-icon="${escapeSvgAttr(name)}"`);
+    el.outerHTML = `<svg ${preservedAttrs.join(' ')} width="${escapeSvgAttr(size)}" height="${escapeSvgAttr(size)}" viewBox="0 0 24 24" fill="none" stroke="${escapeSvgAttr(color)}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;flex-shrink:0;${escapeSvgAttr(existingStyle)}">${getPath(name)}</svg>`;
   });
+  enhanceBreadcrumbNavigation();
 });
+
+const breadcrumbRouteMap = {
+  'agency_dashboard.html': [
+    ['대행사', 'agency_dashboard.html'],
+    ['대시보드', 'agency_dashboard.html']
+  ],
+  'agency_member_biz.html': [
+    ['대행사', 'agency_dashboard.html'],
+    ['업체관리', 'agency_member_biz.html']
+  ],
+  'agency_list.html': [
+    ['대행사', 'agency_dashboard.html'],
+    ['매장관리', 'agency_list.html']
+  ],
+  'agency_member_staff.html': [
+    ['대행사', 'agency_dashboard.html'],
+    ['대행사 직원관리', 'agency_member_staff.html']
+  ],
+  'soho_member.html': [
+    ['대행사', 'agency_dashboard.html'],
+    ['대행사 직원관리', 'soho_member.html']
+  ],
+  'soho_dashboard.html': [
+    ['매장 관리', 'soho_dashboard.html'],
+    ['대시보드', 'soho_dashboard.html']
+  ],
+  'soho_store_register.html': [
+    ['매장 관리', 'soho_dashboard.html'],
+    ['매장 정보 등록', 'soho_store_register.html']
+  ],
+  '01_대시보드.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['대시보드', '01_대시보드.html']
+  ],
+  '01_대시보드_온보딩전.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['대시보드 (학습 전)', '01_대시보드_온보딩전.html']
+  ],
+  '02_블로그관리.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['블로그 관리', '02_블로그관리.html']
+  ],
+  '03_AI학습_온보딩.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 학습', '06_AI학습_현황.html'],
+    ['학습 설정', '03_AI학습_온보딩.html']
+  ],
+  '04_AI학습_수집중.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 학습', '06_AI학습_현황.html'],
+    ['수집 실행', '04_AI학습_수집중.html']
+  ],
+  '05_AI학습_콘텐츠선택.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 학습', '06_AI학습_현황.html'],
+    ['분석 콘텐츠 선택', '05_AI학습_콘텐츠선택.html']
+  ],
+  '06_AI학습_현황.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 학습', '06_AI학습_현황.html'],
+    ['학습 현황', '06_AI학습_현황.html']
+  ],
+  '06_AI학습_현황_수집실패.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 학습', '06_AI학습_현황.html'],
+    ['학습 현황 (수집 실패)', '06_AI학습_현황_수집실패.html']
+  ],
+  '06_AI학습_현황_분석실패.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 학습', '06_AI학습_현황.html'],
+    ['학습 현황 (분석 실패)', '06_AI학습_현황_분석실패.html']
+  ],
+  '06_AI학습_현황_재학습중.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 학습', '06_AI학습_현황.html'],
+    ['학습 현황 (재학습 중)', '06_AI학습_현황_재학습중.html']
+  ],
+  '07_마케팅전략룰셋.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['마케팅 전략 룰셋', '07_마케팅전략룰셋.html']
+  ],
+  '08_AI콘텐츠생성_목록.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 콘텐츠 자동 생성', '08_AI콘텐츠생성_목록.html']
+  ],
+  '09_AI콘텐츠생성_상세.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['AI 콘텐츠 자동 생성', '08_AI콘텐츠생성_목록.html'],
+    ['콘텐츠 상세', '09_AI콘텐츠생성_상세.html']
+  ],
+  '10_블로그_발행대기_상세.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['블로그 관리', '02_블로그관리.html'],
+    ['발행 대기', '10_블로그_발행대기_상세.html']
+  ],
+  '11_블로그_발행완료_상세.html': [
+    ['마케팅 채널관리', '01_대시보드_온보딩전.html'],
+    ['블로그 관리', '02_블로그관리.html'],
+    ['발행 완료', '11_블로그_발행완료_상세.html']
+  ],
+  'event_operation_poc.html': [
+    ['마케팅 운영', 'event_operation_poc.html'],
+    ['Event-to-Operation PoC', 'event_operation_poc.html']
+  ]
+};
+
+function currentHtmlFile(){
+  const file = window.location.pathname.split('/').pop() || '';
+  try {
+    return decodeURIComponent(file);
+  } catch {
+    return file;
+  }
+}
+
+function injectBreadcrumbStyle(){
+  if (document.getElementById('breadcrumb-nav-style')) return;
+  const style = document.createElement('style');
+  style.id = 'breadcrumb-nav-style';
+  style.textContent = `
+    .breadcrumb-link{
+      color:#6B7280;
+      text-decoration:none;
+      border-radius:4px;
+      padding:2px 3px;
+      margin:-2px -3px;
+      cursor:pointer;
+    }
+    .breadcrumb-link:hover{
+      color:#3B5BDB;
+      background:#EEF2FF;
+    }
+    .breadcrumb-current{
+      color:#1A1A2E;
+      font-weight:600;
+    }
+    .breadcrumb-sep{
+      color:#CBD5E1;
+      margin:0 4px;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function inferBreadcrumbSegments(container, file){
+  const labels = container.textContent
+    .split(/[›>]/)
+    .map((label) => label.trim())
+    .filter(Boolean);
+
+  if (labels.length <= 1) return null;
+  return labels.map((label, index) => [label, index === labels.length - 1 ? file : null]);
+}
+
+function enhanceBreadcrumbNavigation(){
+  const file = currentHtmlFile();
+  const containers = document.querySelectorAll('.topbar-breadcrumb, .topbar-left');
+  if (!containers.length) return;
+
+  injectBreadcrumbStyle();
+  containers.forEach((container) => {
+    if (container.dataset.breadcrumbEnhanced === 'true') return;
+    const segments = breadcrumbRouteMap[file] || inferBreadcrumbSegments(container, file);
+    if (!segments || !segments.length) return;
+
+    container.dataset.breadcrumbEnhanced = 'true';
+    container.textContent = '';
+
+    segments.forEach(([label, href], index) => {
+      if (index > 0) {
+        const separator = document.createElement('span');
+        separator.className = 'breadcrumb-sep';
+        separator.textContent = '›';
+        container.appendChild(separator);
+      }
+
+      const isCurrent = index === segments.length - 1;
+      if (href && !isCurrent) {
+        const link = document.createElement('a');
+        link.className = 'breadcrumb-link';
+        link.href = href;
+        link.textContent = label;
+        link.setAttribute('data-flow-target', href);
+        link.setAttribute('data-flow-label', `상단 이동: ${label}`);
+        container.appendChild(link);
+        return;
+      }
+
+      const current = document.createElement('span');
+      current.className = 'breadcrumb-current';
+      current.textContent = label;
+      container.appendChild(current);
+    });
+  });
+}
 
 function getPath(name){
   const paths = {

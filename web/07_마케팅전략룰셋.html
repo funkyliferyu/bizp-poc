@@ -15,6 +15,108 @@
 .sub-tab:hover{color:#4A5568}
 .sub-tab.active{color:#3B5BDB;font-weight:600;border-bottom-color:#3B5BDB}
 .color-swatch{width:20px;height:20px;border-radius:4px;border:1px solid #E2E8F0;display:inline-block;margin-right:6px;vertical-align:middle}
+.benchmark-wrap{display:flex;flex-direction:column;gap:14px}
+.benchmark-section{border:1px solid #E2E8F0;border-radius:8px;background:#fff;overflow:hidden}
+.benchmark-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid #EDF2F7}
+.benchmark-section-title{font-size:13px;font-weight:700;color:#1A1A2E}
+.benchmark-source-badge{font-size:11px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;white-space:nowrap}
+.benchmark-section-body{padding:14px}
+.benchmark-type-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.benchmark-type{height:32px;padding:0 12px;border:1px solid #D8E0EC;border-radius:6px;background:#fff;color:#4A5568;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;cursor:pointer}
+.benchmark-type:hover{background:#F7F8FA}
+.benchmark-type.active{border-color:#3B5BDB;background:#EEF2FF;color:#3B5BDB}
+.benchmark-summary{display:grid;grid-template-columns:1.4fr .9fr .9fr;gap:10px}
+.benchmark-summary-box{border:1px solid #E2E8F0;border-radius:6px;background:#F7F8FA;padding:10px}
+.benchmark-summary-label{font-size:10px;color:#9AA0B4;font-weight:700;margin-bottom:4px}
+.benchmark-summary-val{font-size:12px;color:#1A1A2E;line-height:1.5}
+.benchmark-direct{display:none;gap:8px;margin-top:10px}
+.benchmark-direct input{flex:1;height:34px;border:1px solid #D8E0EC;border-radius:6px;padding:0 10px;font-family:'Noto Sans KR',sans-serif;font-size:12px}
+.benchmark-candidates{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.benchmark-candidate{border:1px solid #E2E8F0;border-radius:8px;padding:12px;background:#FAFBFC;min-height:126px}
+.benchmark-candidate-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.benchmark-candidate-name{font-size:13px;font-weight:700;color:#1A1A2E;line-height:1.4}
+.benchmark-candidate-meta{font-size:11px;color:#9AA0B4;line-height:1.5;margin-bottom:8px}
+.benchmark-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.benchmark-tag{font-size:10px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:2px 6px}
+.benchmark-evidence{font-size:11px;color:#4A5568;line-height:1.5}
+.comparison-table{width:100%;border-collapse:collapse;font-size:12px}
+.comparison-table th{padding:10px 8px;text-align:left;color:#6B7280;background:#F7F8FA;border-bottom:1px solid #E2E8F0;font-size:11px;white-space:nowrap}
+.comparison-table td{padding:11px 8px;vertical-align:top;border-bottom:1px solid #EDF2F7;color:#1A1A2E;line-height:1.55}
+.comparison-table tr:last-child td{border-bottom:none}
+.comparison-label{font-weight:700;color:#1A1A2E;white-space:nowrap}
+.comparison-gap{color:#E8590C;font-weight:600}
+.comparison-reco{color:#3B5BDB;font-weight:600}
+.evidence-btn{height:28px;padding:0 9px;border:1px solid #BAC8FF;border-radius:6px;background:#fff;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.evidence-btn:hover{background:#EEF2FF}
+.evidence-list{margin:0;padding-left:18px;color:#4A5568;font-size:12px;line-height:1.8}
+.analysis-focus-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+.analysis-list{display:flex;flex-direction:column;gap:0}
+.analysis-field-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.reference-btn{height:28px;padding:0 9px;border:1px solid #D8E0EC;border-radius:6px;background:#fff;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.reference-btn:hover,.reference-btn.active{border-color:#3B5BDB;background:#EEF2FF}
+.reference-panel{border:1px solid #D8E0EC;border-radius:8px;background:#FAFBFC;overflow:hidden;position:sticky;top:12px}
+.reference-panel-head{padding:13px 14px;border-bottom:1px solid #E2E8F0;background:#fff}
+.reference-panel-title{font-size:13px;font-weight:700;color:#1A1A2E;margin-bottom:5px}
+.reference-panel-meta{font-size:11px;line-height:1.45;color:#6B7280}
+.reference-panel-body{padding:14px}
+.reference-kicker{font-size:10px;font-weight:700;color:#9AA0B4;margin-bottom:4px}
+.reference-body{font-size:12px;line-height:1.65;color:#1A1A2E;margin-bottom:10px}
+.reference-evidence{margin:0;padding-left:16px;font-size:11px;line-height:1.7;color:#4A5568}
+.reference-candidate-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.reference-candidate-card{border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:10px}
+.reference-candidate-meta{font-size:12px;font-weight:700;line-height:1.45;color:#1A1A2E;margin-bottom:5px}
+.reference-candidate-signal{font-size:11px;line-height:1.55;color:#4A5568;margin-bottom:6px}
+.reference-candidate-evidence{margin:0;padding-left:16px;font-size:11px;line-height:1.6;color:#6B7280}
+.similar-compare-layout{display:grid;grid-template-columns:200px 280px minmax(0,1fr);gap:14px;align-items:start}
+.compare-column-title{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:8px}
+.compare-type-list,.compare-company-list{display:flex;flex-direction:column;gap:8px}
+.compare-type,.compare-company{width:100%;border:1px solid #D8E0EC;border-radius:8px;background:#fff;padding:10px;text-align:left;font-family:'Noto Sans KR',sans-serif;cursor:pointer}
+.compare-type:hover,.compare-company:hover{background:#F7F8FA}
+.compare-type.active,.compare-company.active{border-color:#3B5BDB;background:#EEF2FF}
+.compare-type-name,.compare-company-name{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:4px}
+.compare-type-desc,.compare-company-meta{font-size:11px;line-height:1.45;color:#6B7280}
+.compare-detail-panel{border:1px solid #E2E8F0;border-radius:8px;background:#fff;overflow:hidden}
+.compare-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid #EDF2F7}
+.compare-detail-title{font-size:13px;font-weight:700;color:#1A1A2E}
+.compare-detail-sub{font-size:11px;color:#6B7280;margin-top:3px}
+.compare-detail-body{padding:14px}
+.compare-signal{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:10px;margin-bottom:12px}
+.compare-signal-title{font-size:11px;font-weight:700;color:#9AA0B4;margin-bottom:4px}
+.compare-signal-text{font-size:12px;color:#1A1A2E;line-height:1.55}
+.full-compare-modal{width:min(1120px,calc(100vw - 48px));max-height:calc(100vh - 48px);overflow:auto}
+.full-comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.full-comparison-card{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:12px}
+.full-comparison-label{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:6px}
+.full-comparison-copy{font-size:11px;line-height:1.6;color:#4A5568;margin-bottom:6px}
+.writing-preview-card{margin-top:16px}
+.writing-preview{padding:0}
+.writing-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.writing-preview-title{font-size:13px;font-weight:700;color:#1A1A2E}
+.writing-preview-channel{font-size:11px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.writing-preview-actions{display:flex;align-items:center;gap:8px}
+.writing-preview-variant{font-size:11px;font-weight:700;color:#6B7280;background:#F7F8FA;border:1px solid #E2E8F0;border-radius:999px;padding:3px 8px;white-space:nowrap}
+.writing-preview-layout{display:grid;grid-template-columns:190px 1fr;gap:12px}
+.writing-preview-criteria{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:12px}
+.writing-preview-criteria-label{font-size:10px;font-weight:700;color:#9AA0B4;margin-bottom:4px}
+.writing-preview-criteria-val{font-size:12px;color:#1A1A2E;line-height:1.55;margin-bottom:10px}
+.writing-preview-criteria-val:last-child{margin-bottom:0}
+.writing-preview-inputs{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}
+.writing-preview-input{font-size:10px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:2px 7px}
+.writing-preview-note{border-top:1px solid #E2E8F0;margin-top:10px;padding-top:10px;font-size:11px;color:#6B7280;line-height:1.55}
+.writing-preview-surface{border:1px solid #D8E0EC;border-radius:8px;background:#fff;padding:16px;min-height:178px}
+.writing-preview-meta{font-size:11px;color:#6B7280;font-weight:700;margin-bottom:8px}
+.writing-preview-body{font-size:13px;color:#1A1A2E;line-height:1.75;white-space:pre-line}
+.writing-preview-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.writing-preview-tag{font-size:11px;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;font-weight:700}
+@media(max-width:900px){
+  .benchmark-summary{grid-template-columns:1fr}
+  .benchmark-candidates{grid-template-columns:1fr}
+  .comparison-table{min-width:760px}
+  .comparison-scroll{overflow-x:auto}
+  .analysis-focus-layout,.similar-compare-layout,.full-comparison-grid{grid-template-columns:1fr}
+  .reference-panel{position:static}
+  .writing-preview-layout{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -34,6 +136,7 @@
     <div class="top-tab" onclick="showTop('brand',this)">우리 매장 분석</div>
     <div class="top-tab" onclick="showTop('write',this)">글쓰기 스타일</div>
     <div class="top-tab" onclick="showTop('img',this)">이미지 스타일</div>
+    <div class="top-tab" onclick="showTop('compare',this)">유사업체비교</div>
   </div>
 
   <!-- 매장 정보 -->
@@ -57,31 +160,84 @@
   <!-- 우리 매장 분석 -->
   <div id="sec-brand" style="display:none">
     <div class="card">
-      <div class="card-header">우리 매장 분석</div>
+      <div class="card-header">
+        우리 매장 분석
+        <span class="benchmark-source-badge" id="storeAnalysisBadge">AI 분석 · 우리 매장 기준</span>
+      </div>
       <div class="card-body">
-        <div class="ruleset-field"><div class="ruleset-label">포지셔닝 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div><div class="ruleset-hint">시장 내 위치·차별점 요약</div></div>
-        <div class="ruleset-field"><div class="ruleset-label">업체 주장 강점 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div></div>
-        <div class="ruleset-field"><div class="ruleset-label">대표 메뉴 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div></div>
-        <div class="ruleset-field"><div class="ruleset-label">주 타겟층 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">20–40대 분당·수지 지역 여성 / 생일·기념일 케이크 구매 고객</div></div>
-        <div class="ruleset-field">
-          <div class="ruleset-label">콘텐츠 소재 키워드 <span class="src-ai">AI 분석</span></div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
-            <span style="padding:3px 10px;border-radius:12px;background:#F7F8FA;color:#4A5568;border:1px solid #E2E8F0;font-size:12px">분당 케이크</span>
-            <span style="padding:3px 10px;border-radius:12px;background:#F7F8FA;color:#4A5568;border:1px solid #E2E8F0;font-size:12px">레터링케이크</span>
-            <span style="padding:3px 10px;border-radius:12px;background:#F7F8FA;color:#4A5568;border:1px solid #E2E8F0;font-size:12px">커스텀케이크</span>
-            <span style="padding:3px 10px;border-radius:12px;background:#F7F8FA;color:#4A5568;border:1px solid #E2E8F0;font-size:12px">당일제작</span>
-            <span style="padding:3px 10px;border-radius:12px;background:#F7F8FA;color:#4A5568;border:1px solid #E2E8F0;font-size:12px">생일케이크</span>
+        <div class="analysis-focus-layout">
+          <div class="analysis-list">
+            <div class="ruleset-field">
+              <div class="analysis-field-head">
+                <div class="ruleset-label">포지셔닝 <span class="src-ai">AI 분석</span></div>
+                <button type="button" class="reference-btn active" data-reference-key="positioning" onclick="showReferenceLayer('positioning')">참고</button>
+              </div>
+              <div class="ruleset-val">분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div>
+              <div class="ruleset-hint">시장 내 위치 · 차별점 요약</div>
+            </div>
+            <div class="ruleset-field">
+              <div class="analysis-field-head">
+                <div class="ruleset-label">업체 주장 강점 <span class="src-ai">AI 분석</span></div>
+                <button type="button" class="reference-btn" data-reference-key="strength" onclick="showReferenceLayer('strength')">참고</button>
+              </div>
+              <div class="ruleset-val">당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div>
+            </div>
+            <div class="ruleset-field">
+              <div class="analysis-field-head">
+                <div class="ruleset-label">대표 메뉴 <span class="src-ai">AI 분석</span></div>
+                <button type="button" class="reference-btn" data-reference-key="menu" onclick="showReferenceLayer('menu')">참고</button>
+              </div>
+              <div class="ruleset-val">커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div>
+            </div>
+            <div class="ruleset-field">
+              <div class="analysis-field-head">
+                <div class="ruleset-label">주 타겟층 <span class="src-ai">AI 분석</span></div>
+                <button type="button" class="reference-btn" data-reference-key="target" onclick="showReferenceLayer('target')">참고</button>
+              </div>
+              <div class="ruleset-val">20~40대 분당·수지 지역 여성 / 생일·기념일 케이크 구매 고객</div>
+            </div>
+            <div class="ruleset-field">
+              <div class="analysis-field-head">
+                <div class="ruleset-label">콘텐츠 소재 키워드 <span class="src-ai">AI 분석</span></div>
+                <button type="button" class="reference-btn" data-reference-key="contentKeywords" onclick="showReferenceLayer('contentKeywords')">참고</button>
+              </div>
+              <div class="benchmark-tags">
+                <span class="benchmark-tag">분당 케이크</span>
+                <span class="benchmark-tag">레터링케이크</span>
+                <span class="benchmark-tag">커스텀케이크</span>
+                <span class="benchmark-tag">당일제작</span>
+                <span class="benchmark-tag">생일케이크</span>
+              </div>
+              <div class="ruleset-hint">콘텐츠 자동 생성 시 주제 소재로 활용됩니다.</div>
+            </div>
+            <div class="ruleset-field">
+              <div class="analysis-field-head">
+                <div class="ruleset-label">리뷰 강점 <span class="src-ai">AI 분석</span></div>
+                <button type="button" class="reference-btn" data-reference-key="reviewStrength" onclick="showReferenceLayer('reviewStrength')">참고</button>
+              </div>
+              <div class="ruleset-val">예쁜 케이크 디자인, 친절한 사장님, 빠른 제작</div>
+            </div>
+            <div class="ruleset-field">
+              <div class="analysis-field-head">
+                <div class="ruleset-label">리뷰 약점 <span class="src-ai">AI 분석</span></div>
+                <button type="button" class="reference-btn" data-reference-key="reviewWeakness" onclick="showReferenceLayer('reviewWeakness')">참고</button>
+              </div>
+              <div class="ruleset-val">주차 공간 협소, 현금 결제 불가 언급</div>
+              <div class="warn-box"><span>콘텐츠에서 직접 언급하지 않습니다. 보완 전략 수립 참고용으로만 활용됩니다.</span></div>
+            </div>
           </div>
-          <div class="ruleset-hint">콘텐츠 자동 생성 시 주제 소재로 활용됩니다.</div>
-        </div>
-        <div class="ruleset-field"><div class="ruleset-label">리뷰 강점 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">예쁜 케이크 디자인, 친절한 사장님, 빠른 제작</div><div class="ruleset-hint">콘텐츠에서 적극 부각할 소재입니다.</div></div>
-        <div class="ruleset-field">
-          <div class="ruleset-label">리뷰 약점 <span class="src-ai">AI 분석</span></div>
-          <div class="ruleset-val">주차 공간 협소, 현금 결제 불가 언급</div>
-          <div class="warn-box" style="margin-top:6px">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92A2A" stroke-width="1.8" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <span>콘텐츠에서 직접 언급하지 않습니다. 보완 전략 수립 참고용으로만 활용됩니다.</span>
-          </div>
+          <aside class="reference-panel" id="storeAnalysisReferencePanel">
+            <div class="reference-panel-head">
+              <div class="reference-panel-title" id="referenceLayerTitle">항목 참고</div>
+              <div class="reference-panel-meta" id="referenceLayerMeta">유사 기준 데이터를 불러오는 중입니다.</div>
+            </div>
+            <div class="reference-panel-body">
+              <div class="reference-kicker" id="referenceLayerKicker">참고 분류</div>
+              <div class="reference-body" id="referenceLayerBody">왼쪽 항목의 참고 버튼을 누르면 유사 업체 예시를 보여줍니다.</div>
+              <ul class="reference-evidence" id="referenceLayerEvidence"></ul>
+              <div class="reference-candidate-list" id="referenceCandidateList"></div>
+            </div>
+          </aside>
         </div>
       </div>
     </div>
@@ -118,6 +274,49 @@
           <div class="ruleset-field"><div class="ruleset-label">SEO 키워드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">제목·소제목에 지역+메뉴 키워드 삽입 (예: 분당 레터링케이크)</div></div>
           <div class="ruleset-field"><div class="ruleset-label">CTA <span class="src-ai">AI 분석</span></div><div class="ruleset-val">예약·방문 유도</div></div>
           <div class="ruleset-field"><div class="ruleset-label">이모지 사용 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">사용 안 함</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card writing-preview-card" id="writingStylePreview">
+      <div class="card-header">
+        <span>스타일·매장 분석 결합 미리보기</span>
+        <div class="writing-preview-actions">
+          <span class="writing-preview-variant" id="writingPreviewVariantLabel">미리보기 1/1</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="regenerateWritingPreviewBtn" onclick="regenerateWritingPreview()">다시 생성하기</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="writing-preview">
+          <div class="writing-preview-head">
+            <div class="writing-preview-title">한 번에 하나씩 생성 결과를 확인하세요</div>
+            <span class="writing-preview-channel" id="writingPreviewChannel">공통 스타일</span>
+          </div>
+          <div class="writing-preview-layout">
+            <div class="writing-preview-criteria">
+              <div class="writing-preview-criteria-label">샘플 소재</div>
+              <div class="writing-preview-criteria-val">딸기 생크림 케이크 예약 안내</div>
+              <div class="writing-preview-criteria-label">결합되는 우리 매장 분석</div>
+              <div class="writing-preview-inputs" id="writingPreviewInputs">
+                <span class="writing-preview-input">포지셔닝</span>
+                <span class="writing-preview-input">대표 메뉴</span>
+                <span class="writing-preview-input">주 타겟층</span>
+                <span class="writing-preview-input">콘텐츠 소재 키워드</span>
+                <span class="writing-preview-input">리뷰 강점</span>
+                <span class="writing-preview-input">리뷰 약점</span>
+              </div>
+              <div class="writing-preview-criteria-label">적용 룰</div>
+              <div class="writing-preview-criteria-val" id="writingPreviewRules">친근한 구어체 · 과장 없는 사실 기반</div>
+              <div class="writing-preview-criteria-label">제외 표현</div>
+              <div class="writing-preview-criteria-val">강추드려요, 완전 맛있어요 반복, 최고의 케이크</div>
+              <div class="writing-preview-note"># 전체 글 예시는 LLM API 연동 및 프롬프트 테스트 단계에서 업데이트합니다.</div>
+            </div>
+            <div class="writing-preview-surface">
+              <div class="writing-preview-meta" id="writingPreviewMeta">콘텐츠 예시</div>
+              <div class="writing-preview-body" id="writingPreviewBody">미리보기 글을 불러오는 중입니다.</div>
+              <div class="writing-preview-tags" id="writingPreviewTags"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -165,6 +364,44 @@
     </div>
   </div>
 
+  <!-- 유사업체비교 -->
+  <div id="sec-compare" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        유사업체비교
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openFullComparison()">모두 비교</button>
+      </div>
+      <div class="card-body" data-benchmark-panel>
+        <div class="similar-compare-layout">
+          <div>
+            <div class="compare-column-title">비교 유형</div>
+            <div class="compare-type-list" id="comparisonTypeList">
+              <button type="button" class="compare-type active">비교 유형을 불러오는 중입니다.</button>
+            </div>
+          </div>
+          <div>
+            <div class="compare-column-title">비교 업체 선택</div>
+            <div class="compare-company-list" id="comparisonCompanyList">
+              <button type="button" class="compare-company active">비교 업체를 불러오는 중입니다.</button>
+            </div>
+          </div>
+          <div class="compare-detail-panel">
+            <div class="compare-detail-head">
+              <div>
+                <div class="compare-detail-title" id="selectedCompanyTitle">선택 업체 비교</div>
+                <div class="compare-detail-sub" id="selectedCompanyMeta">비교 기준을 불러오는 중입니다.</div>
+              </div>
+              <button type="button" class="evidence-btn" onclick="openFullComparison()">모두 비교</button>
+            </div>
+            <div class="compare-detail-body" id="selectedCompanyComparison">
+              비교 결과를 불러오는 중입니다.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- 저장 모달 -->
@@ -191,9 +428,305 @@
   </div>
 </div>
 
+<!-- 기준 근거 모달 -->
+<div id="modal-benchmark-evidence" class="modal-backdrop" style="display:none">
+  <div class="modal modal-sm">
+    <div class="modal-title" id="benchmarkEvidenceTitle">근거 보기</div>
+    <div class="modal-desc" id="benchmarkEvidenceDesc">선택한 분석 항목의 기준 후보와 리뷰/키워드 근거입니다.</div>
+    <ul class="evidence-list" id="benchmarkEvidenceList"></ul>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeBenchmarkEvidence()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 전체 비교 모달 -->
+<div id="modal-full-comparison" class="modal-backdrop" style="display:none">
+  <div class="modal full-compare-modal">
+    <div class="modal-title">유사업체 전체 비교</div>
+    <div class="modal-desc" id="fullComparisonDesc">선택한 비교 유형의 업체 후보와 항목별 차이를 한눈에 봅니다.</div>
+    <div id="fullComparisonBody">전체 비교 결과를 불러오는 중입니다.</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeFullComparison()">확인</button>
+    </div>
+  </div>
+</div>
+
 <script>
+let benchmarkFixture = null;
+let selectedBenchmarkType = 'recommended';
+let selectedComparisonType = 'recommended';
+let selectedCompanyIndex = 0;
+let activeReferenceKey = 'positioning';
+let activeWritingChannel = 'common';
+let writingPreviewIndexes = { common: 0, insta: 0, blog: 0 };
+const WRITING_PREVIEWS = {
+  common: {
+    channel: '공통 스타일',
+    rules: '친근한 구어체 · 과장 없는 사실 기반 · 낮은 개그 레벨',
+    variants: [
+      {
+        meta: '공통 미리보기 A · 캐치프레이즈 반영',
+        body: '특별한 날을 더 특별하게.\n분당 베이커리의 딸기 생크림 케이크는 부드러운 생크림과 산뜻한 딸기를 중심으로 준비합니다.\n예약 시 원하는 문구와 픽업 시간을 함께 남겨주시면 기념일 일정에 맞춰 안내드릴게요.',
+        tags: ['특별한 날을 더 특별하게', '과장 없는 안내', '예약 유도']
+      },
+      {
+        meta: '공통 미리보기 B · 상담 과정 강조',
+        body: '기념일 케이크는 디자인만큼 픽업 시간과 문구 확인도 중요합니다.\n분당 베이커리는 레터링 문구, 케이크 크기, 픽업 일정을 상담 후 정리해 제작합니다.\n딸기 생크림 케이크 예약을 원하시면 필요한 날짜와 원하는 문구를 먼저 알려주세요.',
+        tags: ['상담형 제작', '픽업 안내', '기념일 케이크']
+      },
+      {
+        meta: '공통 미리보기 C · 메뉴 조건 강조',
+        body: '분당·수지에서 당일 제작 가능한 케이크를 찾는 분들을 위해 딸기 생크림 케이크 예약을 안내드립니다.\n가격과 픽업 가능 시간은 주문 조건에 따라 달라질 수 있어 상담 시 함께 확인합니다.\n완성 사진과 문구를 기준으로 차분하게 제작해드립니다.',
+        tags: ['당일 제작', '메뉴 조건', '차분한 안내']
+      }
+    ]
+  },
+  insta: {
+    channel: '인스타그램',
+    rules: '짧은 감탄 · 단정 서술 · 해시태그 마무리',
+    variants: [
+      {
+        meta: '인스타그램 미리보기 A · 비주얼 중심',
+        body: '오늘의 예약 케이크는 딸기 생크림 케이크입니다.\n부드러운 크림, 산뜻한 딸기, 깔끔한 레터링으로 기념일 분위기를 차분하게 살렸어요.\n픽업 시간은 예약 시 함께 확인해드립니다.',
+        tags: ['#분당케이크', '#수지케이크', '#레터링케이크', '#생일케이크']
+      },
+      {
+        meta: '인스타그램 미리보기 B · 당일 픽업 강조',
+        body: '분당에서 기념일 케이크를 준비 중이라면 픽업 시간부터 확인해보세요.\n딸기 생크림 케이크는 문구와 크기를 상담 후 제작합니다.\n당일 제작 가능 여부는 예약 상황에 따라 안내드려요.',
+        tags: ['#분당케이크', '#당일제작케이크', '#딸기생크림케이크', '#커스텀케이크']
+      },
+      {
+        meta: '인스타그램 미리보기 C · 상담형 제작 강조',
+        body: '문구 하나까지 기념일에 맞게.\n레터링 문구, 케이크 크기, 픽업 시간을 함께 확인한 뒤 딸기 생크림 케이크를 준비합니다.\n예약 전 원하는 날짜를 먼저 알려주세요.',
+        tags: ['#레터링케이크', '#분당생일케이크', '#수지케이크', '#예약케이크']
+      }
+    ]
+  },
+  blog: {
+    channel: '블로그',
+    rules: '방문기 형식 · 검색 유입 · 지역+메뉴 키워드',
+    variants: [
+      {
+        meta: '분당 딸기 생크림 케이크 예약 안내 · 블로그 미리보기 A',
+        body: '분당 딸기 생크림 케이크를 찾고 있다면 예약 전에 디자인과 픽업 시간을 함께 확인하는 것이 좋습니다.\n분당 베이커리는 기념일 문구, 케이크 크기, 픽업 시간을 상담 후 정리해 제작합니다.\n딸기의 산뜻한 맛과 부드러운 생크림을 중심으로 준비해 생일이나 작은 축하 자리에도 부담 없이 어울립니다.\n예약을 원하시면 필요한 날짜와 문구를 먼저 알려주세요.',
+        tags: ['분당 케이크', '분당 생일케이크', '딸기 생크림 케이크', '예약 안내']
+      },
+      {
+        meta: '블로그 미리보기 B · 주문 조건형',
+        body: '분당 레터링케이크를 예약할 때는 원하는 문구, 픽업 시간, 케이크 크기를 먼저 정리해두면 상담이 훨씬 수월합니다.\n딸기 생크림 케이크는 산뜻한 과일감과 부드러운 크림을 중심으로 준비해 생일이나 작은 기념일에 잘 어울립니다.\n당일 제작 가능 여부와 가격 시작점은 예약 상황에 따라 안내드리므로 필요한 날짜를 먼저 확인해주세요.',
+        tags: ['분당 레터링케이크', '딸기 생크림 케이크', '당일 픽업', '주문 안내']
+      },
+      {
+        meta: '블로그 미리보기 C · 과정 설명형',
+        body: '수지와 분당 생활권에서 커스텀 케이크를 준비하는 고객은 디자인 상담과 픽업 동선을 함께 확인하는 경우가 많습니다.\n분당 베이커리는 문구 상담, 크기 선택, 제작 일정 확인 순서로 예약 내용을 정리합니다.\n완성 사진과 실제 케이크의 분위기가 자연스럽게 이어지도록 요청 내용을 차분하게 반영합니다.',
+        tags: ['수지 케이크', '커스텀 케이크', '상담 제작', '픽업 안내']
+      }
+    ]
+  }
+};
+
+function escapeHtml(value){
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function currentBenchmark(){
+  return benchmarkFixture?.benchmarkTypes?.find((type) => type.id === selectedBenchmarkType)
+    || benchmarkFixture?.benchmarkTypes?.find((type) => type.id === benchmarkFixture.defaultType)
+    || null;
+}
+
+async function loadBenchmarkFixture(){
+  try {
+    const response = await fetch('strategy_benchmark_fixture.json');
+    benchmarkFixture = await response.json();
+    selectedComparisonType = benchmarkFixture.defaultType || 'recommended';
+    selectedBenchmarkType = selectedComparisonType;
+  } catch {
+    benchmarkFixture = { defaultType: 'recommended', benchmarkTypes: [] };
+  }
+  renderBenchmark();
+}
+
+function selectBenchmarkType(typeId){
+  selectComparisonType(typeId);
+}
+
+function renderBenchmark(){
+  showReferenceLayer(activeReferenceKey);
+  renderComparisonWorkspace();
+}
+
+function showReferenceLayer(rowKey){
+  activeReferenceKey = rowKey;
+  const type = currentBenchmark();
+  if (!type) return;
+  const normalizedKey = rowKey === 'strength' ? 'reviewStrength' : rowKey;
+  const row = type.comparison.find((item) => item.key === normalizedKey) || type.comparison[0];
+  document.querySelectorAll('[data-reference-key]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.referenceKey === rowKey);
+  });
+  document.getElementById('referenceLayerTitle').textContent = `${row.label} 참고`;
+  document.getElementById('referenceLayerMeta').textContent = `${type.label} · ${type.candidates.length}개 업체 사례`;
+  document.getElementById('referenceLayerKicker').textContent = `${row.label}: ${row.ourStore}`;
+  document.getElementById('referenceLayerBody').textContent = `${row.benchmark} ${row.recommendation}`;
+  document.getElementById('referenceLayerEvidence').innerHTML = (row.evidence || [])
+    .slice(0, 3)
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join('');
+  document.getElementById('referenceCandidateList').innerHTML = type.candidates.map((candidate) => `
+    <div class="reference-candidate-card">
+      <div class="reference-candidate-meta">${escapeHtml(candidate.name)} · ${escapeHtml(candidate.location)} · ${escapeHtml(candidate.category)}</div>
+      <div class="reference-candidate-signal">${escapeHtml(candidate.rankSignal || row.benchmark)}</div>
+      <ul class="reference-candidate-evidence">
+        ${(candidate.evidence || []).slice(0, 2).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+}
+
+function selectComparisonType(typeId){
+  selectedComparisonType = typeId;
+  selectedBenchmarkType = typeId;
+  selectedCompanyIndex = 0;
+  renderComparisonWorkspace();
+  showReferenceLayer(activeReferenceKey);
+}
+
+function selectComparisonCompany(index){
+  selectedCompanyIndex = index;
+  renderComparisonWorkspace();
+}
+
+function renderComparisonWorkspace(){
+  const type = currentBenchmark();
+  if (!type) return;
+  const typeList = document.getElementById('comparisonTypeList');
+  const companyList = document.getElementById('comparisonCompanyList');
+  const detail = document.getElementById('selectedCompanyComparison');
+  if (!typeList || !companyList || !detail) return;
+  typeList.innerHTML = benchmarkFixture.benchmarkTypes.map((item) => `
+    <button type="button" class="compare-type ${item.id === selectedComparisonType ? 'active' : ''}" data-comparison-type="${escapeHtml(item.id)}" onclick="selectComparisonType('${escapeHtml(item.id)}')">
+      <div class="compare-type-name">${escapeHtml(item.label)}</div>
+      <div class="compare-type-desc">${escapeHtml(item.scope)}</div>
+    </button>
+  `).join('');
+  companyList.innerHTML = type.candidates.map((candidate, index) => `
+    <button type="button" class="compare-company ${index === selectedCompanyIndex ? 'active' : ''}" onclick="selectComparisonCompany(${index})">
+      <div class="compare-company-name">${escapeHtml(candidate.name)}</div>
+      <div class="compare-company-meta">${escapeHtml(candidate.category)} · ${escapeHtml(candidate.location)}</div>
+    </button>
+  `).join('');
+  const candidate = type.candidates[selectedCompanyIndex] || type.candidates[0] || {};
+  document.getElementById('selectedCompanyTitle').textContent = candidate.name || '선택 업체 비교';
+  document.getElementById('selectedCompanyMeta').textContent = `${type.label} · ${type.reviewCount}개 리뷰 근거 · ${type.keywordCount}개 키워드`;
+  detail.innerHTML = `
+    <div class="compare-signal">
+      <div class="compare-signal-title">선택 업체 신호</div>
+      <div class="compare-signal-text">${escapeHtml(candidate.rankSignal || type.description)}</div>
+      <div class="benchmark-tags" style="margin-top:8px">
+        ${(candidate.basisTags || []).map((tag) => `<span class="benchmark-tag">${escapeHtml(tag)}</span>`).join('')}
+      </div>
+    </div>
+    <div class="comparison-scroll">
+      <table class="comparison-table" aria-label="선택 업체 기준 비교">
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>우리 매장</th>
+            <th>선택 업체군 기준</th>
+            <th>전략 제안</th>
+            <th>근거</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${type.comparison.map((row) => `
+            <tr>
+              <td class="comparison-label">${escapeHtml(row.label)}</td>
+              <td>${escapeHtml(row.ourStore)}</td>
+              <td>${escapeHtml(row.benchmark)}</td>
+              <td class="comparison-reco">${escapeHtml(row.recommendation)}</td>
+              <td><button type="button" class="evidence-btn" onclick="openBenchmarkEvidence('${escapeHtml(row.key)}')">근거 보기</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openBenchmarkEvidence(rowKey){
+  const type = currentBenchmark();
+  const row = type?.comparison?.find((item) => item.key === rowKey);
+  if (!row) return;
+  document.getElementById('benchmarkEvidenceTitle').textContent = `${row.label} 근거 보기`;
+  document.getElementById('benchmarkEvidenceDesc').textContent = `${type.label} 기준으로 확인한 후보/리뷰/키워드 근거입니다.`;
+  document.getElementById('benchmarkEvidenceList').innerHTML = row.evidence
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join('');
+  document.getElementById('modal-benchmark-evidence').style.display = 'flex';
+}
+
+function closeBenchmarkEvidence(){
+  document.getElementById('modal-benchmark-evidence').style.display = 'none';
+}
+
+function openFullComparison(){
+  const type = currentBenchmark();
+  if (!type) return;
+  document.getElementById('fullComparisonDesc').textContent = `${type.label} 기준 · 후보 ${type.candidateCount}곳 · 리뷰 ${type.reviewCount}건 · 키워드 ${type.keywordCount}개`;
+  document.getElementById('fullComparisonBody').innerHTML = `
+    <div class="full-comparison-grid" style="margin-bottom:14px">
+      ${type.candidates.map((candidate) => `
+        <div class="full-comparison-card">
+          <div class="full-comparison-label">${escapeHtml(candidate.name)}</div>
+          <div class="full-comparison-copy">${escapeHtml(candidate.category)} · ${escapeHtml(candidate.location)}</div>
+          <div class="benchmark-tags">
+            ${candidate.basisTags.map((tag) => `<span class="benchmark-tag">${escapeHtml(tag)}</span>`).join('')}
+          </div>
+          <div class="full-comparison-copy">${escapeHtml(candidate.rankSignal)}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="comparison-scroll">
+      <table class="comparison-table" aria-label="전체 유사업체 비교">
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>우리 매장</th>
+            <th>유사 업체 기준</th>
+            <th>차이</th>
+            <th>전략 제안</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${type.comparison.map((row) => `
+            <tr>
+              <td class="comparison-label">${escapeHtml(row.label)}</td>
+              <td>${escapeHtml(row.ourStore)}</td>
+              <td>${escapeHtml(row.benchmark)}</td>
+              <td class="comparison-gap">${escapeHtml(row.gap)}</td>
+              <td class="comparison-reco">${escapeHtml(row.recommendation)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('modal-full-comparison').style.display = 'flex';
+}
+
+function closeFullComparison(){
+  document.getElementById('modal-full-comparison').style.display = 'none';
+}
+
 function showTop(id, el){
-  ['store','brand','write','img'].forEach(s=>document.getElementById('sec-'+s).style.display='none');
+  ['store','brand','write','img','compare'].forEach(s=>document.getElementById('sec-'+s).style.display='none');
   document.getElementById('sec-'+id).style.display='block';
   document.querySelectorAll('.top-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
@@ -207,7 +740,34 @@ function showSub(parent, id, el){
   document.getElementById(parent+'-'+id).style.display='block';
   el.closest('.card-body').querySelectorAll('.sub-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
+  if (parent === 'write') renderWritingPreview(id);
 }
+
+function renderWritingPreview(id){
+  activeWritingChannel = id;
+  const previewSet = WRITING_PREVIEWS[id] || WRITING_PREVIEWS.common;
+  const variants = previewSet.variants || [];
+  const index = variants.length ? writingPreviewIndexes[id] % variants.length : 0;
+  const preview = variants[index] || { meta: '콘텐츠 예시', body: '미리보기 글을 불러오는 중입니다.', tags: [] };
+  document.getElementById('writingPreviewChannel').textContent = previewSet.channel;
+  document.getElementById('writingPreviewRules').textContent = previewSet.rules;
+  document.getElementById('writingPreviewVariantLabel').textContent = `미리보기 ${index + 1}/${variants.length}`;
+  document.getElementById('writingPreviewMeta').textContent = preview.meta;
+  document.getElementById('writingPreviewBody').textContent = preview.body;
+  document.getElementById('writingPreviewTags').innerHTML = preview.tags
+    .map((tag) => `<span class="writing-preview-tag">${escapeHtml(tag)}</span>`)
+    .join('');
+}
+
+function regenerateWritingPreview(){
+  const previewSet = WRITING_PREVIEWS[activeWritingChannel] || WRITING_PREVIEWS.common;
+  const total = previewSet.variants?.length || 1;
+  writingPreviewIndexes[activeWritingChannel] = (writingPreviewIndexes[activeWritingChannel] + 1) % total;
+  renderWritingPreview(activeWritingChannel);
+}
+
+loadBenchmarkFixture();
+renderWritingPreview('common');
 </script>
 </body>
 </html>

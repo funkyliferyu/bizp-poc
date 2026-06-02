@@ -1,0 +1,41 @@
+{
+  "businessId": "cafe-demo",
+  "business": {
+    "name": "카페 예시",
+    "category": "cafe",
+    "address": "서울시 마포구 예시로 12",
+    "tone": "따뜻하고 밝은 카페톤"
+  },
+  "menus": [
+    {
+      "name": "아메리카노",
+      "category": "coffee",
+      "price": 4500,
+      "status": "active"
+    },
+    {
+      "name": "카페라떼",
+      "category": "coffee",
+      "price": 5200,
+      "status": "active"
+    }
+  ],
+  "brandVoice": {
+    "style": ["친근함", "과장 없는 안내", "계절감 강조"],
+    "forbidden": ["전국 최고", "무조건", "효능 보장"]
+  },
+  "marketingAngles": ["여름 시즌 메뉴", "시원한 음료", "점심시간 테이크아웃"],
+  "faq": [
+    {
+      "question": "테이크아웃 가능한가요?",
+      "answer": "네, 모든 음료는 테이크아웃 가능합니다."
+    }
+  ],
+  "channelSop": {
+    "blog": "검색 유입형, 자연 후기형",
+    "place": "짧고 정확한 공지형",
+    "bizchat": "혜택 중심 CTA형",
+    "chatbot": "정확한 문의응대형"
+  },
+  "executionHistory": []
+}

@@ -1,0 +1,17 @@
+{
+  "eventId": "event-watermelon-202607",
+  "businessId": "cafe-demo",
+  "eventType": "new_menu_discount",
+  "menuName": "수박주스",
+  "description": "여름 시즌 한정 시원한 수박주스",
+  "discount": {
+    "amount": 1000,
+    "unit": "KRW"
+  },
+  "period": {
+    "startDate": "2026-07-01",
+    "endDate": "2026-07-31"
+  },
+  "images": [],
+  "approvalRequired": true
+}

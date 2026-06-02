@@ -1,7 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
-
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#1A1A2E;background:#F5F6FA}
+body{font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;color:#1A1A2E;background:#F5F6FA}
 
 :root{
   --bg:#F5F6FA;--surface:#FFFFFF;--surface2:#F7F8FA;

@@ -34,6 +34,10 @@
 /* 폼 그리드 */
 .fg-2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
 .fg-full{grid-column:1/-1}
+.manual-entry-note{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;background:#F8FAFC;border:1px solid #DBE4F0;border-radius:8px;color:#4A5568;line-height:1.6}
+.manual-entry-note strong{display:block;font-size:12px;color:#1A1A2E;margin-bottom:2px}
+.manual-entry-note p{margin:0;font-size:11px;color:#6B7280}
+.manual-entry-note svg{flex-shrink:0;margin-top:2px}
 
 .field{display:flex;flex-direction:column;gap:5px}
 .field label{font-size:11px;font-weight:700;color:#4A5568;display:flex;align-items:center;gap:4px}
@@ -42,6 +46,10 @@
 .field input:focus,.field select:focus,.field textarea:focus{border-color:#3B5BDB;box-shadow:0 0 0 3px rgba(59,91,219,.08)}
 .field textarea{height:80px;padding:8px 10px;resize:vertical}
 .field-hint{font-size:11px;color:#9AA0B4;margin-top:2px}
+.field-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.field-inline-action{height:24px;padding:0 8px;border:1px solid #D8E0EC;border-radius:5px;background:#fff;color:#3B5BDB;font-size:11px;font-weight:600;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap}
+.field-inline-action:hover{background:#EEF2FF;border-color:#A7B7FF}
+.parking-note-input{margin-top:8px}
 
 /* 운영시간 행 */
 .time-row{display:flex;align-items:center;gap:8px}
@@ -137,19 +145,18 @@
       </div>
       <div class="form-section-body">
         <div class="fg-2">
+          <div class="manual-entry-note fg-full">
+            <span data-icon="info" data-size="14" data-color="#3B5BDB"></span>
+            <div>
+              <strong>직접 입력으로도 매장 등록을 진행할 수 있어요</strong>
+              <p>운영 중인 네이버 플레이스가 없는 경우, 아래 기본 정보를 수동으로 입력해주세요. 해당 정보를 기반으로 네이버 플레이스 초기 설정용 문구를 생성할 수 있습니다.</p>
+            </div>
+          </div>
 
           <div class="field">
             <label>업종 <span class="req">*</span></label>
             <select id="f-type">
               <option value="">선택하세요</option>
-              <option>음식점</option>
-              <option>카페·베이커리</option>
-              <option>분식</option>
-              <option>뷰티·미용</option>
-              <option>의료·피부</option>
-              <option>인테리어</option>
-              <option>반려동물</option>
-              <option>기타</option>
             </select>
           </div>
 
@@ -164,7 +171,7 @@
           </div>
 
           <div class="field">
-            <label>대표 연락처 <span class="req">*</span></label>
+            <label>매장 대표 연락처 <span class="req">*</span></label>
             <input type="text" id="f-tel" placeholder="02-0000-0000">
           </div>
 
@@ -183,7 +190,10 @@
           </div>
 
           <div class="field">
-            <label>운영시간 <span class="req">*</span></label>
+            <div class="field-label-row">
+              <label>운영시간 <span class="req">*</span></label>
+              <button type="button" class="field-inline-action">요일별 운영시간 설정</button>
+            </div>
             <div class="time-row">
               <input type="text" id="f-open" placeholder="09:00">
               <span class="time-sep">~</span>
@@ -221,6 +231,7 @@
               <label class="radio-item"><input type="radio" name="parking" value="n"> 불가</label>
               <label class="radio-item"><input type="radio" name="parking" value="near"> 인근 유료 주차 가능</label>
             </div>
+            <input type="text" id="f-parking-note" class="parking-note-input" placeholder="발렛파킹(비용유무), 주차지원 방식, 인근 유료 주차장 안내">
           </div>
 
           <div class="field fg-full">
@@ -232,6 +243,7 @@
         </div>
       </div>
     </div>
+    <!-- /기본 정보 -->
 
     <!-- 기존 자료 업로드 -->
     <div class="form-section">
@@ -349,13 +361,63 @@
 </div>
 
 <script>
+const INDUSTRY_CATEGORY_FILE = 'industry_categories.json';
+let industryOptionsPromise = null;
+
+function renderIndustryOptions(categories) {
+  const select = document.getElementById('f-type');
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">선택하세요</option>';
+
+  categories.forEach((category) => {
+    (category.children || []).forEach((subcategory) => {
+      const group = document.createElement('optgroup');
+      group.label = `${category.name} > ${subcategory.name}`;
+
+      (subcategory.items || []).forEach((item) => {
+        const option = document.createElement('option');
+        option.value = `${category.name} > ${subcategory.name} > ${item}`;
+        option.textContent = item;
+        option.dataset.industryPath = option.value;
+        group.appendChild(option);
+      });
+
+      select.appendChild(group);
+    });
+  });
+
+  if (currentValue) select.value = currentValue;
+}
+
+async function loadIndustryOptions() {
+  const response = await fetch(INDUSTRY_CATEGORY_FILE);
+  if (!response.ok) throw new Error('업종 목록을 불러오지 못했습니다.');
+  const categories = await response.json();
+  renderIndustryOptions(categories);
+  return categories;
+}
+
+function ensureIndustryOptionsLoaded() {
+  if (!industryOptionsPromise) {
+    industryOptionsPromise = loadIndustryOptions().catch((error) => {
+      console.warn(error);
+      return [];
+    });
+  }
+  return industryOptionsPromise;
+}
+
+document.addEventListener('DOMContentLoaded', ensureIndustryOptionsLoaded);
+
 // 플레이스 불러오기 (시뮬레이션)
-function fetchPlace() {
+async function fetchPlace() {
   const url = document.getElementById('place-url').value.trim();
   if (!url) {
     alert('네이버 플레이스 URL을 입력해주세요.');
     return;
   }
+  await ensureIndustryOptionsLoaded();
   // 샘플 데이터로 자동 채우기
   const sample = {
     'f-type': '분식',

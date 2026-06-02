@@ -16,7 +16,7 @@
 </div>
 <div class="main-content">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="location.href='02_블로그관리.html'">
+    <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="location.href='02_블로그관리.html'" data-flow-target="02_블로그관리.html" data-flow-label="다음: 블로그 관리">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A5568" stroke-width="1.8"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
       <span style="font-size:13px;color:#4A5568">목록으로</span>
     </div>
@@ -92,7 +92,7 @@
           이미지 다운로드
         </button>
       </div>
-      <button class="btn btn-primary" onclick="document.getElementById('modal-complete').style.display='flex'">발행 완료 처리</button>
+      <button class="btn btn-primary" onclick="document.getElementById('modal-complete').style.display='flex'" data-flow-target="modal:publish-complete" data-flow-label="상태: 완료 처리 모달">발행 완료 처리</button>
     </div>
   </div>
 </div>
@@ -104,7 +104,7 @@
     <div class="modal-desc">블로그에 발행이 완료된 경우에만 눌러주세요. 완료 처리 후에는 되돌릴 수 없습니다.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-complete').style.display='none'">취소</button>
-      <button class="btn btn-primary" onclick="location.href='02_블로그관리.html'">완료 처리</button>
+      <button class="btn btn-primary" onclick="location.href='11_블로그_발행완료_상세.html'" data-flow-target="11_블로그_발행완료_상세.html" data-flow-label="다음: 발행 완료">완료 처리</button>
     </div>
   </div>
 </div>

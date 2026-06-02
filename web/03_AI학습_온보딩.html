@@ -156,35 +156,10 @@
       <input type="text" placeholder="키워드 입력 후 Enter" style="width:100%">
     </div>
   </div>
-  </div>
-
-  <!-- 콘텐츠 생성 설정 -->
-  <div class="card">
-    <div class="card-header"><span style="display:flex;align-items:center;gap:6px"><i data-lucide="settings" style="width:14px;height:14px"></i> 콘텐츠 생성 설정</span></div>
-    <div class="card-body">
-      <div style="font-size:12px;color:#4A5568;margin-bottom:14px">AI가 자동 생성한 콘텐츠의 발행 방식을 설정합니다.</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid #3B5BDB;border-radius:6px;background:#EEF2FF;cursor:pointer">
-          <input type="radio" name="publish_mode" checked style="margin-top:2px;accent-color:#3B5BDB;height:14px;width:14px;flex-shrink:0">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#1A1A2E;margin-bottom:2px">승인 후 발행 요청</div>
-            <div style="font-size:12px;color:#4A5568">생성된 콘텐츠를 직접 검토한 후 발행 요청합니다. 콘텐츠 생성 시 승인 요청 알림을 보내드리며, 블로그 관리에서 승인 대기 항목을 확인하세요.</div>
-          </div>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid #E2E8F0;border-radius:6px;background:#fff;cursor:pointer">
-          <input type="radio" name="publish_mode" style="margin-top:2px;accent-color:#3B5BDB;height:14px;width:14px;flex-shrink:0">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#1A1A2E;margin-bottom:2px">자동 발행 요청</div>
-            <div style="font-size:12px;color:#4A5568">생성 즉시 발행 요청이 접수됩니다. 생성 완료 시 알림으로 안내드립니다.</div>
-          </div>
-        </label>
-      </div>
-    </div>
-  </div>
 
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
     <button class="btn btn-ghost">저장</button>
-    <button class="btn btn-primary" onclick="location.href='04_AI학습_수집중.html'">저장 후 수집 실행</button>
+    <button class="btn btn-primary" onclick="location.href='04_AI학습_수집중.html'" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 수집 실행">저장 후 수집 실행</button>
   </div>
 </div>
 <script></script>
