@@ -27,41 +27,41 @@ svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.8;fill:none;flex-s
 
   <div style="flex:1">
     <div class="sb-section">대행사</div>
-    <a href="agency_dashboard.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="agency_dashboard.html" data-flow-label="LNB: 대행사 대시보드">
+    <a href="agency_dashboard.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="agency_dashboard.html" data-flow-label="LNB: 대행사 대시보드">
       <span data-icon="layout-dashboard" data-size="14" data-color="currentColor"></span> 대시보드
     </a>
-    <a href="agency_member_biz.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="agency_member_biz.html" data-flow-label="LNB: 업체관리">
+    <a href="agency_member_biz.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="agency_member_biz.html" data-flow-label="LNB: 업체관리">
       <span data-icon="check-square" data-size="14" data-color="currentColor"></span> 업체관리
     </a>
-    <a href="agency_list.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="agency_list.html" data-flow-label="LNB: 매장관리">
+    <a href="agency_list.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="agency_list.html" data-flow-label="LNB: 매장관리">
       <span data-icon="file-text" data-size="14" data-color="currentColor"></span> 매장관리
     </a>
-    <a href="agency_member_staff.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="agency_member_staff.html" data-flow-label="LNB: 대행사 직원관리">
+    <a href="agency_member_staff.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="agency_member_staff.html" data-flow-label="LNB: 대행사 직원관리">
       <span data-icon="check-square" data-size="14" data-color="currentColor"></span> 대행사 직원관리
     </a>
 
     <div class="sb-section">매장 관리</div>
-    <a href="soho_dashboard.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="soho_dashboard.html" data-flow-label="LNB: 매장 대시보드">
+    <a href="soho_dashboard.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="soho_dashboard.html" data-flow-label="LNB: 매장 대시보드">
       <span data-icon="layout-dashboard" data-size="14" data-color="currentColor"></span> 대시보드
     </a>
-    <a href="soho_store_register.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="soho_store_register.html" data-flow-label="LNB: 매장 정보 등록">
+    <a href="soho_store_register.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="soho_store_register.html" data-flow-label="LNB: 매장 정보 등록">
       <span data-icon="map-pin" data-size="14" data-color="currentColor"></span> 매장 정보 등록
     </a>
 
     <div class="sb-section">마케팅 채널관리</div>
 
-    <a href="03_AI학습_온보딩.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="03_AI학습_온보딩.html" data-flow-label="LNB: AI 학습 설정">
+    <a href="03_AI학습_온보딩.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="03_AI학습_온보딩.html" data-flow-label="LNB: AI 학습 설정">
       <span data-icon="brain" data-size="14" data-color="currentColor"></span> AI 학습 설정
     </a>
-    <a href="06_AI학습_현황.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="06_AI학습_현황.html" data-flow-label="LNB: AI 학습 현황">
+    <a href="06_AI학습_현황.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="06_AI학습_현황.html" data-flow-label="LNB: AI 학습 현황">
       <span data-icon="check-square" data-size="14" data-color="currentColor"></span> AI 학습 현황
     </a>
 
-    <a href="07_마케팅전략룰셋.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="07_마케팅전략룰셋.html" data-flow-label="LNB: 마케팅 전략 룰셋">
+    <a href="07_마케팅전략룰셋.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="07_마케팅전략룰셋.html" data-flow-label="LNB: 마케팅 전략 룰셋">
       <span class="icon-sliders" data-icon="sliders" data-size="14" data-color="currentColor"></span> 마케팅 전략 룰셋
     </a>
 
-    <a href="02_블로그관리.html" target="main" class="sb-item" onclick="setActive(this)" data-flow-target="02_블로그관리.html" data-flow-label="LNB: 블로그 관리">
+    <a href="02_블로그관리.html" target="main" class="sb-item" onclick="navigateMain(event,this)" data-flow-target="02_블로그관리.html" data-flow-label="LNB: 블로그 관리">
       <span class="icon-file-text" data-icon="file-text" data-size="14" data-color="currentColor"></span> 블로그 관리
     </a>
 
@@ -70,31 +70,31 @@ svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.8;fill:none;flex-s
       <span id="ref-arrow" data-icon="chevron-right" data-size="12" data-color="rgba(255,255,255,.25)"></span>
     </div>
     <div id="ref-links" style="display:none">
-      <a href="01_대시보드_온보딩전.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="01_대시보드_온보딩전.html" data-flow-label="LNB: 학습 전 대시보드">
+      <a href="01_대시보드_온보딩전.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="01_대시보드_온보딩전.html" data-flow-label="LNB: 학습 전 대시보드">
         <span data-icon="layout-dashboard" data-size="14" data-color="currentColor"></span> 대시보드 (학습 전)
       </a>
-      <a href="04_AI학습_수집중.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="04_AI학습_수집중.html" data-flow-label="LNB: 수집 실행 중">
+      <a href="04_AI학습_수집중.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="04_AI학습_수집중.html" data-flow-label="LNB: 수집 실행 중">
         <span data-icon="loader" data-size="14" data-color="currentColor"></span> 수집 실행 중
       </a>
-      <a href="06_AI학습_현황_수집실패.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="06_AI학습_현황_수집실패.html" data-flow-label="LNB: 수집 실패">
+      <a href="06_AI학습_현황_수집실패.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="06_AI학습_현황_수집실패.html" data-flow-label="LNB: 수집 실패">
         <span data-icon="alert-circle" data-size="14" data-color="currentColor"></span> 수집 실패
       </a>
-      <a href="06_AI학습_현황_분석실패.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="06_AI학습_현황_분석실패.html" data-flow-label="LNB: 분석 실패">
+      <a href="06_AI학습_현황_분석실패.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="06_AI학습_현황_분석실패.html" data-flow-label="LNB: 분석 실패">
         <span data-icon="alert-triangle" data-size="14" data-color="currentColor"></span> 분석 실패
       </a>
-      <a href="06_AI학습_현황_재학습중.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="06_AI학습_현황_재학습중.html" data-flow-label="LNB: 재학습 중">
+      <a href="06_AI학습_현황_재학습중.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="06_AI학습_현황_재학습중.html" data-flow-label="LNB: 재학습 중">
         <span data-icon="loader" data-size="14" data-color="currentColor"></span> 재학습 중
       </a>
-      <a href="09_AI콘텐츠생성_상세.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="LNB: 콘텐츠 상세">
+      <a href="09_AI콘텐츠생성_상세.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="LNB: 콘텐츠 상세">
         <span data-icon="file-check" data-size="14" data-color="currentColor"></span> 콘텐츠 상세
       </a>
-      <a href="10_블로그_발행대기_상세.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="LNB: 발행 대기 상세">
+      <a href="10_블로그_발행대기_상세.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="LNB: 발행 대기 상세">
         <span data-icon="clock" data-size="14" data-color="currentColor"></span> 발행 대기 상세
       </a>
-      <a href="11_블로그_발행완료_상세.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="11_블로그_발행완료_상세.html" data-flow-label="LNB: 발행 완료 상세">
+      <a href="11_블로그_발행완료_상세.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="11_블로그_발행완료_상세.html" data-flow-label="LNB: 발행 완료 상세">
         <span data-icon="check" data-size="14" data-color="currentColor"></span> 발행 완료 상세
       </a>
-      <a href="event_operation_poc.html" target="main" class="sb-item sub" onclick="setActive(this)" data-flow-target="event_operation_poc.html" data-flow-label="LNB: 랜딩 PoC">
+      <a href="event_operation_poc.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)" data-flow-target="event_operation_poc.html" data-flow-label="LNB: 랜딩 PoC">
         <span data-icon="megaphone" data-size="14" data-color="currentColor"></span> 랜딩
       </a>
     </div>
@@ -106,6 +106,14 @@ svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.8;fill:none;flex-s
   </div>
 </div>
 <script>
+function navigateMain(event, el){
+  setActive(el);
+  const href = el.getAttribute('href');
+  if (window.parent && window.parent !== window && typeof window.parent.navigateMainFrame === 'function') {
+    event.preventDefault();
+    window.parent.navigateMainFrame(href);
+  }
+}
 
 function toggleRef(){
   const links = document.getElementById('ref-links');

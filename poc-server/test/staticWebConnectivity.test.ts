@@ -174,6 +174,21 @@ describe('web static flow connectivity', () => {
     expect(icons).toContain("['id', 'class', 'aria-hidden', 'role']");
   });
 
+  it('routes LNB clicks through the parent iframe navigator with cache busting', () => {
+    const index = readWeb('index.html');
+    const nav = readWeb('nav.html');
+
+    expect(index).toContain('window.navigateMainFrame');
+    expect(index).toContain('cacheBust');
+    expect(index).toContain('mainFrame.src = nextUrl');
+    expect(nav).toContain('function navigateMain(event, el)');
+    expect(nav).toContain('parent.navigateMainFrame');
+    expect(nav).toContain('event.preventDefault()');
+    expect(nav).toContain('onclick="navigateMain(event,this)"');
+    expect(nav).toContain('href="02_블로그관리.html" target="main" class="sb-item" onclick="navigateMain(event,this)"');
+    expect(nav).not.toContain('onclick="setActive(this)"');
+  });
+
   it('connects the no-store dashboard registration CTA to store registration', () => {
     const dashboard = readWeb('soho_dashboard.html');
     const noStoreSection = dashboard.match(/<div id="state-no-store"[\s\S]*?<\/div><!-- \/state-no-store -->/)?.[0] ?? '';
