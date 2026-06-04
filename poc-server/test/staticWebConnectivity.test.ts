@@ -303,6 +303,31 @@ describe('web static flow connectivity', () => {
     expect(blog).toContain('콘텐츠 생성과 발행 요청 방식은 블로그 관리에서 설정합니다.');
   });
 
+  it('places blog auto-generation settings in the performance update disclosure row', () => {
+    const blog = readWeb('02_블로그관리.html');
+    const settings = blog.match(/<details class="auto-gen-settings" id="blogAutoGenerationSettings"[\s\S]*?<\/details>/)?.[0] ?? '';
+
+    expect(settings).toContain('<summary class="auto-gen-summary"');
+    expect(settings).not.toMatch(/<details[^>]*\sopen\b/);
+    expect(settings).toContain('class="auto-gen-summary-main"');
+    expect(settings).toContain('성과 데이터 마지막 업데이트');
+    expect(settings).toContain('class="auto-gen-summary-chips"');
+    expect(settings).toContain('자동 생성');
+    expect(settings).toContain('2주마다');
+    expect(settings).toContain('2건');
+    expect(settings).toContain('2026.05.30');
+    expect(settings).toContain('발행 방식');
+    expect(settings).toContain('상세 설정');
+    expect(settings).toContain('class="auto-gen-detail-panel"');
+    expect(settings.indexOf('class="auto-gen-summary-main"')).toBeLessThan(settings.indexOf('class="auto-gen-detail-panel"'));
+    expect(settings).toContain('자동 생성 주기');
+    expect(settings).toContain('생성 완료 알림');
+    expect(blog).toContain('.auto-gen-settings:not([open]) .auto-gen-detail-panel{display:none}');
+    expect(blog.indexOf('승인 대기 2건')).toBeLessThan(blog.indexOf('id="blogAutoGenerationSettings"'));
+    expect(blog.indexOf('id="blogAutoGenerationSettings"')).toBeLessThan(blog.indexOf('<div class="filter-bar">'));
+    expect(blog.indexOf('id="blogAutoGenerationSettings"')).toBeGreaterThan(blog.indexOf('</div><!-- /approval-alert -->'));
+  });
+
   it('defines benchmark criteria data for strategy ruleset comparison', () => {
     const fixturePath = path.join(webRoot, 'strategy_benchmark_fixture.json');
     const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as BenchmarkFixture;

@@ -5,23 +5,42 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="common.css">
 <style>
-.blog-page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
-.auto-gen-settings{width:420px;background:#fff;border:1px solid #D8E0F0;border-radius:8px;padding:12px 14px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
-.auto-gen-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.auto-gen-title{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#1A1A2E}
-.auto-gen-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.blog-page-head{margin-bottom:20px}
+.auto-gen-settings{width:100%;background:#fff;border:1px solid #D8E0F0;border-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.04);overflow:hidden;margin-bottom:16px}
+.auto-gen-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;cursor:pointer;list-style:none}
+.auto-gen-summary::-webkit-details-marker{display:none}
+.auto-gen-summary-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1;flex-wrap:wrap}
+.auto-gen-update{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#9AA0B4;white-space:nowrap}
+.auto-gen-update strong{color:#6B7280;font-weight:700}
+.auto-gen-divider{width:1px;height:16px;background:#D8E0F0}
+.auto-gen-title-inline{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#1A1A2E;white-space:nowrap}
+.auto-gen-summary-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.auto-gen-chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid #E2E8F0;border-radius:999px;background:#F8FAFF;font-size:11px;color:#6B7280;white-space:nowrap}
+.auto-gen-chip strong{color:#1A1A2E;font-weight:700}
+.auto-gen-toggle{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#3B5BDB;white-space:nowrap}
+.auto-gen-toggle .toggle-open{display:none}
+.auto-gen-settings[open] .auto-gen-toggle .toggle-closed{display:none}
+.auto-gen-settings[open] .auto-gen-toggle .toggle-open{display:inline}
+.auto-gen-toggle .icon-chevron-down{transition:transform .18s ease}
+.auto-gen-settings[open] .auto-gen-toggle .icon-chevron-down{transform:rotate(180deg)}
+.auto-gen-detail-panel{padding:12px 14px 14px;border-top:1px solid #EDF1F7;background:#fff}
+.auto-gen-settings:not([open]) .auto-gen-detail-panel{display:none}
+.auto-gen-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.auto-gen-detail-title{font-size:12px;font-weight:700;color:#1A1A2E}
+.auto-gen-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .auto-gen-field label{display:block;font-size:10px;font-weight:700;color:#7B8499;margin-bottom:4px}
 .auto-gen-field select,.auto-gen-field input{width:100%;height:30px}
 .auto-gen-next{font-size:11px;color:#7B8499;margin-top:8px}
 .auto-gen-next strong{color:#1A1A2E;font-weight:700}
-.auto-gen-radio{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-.auto-gen-option{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:#4A5568;line-height:1.45}
+.auto-gen-radio{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.auto-gen-option{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:#4A5568;line-height:1.45;border:1px solid #EDF1F7;border-radius:6px;padding:8px 9px;background:#FAFBFC}
 .auto-gen-option input{width:14px;height:14px;min-width:14px;margin-top:2px;accent-color:#3B5BDB;padding:0}
 .auto-gen-option strong{color:#1A1A2E;font-weight:700}
-.auto-gen-note{font-size:11px;color:#6B7280;line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid #EDF1F7}
+.auto-gen-note{font-size:11px;color:#6B7280;line-height:1.5;margin-top:8px}
 @media(max-width:900px){
-  .blog-page-head{flex-direction:column}
-  .auto-gen-settings{width:100%}
+  .auto-gen-summary{align-items:flex-start;flex-direction:column}
+  .auto-gen-divider{display:none}
+  .auto-gen-grid,.auto-gen-radio{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -33,9 +52,47 @@
 <div class="main-content">
   <div class="blog-page-head">
     <div class="page-title" style="margin-bottom:0">블로그 관리</div>
-    <div class="auto-gen-settings" id="blogAutoGenerationSettings">
-      <div class="auto-gen-head">
-        <div class="auto-gen-title"><span class="icon-settings" data-icon="settings" data-size="13" data-color="currentColor"></span> 자동 생성 설정</div>
+  </div>
+
+  <!-- 승인 대기 alert (승인 대기 건 있을 때만 노출) -->
+  <div style="background:#FFF4E6;border:1px solid #FFA94D;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8590C" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span style="font-size:13px;font-weight:600;color:#E8590C">승인 대기 2건</span>
+      <span style="font-size:12px;color:#E8590C;opacity:.8">AI가 생성한 콘텐츠를 검토하고 발행 요청해 주세요.</span>
+    </div>
+    <button class="btn btn-sm" style="background:#E8590C;color:#fff;border:none" onclick="location.href='09_AI콘텐츠생성_상세.html'" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="다음: 콘텐츠 상세">지금 확인</button>
+  </div><!-- /approval-alert -->
+
+  <details class="auto-gen-settings" id="blogAutoGenerationSettings">
+    <summary class="auto-gen-summary">
+      <div class="auto-gen-summary-main">
+        <span class="auto-gen-update">
+          <span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span>
+          성과 데이터 마지막 업데이트: <strong>2026.05.16</strong>
+        </span>
+        <span class="auto-gen-divider" aria-hidden="true"></span>
+        <span class="auto-gen-title-inline">
+          <span class="icon-settings" data-icon="settings" data-size="12" data-color="currentColor"></span>
+          자동 생성
+        </span>
+        <span class="auto-gen-summary-chips">
+          <span class="auto-gen-chip">주기 <strong>2주마다</strong></span>
+          <span class="auto-gen-chip">생성 <strong>2건</strong></span>
+          <span class="auto-gen-chip">다음 <strong>2026.05.30</strong></span>
+          <span class="auto-gen-chip">발행 방식 <strong>승인 후 발행 요청</strong></span>
+          <span class="auto-gen-chip">알림 <strong>ON</strong></span>
+        </span>
+      </div>
+      <span class="auto-gen-toggle">
+        <span class="toggle-closed">상세 설정</span>
+        <span class="toggle-open">상세 설정 접기</span>
+        <span class="icon-chevron-down" data-icon="chevron-down" data-size="12" data-color="currentColor"></span>
+      </span>
+    </summary>
+    <div class="auto-gen-detail-panel">
+      <div class="auto-gen-detail-head">
+        <div class="auto-gen-detail-title">자동 생성 설정</div>
         <span class="badge b-blue">블로그 운영</span>
       </div>
       <div class="auto-gen-grid">
@@ -55,8 +112,15 @@
             <option>3건</option>
           </select>
         </div>
+        <div class="auto-gen-field">
+          <label>다음 생성 예정일</label>
+          <input value="2026.05.30" readonly>
+        </div>
+        <label class="auto-gen-option" style="margin:0">
+          <input type="checkbox" checked>
+          <span><strong>생성 완료 알림</strong><br>생성 완료 시 알림을 받습니다.</span>
+        </label>
       </div>
-      <div class="auto-gen-next">다음 생성 예정일 <strong>2026.05.30</strong></div>
       <div class="auto-gen-radio" aria-label="발행 요청 방식">
         <label class="auto-gen-option">
           <input type="radio" name="blog_publish_mode" checked>
@@ -67,28 +131,9 @@
           <span><strong>자동 발행 요청</strong><br>생성 즉시 발행 요청으로 넘기고 완료 알림을 받습니다.</span>
         </label>
       </div>
-      <label class="auto-gen-option" style="margin-top:8px">
-        <input type="checkbox" checked>
-        <span>생성 완료 알림</span>
-      </label>
       <div class="auto-gen-note">콘텐츠 생성과 발행 요청 방식은 블로그 관리에서 설정합니다.</div>
     </div>
-  </div>
-
-  <!-- 승인 대기 alert (승인 대기 건 있을 때만 노출) -->
-  <div style="background:#FFF4E6;border:1px solid #FFA94D;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
-    <div style="display:flex;align-items:center;gap:8px">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8590C" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <span style="font-size:13px;font-weight:600;color:#E8590C">승인 대기 2건</span>
-      <span style="font-size:12px;color:#E8590C;opacity:.8">AI가 생성한 콘텐츠를 검토하고 발행 요청해 주세요.</span>
-    </div>
-    <button class="btn btn-sm" style="background:#E8590C;color:#fff;border:none" onclick="location.href='09_AI콘텐츠생성_상세.html'" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="다음: 콘텐츠 상세">지금 확인</button>
-  </div>
-
-  <div style="font-size:11px;color:#9AA0B4;margin-bottom:16px;display:flex;align-items:center;gap:5px">
-    <span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span>
-    성과 데이터 마지막 업데이트: 2026.05.16
-  </div>
+  </details>
 
   <div class="filter-bar">
     <span class="f-label">작성주체</span>
