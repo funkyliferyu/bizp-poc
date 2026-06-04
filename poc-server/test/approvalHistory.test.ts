@@ -6,11 +6,12 @@ import { summarizeApprovalHistory } from '../src/workflows/approvalHistory.js';
 describe('approval history summaries', () => {
   it('summarizes approval packages for a recoverable UI history list', async () => {
     const pending = await runDemoFlow();
+    const decidedAt = new Date(Date.parse(pending.createdAt) + 1000).toISOString();
     const approved = decideApprovalPackage(pending, {
       action: 'approve',
       note: '확인 완료',
       reviewer: 'reviewer-demo',
-      decidedAt: '2026-06-02T11:10:00.000Z'
+      decidedAt
     });
 
     const summaries = summarizeApprovalHistory([pending, approved]);
@@ -26,7 +27,7 @@ describe('approval history summaries', () => {
         qualityStatus: 'pass',
         traceMode: 'mock',
         createdAt: approved.createdAt,
-        decidedAt: '2026-06-02T11:10:00.000Z'
+        decidedAt
       },
       {
         approvalId: pending.approvalId,

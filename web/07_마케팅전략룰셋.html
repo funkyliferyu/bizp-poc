@@ -460,6 +460,15 @@ let selectedCompanyIndex = 0;
 let activeReferenceKey = 'positioning';
 let activeWritingChannel = 'common';
 let writingPreviewIndexes = { common: 0, insta: 0, blog: 0 };
+const REFERENCE_TYPE_BY_ROW_KEY = {
+  positioning: 'recommended',
+  strength: 'sameIndustry',
+  menu: 'sameIndustry',
+  target: 'nearby',
+  contentKeywords: 'keywordTop',
+  reviewStrength: 'sameIndustry',
+  reviewWeakness: 'nearby'
+};
 const WRITING_PREVIEWS = {
   common: {
     channel: '공통 스타일',
@@ -541,6 +550,28 @@ function currentBenchmark(){
     || null;
 }
 
+function normalizedReferenceKey(rowKey){
+  return rowKey === 'strength' ? 'reviewStrength' : rowKey;
+}
+
+function benchmarkById(typeId){
+  return benchmarkFixture?.benchmarkTypes?.find((type) => type.id === typeId) || null;
+}
+
+function referenceBenchmarkForRow(rowKey){
+  const normalizedKey = normalizedReferenceKey(rowKey);
+  const mappedTypeId = REFERENCE_TYPE_BY_ROW_KEY[rowKey] || REFERENCE_TYPE_BY_ROW_KEY[normalizedKey];
+  return benchmarkById(mappedTypeId) || currentBenchmark();
+}
+
+function referenceComparisonRow(type, rowKey){
+  const normalizedKey = normalizedReferenceKey(rowKey);
+  return type?.comparison?.find((item) => item.key === normalizedKey)
+    || currentBenchmark()?.comparison?.find((item) => item.key === normalizedKey)
+    || type?.comparison?.[0]
+    || null;
+}
+
 async function loadBenchmarkFixture(){
   try {
     const response = await fetch('strategy_benchmark_fixture.json');
@@ -564,10 +595,9 @@ function renderBenchmark(){
 
 function showReferenceLayer(rowKey){
   activeReferenceKey = rowKey;
-  const type = currentBenchmark();
-  if (!type) return;
-  const normalizedKey = rowKey === 'strength' ? 'reviewStrength' : rowKey;
-  const row = type.comparison.find((item) => item.key === normalizedKey) || type.comparison[0];
+  const type = referenceBenchmarkForRow(rowKey);
+  const row = referenceComparisonRow(type, rowKey);
+  if (!type || !row) return;
   document.querySelectorAll('[data-reference-key]').forEach((button) => {
     button.classList.toggle('active', button.dataset.referenceKey === rowKey);
   });

@@ -346,10 +346,12 @@ describe('web static flow connectivity', () => {
     expect(brandSection).not.toContain('id="benchmarkComparisonBody"');
   });
 
-  it('shows multiple positioning reference candidates with name-distance-industry cards', () => {
+  it('maps right reference candidates to the matching similar-business comparison type', () => {
     const ruleset = readWeb('07_마케팅전략룰셋.html');
     const fixture = JSON.parse(readFileSync(path.join(webRoot, 'strategy_benchmark_fixture.json'), 'utf8')) as BenchmarkFixture;
     const recommended = fixture.benchmarkTypes.find((type) => type.id === 'recommended');
+    const sameIndustry = fixture.benchmarkTypes.find((type) => type.id === 'sameIndustry');
+    const keywordTop = fixture.benchmarkTypes.find((type) => type.id === 'keywordTop');
     const positioning = recommended?.comparison.find((row) => row.key === 'positioning');
 
     expect(recommended?.candidates.length).toBeGreaterThanOrEqual(3);
@@ -359,10 +361,23 @@ describe('web static flow connectivity', () => {
       location: '정자역 600m',
       category: '케이크전문점'
     });
+    expect(sameIndustry?.candidates[0]).toMatchObject({
+      name: '레터링온 케이크',
+      category: '주문제작 케이크'
+    });
+    expect(keywordTop?.candidates[0]).toMatchObject({
+      name: '분당 케이크픽',
+      category: '케이크'
+    });
     expect(ruleset).toContain('id="referenceCandidateList"');
     expect(ruleset).toContain('class="reference-candidate-card"');
     expect(ruleset).toContain('reference-candidate-meta');
     expect(ruleset).toContain('${escapeHtml(candidate.name)} · ${escapeHtml(candidate.location)} · ${escapeHtml(candidate.category)}');
+    expect(ruleset).toContain('REFERENCE_TYPE_BY_ROW_KEY');
+    expect(ruleset).toContain("menu: 'sameIndustry'");
+    expect(ruleset).toContain("contentKeywords: 'keywordTop'");
+    expect(ruleset).toContain('referenceBenchmarkForRow');
+    expect(ruleset).toContain('const type = referenceBenchmarkForRow(rowKey)');
     expect(ruleset).toContain('type.candidates.map');
     expect(ruleset).not.toContain("${candidate.category || '비교 후보'} · ${candidate.location || type.scope}");
   });
