@@ -1,6 +1,6 @@
 # Validation
 
-## REAL-002 Commands
+## LLM-001 Commands
 
 Run from `poc-server/`:
 
@@ -19,32 +19,27 @@ Manual smoke:
 PORT=5178 npm run dev
 ```
 
-Then open:
-
-```text
-http://localhost:5178/03_AI학습_온보딩.html?storeId=store_demo_cake
-```
-
 ## Expected Coverage
 
 - `npm run db:migrate` keeps the Store Learning SQLite schema available.
 - `npm run db:seed` keeps the demo store path available without external keys.
-- `npm run typecheck` verifies collection provider types, runner, routes, and tests compile.
+- `npm run typecheck` verifies analysis provider types, route injection, and tests compile.
 - `npm test` runs existing Event-to-Operation tests plus Store Learning API/page tests.
 - `npm run demo` verifies the old Event-to-Operation demo remains behaviorally unchanged.
 - `npm run demo:store-learning` verifies the Store Learning demo still works in mock mode.
 
 ## TDD Evidence
 
-- RED `npm test -- collectionProgressApi.test.ts`: failed because collection start still used the mock runner and did not include `naverSearchCollectionProvider` metadata.
-- GREEN `npm test -- collectionProgressApi.test.ts`: passed, 1 file / 2 tests.
+- RED `npm test -- analysisExecutionApi.test.ts`: failed because `openAIAnalysisProvider` did not exist.
+- GREEN `npm test -- analysisExecutionApi.test.ts`: passed, 1 file / 4 tests.
+- GREEN after test env isolation: `npm run typecheck && npm test -- analysisExecutionApi.test.ts selectionApi.test.ts` passed, 2 files / 6 tests.
 
 ## Final Sequential Validation
 
 - `npm run db:migrate`: passed.
 - `npm run db:seed`: passed.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 26 files / 89 tests.
+- `npm test`: passed, 26 files / 91 tests.
 - `npm run demo`: passed and generated the existing Event-to-Operation approval package.
 - `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
 
@@ -59,20 +54,20 @@ PORT=5178 npm run dev
 Observed API smoke in default mock mode:
 
 ```text
-POST /api/stores/store_demo_cake/collection-runs => collectionRunId created
-POST /api/collection-runs/:runId/start => mode mock / provider mockCollectionProvider / totalItems 101
-GET /api/collection-runs/:runId => finalStatus completed / collected 101
-GET /api/collection-runs/:runId/items => first item status collected / metadata provider mock
+POST /api/analysis-runs => analysisRunId created
+POST /api/analysis-runs/:analysisRunId/start => status completed
+analysisRun.result.analyzerMode => mock
+analysisRun.result.analyzerProvider => mockDeterministicAnalyzer
+analysisEvidence.length => 3
+rulesetFields.length => 9
 ```
 
 Observed browser smoke:
 
 ```text
-URL => http://127.0.0.1:5178/03_AI학습_온보딩.html?storeId=store_demo_cake
-training_settings.js loaded => true
-blogLimit => 50
-placeReviewLimit => 50
-placeUrl => https://naver.me/demo-cake
+URL => http://127.0.0.1:5178/06_AI학습_현황.html?storeId=store_demo_cake
+learning_status.js loaded => true
+rulesetStatus => ✓ 생성 완료
 browser console errors => []
 ```
 
@@ -80,30 +75,32 @@ browser console errors => []
 
 Default mock mode:
 
-- `POST /api/collection-runs/:runId/start` should still work without external keys.
-- Provider summary should be `mockCollectionProvider`.
-- Blog, profile, and review mock items should move to `collected`.
+- `POST /api/analysis-runs/:analysisRunId/start` should still work without external keys.
+- `analysisRun.result.analyzerMode` should remain `mock`.
+- Existing learning snapshot/ruleset/evidence persistence should remain unchanged.
 
-Credentialed Naver metadata mode:
+Credentialed OpenAI mode:
 
-- Set `STORE_LEARNING_MOCK_MODE=false`, `NAVER_CLIENT_ID`, and `NAVER_CLIENT_SECRET`.
-- Optional local override variables:
-  - `NAVER_BLOG_SEARCH_ENDPOINT`
-  - `NAVER_LOCAL_SEARCH_ENDPOINT`
-- `POST /api/collection-runs/:runId/start` should return summary provider `{ name: "naverSearchCollectionProvider", mode: "real" }`.
-- Blog items should be collected from official Blog Search metadata/snippets.
-- Place profile should be collected from official Local Search metadata.
-- Place review items should be marked `failed` with `reviewAvailability = requires_fallback_provider`.
-- A mixed metadata/review-fallback run should finish as `partial_completed`.
+- Set `OPENAI_API_KEY`.
+- Optionally set `OPENAI_MODEL`.
+- `POST /api/analysis-runs/:analysisRunId/start` should use `openAIAnalysisProvider`.
+- Saved analysis run result should include:
+  - `analyzerMode = openai`
+  - `analyzerProvider = openAIAnalysisProvider`
+- Saved learning snapshot should include:
+  - `mode = openai`
+  - `provider = openAIAnalysisProvider`
+- OpenAI output must be rejected before saving if evidence IDs do not belong to selected collection items.
 
 ## Boundaries
 
 - Browser pages still call poc-server APIs only.
-- Naver credentials stay server-side.
+- OpenAI credentials stay server-side.
 - Mock mode still works without external keys.
-- Full Naver Blog body collection is not implemented in REAL-002.
-- Naver Place review collection is not implemented in REAL-002.
-- OpenAI analysis, blog generation, image generation, and Naver Blog publishing are unchanged.
+- Analyzer outputs use Zod schema validation before persistence.
+- Analyzer evidence references are checked against selected collection items before persistence.
+- Naver collection behavior is unchanged in LLM-001.
+- Blog generation, image generation, and Naver Blog publishing are unchanged.
 - Existing Event-to-Operation workflows should remain behaviorally unchanged.
 - `admin/` and `pc-web/` should remain unchanged.
 - The generated local SQLite file is under ignored `poc-server/data/`.

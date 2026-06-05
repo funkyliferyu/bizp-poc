@@ -43,6 +43,29 @@ function selectedItemsForRun(repos: Repositories, analysisRunId: string): Collec
   return collectedItems.filter((item) => selectedIdSet.has(item.id));
 }
 
+function validateAnalyzerReferences(
+  output: ReturnType<typeof validateAnalyzerOutput>,
+  selectedItems: CollectionItem[]
+) {
+  const availableItemIds = new Set(selectedItems.map((item) => item.id));
+  const referencedItemIds = new Set<string>();
+
+  for (const evidence of output.evidence) {
+    referencedItemIds.add(evidence.collectionItemId);
+  }
+
+  for (const field of output.rulesetFields) {
+    for (const itemId of field.evidenceItemIds) {
+      referencedItemIds.add(itemId);
+    }
+  }
+
+  const missingItemIds = Array.from(referencedItemIds).filter((itemId) => !availableItemIds.has(itemId));
+  if (missingItemIds.length > 0) {
+    throw new Error(`Analyzer output referenced unavailable collection items: ${missingItemIds.join(', ')}`);
+  }
+}
+
 function nextRulesetVersion(repos: Repositories, storeId: string) {
   return repos.marketingRulesets
     .listByStoreId(storeId)
@@ -125,6 +148,7 @@ export async function startAnalysisRun(
 
   try {
     const output = validateAnalyzerOutput(await provider.analyze({ store, selectedItems }));
+    validateAnalyzerReferences(output, selectedItems);
     const evidenceRows = output.evidence.map((evidence, index) =>
       repos.analysisEvidence.upsert({
         id: evidenceId(analysisRun.id, index),
