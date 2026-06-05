@@ -10,6 +10,8 @@ import { migrateDatabase } from './db/migrate.js';
 import { ApprovalPackageSchema } from './schemas/approvalPackage.js';
 import { BusinessMemorySchema } from './schemas/businessMemory.js';
 import { EventSchema } from './schemas/event.js';
+import { createAnalysisRunRoutes } from './storeLearning/routes/analysisRuns.js';
+import { createCollectionItemRoutes } from './storeLearning/routes/collectionItems.js';
 import { createCollectionRunRoutes } from './storeLearning/routes/collectionRuns.js';
 import { createStoreRoutes } from './storeLearning/routes/stores.js';
 import { buildApprovalPackage } from './workflows/buildApprovalPackage.js';
@@ -33,6 +35,8 @@ const storeLearningConnection = createDatabaseConnection();
 migrateDatabase(storeLearningConnection);
 app.use('/api/stores', createStoreRoutes({ connection: storeLearningConnection }));
 app.use('/api/collection-runs', createCollectionRunRoutes({ connection: storeLearningConnection }));
+app.use('/api/collection-items', createCollectionItemRoutes({ connection: storeLearningConnection }));
+app.use('/api/analysis-runs', createAnalysisRunRoutes({ connection: storeLearningConnection }));
 
 const ApprovalDecisionRequestSchema = z.object({
   action: z.enum(['request_revision', 'reject', 'approve']),

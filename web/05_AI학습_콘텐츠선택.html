@@ -11,6 +11,11 @@
 .fake-check.on{background:#3B5BDB;border-color:#3B5BDB}
 .ai-suspect{font-size:10px;padding:1px 6px;border-radius:10px;background:#F7F8FA;color:#9AA0B4;border:1px solid #E2E8F0;margin-left:4px}
 tr.unchecked td{color:#9AA0B4}
+.selection-empty{padding:14px 12px;font-size:12px;color:#9AA0B4}
+.selection-place-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #EEF1F6}
+.selection-place-row:last-child{border-bottom:0}
+.selection-place-title{flex:1;min-width:0;font-size:12px;color:#252733;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selection-meta{font-size:11px;color:#9AA0B4}
 </style>
 </head>
 <body>
@@ -29,7 +34,7 @@ tr.unchecked td{color:#9AA0B4}
 
   <div class="card">
     <div class="card-header">
-      <span style="display:flex;align-items:center;gap:6px"><span class="icon-rss" data-icon="rss" data-size="14" data-color="#03C75A"></span> 네이버 블로그 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 48개 수집</span></span>
+      <span style="display:flex;align-items:center;gap:6px"><span class="icon-rss" data-icon="rss" data-size="14" data-color="#03C75A"></span> 네이버 블로그 <span id="selection-blog-count" style="font-size:11px;color:#9AA0B4;font-weight:400">· 로딩 중</span></span>
     </div>
     <div class="card-body" style="padding:0">
       <table class="tbl" style="table-layout:fixed">
@@ -43,50 +48,31 @@ tr.unchecked td{color:#9AA0B4}
             <th style="width:60px">조회수</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td class="check-cell"><div class="fake-check on" style="margin:0 auto"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></td>
-            <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">성남 케이크 맛집 :: 분당 베이커리 솔직 후기</td>
-            <td>05.14</td><td>1,240</td>
-          </tr>
-          <tr>
-            <td class="check-cell"><div class="fake-check on" style="margin:0 auto"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></td>
-            <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">어버이날 케이크 당일 제작 가능해요 <span class="ai-suspect">AI 작성 의심</span></td>
-            <td>05.08</td><td>880</td>
-          </tr>
-          <tr class="unchecked">
-            <td class="check-cell"><div class="fake-check" style="margin:0 auto"></div></td>
-            <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">분당 레터링케이크 커스텀 주문 후기 <span class="ai-suspect">AI 작성 의심</span></td>
-            <td>04.22</td><td>540</td>
-          </tr>
-          <tr>
-            <td class="check-cell"><div class="fake-check on" style="margin:0 auto"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></td>
-            <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">봄 시즌 딸기케이크 신메뉴 소개</td>
-            <td>04.10</td><td>320</td>
-          </tr>
+        <tbody id="selection-blog-list">
+          <tr><td colspan="4" class="selection-empty">수집 콘텐츠를 불러오는 중입니다.</td></tr>
         </tbody>
       </table>
-      <div style="padding:10px 12px;font-size:11px;color:#9AA0B4">4 / 48개 표시 · <span style="color:#3B5BDB;cursor:pointer">전체 보기</span></div>
+      <div id="selection-blog-visible-count" style="padding:10px 12px;font-size:11px;color:#9AA0B4">-</div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-header">
-      <span style="display:flex;align-items:center;gap:6px"><span class="icon-map-pin" data-icon="map-pin" data-size="14" data-color="#03C75A"></span> 네이버 플레이스 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 매장정보 및 리뷰 32건</span></span>
+      <span style="display:flex;align-items:center;gap:6px"><span class="icon-map-pin" data-icon="map-pin" data-size="14" data-color="#03C75A"></span> 네이버 플레이스 <span id="selection-place-count" style="font-size:11px;color:#9AA0B4;font-weight:400">· 로딩 중</span></span>
     </div>
-    <div class="card-body">
-      <div style="font-size:12px;color:#4A5568">플레이스 정보는 전체 포함됩니다. 개별 선택이 적용되지 않습니다.</div>
+    <div class="card-body" id="selection-place-list">
+      <div class="selection-empty">수집 콘텐츠를 불러오는 중입니다.</div>
     </div>
   </div>
 
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-    <span style="font-size:12px;color:#4A5568">46개 선택됨</span>
+    <span id="selection-selected-count" style="font-size:12px;color:#4A5568">0개 선택됨</span>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" onclick="history.back()">이전</button>
-      <button class="btn btn-primary" onclick="location.href='06_AI학습_현황.html'" data-flow-target="06_AI학습_현황.html" data-flow-label="다음: 학습 현황">분석 실행</button>
+      <button class="btn btn-primary" id="selection-analysis-btn" data-flow-target="06_AI학습_현황.html" data-flow-label="다음: 학습 현황" disabled>분석 실행</button>
     </div>
   </div>
 </div>
-<script></script>
+<script src="content_selection.js"></script>
 </body>
 </html>
