@@ -39,6 +39,21 @@ const ImportPlaceBodySchema = z.object({
   naverPlaceUrl: z.string().trim().min(1)
 });
 
+const ChannelSettingsSchema = z.object({
+  enabled: z.boolean(),
+  blogPostLimit: z.number().int().min(0).max(1000).optional(),
+  placeReviewLimit: z.number().int().min(0).max(1000).optional(),
+  instagramPostLimit: z.number().int().min(0).max(1000).optional()
+});
+
+const TrainingSettingsBodySchema = z.object({
+  channels: z.object({
+    naverBlog: ChannelSettingsSchema,
+    naverPlace: ChannelSettingsSchema,
+    instagram: ChannelSettingsSchema
+  })
+});
+
 function sanitizeStoreId(seed: string) {
   const sanitized = seed
     .trim()
@@ -70,6 +85,91 @@ function mergeMetadata(existing: JsonValue, patch: unknown) {
 
 function channelId(storeId: string, channel: string) {
   return `channel_${storeId}_${channel}`;
+}
+
+function trainingSettingsId(storeId: string) {
+  return `training_settings_${storeId}`;
+}
+
+function collectionRunId(storeId: string) {
+  return `collection_run_${storeId}_${Date.now()}`;
+}
+
+function latestByUpdatedAt<T extends { updatedAt: string }>(records: T[]) {
+  return records.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).at(-1) ?? null;
+}
+
+function defaultTrainingSettings() {
+  return {
+    channels: {
+      naverBlog: { enabled: true, blogPostLimit: 50 },
+      naverPlace: { enabled: true, placeReviewLimit: 50 },
+      instagram: { enabled: false, instagramPostLimit: 0 }
+    }
+  };
+}
+
+function numberFromLegacy(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function booleanFromLegacy(value: unknown, fallback: boolean) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeTrainingSettings(value: unknown) {
+  const settings = toJsonRecord(value);
+  const channels = toJsonRecord(settings.channels);
+  const naverBlog = toJsonRecord(channels.naverBlog);
+  const naverPlace = toJsonRecord(channels.naverPlace);
+  const instagram = toJsonRecord(channels.instagram);
+  const legacyBlog = toJsonRecord(channels.blog);
+  const legacyPlace = toJsonRecord(channels.place);
+
+  return TrainingSettingsBodySchema.parse({
+    channels: {
+      naverBlog: {
+        enabled: booleanFromLegacy(naverBlog.enabled, booleanFromLegacy(legacyBlog.enabled, true)),
+        blogPostLimit: numberFromLegacy(naverBlog.blogPostLimit, numberFromLegacy(legacyBlog.postLimit, 50))
+      },
+      naverPlace: {
+        enabled: booleanFromLegacy(naverPlace.enabled, booleanFromLegacy(legacyPlace.enabled, true)),
+        placeReviewLimit: numberFromLegacy(
+          naverPlace.placeReviewLimit,
+          booleanFromLegacy(legacyPlace.includeReviews, true) ? 50 : 0
+        )
+      },
+      instagram: {
+        enabled: booleanFromLegacy(instagram.enabled, false),
+        instagramPostLimit: numberFromLegacy(instagram.instagramPostLimit, 0)
+      }
+    }
+  });
+}
+
+function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainingSettings>) {
+  const channels = settings.channels;
+  return {
+    requestedLimits: {
+      blogPostLimit: channels.naverBlog.blogPostLimit ?? 0,
+      placeReviewLimit: channels.naverPlace.placeReviewLimit ?? 0,
+      instagramPostLimit: channels.instagram.instagramPostLimit ?? 0
+    },
+    channelPlan: {
+      naverBlog: {
+        enabled: channels.naverBlog.enabled,
+        limit: channels.naverBlog.blogPostLimit ?? 0
+      },
+      naverPlace: {
+        enabled: channels.naverPlace.enabled,
+        limit: channels.naverPlace.placeReviewLimit ?? 0
+      },
+      instagram: {
+        enabled: channels.instagram.enabled,
+        limit: channels.instagram.instagramPostLimit ?? 0
+      }
+    }
+  };
 }
 
 function upsertPlaceChannel(
@@ -176,6 +276,77 @@ export function createStoreRoutes({ connection, env = process.env }: StoreRoutes
       });
       const channel = upsertPlaceChannel(repos, store, null);
       res.json({ store, channel, channels: repos.storeChannels.listByStoreId(store.id) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/:storeId/training-settings', (req, res) => {
+    const store = repos.stores.findById(req.params.storeId);
+    if (!store) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+
+    const existing = latestByUpdatedAt(repos.trainingSettings.listByStoreId(store.id));
+    if (!existing) {
+      res.json({
+        settings: {
+          id: trainingSettingsId(store.id),
+          storeId: store.id,
+          status: 'draft',
+          settings: defaultTrainingSettings()
+        }
+      });
+      return;
+    }
+
+    res.json({ settings: existing });
+  });
+
+  router.put('/:storeId/training-settings', (req, res, next) => {
+    try {
+      const store = repos.stores.findById(req.params.storeId);
+      if (!store) {
+        res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+        return;
+      }
+
+      const body = TrainingSettingsBodySchema.parse(req.body);
+      const existing = latestByUpdatedAt(repos.trainingSettings.listByStoreId(store.id));
+      const settings = repos.trainingSettings.upsert({
+        id: existing?.id ?? trainingSettingsId(store.id),
+        storeId: store.id,
+        status: 'ready',
+        settings: body
+      });
+      res.json({ settings });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/:storeId/collection-runs', (req, res, next) => {
+    try {
+      const store = repos.stores.findById(req.params.storeId);
+      if (!store) {
+        res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+        return;
+      }
+
+      const existing = latestByUpdatedAt(repos.trainingSettings.listByStoreId(store.id));
+      const settings = normalizeTrainingSettings(existing?.settings ?? defaultTrainingSettings());
+      const run = repos.collectionRuns.create({
+        id: collectionRunId(store.id),
+        storeId: store.id,
+        status: 'queued',
+        mode: 'mock',
+        startedAt: null,
+        completedAt: null,
+        summary: collectionPlanFromSettings(settings)
+      });
+
+      res.json({ collectionRunId: run.id, collectionRun: run });
     } catch (error) {
       next(error);
     }

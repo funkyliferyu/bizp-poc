@@ -30,15 +30,15 @@
         </div>
         <div class="channel-body">
           <div class="channel-url-row">
-            <input type="text" value="https://blog.naver.com/mybakery2024" style="flex:1">
+            <input type="text" id="training-blog-url" value="https://blog.naver.com/mybakery2024" style="flex:1">
             <button class="btn btn-ghost btn-sm"><span class="icon-trash-2" data-icon="trash-2" data-size="12" data-color="#9AA0B4"></span></button>
           </div>
           <div class="channel-url-row">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 범위</span>
-            <select style="width:160px">
-              <option>최근 50개</option>
-              <option>최근 100개</option>
-              <option>전체</option>
+            <select id="training-blog-limit" style="width:160px">
+              <option value="50">최근 50개</option>
+              <option value="100">최근 100개</option>
+              <option value="0">전체</option>
             </select>
           </div>
           <div class="channel-url-row" style="margin-bottom:0">
@@ -59,12 +59,20 @@
         </div>
         <div class="channel-body">
           <div class="channel-url-row">
-            <input type="text" value="https://naver.me/xxxxxx" style="flex:1">
+            <input type="text" id="training-place-url" value="https://naver.me/xxxxxx" style="flex:1">
             <button class="btn btn-ghost btn-sm"><span class="icon-trash-2" data-icon="trash-2" data-size="12" data-color="#9AA0B4"></span></button>
           </div>
           <div class="channel-note" style="margin-top:8px">
             <span style="flex-shrink:0;margin-top:1px" class="icon-info" data-icon="info" data-size="13" data-color="currentColor"></span>
             플레이스는 매장 기본정보(업종, 소개, 운영시간 등)와 고객 리뷰를 수집합니다. 게시물 수집 범위는 적용되지 않습니다.
+          </div>
+          <div class="channel-url-row" style="margin-top:8px;margin-bottom:0">
+            <span style="font-size:11px;color:#4A5568;white-space:nowrap">리뷰 수집 범위</span>
+            <select id="training-place-review-limit" style="width:160px">
+              <option value="50">최근 50개</option>
+              <option value="100">최근 100개</option>
+              <option value="0">전체</option>
+            </select>
           </div>
           <div class="channel-url-row" style="margin-top:8px;margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 주기</span>
@@ -84,9 +92,17 @@
         </div>
         <div class="channel-body">
           <div class="channel-url-row">
-            <input type="text" placeholder="URL을 입력하세요 (예: https://instagram.com/mybakery)" style="flex:1;color:#9AA0B4">
+            <input type="text" id="training-instagram-url" placeholder="URL을 입력하세요 (예: https://instagram.com/mybakery)" style="flex:1;color:#9AA0B4">
           </div>
           <div class="channel-url-row" style="margin-bottom:0">
+            <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 범위</span>
+            <select id="training-instagram-limit" style="width:160px">
+              <option value="0">수집 안 함</option>
+              <option value="30">최근 30개</option>
+              <option value="50">최근 50개</option>
+            </select>
+          </div>
+          <div class="channel-url-row" style="margin-top:8px;margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 주기</span>
             <select style="width:160px">
               <option>매주</option>
@@ -158,10 +174,10 @@
   </div>
 
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-    <button class="btn btn-ghost">저장</button>
-    <button class="btn btn-primary" onclick="location.href='04_AI학습_수집중.html'" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 수집 실행">저장 후 수집 실행</button>
+    <button class="btn btn-ghost" id="training-save-btn">저장</button>
+    <button class="btn btn-primary" id="training-start-btn" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 수집 실행">저장 후 수집 실행</button>
   </div>
 </div>
-<script></script>
+<script src="training_settings.js"></script>
 </body>
 </html>
