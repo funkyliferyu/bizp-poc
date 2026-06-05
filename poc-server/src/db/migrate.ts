@@ -21,6 +21,7 @@ export function migrateDatabase(connection: DbConnection) {
   ensureColumn(connection, 'ruleset_fields', 'final_value', "TEXT NOT NULL DEFAULT ''");
   ensureColumn(connection, 'ruleset_fields', 'locked', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(connection, 'ruleset_fields', 'evidence_item_ids_json', "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(connection, 'media_assets', 'prompt', 'TEXT');
   ensureColumn(connection, 'seo_scores', 'total_score', 'INTEGER');
 }
 

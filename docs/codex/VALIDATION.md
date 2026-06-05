@@ -1,6 +1,6 @@
 # Validation
 
-## BLOG-001 Commands
+## CONTENT-001 Commands
 
 Run from `poc-server/`:
 
@@ -11,9 +11,9 @@ npm run typecheck
 npm test
 npm run demo
 npm run demo:store-learning
-sqlite3 data/store-learning.sqlite "select id, status, title from blog_posts order by created_at desc limit 5;"
-sqlite3 data/store-learning.sqlite "select id, store_id from content_generations order by created_at desc limit 5;"
-sqlite3 data/store-learning.sqlite "select blog_post_id, total_score from seo_scores order by created_at desc limit 5;"
+sqlite3 data/store-learning.sqlite "select id, status, title from blog_posts where id='blog_post_demo_pending_approval';"
+sqlite3 data/store-learning.sqlite "select blog_post_id, total_score from seo_scores where blog_post_id='blog_post_demo_pending_approval';"
+sqlite3 data/store-learning.sqlite "select blog_post_id, asset_type, prompt from media_assets where blog_post_id='blog_post_demo_pending_approval';"
 ```
 
 Manual smoke test:
@@ -25,98 +25,110 @@ npm run dev
 Then open:
 
 ```text
-http://localhost:5177/02_블로그관리.html?storeId=store_demo_cake
-http://localhost:5177/08_AI콘텐츠생성_목록.html?storeId=store_demo_cake
+http://localhost:5177/09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval
 ```
 
 Expected page checks:
 
-- Approval-pending blog posts load from the API.
-- The AI content list generate button creates a new pending approval draft.
-- Pending count updates after generation.
-- Clicking a generated post navigates to `09_AI콘텐츠생성_상세.html?postId=...`.
-- Browser console has no errors during the smoke path.
+- Generated title/body load from the API.
+- Image placeholder or image prompts display.
+- SEO total score displays.
+- Six SEO itemized checks display.
+- Text regeneration updates body/title and SEO score.
+- Image regeneration updates prompt placeholders.
+- SEO re-score updates total/checklist data.
+- Preview modal displays blog-shaped preview.
+- Publish request changes status to `publish_requested`.
 
 ## Expected Coverage
 
-- `npm run db:migrate` applies the Store Learning SQLite schema and idempotent `seo_scores.total_score` migration.
-- `npm run db:seed` keeps the demo store seed path idempotent and seeds demo blog/SEO data.
-- `npm run typecheck` verifies the blog generator, routes, and repository usage compile.
-- `npm test` runs existing Event-to-Operation tests plus Store Learning repository, registration, training, collection, selection, analysis, learning status, ruleset, and blog generation tests.
+- `npm run db:migrate` applies the Store Learning SQLite schema and idempotent `media_assets.prompt` migration.
+- `npm run db:seed` keeps the demo store seed path idempotent and seeds demo prompt data.
+- `npm run typecheck` verifies the blog detail service, routes, and repository usage compile.
+- `npm test` runs existing Event-to-Operation tests plus Store Learning registration, training, collection, selection, analysis, learning, ruleset, blog, and content detail tests.
 - `npm run demo` verifies the existing Event-to-Operation demo still runs.
 - `npm run demo:store-learning` verifies the Store Learning demo seed path still runs.
-- SQLite checks verify generated blog posts, content generations, and SEO total scores.
+- SQLite checks verify blog post publish status, SEO total scores, and media prompts.
 
 ## TDD Evidence
 
-- RED `npm test -- blogGenerationApi.test.ts blogPostPages.test.ts`: failed because the blog post routes, page hooks, and `web/blog_posts.js` did not exist.
-- GREEN `npm test -- blogGenerationApi.test.ts blogPostPages.test.ts`: passed, 2 files / 4 tests.
+- RED `npm test -- contentDetailApi.test.ts contentDetailPage.test.ts`: failed because CONTENT-001 routes/detail shape, `media_assets.prompt`, page hooks, and `web/content_detail.js` did not exist.
+- GREEN `npm test -- contentDetailApi.test.ts contentDetailPage.test.ts`: passed, 2 files / 6 tests.
 
 ## Final Sequential Validation
 
 - `npm run db:migrate`: passed.
 - `npm run db:seed`: passed.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 24 files / 81 tests.
+- `npm test`: passed, 26 files / 87 tests.
 - `npm run demo`: passed and generated the existing Event-to-Operation approval package.
 - `npm run demo:store-learning`: passed and printed the seeded Store Learning summary.
-- SQLite blog post spot check: passed.
-- SQLite content generation spot check: passed.
+- SQLite blog post status spot check: passed.
 - SQLite SEO `total_score` spot check: passed.
+- SQLite media prompt spot check: passed after single-query retry; parallel SQLite reads can briefly lock the local DB.
 
-SQLite sample after browser generation:
+SQLite sample after browser smoke:
 
 ```text
-blog_post_1780675735795_store_demo_cake|pending_approval|분당 케이크하우스 추천 - 분당 케이크하우스 예약 안내
-blog_post_demo_pending_approval|pending_approval|분당 케이크 맛집 추천 - 당일 제작 레터링 케이크 안내
+blog_post_demo_pending_approval|publish_requested|분당 케이크 추천 - 분당 케이크하우스 예약 안내 · 2차 초안
 
-content_generation_blog_1780675735795_store_demo_cake|store_demo_cake
-content_generation_demo_blog|store_demo_cake
-
-blog_post_1780675735795_store_demo_cake|86
 blog_post_demo_pending_approval|86
+blog_post_demo_pending_approval|90
+blog_post_demo_pending_approval|94
+blog_post_demo_pending_approval|94
+blog_post_demo_pending_approval|94
+blog_post_demo_pending_approval|94
+blog_post_demo_pending_approval|94
+
+blog_post_demo_pending_approval|image_prompt|케이크 디테일과 포장 상태를 보여주는 이미지 - 대표 이미지 · 재생성 placeholder 1
+blog_post_demo_pending_approval|image_prompt|분당 케이크하우스 레터링 케이크 디테일 이미지 placeholder · 재생성 placeholder 2
+blog_post_demo_pending_approval|image_prompt|분당 케이크하우스 픽업 또는 포장 안내 이미지 placeholder · 재생성 placeholder 3
 ```
 
 ## Manual Browser Smoke
 
-Smoke URLs:
+Smoke URL:
 
 ```text
-http://127.0.0.1:5178/08_AI콘텐츠생성_목록.html?storeId=store_demo_cake
-http://127.0.0.1:5178/02_블로그관리.html?storeId=store_demo_cake
+http://127.0.0.1:5178/09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval
 ```
 
-Observed AI content list state:
+Observed initial state:
 
 ```text
-initial.title=AI 콘텐츠 자동 생성
-initial.pending=1건
-initial.rows=1
-initial.firstStatus=승인 대기
-afterGenerate.pending=2건
-afterGenerate.rows=2
-afterGenerate.firstStatus=승인 대기
-afterGenerate.firstPostId=blog_post_1780675735795_store_demo_cake
-detail.postIdMatches=true
+title=분당 케이크 맛집 추천 - 당일 제작 레터링 케이크 안내
+status=승인 대기
+body includes 정자동
+imageCount=3
+seoTotal=94
+seoItemCount=6
 ```
 
-Observed blog management state:
+Observed after actions:
 
 ```text
-title=블로그 관리
-pending=승인 대기 2건
-rows=2
-firstStatus=승인 대기
-firstPostId=blog_post_1780675735795_store_demo_cake
+afterTextRegen.title=분당 케이크 추천 - 분당 케이크하우스 예약 안내 · 2차 초안
+afterTextRegen.body includes 재생성
+afterTextRegen.seoTotal=90
+afterImageRegen.imageCount=3
+afterImageRegen.firstPrompt includes 재생성 placeholder 1
+afterImageRegen.seoTotal=94
+afterSeoRescore.seoBadge=총점 94점
+afterSeoRescore.labels=제목 키워드, 본문 키워드, 메타 설명, 가독성, 이미지 ALT/프롬프트, CTA
+preview.display=flex
+preview.bodyHasArticle=true
+afterPublish.status=발행 요청
+afterPublishReload.buttonText=발행 요청 완료
+afterPublishReload.buttonDisabled=true
 browserConsoleErrors=[]
 ```
 
-## BLOG-001 Boundaries
+## CONTENT-001 Boundaries
 
 - No browser-side Naver/OpenAI calls are present.
 - No real server-side Naver/OpenAI calls are present.
 - No real image generation is present.
-- No detailed editor, regeneration, publish request, analysis, collection, or ruleset regeneration behavior was added.
+- No actual Naver Blog publishing is present.
 - Existing Event-to-Operation workflows should remain behaviorally unchanged.
 - `admin/` and `pc-web/` should remain unchanged.
 - The generated local SQLite file is under ignored `poc-server/data/`.

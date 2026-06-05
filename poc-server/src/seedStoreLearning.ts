@@ -311,6 +311,7 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     assetType: 'image',
     status: 'selected',
     url: '/assets/demo/store-demo-cake-cover.jpg',
+    prompt: '분당 레터링 케이크 대표 이미지 placeholder',
     metadata: {
       alt: '분당 레터링 케이크 대표 이미지',
       source: 'mock'

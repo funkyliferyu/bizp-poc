@@ -2,80 +2,104 @@
 
 ## Current Scope
 
-BLOG-001 generates approval-pending blog post drafts for the Store Learning & Blog Content Automation PoC from the current marketing ruleset.
+CONTENT-001 connects the AI content detail page for the Store Learning & Blog Content Automation PoC to generated blog post data.
 
-This change adds deterministic mock blog generation, persists generated draft artifacts, and connects the existing blog management/list pages to stored blog posts. It does not call OpenAI, call Naver, generate real images, add regeneration endpoints, publish content, redesign pages, or touch `admin/` / `pc-web/`.
+This change shows generated article content, media prompts/placeholders, SEO score detail, preview data, deterministic text regeneration, deterministic image prompt regeneration, SEO rescoring, and publish request state transition. It does not call OpenAI, call Naver, generate real images, publish to Naver Blog, redesign the page, or touch `admin/` / `pc-web/`.
 
 ## Added Runtime Pieces
 
 - `poc-server/src/storeLearning/blog/blogGenerator.ts`
-  - Finds the latest marketing ruleset for a store.
-  - Builds a deterministic blog draft from ruleset fields and store metadata.
-  - Validates generated output with `BlogDraftOutputSchema` before persistence.
-  - Persists:
-    - `content_generation`
-    - `blog_post` with `status = pending_approval`
-    - image prompt placeholder `media_assets`
-    - initial `seo_score`
-  - Shapes list/detail responses for browser use.
-- `poc-server/src/storeLearning/routes/stores.ts` now also exposes:
-  - `POST /api/stores/:storeId/blog-posts/generate`
-  - `GET /api/stores/:storeId/blog-posts`
-- `poc-server/src/storeLearning/routes/blogPosts.ts`
-  - Exposes `GET /api/blog-posts/:postId`.
-- `poc-server/src/index.ts`
-  - Mounts `/api/blog-posts`.
-- `web/blog_posts.js`
-  - Loads approval-pending blog posts from poc-server APIs only.
-  - Generates a new mock draft from the current ruleset when the list page button is clicked.
-  - Renders rows on `02_블로그관리.html` and `08_AI콘텐츠생성_목록.html`.
-  - Navigates rows to `09_AI콘텐츠생성_상세.html?postId=...`.
-- `web/02_블로그관리.html`
-  - Adds `id="blog-pending-count"`, `id="blog-post-list"`, and `blog_posts.js`.
-- `web/08_AI콘텐츠생성_목록.html`
-  - Adds `id="blog-generate-btn"`, `id="ai-content-pending-count"`, `id="ai-content-list"`, and `blog_posts.js`.
-- `poc-server/src/db/schema.sql`, `poc-server/src/db/migrate.ts`, `poc-server/src/repositories/seo_scores.ts`
-  - Add `seo_scores.total_score` as a compatibility column while preserving existing `score`.
+  - Extends blog post detail shaping with:
+    - normalized article data
+    - media prompt/alt display data
+    - itemized SEO rubric
+  - Adds deterministic mock text regeneration.
+  - Adds deterministic mock image prompt regeneration.
+  - Adds structured SEO scoring with Zod validation.
+  - Adds server-side preview data and escaped preview HTML.
+  - Adds publish request status transition to `publish_requested`.
+- `poc-server/src/storeLearning/routes/blogPosts.ts` now exposes:
+  - `GET /api/blog-posts/:postId`
+  - `POST /api/blog-posts/:postId/regenerate-text`
+  - `POST /api/blog-posts/:postId/regenerate-images`
+  - `POST /api/blog-posts/:postId/seo-score`
+  - `GET /api/blog-posts/:postId/preview`
+  - `POST /api/blog-posts/:postId/request-publish`
+- `poc-server/src/db/schema.sql`, `poc-server/src/db/migrate.ts`, `poc-server/src/repositories/media_assets.ts`
+  - Add `media_assets.prompt` as a local PoC compatibility column for image prompt checks.
 - `poc-server/src/seedStoreLearning.ts`
-  - Seeds demo SEO rows with both `score` and `totalScore`.
-- `poc-server/test/blogGenerationApi.test.ts`
-  - Covers generation persistence, list API, detail API, media placeholders, and SEO score persistence.
-- `poc-server/test/blogPostPages.test.ts`
-  - Covers page hooks and confirms browser code only calls poc-server blog post APIs.
+  - Seeds the demo media asset prompt.
+- `web/09_AI콘텐츠생성_상세.html`
+  - Preserves the existing layout.
+  - Adds stable hooks for title, metadata, status, body, media list, SEO score, action buttons, and preview.
+  - Loads `content_detail.js`.
+- `web/content_detail.js`
+  - Loads by `postId` query parameter.
+  - Calls poc-server blog detail APIs only.
+  - Renders article body, image prompts, SEO total, SEO checklist, preview, and status.
+  - Wires text regeneration, image prompt regeneration, SEO rescoring, preview, and publish request.
+- `poc-server/test/contentDetailApi.test.ts`
+  - Covers detail shape, text regeneration, image prompt regeneration, SEO rescoring, preview, and publish request persistence.
+- `poc-server/test/contentDetailPage.test.ts`
+  - Covers page hooks and verifies browser code calls only poc-server APIs.
 
 ## API Behavior
 
-`POST /api/stores/:storeId/blog-posts/generate` returns:
-
-- `contentGeneration`
-- shaped `blogPost`
-- placeholder `mediaAssets`
-- `seoScore`
-
-`GET /api/stores/:storeId/blog-posts` returns:
-
-- store summary
-- shaped posts sorted newest first
-- `pendingApprovalCount`
-
 `GET /api/blog-posts/:postId` returns:
 
-- shaped blog post
-- source content generation
-- linked media assets
-- latest SEO score
+- shaped `blogPost`
+- normalized `article`
+- source `contentGeneration`
+- shaped `mediaAssets` with `prompt`
+- itemized `seoScore`
+
+`POST /api/blog-posts/:postId/regenerate-text`:
+
+- uses deterministic mock generation
+- preserves ruleset constraints through the existing ruleset-backed generator
+- updates `blog_posts.title`, `blog_posts.article_json`, and revision metadata
+- creates a new text revision `content_generation`
+- creates a fresh itemized `seo_score`
+
+`POST /api/blog-posts/:postId/regenerate-images`:
+
+- does not call image providers
+- updates or creates three placeholder `media_assets`
+- stores regenerated prompts in both `prompt` and `metadata_json`
+- creates a fresh itemized `seo_score`
+
+`POST /api/blog-posts/:postId/seo-score`:
+
+- creates a fresh `seo_scores` row with:
+  - title keyword score
+  - body keyword score
+  - meta description score
+  - readability score
+  - image alt/prompt score
+  - CTA score
+  - total score
+
+`GET /api/blog-posts/:postId/preview`:
+
+- returns blog-shaped preview data with escaped HTML for the local PoC preview modal.
+
+`POST /api/blog-posts/:postId/request-publish`:
+
+- updates `blog_posts.status` to `publish_requested`
+- updates article status metadata
+- does not publish externally
 
 ## Guardrails
 
 - Browser pages call poc-server APIs only.
-- Mock generation works without external keys.
+- Mock mode works without external keys.
 - No server-side or browser-side OpenAI calls were added.
 - No server-side or browser-side Naver calls were added.
-- Media records are prompt placeholders only; no image generation is performed.
-- No detailed editor, regeneration, publish request, analysis, collection, or ruleset regeneration behavior was added.
+- Image regeneration is prompt/placeholder regeneration only.
+- Publish request is a local status transition only.
 - Existing Event-to-Operation workflows were not modified.
 - `admin/` and `pc-web/` were not modified.
-- Existing HTML pages were not redesigned; only data hooks, one suitable generate button, and a small page script include were added.
+- `web/09_AI콘텐츠생성_상세.html` was not redesigned; only hooks, one SEO button, and a page script include were added.
 
 ## Local Run Notes
 
@@ -85,29 +109,31 @@ Run the server from `poc-server/`:
 npm run dev
 ```
 
-Open either page:
+Open:
 
 ```text
-http://localhost:5177/02_블로그관리.html?storeId=store_demo_cake
-http://localhost:5177/08_AI콘텐츠생성_목록.html?storeId=store_demo_cake
+http://localhost:5177/09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval
 ```
 
 Useful API checks:
 
 ```bash
-curl http://localhost:5177/api/stores/store_demo_cake/blog-posts
-curl -X POST http://localhost:5177/api/stores/store_demo_cake/blog-posts/generate
 curl http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval
+curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/regenerate-text
+curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/regenerate-images
+curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/seo-score
+curl http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/preview
+curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/request-publish
 ```
 
 Useful DB checks:
 
 ```bash
-sqlite3 data/store-learning.sqlite "select id, status, title from blog_posts order by created_at desc limit 5;"
-sqlite3 data/store-learning.sqlite "select id, store_id from content_generations order by created_at desc limit 5;"
-sqlite3 data/store-learning.sqlite "select blog_post_id, total_score from seo_scores order by created_at desc limit 5;"
+sqlite3 data/store-learning.sqlite "select id, status, title from blog_posts where id='blog_post_demo_pending_approval';"
+sqlite3 data/store-learning.sqlite "select blog_post_id, total_score from seo_scores where blog_post_id='blog_post_demo_pending_approval';"
+sqlite3 data/store-learning.sqlite "select blog_post_id, asset_type, prompt from media_assets where blog_post_id='blog_post_demo_pending_approval';"
 ```
 
 ## Next Suggested Task
 
-CONTENT-001 can connect the content detail screen to `GET /api/blog-posts/:postId` and add preview, SEO detail, and later regeneration actions. Keep real OpenAI/image generation provider work behind future provider-boundary tasks unless explicitly requested.
+After CONTENT-001 is merged, the next work should decide whether to continue with local approval/publish workflow depth or introduce provider-boundary tasks for real OpenAI/image generation/Naver publishing. Keep those real integrations server-side and behind provider adapters.
