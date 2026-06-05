@@ -323,6 +323,7 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     id: 'seo_score_demo_blog',
     blogPostId,
     score: 86,
+    totalScore: 86,
     status: 'scored',
     rubric: {
       keywordFit: 28,

@@ -21,6 +21,7 @@ import {
   resetRulesetFieldValue,
   updateRulesetFieldValue
 } from '../rulesets/rulesetService.js';
+import { generateApprovalPendingBlogPost, listBlogPostsForStore } from '../blog/blogGenerator.js';
 
 type StoreRoutesOptions = {
   connection: DbConnection;
@@ -368,6 +369,24 @@ export function createStoreRoutes({ connection, env = process.env }: StoreRoutes
     }
     if (!payload.field) {
       res.status(404).json({ error: `Ruleset field not found: ${req.params.fieldKey}` });
+      return;
+    }
+    res.json(payload);
+  });
+
+  router.post('/:storeId/blog-posts/generate', (req, res, next) => {
+    try {
+      const payload = generateApprovalPendingBlogPost(repos, req.params.storeId);
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/:storeId/blog-posts', (req, res) => {
+    const payload = listBlogPostsForStore(repos, req.params.storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
       return;
     }
     res.json(payload);

@@ -11,6 +11,7 @@ import { ApprovalPackageSchema } from './schemas/approvalPackage.js';
 import { BusinessMemorySchema } from './schemas/businessMemory.js';
 import { EventSchema } from './schemas/event.js';
 import { createAnalysisRunRoutes } from './storeLearning/routes/analysisRuns.js';
+import { createBlogPostRoutes } from './storeLearning/routes/blogPosts.js';
 import { createCollectionItemRoutes } from './storeLearning/routes/collectionItems.js';
 import { createCollectionRunRoutes } from './storeLearning/routes/collectionRuns.js';
 import { createStoreRoutes } from './storeLearning/routes/stores.js';
@@ -37,6 +38,7 @@ app.use('/api/stores', createStoreRoutes({ connection: storeLearningConnection }
 app.use('/api/collection-runs', createCollectionRunRoutes({ connection: storeLearningConnection }));
 app.use('/api/collection-items', createCollectionItemRoutes({ connection: storeLearningConnection }));
 app.use('/api/analysis-runs', createAnalysisRunRoutes({ connection: storeLearningConnection }));
+app.use('/api/blog-posts', createBlogPostRoutes({ connection: storeLearningConnection }));
 
 const ApprovalDecisionRequestSchema = z.object({
   action: z.enum(['request_revision', 'reject', 'approve']),

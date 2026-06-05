@@ -58,7 +58,7 @@
   <div style="background:#FFF4E6;border:1px solid #FFA94D;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
     <div style="display:flex;align-items:center;gap:8px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8590C" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <span style="font-size:13px;font-weight:600;color:#E8590C">승인 대기 2건</span>
+      <span id="blog-pending-count" style="font-size:13px;font-weight:600;color:#E8590C">승인 대기 2건</span>
       <span style="font-size:12px;color:#E8590C;opacity:.8">AI가 생성한 콘텐츠를 검토하고 발행 요청해 주세요.</span>
     </div>
     <button class="btn btn-sm" style="background:#E8590C;color:#fff;border:none" onclick="location.href='09_AI콘텐츠생성_상세.html'" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="다음: 콘텐츠 상세">지금 확인</button>
@@ -173,7 +173,7 @@
           <th style="width:72px">발행일</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="blog-post-list">
         <tr onclick="location.href='11_블로그_발행완료_상세.html'" style="cursor:pointer" data-flow-target="11_블로그_발행완료_상세.html" data-flow-label="다음: 발행 완료 상세">
           <td class="td-link" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기
@@ -258,6 +258,6 @@
     <button class="pg-btn"><span class="icon-chevron-right" data-icon="chevron-right" data-size="12" data-color="currentColor"></span></button>
   </div>
 </div>
-<script></script>
+<script src="blog_posts.js"></script>
 </body>
 </html>
