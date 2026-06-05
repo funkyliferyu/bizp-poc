@@ -47,7 +47,7 @@ describe('selection API', () => {
     app.use(express.json());
     app.use('/api/collection-runs', createCollectionRunRoutes({ connection, stepDelayMs: 0 }));
     app.use('/api/collection-items', createCollectionItemRoutes({ connection }));
-    app.use('/api/analysis-runs', createAnalysisRunRoutes({ connection }));
+    app.use('/api/analysis-runs', createAnalysisRunRoutes({ connection, env: {} }));
     app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res.status(400).json({ error: message });

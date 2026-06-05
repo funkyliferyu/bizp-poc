@@ -4,9 +4,14 @@ import type { DbConnection } from '../../db/connection.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { getAnalysisArtifacts, startAnalysisRun } from '../analysis/analysisExecutionService.js';
+import type { AnalysisProvider } from '../analysis/analyzer.js';
+import { createAnalysisProvider } from '../analysis/openAIAnalysisProvider.js';
+import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type AnalysisRunRoutesOptions = {
   connection: DbConnection;
+  env?: ProviderEnv;
+  provider?: AnalysisProvider;
 };
 
 const AnalysisRunCreateSchema = z.object({
@@ -32,7 +37,7 @@ function selectedCounts(items: CollectionItem[]) {
   };
 }
 
-export function createAnalysisRunRoutes({ connection }: AnalysisRunRoutesOptions) {
+export function createAnalysisRunRoutes({ connection, env = process.env, provider }: AnalysisRunRoutesOptions) {
   const router = express.Router();
   const repos = createStoreLearningRepositories(connection);
 
@@ -47,7 +52,7 @@ export function createAnalysisRunRoutes({ connection }: AnalysisRunRoutesOptions
 
   router.post('/:analysisRunId/start', async (req, res, next) => {
     try {
-      const artifacts = await startAnalysisRun(repos, req.params.analysisRunId);
+      const artifacts = await startAnalysisRun(repos, req.params.analysisRunId, provider ?? createAnalysisProvider(env));
       res.json(artifacts);
     } catch (error) {
       next(error);
