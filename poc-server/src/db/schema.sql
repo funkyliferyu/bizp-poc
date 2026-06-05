@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS collection_items (
   store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   channel TEXT NOT NULL,
   source_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
   source_url TEXT,
   title TEXT,
   body_text TEXT,

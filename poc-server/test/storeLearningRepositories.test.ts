@@ -30,7 +30,7 @@ describe('Store Learning repositories', () => {
         .prepare('PRAGMA table_info(collection_items)')
         .all()
         .map((row) => (row as { name: string }).name);
-      expect(columns).toEqual(expect.arrayContaining(['selected_for_analysis', 'selection_reason', 'selected_at']));
+      expect(columns).toEqual(expect.arrayContaining(['status', 'selected_for_analysis', 'selection_reason', 'selected_at']));
     } finally {
       connection.close();
     }
@@ -94,6 +94,7 @@ describe('Store Learning repositories', () => {
         storeId: store.id,
         channel: 'blog',
         sourceType: 'post',
+        status: 'pending',
         sourceUrl: 'https://blog.naver.com/demo-cake/1',
         title: '분당 케이크 후기',
         bodyText: '당일 제작 케이크 후기가 좋습니다.',
