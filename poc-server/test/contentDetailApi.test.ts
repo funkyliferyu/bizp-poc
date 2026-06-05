@@ -24,7 +24,7 @@ describe('content detail API', () => {
 
     const app = express();
     app.use(express.json());
-    app.use('/api/blog-posts', createBlogPostRoutes({ connection }));
+    app.use('/api/blog-posts', createBlogPostRoutes({ connection, env: {} }));
     app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res.status(400).json({ error: message });
@@ -87,6 +87,147 @@ describe('content detail API', () => {
     expect(scores.at(-1)?.totalScore).toBe(body.seoScore.totalScore);
   });
 
+  it('regenerates text and SEO through the OpenAI blog provider when configured', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    seedDemoStore(connection);
+
+    const parseCalls: unknown[] = [];
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/blog-posts',
+      createBlogPostRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-blog-model' },
+        blogProviderClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async (params: unknown) => {
+                  parseCalls.push(params);
+                  return {
+                    choices: [
+                      {
+                        message: {
+                          parsed: {
+                            title: 'OpenAI 재생성 분당 케이크 예약 안내',
+                            metaDescription: 'OpenAI 재생성 본문에 맞춘 검색 요약입니다.',
+                            bodySections: [
+                              {
+                                heading: '재생성된 첫 문단',
+                                body: '분당 케이크 예약 고객에게 필요한 핵심 정보를 다시 정리합니다.'
+                              },
+                              {
+                                heading: '근거 기반 장점',
+                                body: '플레이스와 블로그 근거를 바탕으로 상담과 픽업 장점을 설명합니다.'
+                              },
+                              {
+                                heading: '예약 행동 유도',
+                                body: '레터링 케이크 주문 전 확인할 날짜와 픽업 시간을 안내합니다.'
+                              }
+                            ],
+                            seoKeywords: ['분당 케이크', '레터링 케이크', '정자동 케이크'],
+                            cta: '예약 가능 여부를 지금 확인해 주세요.',
+                            imagePrompts: [
+                              'OpenAI 재생성 대표 이미지 프롬프트',
+                              'OpenAI 재생성 상세 이미지 프롬프트',
+                              'OpenAI 재생성 픽업 이미지 프롬프트'
+                            ],
+                            seoScore: {
+                              totalScore: 94,
+                              rubric: {
+                                titleKeyword: {
+                                  label: '제목 키워드',
+                                  score: 20,
+                                  maxScore: 20,
+                                  feedback: '핵심 키워드가 제목에 정확히 포함되었습니다.'
+                                },
+                                bodyKeyword: {
+                                  label: '본문 키워드',
+                                  score: 19,
+                                  maxScore: 20,
+                                  feedback: '본문 키워드 밀도가 적절합니다.'
+                                },
+                                metaDescription: {
+                                  label: '메타 설명',
+                                  score: 14,
+                                  maxScore: 15,
+                                  feedback: '요약 문장이 검색 친화적입니다.'
+                                },
+                                readability: {
+                                  label: '가독성',
+                                  score: 14,
+                                  maxScore: 15,
+                                  feedback: '읽기 흐름이 자연스럽습니다.'
+                                },
+                                imageAltPrompt: {
+                                  label: '이미지 ALT/프롬프트',
+                                  score: 13,
+                                  maxScore: 15,
+                                  feedback: '이미지 프롬프트가 게시글 의도와 맞습니다.'
+                                },
+                                cta: {
+                                  label: 'CTA',
+                                  score: 14,
+                                  maxScore: 15,
+                                  feedback: '예약 CTA가 분명합니다.'
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  };
+                }
+              }
+            }
+          }
+        }
+      })
+    );
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/api/blog-posts/blog_post_demo_pending_approval/regenerate-text`, {
+      method: 'POST'
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const post = repos.blogPosts.findById('blog_post_demo_pending_approval');
+    const generation = post?.contentGenerationId ? repos.contentGenerations.findById(post.contentGenerationId) : null;
+    const scores = repos.seoScores.listByBlogPostId('blog_post_demo_pending_approval');
+
+    expect(response.status).toBe(200);
+    expect(parseCalls).toHaveLength(1);
+    expect(JSON.stringify(parseCalls[0])).toContain('test-blog-model');
+    expect(body.blogPost.title).toBe('OpenAI 재생성 분당 케이크 예약 안내');
+    expect(body.blogPost.article.revisions.at(-1)).toMatchObject({
+      type: 'text',
+      generator: 'openai_blog_provider'
+    });
+    expect(generation?.prompt).toMatchObject({
+      mode: 'openai',
+      provider: 'openAIBlogProvider',
+      action: 'regenerate_text'
+    });
+    expect(scores.at(-1)).toMatchObject({
+      totalScore: 94,
+      rubric: expect.objectContaining({
+        bodyKeyword: expect.any(Object)
+      })
+    });
+  });
+
   it('regenerates image prompts without calling image providers', async () => {
     const response = await fetch(`${baseUrl}/api/blog-posts/blog_post_demo_pending_approval/regenerate-images`, {
       method: 'POST'
@@ -136,5 +277,115 @@ describe('content detail API', () => {
     expect(publishResponse.status).toBe(200);
     expect(publishBody.blogPost.status).toBe('publish_requested');
     expect(repos.blogPosts.findById('blog_post_demo_pending_approval')?.status).toBe('publish_requested');
+  });
+
+  it('rescoring uses the OpenAI blog provider when configured', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    seedDemoStore(connection);
+
+    const parseCalls: unknown[] = [];
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/blog-posts',
+      createBlogPostRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-seo-model' },
+        blogProviderClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async (params: unknown) => {
+                  parseCalls.push(params);
+                  return {
+                    choices: [
+                      {
+                        message: {
+                          parsed: {
+                            totalScore: 88,
+                            rubric: {
+                              titleKeyword: {
+                                label: '제목 키워드',
+                                score: 18,
+                                maxScore: 20,
+                                feedback: '제목에 지역 키워드가 포함되었습니다.'
+                              },
+                              bodyKeyword: {
+                                label: '본문 키워드',
+                                score: 18,
+                                maxScore: 20,
+                                feedback: '본문 키워드가 충분합니다.'
+                              },
+                              metaDescription: {
+                                label: '메타 설명',
+                                score: 13,
+                                maxScore: 15,
+                                feedback: '요약 문장이 적절합니다.'
+                              },
+                              readability: {
+                                label: '가독성',
+                                score: 13,
+                                maxScore: 15,
+                                feedback: '읽기 흐름이 좋습니다.'
+                              },
+                              imageAltPrompt: {
+                                label: '이미지 ALT/프롬프트',
+                                score: 13,
+                                maxScore: 15,
+                                feedback: '이미지 설명이 충분합니다.'
+                              },
+                              cta: {
+                                label: 'CTA',
+                                score: 13,
+                                maxScore: 15,
+                                feedback: '예약 CTA가 포함되었습니다.'
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  };
+                }
+              }
+            }
+          }
+        }
+      })
+    );
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/api/blog-posts/blog_post_demo_pending_approval/seo-score`, {
+      method: 'POST'
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const scores = repos.seoScores.listByBlogPostId('blog_post_demo_pending_approval');
+
+    expect(response.status).toBe(200);
+    expect(parseCalls).toHaveLength(1);
+    expect(JSON.stringify(parseCalls[0])).toContain('test-seo-model');
+    expect(body.seoScore).toMatchObject({
+      totalScore: 88,
+      rubric: expect.objectContaining({
+        titleKeyword: expect.objectContaining({ score: 18 })
+      })
+    });
+    expect(scores.at(-1)).toMatchObject({
+      totalScore: 88,
+      rubric: expect.objectContaining({
+        cta: expect.any(Object)
+      })
+    });
   });
 });

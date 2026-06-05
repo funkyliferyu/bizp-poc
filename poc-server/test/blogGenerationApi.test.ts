@@ -116,4 +116,152 @@ describe('ruleset based blog generation API', () => {
     expect(detail.seoScore.score).toBeGreaterThanOrEqual(70);
     expect(detail.contentGeneration.id).toBe(generated.contentGeneration.id);
   });
+
+  it('generates an approval-pending blog post through the OpenAI blog provider when configured', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    seedDemoStore(connection);
+
+    const parseCalls: unknown[] = [];
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/stores',
+      createStoreRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-blog-model' },
+        blogProviderClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async (params: unknown) => {
+                  parseCalls.push(params);
+                  return {
+                    choices: [
+                      {
+                        message: {
+                          parsed: {
+                            title: 'OpenAI 분당 레터링 케이크 예약 가이드',
+                            metaDescription: 'OpenAI provider가 생성한 분당 레터링 케이크 예약 안내 요약입니다.',
+                            bodySections: [
+                              {
+                                heading: 'OpenAI 추천 포인트',
+                                body: '정자동 픽업 동선과 레터링 상담 흐름을 함께 안내합니다.'
+                              },
+                              {
+                                heading: '후기 기반 강점',
+                                body: '수집된 블로그와 플레이스 근거를 바탕으로 친절한 상담 강점을 설명합니다.'
+                              },
+                              {
+                                heading: '예약 전 확인사항',
+                                body: '분당 케이크, 레터링 케이크 키워드를 자연스럽게 포함하고 예약 확인 CTA를 둡니다.'
+                              }
+                            ],
+                            seoKeywords: ['분당 케이크', '레터링 케이크', '정자동 케이크'],
+                            cta: '예약 가능 여부와 픽업 시간을 확인해 주세요.',
+                            imagePrompts: [
+                              'OpenAI 케이크 대표 이미지 프롬프트',
+                              'OpenAI 레터링 디테일 이미지 프롬프트',
+                              'OpenAI 픽업 안내 이미지 프롬프트'
+                            ],
+                            seoScore: {
+                              totalScore: 91,
+                              rubric: {
+                                titleKeyword: {
+                                  label: '제목 키워드',
+                                  score: 19,
+                                  maxScore: 20,
+                                  feedback: '주요 지역 키워드가 제목에 반영되었습니다.'
+                                },
+                                bodyKeyword: {
+                                  label: '본문 키워드',
+                                  score: 18,
+                                  maxScore: 20,
+                                  feedback: '본문에 핵심 키워드가 자연스럽게 포함되었습니다.'
+                                },
+                                metaDescription: {
+                                  label: '메타 설명',
+                                  score: 14,
+                                  maxScore: 15,
+                                  feedback: '검색 결과 요약에 적합합니다.'
+                                },
+                                readability: {
+                                  label: '가독성',
+                                  score: 14,
+                                  maxScore: 15,
+                                  feedback: '문단 구성이 검토하기 쉽습니다.'
+                                },
+                                imageAltPrompt: {
+                                  label: '이미지 ALT/프롬프트',
+                                  score: 13,
+                                  maxScore: 15,
+                                  feedback: '이미지 프롬프트가 본문 맥락과 맞습니다.'
+                                },
+                                cta: {
+                                  label: 'CTA',
+                                  score: 13,
+                                  maxScore: 15,
+                                  feedback: '예약 행동을 명확히 유도합니다.'
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  };
+                }
+              }
+            }
+          }
+        }
+      })
+    );
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/blog-posts/generate`, {
+      method: 'POST'
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const generation = repos.contentGenerations.findById(body.contentGeneration.id);
+    const mediaAssets = repos.mediaAssets.listByBlogPostId(body.blogPost.id);
+    const seoScores = repos.seoScores.listByBlogPostId(body.blogPost.id);
+
+    expect(response.status).toBe(200);
+    expect(parseCalls).toHaveLength(1);
+    expect(JSON.stringify(parseCalls[0])).toContain('test-blog-model');
+    expect(body.blogPost.title).toBe('OpenAI 분당 레터링 케이크 예약 가이드');
+    expect(generation?.prompt).toMatchObject({
+      mode: 'openai',
+      provider: 'openAIBlogProvider'
+    });
+    expect(generation?.output).toMatchObject({
+      generator: 'openai_blog_provider',
+      seoScore: expect.objectContaining({ totalScore: 91 })
+    });
+    expect(mediaAssets[0]).toMatchObject({
+      status: 'placeholder',
+      prompt: 'OpenAI 케이크 대표 이미지 프롬프트',
+      metadata: expect.objectContaining({
+        generator: 'openai_blog_provider'
+      })
+    });
+    expect(seoScores.at(-1)).toMatchObject({
+      score: 91,
+      totalScore: 91,
+      rubric: expect.objectContaining({
+        titleKeyword: expect.any(Object)
+      })
+    });
+  });
 });
