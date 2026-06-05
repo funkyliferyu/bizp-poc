@@ -22,6 +22,16 @@ async function waitForCompleted(baseUrl: string, runId: string) {
   throw new Error('collection run did not complete');
 }
 
+async function waitForTerminalRun(baseUrl: string, runId: string) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const response = await fetch(`${baseUrl}/api/collection-runs/${runId}`);
+    const body = await readJson(response);
+    if (['completed', 'partial_completed', 'failed'].includes(body.collectionRun.status)) return body.collectionRun;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('collection run did not reach a terminal state');
+}
+
 describe('Collection progress API', () => {
   let connection: DbConnection;
   let server: ReturnType<express.Express['listen']>;
@@ -94,5 +104,156 @@ describe('Collection progress API', () => {
     expect(items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'post')).toHaveLength(2);
     expect(items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'profile')).toHaveLength(1);
     expect(items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'review')).toHaveLength(3);
+  });
+
+  it('uses Naver Search providers for collection metadata when mock mode is disabled', async () => {
+    const providerEnv = {
+      STORE_LEARNING_MOCK_MODE: 'false',
+      NAVER_CLIENT_ID: 'collection-client-id',
+      NAVER_CLIENT_SECRET: 'collection-client-secret',
+      NAVER_BLOG_SEARCH_ENDPOINT: '',
+      NAVER_LOCAL_SEARCH_ENDPOINT: ''
+    };
+    const realApp = express();
+    realApp.use(express.json());
+    realApp.get('/fake-naver/blog', (req, res) => {
+      expect(req.header('X-Naver-Client-Id')).toBe('collection-client-id');
+      expect(req.header('X-Naver-Client-Secret')).toBe('collection-client-secret');
+      expect(String(req.query.query)).toContain('분당 케이크하우스');
+      expect(req.query.display).toBe('2');
+      res.json({
+        total: 2,
+        start: 1,
+        display: 2,
+        items: [
+          {
+            title: '<b>분당</b> 케이크하우스 예약 후기',
+            link: 'https://blog.naver.com/demo-cake/100',
+            description: '레터링 케이크 예약 과정을 요약한 검색 snippet입니다.',
+            bloggername: '케이크 리뷰어',
+            bloggerlink: 'https://blog.naver.com/demo-cake',
+            postdate: '20260601'
+          },
+          {
+            title: '정자동 케이크 픽업 후기',
+            link: 'https://blog.naver.com/demo-cake/101',
+            description: '픽업 동선과 포장 상태를 요약한 검색 snippet입니다.',
+            bloggername: '디저트 노트',
+            bloggerlink: 'https://blog.naver.com/dessert-note',
+            postdate: '20260602'
+          }
+        ]
+      });
+    });
+    realApp.get('/fake-naver/local', (req, res) => {
+      expect(req.header('X-Naver-Client-Id')).toBe('collection-client-id');
+      expect(req.header('X-Naver-Client-Secret')).toBe('collection-client-secret');
+      expect(String(req.query.query)).toContain('분당 케이크하우스');
+      res.json({
+        total: 1,
+        start: 1,
+        display: 1,
+        items: [
+          {
+            title: '<b>분당</b> 케이크하우스',
+            link: 'https://map.naver.com/p/entry/place/place_demo_cake',
+            category: '음식점>카페,디저트',
+            description: '정자동 레터링 케이크 예약 전문점입니다.',
+            telephone: '',
+            address: '경기도 성남시 분당구 정자동',
+            roadAddress: '경기도 성남시 분당구 정자일로 1',
+            mapx: '321000',
+            mapy: '532000'
+          }
+        ]
+      });
+    });
+    realApp.use('/api/stores', createStoreRoutes({ connection, env: providerEnv }));
+    realApp.use('/api/collection-runs', createCollectionRunRoutes({ connection, stepDelayMs: 0, env: providerEnv }));
+    const realServer = realApp.listen(0);
+    const realAddress = realServer.address() as AddressInfo;
+    const realBaseUrl = `http://127.0.0.1:${realAddress.port}`;
+    providerEnv.NAVER_BLOG_SEARCH_ENDPOINT = `${realBaseUrl}/fake-naver/blog`;
+    providerEnv.NAVER_LOCAL_SEARCH_ENDPOINT = `${realBaseUrl}/fake-naver/local`;
+
+    try {
+      await fetch(`${realBaseUrl}/api/stores/store_demo_cake/training-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channels: {
+            naverBlog: { enabled: true, blogPostLimit: 2 },
+            naverPlace: { enabled: true, placeReviewLimit: 3 },
+            instagram: { enabled: false, instagramPostLimit: 0 }
+          }
+        })
+      });
+      const createRunResponse = await fetch(`${realBaseUrl}/api/stores/store_demo_cake/collection-runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const created = await readJson(createRunResponse);
+
+      const startResponse = await fetch(`${realBaseUrl}/api/collection-runs/${created.collectionRunId}/start`, {
+        method: 'POST'
+      });
+      const started = await readJson(startResponse);
+
+      expect(startResponse.status).toBe(200);
+      expect(started.collectionRun.summary.provider).toEqual({
+        name: 'naverSearchCollectionProvider',
+        mode: 'real'
+      });
+
+      const terminal = await waitForTerminalRun(realBaseUrl, created.collectionRunId);
+      expect(terminal.status).toBe('partial_completed');
+      expect(terminal.mode).toBe('real');
+      expect(terminal.summary.collectedCounts).toEqual({
+        blogPosts: 2,
+        placeProfiles: 1,
+        placeReviews: 0
+      });
+      expect(terminal.summary.itemStatusCounts).toEqual({ collected: 3, failed: 3 });
+
+      const itemsResponse = await fetch(`${realBaseUrl}/api/collection-runs/${created.collectionRunId}/items`);
+      const items = await readJson(itemsResponse);
+      const posts = items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'post');
+      const profile = items.collectionItems.find((item: { sourceType: string }) => item.sourceType === 'profile');
+      const reviews = items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'review');
+
+      expect(posts).toHaveLength(2);
+      expect(posts[0]).toEqual(
+        expect.objectContaining({
+          status: 'collected',
+          sourceUrl: 'https://blog.naver.com/demo-cake/100',
+          bodyText: '레터링 케이크 예약 과정을 요약한 검색 snippet입니다.'
+        })
+      );
+      expect(posts[0].metadata).toEqual(
+        expect.objectContaining({
+          provider: 'naverSearchCollectionProvider',
+          bodyAvailability: 'official_blog_search_snippet_only',
+          postdate: '20260601'
+        })
+      );
+      expect(profile).toEqual(
+        expect.objectContaining({
+          status: 'collected',
+          title: '분당 케이크하우스',
+          bodyText: expect.stringContaining('정자동 레터링 케이크')
+        })
+      );
+      expect(reviews).toHaveLength(3);
+      expect(reviews.map((item: { status: string }) => item.status)).toEqual(Array(3).fill('failed'));
+      expect(reviews[0].metadata).toEqual(
+        expect.objectContaining({
+          provider: 'naverSearchCollectionProvider',
+          reviewAvailability: 'requires_fallback_provider'
+        })
+      );
+    } finally {
+      await new Promise<void>((resolve) => realServer.close(() => resolve()));
+    }
   });
 });
