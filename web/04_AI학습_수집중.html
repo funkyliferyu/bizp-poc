@@ -12,6 +12,9 @@
 .ai-suspect{font-size:10px;padding:1px 6px;border-radius:10px;background:#F7F8FA;color:#9AA0B4;border:1px solid #E2E8F0;margin-left:4px}
 tr.unchecked td{color:#9AA0B4}
 #content-select{display:none}
+.collection-item-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.collection-item-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;background:#fff;font-size:12px;color:#4A5568}
+.collection-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -24,9 +27,9 @@ tr.unchecked td{color:#9AA0B4}
   <!-- 수집 진행 카드 -->
   <div id="progress-area">
     <div class="progress-card" id="progress-card">
-      <div class="progress-title" id="progress-title">
+      <div class="progress-title" id="collection-progress-status">
         <span class="spinner"></span> 수집 중
-        <span class="progress-meta">페이지를 벗어나도 수집은 계속 진행됩니다</span>
+        <span class="progress-meta" id="collection-progress-meta">페이지를 벗어나도 수집은 계속 진행됩니다</span>
       </div>
       <div class="prog-ch-row" id="row-blog">
         <span class="prog-ch-name"><span data-icon="rss" data-size="13" data-color="#03C75A"></span> 네이버 블로그</span>
@@ -41,7 +44,7 @@ tr.unchecked td{color:#9AA0B4}
         <span class="s-wait">대기 중</span>
       </div>
     </div>
-
+    <div class="collection-item-list" id="collection-item-list"></div>
   </div>
 
   <!-- 수집 완료 후 콘텐츠 선택 영역 -->
@@ -120,40 +123,13 @@ tr.unchecked td{color:#9AA0B4}
     </div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-      <span style="font-size:12px;color:#4A5568">46개 선택됨</span>
-      <button class="btn btn-primary" onclick="location.href='05_AI학습_콘텐츠선택.html'" data-flow-target="05_AI학습_콘텐츠선택.html" data-flow-label="다음: 콘텐츠 선택">분석할 콘텐츠 선택</button>
+      <span style="font-size:12px;color:#4A5568" id="collection-ready-count">수집 완료 후 선택할 수 있습니다</span>
+      <button class="btn btn-primary" id="collection-next-btn" disabled data-flow-target="05_AI학습_콘텐츠선택.html" data-flow-label="다음: 콘텐츠 선택">분석할 콘텐츠 선택</button>
     </div>
   </div>
 
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  // 3초 후 수집 완료 → 콘텐츠 선택 영역 노출
-  setTimeout(()=>{
-    // 진행 카드 완료 상태로 변경
-    const card = document.getElementById('progress-card');
-    card.style.background = '#EBFBEE';
-    card.style.borderColor = '#8CE99A';
-
-    document.getElementById('progress-title').innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2F9E44" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      수집 완료
-      <span class="progress-meta">총 51개 수집됨</span>`;
-
-    ['row-blog','row-place','row-insta'].forEach(id=>{
-      const row = document.getElementById(id);
-      const statusEl = row.querySelector('.s-ing, .s-wait, .s-done');
-      if(statusEl) statusEl.outerHTML = '<span class="s-done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg> 완료</span>';
-    });
-
-    // 콘텐츠 선택 영역 노출
-    document.getElementById('content-select').style.display = 'block';
-
-    // 스크롤 이동
-    document.getElementById('content-select').scrollIntoView({behavior:'smooth', block:'start'});
-  }, 3000);
-});
-</script>
+<script src="collection_progress.js"></script>
 </body>
 </html>

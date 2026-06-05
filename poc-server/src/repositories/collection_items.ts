@@ -6,6 +6,7 @@ export type CollectionItem = BaseEntity & {
   storeId: string;
   channel: string;
   sourceType: string;
+  status: string;
   sourceUrl: string | null;
   title: string | null;
   bodyText: string | null;
@@ -21,6 +22,7 @@ const columns = [
   'storeId',
   'channel',
   'sourceType',
+  'status',
   'sourceUrl',
   'title',
   'bodyText',

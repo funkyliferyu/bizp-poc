@@ -12,6 +12,7 @@ export function readSchemaSql() {
 
 export function migrateDatabase(connection: DbConnection) {
   connection.exec(readSchemaSql());
+  ensureColumn(connection, 'collection_items', 'status', "TEXT NOT NULL DEFAULT 'pending'");
   ensureColumn(connection, 'collection_items', 'selected_for_analysis', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(connection, 'collection_items', 'selection_reason', 'TEXT');
   ensureColumn(connection, 'collection_items', 'selected_at', 'TEXT');
