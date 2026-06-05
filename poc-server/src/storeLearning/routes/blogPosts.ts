@@ -9,18 +9,38 @@ import {
   requestBlogPostPublish,
   rescoreBlogPostSeo
 } from '../blog/blogGenerator.js';
+import type { BlogContentProvider } from '../blog/blogProvider.js';
+import { createBlogContentProvider, type OpenAIBlogParseClient } from '../blog/openAIBlogProvider.js';
+import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type BlogPostRoutesOptions = {
   connection: DbConnection;
+  env?: ProviderEnv;
+  blogProvider?: BlogContentProvider | null;
+  blogProviderClient?: OpenAIBlogParseClient | null;
 };
 
-export function createBlogPostRoutes({ connection }: BlogPostRoutesOptions) {
+export function createBlogPostRoutes({
+  connection,
+  env = process.env,
+  blogProvider,
+  blogProviderClient
+}: BlogPostRoutesOptions) {
   const router = express.Router();
   const repos = createStoreLearningRepositories(connection);
+  const selectedBlogProvider =
+    blogProvider !== undefined
+      ? blogProvider
+      : createBlogContentProvider(
+          env,
+          blogProviderClient !== undefined
+            ? { client: blogProviderClient, model: env.OPENAI_MODEL }
+            : { model: env.OPENAI_MODEL }
+        );
 
-  router.post('/:postId/regenerate-text', (req, res, next) => {
+  router.post('/:postId/regenerate-text', async (req, res, next) => {
     try {
-      const payload = regenerateBlogPostText(repos, req.params.postId);
+      const payload = await regenerateBlogPostText(repos, req.params.postId, selectedBlogProvider);
       if (!payload) {
         res.status(404).json({ error: `Blog post not found: ${req.params.postId}` });
         return;
@@ -44,9 +64,9 @@ export function createBlogPostRoutes({ connection }: BlogPostRoutesOptions) {
     }
   });
 
-  router.post('/:postId/seo-score', (req, res, next) => {
+  router.post('/:postId/seo-score', async (req, res, next) => {
     try {
-      const payload = rescoreBlogPostSeo(repos, req.params.postId);
+      const payload = await rescoreBlogPostSeo(repos, req.params.postId, selectedBlogProvider);
       if (!payload) {
         res.status(404).json({ error: `Blog post not found: ${req.params.postId}` });
         return;

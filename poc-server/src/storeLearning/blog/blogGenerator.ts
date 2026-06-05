@@ -8,13 +8,16 @@ import type { SeoScore } from '../../repositories/seo_scores.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import type { Store } from '../../repositories/stores.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
+import {
+  BlogDraftSectionSchema,
+  BlogProviderDraftOutputSchema,
+  SeoScoreOutputSchema,
+  SeoScoreRubricSchema,
+  type BlogContentProvider,
+  type SeoScoreOutput
+} from './blogProvider.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
-
-const BlogDraftSectionSchema = z.object({
-  heading: z.string().min(1),
-  body: z.string().min(1)
-});
 
 export const BlogDraftOutputSchema = z.object({
   title: z.string().min(1),
@@ -24,31 +27,10 @@ export const BlogDraftOutputSchema = z.object({
   cta: z.string().min(1),
   imagePrompts: z.array(z.string().min(1)).min(1),
   generatedFromRulesetId: z.string().min(1),
-  generator: z.literal('mock_ruleset_blog_generator')
+  generator: z.enum(['mock_ruleset_blog_generator', 'openai_blog_provider'])
 });
 
 export type BlogDraftOutput = z.infer<typeof BlogDraftOutputSchema>;
-
-const SeoScoreItemSchema = z.object({
-  label: z.string().min(1),
-  score: z.number().int().min(0),
-  maxScore: z.number().int().min(1),
-  feedback: z.string().min(1)
-});
-
-const SeoScoreRubricSchema = z.object({
-  titleKeyword: SeoScoreItemSchema,
-  bodyKeyword: SeoScoreItemSchema,
-  metaDescription: SeoScoreItemSchema,
-  readability: SeoScoreItemSchema,
-  imageAltPrompt: SeoScoreItemSchema,
-  cta: SeoScoreItemSchema
-});
-
-const SeoScoreOutputSchema = z.object({
-  totalScore: z.number().int().min(0).max(100),
-  rubric: SeoScoreRubricSchema
-});
 
 type NormalizedArticle = {
   title: string;
@@ -60,6 +42,11 @@ type NormalizedArticle = {
   imagePrompts: string[];
   generatedFromRulesetId: string | null;
   revisions: Array<Record<string, JsonValue>>;
+};
+
+type ProviderDraft = {
+  draft: BlogDraftOutput;
+  seoScore: SeoScoreOutput | null;
 };
 
 function nowIso() {
@@ -252,12 +239,39 @@ function buildDraft(store: Store, ruleset: MarketingRuleset, fields: RulesetFiel
   });
 }
 
+function providerDraftFromOutput(output: unknown, rulesetId: string): ProviderDraft {
+  const parsed = BlogProviderDraftOutputSchema.parse(output);
+  const draft = BlogDraftOutputSchema.parse({
+    ...parsed,
+    generatedFromRulesetId: rulesetId,
+    generator: 'openai_blog_provider'
+  });
+  return {
+    draft,
+    seoScore: parsed.seoScore ?? null
+  };
+}
+
 function seoScoreForDraft(draft: BlogDraftOutput) {
   const keywordFit = Math.min(30, 20 + draft.seoKeywords.length);
   const readability = 22;
   const structure = draft.bodySections.length >= 3 ? 22 : 16;
   const localIntent = draft.seoKeywords.some((keyword) => keyword.includes('분당')) ? 18 : 12;
   return Math.min(100, keywordFit + readability + structure + localIntent);
+}
+
+function seoRubricForDraft(draft: BlogDraftOutput) {
+  return {
+    keywordFit: Math.min(30, 20 + draft.seoKeywords.length),
+    readability: 22,
+    structure: draft.bodySections.length >= 3 ? 22 : 16,
+    localIntent: draft.seoKeywords.some((keyword) => keyword.includes('분당')) ? 18 : 12
+  };
+}
+
+function itemizedStoredRubric(value: JsonValue | unknown) {
+  const parsed = SeoScoreRubricSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 function scoreBlogPost(post: BlogPost, mediaAssets: MediaAsset[]) {
@@ -326,8 +340,8 @@ function scoreBlogPost(post: BlogPost, mediaAssets: MediaAsset[]) {
   });
 }
 
-function createSeoScore(repos: Repositories, post: BlogPost, mediaAssets: MediaAsset[]) {
-  const scored = scoreBlogPost(post, mediaAssets);
+function createSeoScore(repos: Repositories, post: BlogPost, mediaAssets: MediaAsset[], override?: SeoScoreOutput | null) {
+  const scored = override ?? scoreBlogPost(post, mediaAssets);
   const timestamp = nowIso();
   const sequence = repos.seoScores.listByBlogPostId(post.id).length + 1;
   return repos.seoScores.create({
@@ -344,13 +358,14 @@ function createSeoScore(repos: Repositories, post: BlogPost, mediaAssets: MediaA
 
 function serializeSeoScore(score: SeoScore | null, post: BlogPost, mediaAssets: MediaAsset[]) {
   const scored = scoreBlogPost(post, mediaAssets);
+  const storedRubric = itemizedStoredRubric(score?.rubric);
   return {
     id: score?.id ?? null,
     blogPostId: post.id,
     score: score?.score ?? scored.totalScore,
     totalScore: score?.totalScore ?? score?.score ?? scored.totalScore,
     status: score?.status ?? 'scored',
-    rubric: scored.rubric,
+    rubric: storedRubric ?? scored.rubric,
     createdAt: score?.createdAt ?? null,
     updatedAt: score?.updatedAt ?? null
   };
@@ -379,18 +394,35 @@ function previewHtml(post: BlogPost, mediaAssets: MediaAsset[]) {
   };
 }
 
-export function generateApprovalPendingBlogPost(repos: Repositories, storeId: string) {
+export async function generateApprovalPendingBlogPost(
+  repos: Repositories,
+  storeId: string,
+  provider?: BlogContentProvider | null
+) {
   const store = repos.stores.findById(storeId);
   if (!store) throw new Error(`Store not found: ${storeId}`);
   const ruleset = latestRuleset(repos, store.id);
   if (!ruleset) throw new Error(`Marketing ruleset not found for store: ${store.id}`);
   const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
-  const draft = buildDraft(store, ruleset, fields);
+  const providerDraft = provider
+    ? providerDraftFromOutput(
+        await provider.generateDraft({
+          action: 'generate_blog_post',
+          store,
+          ruleset,
+          rulesetFields: fields
+        }),
+        ruleset.id
+      )
+    : null;
+  const draft = providerDraft?.draft ?? buildDraft(store, ruleset, fields);
+  const providerSeoScore = providerDraft?.seoScore ?? null;
   const timestamp = nowIso();
   const idSuffix = `${Date.now()}_${sanitizeIdPart(store.id)}`;
   const generationId = `content_generation_blog_${idSuffix}`;
   const blogPostId = `blog_post_${idSuffix}`;
-  const score = seoScoreForDraft(draft);
+  const score = providerSeoScore?.totalScore ?? seoScoreForDraft(draft);
+  const rubric = providerSeoScore?.rubric ?? seoRubricForDraft(draft);
 
   const contentGeneration = repos.contentGenerations.create({
     id: generationId,
@@ -399,12 +431,13 @@ export function generateApprovalPendingBlogPost(repos: Repositories, storeId: st
     status: 'generated',
     contentType: 'blog_post',
     prompt: {
-      mode: 'mock',
+      mode: provider?.mode ?? 'mock',
+      provider: provider?.name ?? null,
       generator: draft.generator,
       rulesetId: ruleset.id,
       fieldKeys: fields.map((field) => field.fieldKey)
     },
-    output: draft,
+    output: providerSeoScore ? { ...draft, seoScore: providerSeoScore } : draft,
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -449,12 +482,7 @@ export function generateApprovalPendingBlogPost(repos: Repositories, storeId: st
     score,
     totalScore: score,
     status: 'scored',
-    rubric: {
-      keywordFit: Math.min(30, 20 + draft.seoKeywords.length),
-      readability: 22,
-      structure: draft.bodySections.length >= 3 ? 22 : 16,
-      localIntent: draft.seoKeywords.some((keyword) => keyword.includes('분당')) ? 18 : 12
-    },
+    rubric,
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -539,20 +567,36 @@ function rulesetForPost(repos: Repositories, post: BlogPost) {
   return rulesetId ? repos.marketingRulesets.findById(rulesetId) : latestRuleset(repos, post.storeId);
 }
 
-function draftForPost(repos: Repositories, post: BlogPost) {
+export async function regenerateBlogPostText(
+  repos: Repositories,
+  postId: string,
+  provider?: BlogContentProvider | null
+) {
+  const post = repos.blogPosts.findById(postId);
+  if (!post) return null;
+  const currentArticle = normalizedArticle(post);
   const store = repos.stores.findById(post.storeId);
   if (!store) throw new Error(`Store not found: ${post.storeId}`);
   const ruleset = rulesetForPost(repos, post);
   if (!ruleset) throw new Error(`Marketing ruleset not found for store: ${post.storeId}`);
   const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
-  return buildDraft(store, ruleset, fields);
-}
-
-export function regenerateBlogPostText(repos: Repositories, postId: string) {
-  const post = repos.blogPosts.findById(postId);
-  if (!post) return null;
-  const currentArticle = normalizedArticle(post);
-  const draft = draftForPost(repos, post);
+  const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  const providerDraft = provider
+    ? providerDraftFromOutput(
+        await provider.generateDraft({
+          action: 'regenerate_text',
+          store,
+          ruleset,
+          rulesetFields: fields,
+          currentPost: post,
+          currentArticle: post.article,
+          mediaAssets
+        }),
+        ruleset.id
+      )
+    : null;
+  const draft = providerDraft?.draft ?? buildDraft(store, ruleset, fields);
+  const providerSeoScore = providerDraft?.seoScore ?? null;
   const timestamp = nowIso();
   const revisionNumber = currentArticle.revisions.length + 1;
   const revision = {
@@ -561,18 +605,20 @@ export function regenerateBlogPostText(repos: Repositories, postId: string) {
     generator: draft.generator,
     regeneratedAt: timestamp
   } satisfies Record<string, JsonValue>;
-  const revisedDraft = BlogDraftOutputSchema.parse({
-    ...draft,
-    title: `${draft.title} · ${revisionNumber + 1}차 초안`,
-    metaDescription: `${draft.metaDescription} 재생성 초안 ${revisionNumber + 1}차입니다.`,
-    bodySections: draft.bodySections.map((section, index) => ({
-      heading: index === 0 ? `${section.heading} - 재생성 초안` : section.heading,
-      body:
-        index === 2
-          ? `${section.body} CONTENT-001 mock regeneration revision ${revisionNumber} 기준으로 SEO와 CTA를 다시 점검했습니다.`
-          : section.body
-    }))
-  });
+  const revisedDraft = providerDraft
+    ? draft
+    : BlogDraftOutputSchema.parse({
+        ...draft,
+        title: `${draft.title} · ${revisionNumber + 1}차 초안`,
+        metaDescription: `${draft.metaDescription} 재생성 초안 ${revisionNumber + 1}차입니다.`,
+        bodySections: draft.bodySections.map((section, index) => ({
+          heading: index === 0 ? `${section.heading} - 재생성 초안` : section.heading,
+          body:
+            index === 2
+              ? `${section.body} CONTENT-001 mock regeneration revision ${revisionNumber} 기준으로 SEO와 CTA를 다시 점검했습니다.`
+              : section.body
+        }))
+      });
   const contentGeneration = repos.contentGenerations.create({
     id: `content_generation_text_regen_${post.id}_${revisionNumber}_${Date.now()}`,
     storeId: post.storeId,
@@ -580,12 +626,13 @@ export function regenerateBlogPostText(repos: Repositories, postId: string) {
     status: 'generated',
     contentType: 'blog_post_text_revision',
     prompt: {
-      mode: 'mock',
+      mode: provider?.mode ?? 'mock',
+      provider: provider?.name ?? null,
       action: 'regenerate_text',
       previousContentGenerationId: post.contentGenerationId,
       revision: revisionNumber
     },
-    output: revisedDraft,
+    output: providerSeoScore ? { ...revisedDraft, seoScore: providerSeoScore } : revisedDraft,
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -601,12 +648,12 @@ export function regenerateBlogPostText(repos: Repositories, postId: string) {
   });
   const updated = repos.blogPosts.findById(post.id);
   if (!updated) return null;
-  const mediaAssets = repos.mediaAssets.listByBlogPostId(updated.id);
-  const seoScore = createSeoScore(repos, updated, mediaAssets);
+  const updatedMediaAssets = repos.mediaAssets.listByBlogPostId(updated.id);
+  const seoScore = createSeoScore(repos, updated, updatedMediaAssets, providerSeoScore);
   return {
     ...getBlogPostDetail(repos, updated.id),
     contentGeneration,
-    seoScore: serializeSeoScore(seoScore, updated, mediaAssets)
+    seoScore: serializeSeoScore(seoScore, updated, updatedMediaAssets)
   };
 }
 
@@ -679,11 +726,27 @@ export function regenerateBlogPostImages(repos: Repositories, postId: string) {
   };
 }
 
-export function rescoreBlogPostSeo(repos: Repositories, postId: string) {
+export async function rescoreBlogPostSeo(repos: Repositories, postId: string, provider?: BlogContentProvider | null) {
   const post = repos.blogPosts.findById(postId);
   if (!post) return null;
+  const store = repos.stores.findById(post.storeId);
+  if (!store) throw new Error(`Store not found: ${post.storeId}`);
+  const ruleset = rulesetForPost(repos, post);
+  const fields = ruleset ? repos.rulesetFields.listByRulesetId(ruleset.id) : [];
   const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
-  const seoScore = createSeoScore(repos, post, mediaAssets);
+  const providerSeoScore = provider
+    ? SeoScoreOutputSchema.parse(
+        await provider.scoreSeo({
+          store,
+          ruleset,
+          rulesetFields: fields,
+          post,
+          article: post.article,
+          mediaAssets
+        })
+      )
+    : null;
+  const seoScore = createSeoScore(repos, post, mediaAssets, providerSeoScore);
   return {
     blogPost: serializeBlogPost(repos, post.id),
     seoScore: serializeSeoScore(seoScore, post, mediaAssets)

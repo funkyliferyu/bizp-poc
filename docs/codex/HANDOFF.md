@@ -2,30 +2,34 @@
 
 ## Current Scope
 
-LLM-001 adds an OpenAI-backed analysis provider for the Store Learning & Blog Content Automation PoC.
+LLM-002 adds an OpenAI-backed blog content provider for the Store Learning & Blog Content Automation PoC.
 
-This change keeps deterministic mock analysis as the default no-key path and uses OpenAI only when `OPENAI_API_KEY` is configured. It does not change collection, learning status UI, ruleset editing UI, blog generation, image generation, publishing, `admin/`, `pc-web/`, or existing Event-to-Operation workflows.
+This change keeps deterministic mock blog generation as the default no-key path and uses OpenAI only when `OPENAI_API_KEY` is configured. It does not change Naver collection, analysis generation, learning status UI, ruleset editing UI, image generation, real publishing, `admin/`, `pc-web/`, or existing Event-to-Operation workflows.
 
 ## Added Runtime Pieces
 
-- `poc-server/src/storeLearning/analysis/openAIAnalysisProvider.ts`
-  - Adds `createOpenAIAnalysisProvider`.
-  - Adds `createAnalysisProvider` for env-based mock/openai selection.
+- `poc-server/src/storeLearning/blog/blogProvider.ts`
+  - Defines shared Zod schemas for blog draft output and itemized SEO output.
+  - Defines the server-side blog content provider interface.
+- `poc-server/src/storeLearning/blog/openAIBlogProvider.ts`
+  - Adds `createOpenAIBlogProvider`.
+  - Adds `createBlogContentProvider` for env-based mock/openai selection.
   - Uses the existing OpenAI SDK `chat.completions.parse` flow with `zodResponseFormat`.
-  - Uses `AnalyzerOutputSchema` as the structured output contract.
-  - Sends compact store and selected collection item evidence to the model.
-- `poc-server/src/storeLearning/analysis/analysisExecutionService.ts`
-  - Validates analyzer output with Zod as before.
-  - Adds selected-item evidence reference validation before saving.
-  - Rejects outputs that reference collection item IDs outside the selected set.
-- `poc-server/src/storeLearning/routes/analysisRuns.ts`
-  - Selects mock or OpenAI provider server-side.
-  - Accepts env/provider injection for tests.
-- `poc-server/test/analysisExecutionApi.test.ts`
-  - Covers OpenAI provider persistence using a fake parse client.
-  - Covers failed analysis when evidence references unavailable collection items.
-- `poc-server/test/selectionApi.test.ts`
-  - Forces mock env in tests so local developer keys cannot trigger live OpenAI calls.
+  - Requests structured draft and SEO outputs and validates them with Zod before persistence.
+- `poc-server/src/storeLearning/blog/blogGenerator.ts`
+  - Accepts an optional blog provider for post generation, text regeneration, and SEO rescoring.
+  - Persists provider metadata in `content_generations.prompt`.
+  - Persists OpenAI-generated draft output, image prompt placeholders, and SEO scores into existing repositories.
+- `poc-server/src/storeLearning/routes/stores.ts`
+  - Selects mock or OpenAI blog provider server-side for `POST /api/stores/:storeId/blog-posts/generate`.
+  - Accepts provider/client injection for tests.
+- `poc-server/src/storeLearning/routes/blogPosts.ts`
+  - Selects mock or OpenAI blog provider server-side for text regeneration and SEO rescoring.
+  - Keeps image regeneration as deterministic prompt placeholder behavior.
+- `poc-server/test/blogGenerationApi.test.ts`
+  - Covers OpenAI-backed approval-pending blog generation using a fake parse client.
+- `poc-server/test/contentDetailApi.test.ts`
+  - Covers OpenAI-backed text regeneration and SEO rescoring using fake parse clients.
 
 ## Runtime Behavior
 
@@ -37,9 +41,10 @@ OPENAI_API_KEY is unset
 
 Result:
 
-- Analysis runs use `mockDeterministicAnalyzer`.
+- Blog generation uses the existing deterministic mock ruleset generator.
+- Text regeneration uses the existing deterministic mock revision flow.
+- SEO rescoring uses the existing deterministic local scorer.
 - No OpenAI request is made.
-- Existing demo and UI flows continue to work.
 
 Credentialed OpenAI mode:
 
@@ -50,29 +55,23 @@ OPENAI_MODEL=gpt-4o-mini # optional
 
 Result:
 
-- `POST /api/analysis-runs/:analysisRunId/start` uses `openAIAnalysisProvider`.
-- The provider requests structured output matching `AnalyzerOutputSchema`.
-- The service validates:
-  - schema shape
-  - evidence collection item IDs
-  - ruleset field evidence item IDs
-- Valid outputs persist:
-  - `analysis_evidence`
-  - `learning_snapshots`
-  - `marketing_rulesets`
-  - `ruleset_fields`
-  - analysis run result metadata with `analyzerMode = openai`.
-- Invalid outputs mark the analysis run as `failed` and do not save artifacts.
+- `POST /api/stores/:storeId/blog-posts/generate` uses `openAIBlogProvider`.
+- `POST /api/blog-posts/:postId/regenerate-text` uses `openAIBlogProvider`.
+- `POST /api/blog-posts/:postId/seo-score` uses `openAIBlogProvider`.
+- OpenAI draft output is saved only after `BlogProviderDraftOutputSchema` validation.
+- OpenAI SEO output is saved only after `SeoScoreOutputSchema` validation.
+- Image regeneration remains placeholder-only and does not call image APIs.
+- Publish request still only changes local status to `publish_requested`.
 
 ## Guardrails
 
 - Browser pages still call poc-server APIs only.
 - OpenAI credentials stay server-side.
 - Mock mode still works without external keys.
-- OpenAI output is validated before persistence.
-- Evidence must link back to selected `collection_items`.
-- No Naver collection behavior changed in LLM-001.
-- No blog generation or publishing behavior changed in LLM-001.
+- Blog draft and SEO outputs use Zod schema validation before persistence.
+- Real image generation and real Naver Blog publishing remain out of scope.
+- Naver collection behavior is unchanged in LLM-002.
+- Existing Event-to-Operation workflows are unchanged.
 
 ## Manual Smoke
 
@@ -85,29 +84,25 @@ PORT=5178 npm run dev
 Default mock smoke:
 
 ```bash
-curl -X POST http://localhost:5178/api/analysis-runs \
-  -H 'Content-Type: application/json' \
-  -d '{"storeId":"store_demo_cake","collectionRunId":"collection_run_demo_store_learning","selectedItemIds":["collection_item_demo_blog","collection_item_demo_place_profile"]}'
-```
-
-Then start the returned run:
-
-```bash
-curl -X POST http://localhost:5178/api/analysis-runs/{analysisRunId}/start
+curl -X POST http://localhost:5178/api/stores/store_demo_cake/blog-posts/generate
+curl -X POST http://localhost:5178/api/blog-posts/blog_post_demo_pending_approval/regenerate-text
+curl -X POST http://localhost:5178/api/blog-posts/blog_post_demo_pending_approval/seo-score
 ```
 
 Expected no-key result:
 
-- `analysisRun.status = completed`
-- `analysisRun.result.analyzerMode = mock`
+- `contentGeneration.prompt.mode = mock` for generated/revised content.
+- Blog post status remains `pending_approval`.
+- SEO score is persisted locally.
 
 Credentialed OpenAI smoke:
 
 - Set `OPENAI_API_KEY`.
 - Optionally set `OPENAI_MODEL`.
 - Repeat the same API flow.
-- Expect `analysisRun.result.analyzerMode = openai`.
+- Expect generated/revised `contentGeneration.prompt.mode = openai`.
+- Expect generated/revised `contentGeneration.prompt.provider = openAIBlogProvider`.
 
 ## Next Suggested Task
 
-LLM-002 should add OpenAI-backed blog draft generation and regeneration behind the existing blog generator interface. Keep mock generation available, validate all generated draft/SEO structures with Zod before saving, and keep image generation/publishing out of scope unless explicitly requested.
+Step 5 should handle final real-operation readiness: provider observability, failure UX, credential documentation, real fallback/provider decisions for unsupported Naver data, and any required production publishing boundary. Keep image API calls and Naver Blog publishing behind explicit provider adapters.

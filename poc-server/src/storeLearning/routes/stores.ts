@@ -22,10 +22,14 @@ import {
   updateRulesetFieldValue
 } from '../rulesets/rulesetService.js';
 import { generateApprovalPendingBlogPost, listBlogPostsForStore } from '../blog/blogGenerator.js';
+import type { BlogContentProvider } from '../blog/blogProvider.js';
+import { createBlogContentProvider, type OpenAIBlogParseClient } from '../blog/openAIBlogProvider.js';
 
 type StoreRoutesOptions = {
   connection: DbConnection;
   env?: ProviderEnv;
+  blogProvider?: BlogContentProvider | null;
+  blogProviderClient?: OpenAIBlogParseClient | null;
 };
 
 const OptionalTextSchema = z.preprocess(
@@ -220,9 +224,23 @@ function serializeStore(repos: ReturnType<typeof createStoreLearningRepositories
   };
 }
 
-export function createStoreRoutes({ connection, env = process.env }: StoreRoutesOptions) {
+export function createStoreRoutes({
+  connection,
+  env = process.env,
+  blogProvider,
+  blogProviderClient
+}: StoreRoutesOptions) {
   const router = express.Router();
   const repos = createStoreLearningRepositories(connection);
+  const selectedBlogProvider =
+    blogProvider !== undefined
+      ? blogProvider
+      : createBlogContentProvider(
+          env,
+          blogProviderClient !== undefined
+            ? { client: blogProviderClient, model: env.OPENAI_MODEL }
+            : { model: env.OPENAI_MODEL }
+        );
 
   router.post('/import-place', async (req, res, next) => {
     try {
@@ -374,9 +392,9 @@ export function createStoreRoutes({ connection, env = process.env }: StoreRoutes
     res.json(payload);
   });
 
-  router.post('/:storeId/blog-posts/generate', (req, res, next) => {
+  router.post('/:storeId/blog-posts/generate', async (req, res, next) => {
     try {
-      const payload = generateApprovalPendingBlogPost(repos, req.params.storeId);
+      const payload = await generateApprovalPendingBlogPost(repos, req.params.storeId, selectedBlogProvider);
       res.json(payload);
     } catch (error) {
       next(error);
