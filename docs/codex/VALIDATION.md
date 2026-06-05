@@ -1,6 +1,6 @@
 # Validation
 
-## CONTENT-001 Commands
+## REAL-001 Commands
 
 Run from `poc-server/`:
 
@@ -11,124 +11,82 @@ npm run typecheck
 npm test
 npm run demo
 npm run demo:store-learning
-sqlite3 data/store-learning.sqlite "select id, status, title from blog_posts where id='blog_post_demo_pending_approval';"
-sqlite3 data/store-learning.sqlite "select blog_post_id, total_score from seo_scores where blog_post_id='blog_post_demo_pending_approval';"
-sqlite3 data/store-learning.sqlite "select blog_post_id, asset_type, prompt from media_assets where blog_post_id='blog_post_demo_pending_approval';"
 ```
 
-Manual smoke test:
+Manual smoke:
 
 ```bash
-npm run dev
+PORT=5178 npm run dev
 ```
 
 Then open:
 
 ```text
-http://localhost:5177/09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval
+http://localhost:5178/soho_store_register.html
 ```
-
-Expected page checks:
-
-- Generated title/body load from the API.
-- Image placeholder or image prompts display.
-- SEO total score displays.
-- Six SEO itemized checks display.
-- Text regeneration updates body/title and SEO score.
-- Image regeneration updates prompt placeholders.
-- SEO re-score updates total/checklist data.
-- Preview modal displays blog-shaped preview.
-- Publish request changes status to `publish_requested`.
 
 ## Expected Coverage
 
-- `npm run db:migrate` applies the Store Learning SQLite schema and idempotent `media_assets.prompt` migration.
-- `npm run db:seed` keeps the demo store seed path idempotent and seeds demo prompt data.
-- `npm run typecheck` verifies the blog detail service, routes, and repository usage compile.
-- `npm test` runs existing Event-to-Operation tests plus Store Learning registration, training, collection, selection, analysis, learning, ruleset, blog, and content detail tests.
-- `npm run demo` verifies the existing Event-to-Operation demo still runs.
-- `npm run demo:store-learning` verifies the Store Learning demo seed path still runs.
-- SQLite checks verify blog post publish status, SEO total scores, and media prompts.
+- `npm run db:migrate` keeps the Store Learning SQLite schema available.
+- `npm run db:seed` keeps the demo store path available without external keys.
+- `npm run typecheck` verifies the Naver provider, parser, and route usage compile.
+- `npm test` runs existing Event-to-Operation tests plus Store Learning API/page tests.
+- `npm run demo` verifies the old Event-to-Operation demo remains behaviorally unchanged.
+- `npm run demo:store-learning` verifies the Store Learning demo still works in mock mode.
 
 ## TDD Evidence
 
-- RED `npm test -- contentDetailApi.test.ts contentDetailPage.test.ts`: failed because CONTENT-001 routes/detail shape, `media_assets.prompt`, page hooks, and `web/content_detail.js` did not exist.
-- GREEN `npm test -- contentDetailApi.test.ts contentDetailPage.test.ts`: passed, 2 files / 6 tests.
+- RED `npm test -- storeRegistrationApi.test.ts`: failed because import still fell back to `naverPlaceUrlParser` instead of `naverLocalSearchProvider`.
+- GREEN `npm test -- storeRegistrationApi.test.ts`: passed, 1 file / 3 tests.
 
 ## Final Sequential Validation
 
 - `npm run db:migrate`: passed.
 - `npm run db:seed`: passed.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 26 files / 87 tests.
+- `npm test`: passed, 26 files / 88 tests.
 - `npm run demo`: passed and generated the existing Event-to-Operation approval package.
-- `npm run demo:store-learning`: passed and printed the seeded Store Learning summary.
-- SQLite blog post status spot check: passed.
-- SQLite SEO `total_score` spot check: passed.
-- SQLite media prompt spot check: passed after single-query retry; parallel SQLite reads can briefly lock the local DB.
+- `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
 
-SQLite sample after browser smoke:
+## Manual Smoke Result
 
-```text
-blog_post_demo_pending_approval|publish_requested|분당 케이크 추천 - 분당 케이크하우스 예약 안내 · 2차 초안
+Smoke server:
 
-blog_post_demo_pending_approval|86
-blog_post_demo_pending_approval|90
-blog_post_demo_pending_approval|94
-blog_post_demo_pending_approval|94
-blog_post_demo_pending_approval|94
-blog_post_demo_pending_approval|94
-blog_post_demo_pending_approval|94
-
-blog_post_demo_pending_approval|image_prompt|케이크 디테일과 포장 상태를 보여주는 이미지 - 대표 이미지 · 재생성 placeholder 1
-blog_post_demo_pending_approval|image_prompt|분당 케이크하우스 레터링 케이크 디테일 이미지 placeholder · 재생성 placeholder 2
-blog_post_demo_pending_approval|image_prompt|분당 케이크하우스 픽업 또는 포장 안내 이미지 placeholder · 재생성 placeholder 3
+```bash
+PORT=5178 npm run dev
 ```
 
-## Manual Browser Smoke
-
-Smoke URL:
+Observed:
 
 ```text
-http://127.0.0.1:5178/09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval
+GET /soho_store_register.html => 200
+POST /api/stores/import-place with no external keys => provider mockPlaceProvider / providerMode mock
+Browser title => 매장 정보 등록
+Browser script hook => soho_store_register.js loaded
+Browser console errors => []
 ```
 
-Observed initial state:
+## Manual Checks
 
-```text
-title=분당 케이크 맛집 추천 - 당일 제작 레터링 케이크 안내
-status=승인 대기
-body includes 정자동
-imageCount=3
-seoTotal=94
-seoItemCount=6
-```
+Default mock mode:
 
-Observed after actions:
+- `POST /api/stores/import-place` should still work with no external keys.
+- Provider should remain `mockPlaceProvider`.
 
-```text
-afterTextRegen.title=분당 케이크 추천 - 분당 케이크하우스 예약 안내 · 2차 초안
-afterTextRegen.body includes 재생성
-afterTextRegen.seoTotal=90
-afterImageRegen.imageCount=3
-afterImageRegen.firstPrompt includes 재생성 placeholder 1
-afterImageRegen.seoTotal=94
-afterSeoRescore.seoBadge=총점 94점
-afterSeoRescore.labels=제목 키워드, 본문 키워드, 메타 설명, 가독성, 이미지 ALT/프롬프트, CTA
-preview.display=flex
-preview.bodyHasArticle=true
-afterPublish.status=발행 요청
-afterPublishReload.buttonText=발행 요청 완료
-afterPublishReload.buttonDisabled=true
-browserConsoleErrors=[]
-```
+Credentialed Naver Local Search mode:
 
-## CONTENT-001 Boundaries
+- Set `STORE_LEARNING_MOCK_MODE=false`, `NAVER_CLIENT_ID`, and `NAVER_CLIENT_SECRET`.
+- Use a Naver Place/Map URL with a searchable keyword.
+- `POST /api/stores/import-place` should return provider `{ name: "naverLocalSearchProvider", mode: "real" }`.
+- The saved `store_channels` row should use `provider_mode = real`.
 
-- No browser-side Naver/OpenAI calls are present.
-- No real server-side Naver/OpenAI calls are present.
-- No real image generation is present.
-- No actual Naver Blog publishing is present.
+## Boundaries
+
+- Browser pages still call poc-server APIs only.
+- Naver credentials stay server-side.
+- Mock mode still works without external keys.
+- Full Naver Place body data and Place reviews are not implemented in REAL-001.
+- OpenAI analysis, blog generation, image generation, and Naver Blog publishing are unchanged.
 - Existing Event-to-Operation workflows should remain behaviorally unchanged.
 - `admin/` and `pc-web/` should remain unchanged.
 - The generated local SQLite file is under ignored `poc-server/data/`.
