@@ -15,6 +15,12 @@ import {
   buildLearningStatus,
   buildPlaceLearningStatus
 } from '../learning/learningStatusService.js';
+import {
+  buildMarketingRulesetPayload,
+  buildRulesetFieldEvidence,
+  resetRulesetFieldValue,
+  updateRulesetFieldValue
+} from '../rulesets/rulesetService.js';
 
 type StoreRoutesOptions = {
   connection: DbConnection;
@@ -59,6 +65,10 @@ const TrainingSettingsBodySchema = z.object({
     naverPlace: ChannelSettingsSchema,
     instagram: ChannelSettingsSchema
   })
+});
+
+const RulesetFieldPatchSchema = z.object({
+  userValue: z.string().trim().min(1).max(4000)
 });
 
 function sanitizeStoreId(seed: string) {
@@ -305,6 +315,59 @@ export function createStoreRoutes({ connection, env = process.env }: StoreRoutes
     const payload = buildInstagramLearningStatus(repos, req.params.storeId);
     if (!payload) {
       res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+    res.json(payload);
+  });
+
+  router.get('/:storeId/ruleset', (req, res) => {
+    const payload = buildMarketingRulesetPayload(repos, req.params.storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+    res.json(payload);
+  });
+
+  router.patch('/:storeId/ruleset/fields/:fieldKey', (req, res, next) => {
+    try {
+      const body = RulesetFieldPatchSchema.parse(req.body);
+      const payload = updateRulesetFieldValue(repos, req.params.storeId, req.params.fieldKey, body.userValue);
+      if (!payload) {
+        res.status(404).json({ error: `Store or ruleset not found: ${req.params.storeId}` });
+        return;
+      }
+      if (!payload.field) {
+        res.status(404).json({ error: `Ruleset field not found: ${req.params.fieldKey}` });
+        return;
+      }
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/:storeId/ruleset/fields/:fieldKey/reset', (req, res) => {
+    const payload = resetRulesetFieldValue(repos, req.params.storeId, req.params.fieldKey);
+    if (!payload) {
+      res.status(404).json({ error: `Store or ruleset not found: ${req.params.storeId}` });
+      return;
+    }
+    if (!payload.field) {
+      res.status(404).json({ error: `Ruleset field not found: ${req.params.fieldKey}` });
+      return;
+    }
+    res.json(payload);
+  });
+
+  router.get('/:storeId/ruleset/fields/:fieldKey/evidence', (req, res) => {
+    const payload = buildRulesetFieldEvidence(repos, req.params.storeId, req.params.fieldKey);
+    if (!payload) {
+      res.status(404).json({ error: `Store or ruleset not found: ${req.params.storeId}` });
+      return;
+    }
+    if (!payload.field) {
+      res.status(404).json({ error: `Ruleset field not found: ${req.params.fieldKey}` });
       return;
     }
     res.json(payload);
