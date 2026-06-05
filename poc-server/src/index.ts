@@ -14,6 +14,7 @@ import { createAnalysisRunRoutes } from './storeLearning/routes/analysisRuns.js'
 import { createBlogPostRoutes } from './storeLearning/routes/blogPosts.js';
 import { createCollectionItemRoutes } from './storeLearning/routes/collectionItems.js';
 import { createCollectionRunRoutes } from './storeLearning/routes/collectionRuns.js';
+import { createStoreLearningReadinessRoutes } from './storeLearning/routes/readiness.js';
 import { createStoreRoutes } from './storeLearning/routes/stores.js';
 import { buildApprovalPackage } from './workflows/buildApprovalPackage.js';
 import { buildBusinessMemory, buildBusinessMemoryWithAI } from './workflows/buildBusinessMemory.js';
@@ -39,6 +40,7 @@ app.use('/api/collection-runs', createCollectionRunRoutes({ connection: storeLea
 app.use('/api/collection-items', createCollectionItemRoutes({ connection: storeLearningConnection }));
 app.use('/api/analysis-runs', createAnalysisRunRoutes({ connection: storeLearningConnection }));
 app.use('/api/blog-posts', createBlogPostRoutes({ connection: storeLearningConnection }));
+app.use('/api/store-learning', createStoreLearningReadinessRoutes());
 
 const ApprovalDecisionRequestSchema = z.object({
   action: z.enum(['request_revision', 'reject', 'approve']),

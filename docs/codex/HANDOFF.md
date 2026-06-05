@@ -2,34 +2,26 @@
 
 ## Current Scope
 
-LLM-002 adds an OpenAI-backed blog content provider for the Store Learning & Blog Content Automation PoC.
+OPS-001 adds provider readiness guardrails for the Store Learning & Blog Content Automation PoC.
 
-This change keeps deterministic mock blog generation as the default no-key path and uses OpenAI only when `OPENAI_API_KEY` is configured. It does not change Naver collection, analysis generation, learning status UI, ruleset editing UI, image generation, real publishing, `admin/`, `pc-web/`, or existing Event-to-Operation workflows.
+This change exposes a safe server-side readiness contract that shows which mock/real providers are active, which credentials are configured, and which Naver/OpenAI-dependent capabilities still require approved fallback providers. It does not connect new UI behavior, make external provider calls, generate real images, publish to Naver Blog, modify `admin/` or `pc-web/`, or change existing Event-to-Operation workflows.
 
 ## Added Runtime Pieces
 
-- `poc-server/src/storeLearning/blog/blogProvider.ts`
-  - Defines shared Zod schemas for blog draft output and itemized SEO output.
-  - Defines the server-side blog content provider interface.
-- `poc-server/src/storeLearning/blog/openAIBlogProvider.ts`
-  - Adds `createOpenAIBlogProvider`.
-  - Adds `createBlogContentProvider` for env-based mock/openai selection.
-  - Uses the existing OpenAI SDK `chat.completions.parse` flow with `zodResponseFormat`.
-  - Requests structured draft and SEO outputs and validates them with Zod before persistence.
-- `poc-server/src/storeLearning/blog/blogGenerator.ts`
-  - Accepts an optional blog provider for post generation, text regeneration, and SEO rescoring.
-  - Persists provider metadata in `content_generations.prompt`.
-  - Persists OpenAI-generated draft output, image prompt placeholders, and SEO scores into existing repositories.
-- `poc-server/src/storeLearning/routes/stores.ts`
-  - Selects mock or OpenAI blog provider server-side for `POST /api/stores/:storeId/blog-posts/generate`.
-  - Accepts provider/client injection for tests.
-- `poc-server/src/storeLearning/routes/blogPosts.ts`
-  - Selects mock or OpenAI blog provider server-side for text regeneration and SEO rescoring.
-  - Keeps image regeneration as deterministic prompt placeholder behavior.
-- `poc-server/test/blogGenerationApi.test.ts`
-  - Covers OpenAI-backed approval-pending blog generation using a fake parse client.
-- `poc-server/test/contentDetailApi.test.ts`
-  - Covers OpenAI-backed text regeneration and SEO rescoring using fake parse clients.
+- `poc-server/src/storeLearning/readiness/providerReadiness.ts`
+  - Builds a secret-safe provider readiness payload.
+  - Reports mock vs real provider selection for Place import, collection, analysis, blog generation, image generation, and publishing.
+  - Declares official Naver limitations for full blog body, full Place body, and Place reviews.
+  - Lists next actions needed before fully real operation.
+- `poc-server/src/storeLearning/routes/readiness.ts`
+  - Adds `GET /api/store-learning/provider-readiness`.
+  - Keeps readiness access behind `poc-server` APIs only.
+- `poc-server/src/index.ts`
+  - Mounts the Store Learning readiness route.
+- `poc-server/test/providerReadinessApi.test.ts`
+  - Covers no-key mock readiness.
+  - Covers configured real provider readiness without leaking credentials.
+  - Covers the API route response.
 
 ## Runtime Behavior
 
@@ -37,41 +29,53 @@ Default local demo:
 
 ```text
 OPENAI_API_KEY is unset
+NAVER_CLIENT_ID is unset
+NAVER_CLIENT_SECRET is unset
+STORE_LEARNING_MOCK_MODE is unset
 ```
 
 Result:
 
-- Blog generation uses the existing deterministic mock ruleset generator.
-- Text regeneration uses the existing deterministic mock revision flow.
-- SEO rescoring uses the existing deterministic local scorer.
-- No OpenAI request is made.
+- `mode = mock`.
+- Place import reports `mockPlaceProvider`.
+- Collection reports `mockCollectionProvider`.
+- Analysis reports `mockDeterministicAnalyzer`.
+- Blog generation reports `mock_ruleset_blog_generator`.
+- Image generation reports `placeholder_only`.
+- Publishing reports `local_status_only`.
+- No external provider request is made.
 
-Credentialed OpenAI mode:
+Credentialed partial-real mode:
 
 ```text
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4o-mini # optional
+NAVER_CLIENT_ID=...
+NAVER_CLIENT_SECRET=...
+STORE_LEARNING_MOCK_MODE=false
 ```
 
 Result:
 
-- `POST /api/stores/:storeId/blog-posts/generate` uses `openAIBlogProvider`.
-- `POST /api/blog-posts/:postId/regenerate-text` uses `openAIBlogProvider`.
-- `POST /api/blog-posts/:postId/seo-score` uses `openAIBlogProvider`.
-- OpenAI draft output is saved only after `BlogProviderDraftOutputSchema` validation.
-- OpenAI SEO output is saved only after `SeoScoreOutputSchema` validation.
-- Image regeneration remains placeholder-only and does not call image APIs.
-- Publish request still only changes local status to `publish_requested`.
+- Place import reports `naverLocalSearchProvider`.
+- Collection reports `naverSearchCollectionProvider` with `partial_ready`.
+- Analysis reports `openAIAnalysisProvider`.
+- Blog generation reports `openAIBlogProvider`.
+- Full blog body and Place reviews still report `fallback_required` because official Naver APIs do not provide those bodies.
+- Image generation and real publishing still require explicit provider adapters.
 
 ## Guardrails
 
 - Browser pages still call poc-server APIs only.
-- OpenAI credentials stay server-side.
+- OpenAI and Naver credentials stay server-side.
+- Readiness payloads expose booleans and provider names, not secret values.
 - Mock mode still works without external keys.
-- Blog draft and SEO outputs use Zod schema validation before persistence.
+- Official Naver APIs remain treated as partial data sources:
+  - Blog Search: snippet/metadata only.
+  - Local Search: local metadata only.
+  - Full blog body, full Place body, and Place reviews require fallback provider design.
+- LLM output validation remains enforced in analysis and blog generation providers.
 - Real image generation and real Naver Blog publishing remain out of scope.
-- Naver collection behavior is unchanged in LLM-002.
-- Existing Event-to-Operation workflows are unchanged.
 
 ## Manual Smoke
 
@@ -84,25 +88,33 @@ PORT=5178 npm run dev
 Default mock smoke:
 
 ```bash
-curl -X POST http://localhost:5178/api/stores/store_demo_cake/blog-posts/generate
-curl -X POST http://localhost:5178/api/blog-posts/blog_post_demo_pending_approval/regenerate-text
-curl -X POST http://localhost:5178/api/blog-posts/blog_post_demo_pending_approval/seo-score
+curl http://localhost:5178/api/store-learning/provider-readiness
 ```
 
 Expected no-key result:
 
-- `contentGeneration.prompt.mode = mock` for generated/revised content.
-- Blog post status remains `pending_approval`.
-- SEO score is persisted locally.
+- `productFlow = Store Learning & Blog Content Automation PoC`.
+- `mode = mock`.
+- `credentials.openaiConfigured = false`.
+- `credentials.naverSearchConfigured = false`.
+- Provider statuses are mock/placeholder/local-status only.
 
-Credentialed OpenAI smoke:
+Credentialed readiness smoke:
 
 - Set `OPENAI_API_KEY`.
 - Optionally set `OPENAI_MODEL`.
-- Repeat the same API flow.
-- Expect generated/revised `contentGeneration.prompt.mode = openai`.
-- Expect generated/revised `contentGeneration.prompt.provider = openAIBlogProvider`.
+- Set `NAVER_CLIENT_ID` and `NAVER_CLIENT_SECRET`.
+- Set `STORE_LEARNING_MOCK_MODE=false`.
+- Repeat the readiness request.
+- Expect OpenAI/Naver provider entries to show ready or partial_ready.
+- Confirm full blog body and Place reviews still show fallback requirements.
 
 ## Next Suggested Task
 
-Step 5 should handle final real-operation readiness: provider observability, failure UX, credential documentation, real fallback/provider decisions for unsupported Naver data, and any required production publishing boundary. Keep image API calls and Naver Blog publishing behind explicit provider adapters.
+Before any production-like pilot, decide approved fallback providers and operating policies for:
+
+- full Naver Blog body access
+- Naver Place reviews
+- image generation
+- Naver Blog publishing
+- provider failure/error UX in the existing static pages
