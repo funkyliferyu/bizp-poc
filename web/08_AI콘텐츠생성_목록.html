@@ -12,12 +12,15 @@
   <div class="topbar-breadcrumb">마케팅 채널관리 &rsaquo; <span>AI 콘텐츠 자동 생성</span></div>
 </div>
 <div class="main-content">
-  <div class="page-title">AI 콘텐츠 자동 생성</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px">
+    <div class="page-title" style="margin-bottom:0">AI 콘텐츠 자동 생성</div>
+    <button class="btn btn-primary btn-sm" id="blog-generate-btn">AI 초안 생성</button>
+  </div>
 
   <div class="grid-3" style="margin-bottom:20px">
     <div class="kpi-card"><div class="kpi-label">다음 생성 예정일</div><div class="kpi-val" style="font-size:16px">2026.05.30</div></div>
     <div class="kpi-card"><div class="kpi-label">생성 주기</div><div class="kpi-val" style="font-size:16px">2주마다</div></div>
-    <div class="kpi-card alert"><div class="kpi-label">승인 대기</div><div class="kpi-val" style="font-size:16px">2건</div></div>
+    <div class="kpi-card alert"><div class="kpi-label">승인 대기</div><div class="kpi-val" id="ai-content-pending-count" style="font-size:16px">2건</div></div>
   </div>
 
   <div class="card">
@@ -32,7 +35,7 @@
             <th style="width:88px">생성일</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="ai-content-list">
           <tr onclick="location.href='09_AI콘텐츠생성_상세.html'" style="cursor:pointer">
             <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" class="td-link">분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</td>
             <td><span class="badge b-orange">승인 대기</span></td>
@@ -69,6 +72,6 @@
     <button class="pg-btn"><span class="icon-chevron-right" data-icon="chevron-right" data-size="12" data-color="currentColor"></span></button>
   </div>
 </div>
-<script></script>
+<script src="blog_posts.js"></script>
 </body>
 </html>

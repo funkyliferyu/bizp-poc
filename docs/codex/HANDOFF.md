@@ -2,90 +2,80 @@
 
 ## Current Scope
 
-RULESET-001 connects the marketing strategy ruleset page for the Store Learning & Blog Content Automation PoC to persisted Store Learning ruleset data.
+BLOG-001 generates approval-pending blog post drafts for the Store Learning & Blog Content Automation PoC from the current marketing ruleset.
 
-This change exposes marketing ruleset APIs, wires `web/07_마케팅전략룰셋.html` to those APIs with a page-specific script, supports field-level editing/reset, and shows collection item evidence for a ruleset field. It does not regenerate the ruleset, generate blog content, call Naver, call OpenAI, or redesign the page.
+This change adds deterministic mock blog generation, persists generated draft artifacts, and connects the existing blog management/list pages to stored blog posts. It does not call OpenAI, call Naver, generate real images, add regeneration endpoints, publish content, redesign pages, or touch `admin/` / `pc-web/`.
 
 ## Added Runtime Pieces
 
-- `poc-server/src/storeLearning/rulesets/rulesetService.ts`
+- `poc-server/src/storeLearning/blog/blogGenerator.ts`
   - Finds the latest marketing ruleset for a store.
-  - Shapes ruleset, analysis, learning snapshot, and field payloads for browser use.
-  - Updates edited fields with `userValue`, `finalValue`, `source = user_edited`, and `locked = true`.
-  - Resets fields to `aiValue` with `source = ai_generated` and `locked = false`.
-  - Returns linked collection item evidence with short excerpts.
+  - Builds a deterministic blog draft from ruleset fields and store metadata.
+  - Validates generated output with `BlogDraftOutputSchema` before persistence.
+  - Persists:
+    - `content_generation`
+    - `blog_post` with `status = pending_approval`
+    - image prompt placeholder `media_assets`
+    - initial `seo_score`
+  - Shapes list/detail responses for browser use.
 - `poc-server/src/storeLearning/routes/stores.ts` now also exposes:
-  - `GET /api/stores/:storeId/ruleset`
-  - `PATCH /api/stores/:storeId/ruleset/fields/:fieldKey`
-  - `POST /api/stores/:storeId/ruleset/fields/:fieldKey/reset`
-  - `GET /api/stores/:storeId/ruleset/fields/:fieldKey/evidence`
-- `web/ruleset_editor.js`
-  - Loads the latest ruleset from poc-server APIs only.
-  - Populates mapped fields on `07_마케팅전략룰셋.html`.
-  - Enables contenteditable field edits with per-field save/reset/evidence actions.
-  - Uses the existing evidence modal for linked collection item evidence.
-- `web/07_마케팅전략룰셋.html`
-  - Preserves the existing visual structure.
-  - Adds `id="ruleset-status"`, `data-store-field`, `data-ruleset-field`, and `data-ruleset-value` hooks.
-  - Loads `ruleset_editor.js`.
-- `poc-server/test/rulesetApi.test.ts`
-  - Covers latest ruleset lookup, edit persistence, reset behavior, and evidence lookup.
-- `poc-server/test/rulesetPage.test.ts`
-  - Covers static page wiring and verifies browser code calls only poc-server ruleset APIs.
+  - `POST /api/stores/:storeId/blog-posts/generate`
+  - `GET /api/stores/:storeId/blog-posts`
+- `poc-server/src/storeLearning/routes/blogPosts.ts`
+  - Exposes `GET /api/blog-posts/:postId`.
+- `poc-server/src/index.ts`
+  - Mounts `/api/blog-posts`.
+- `web/blog_posts.js`
+  - Loads approval-pending blog posts from poc-server APIs only.
+  - Generates a new mock draft from the current ruleset when the list page button is clicked.
+  - Renders rows on `02_블로그관리.html` and `08_AI콘텐츠생성_목록.html`.
+  - Navigates rows to `09_AI콘텐츠생성_상세.html?postId=...`.
+- `web/02_블로그관리.html`
+  - Adds `id="blog-pending-count"`, `id="blog-post-list"`, and `blog_posts.js`.
+- `web/08_AI콘텐츠생성_목록.html`
+  - Adds `id="blog-generate-btn"`, `id="ai-content-pending-count"`, `id="ai-content-list"`, and `blog_posts.js`.
+- `poc-server/src/db/schema.sql`, `poc-server/src/db/migrate.ts`, `poc-server/src/repositories/seo_scores.ts`
+  - Add `seo_scores.total_score` as a compatibility column while preserving existing `score`.
+- `poc-server/src/seedStoreLearning.ts`
+  - Seeds demo SEO rows with both `score` and `totalScore`.
+- `poc-server/test/blogGenerationApi.test.ts`
+  - Covers generation persistence, list API, detail API, media placeholders, and SEO score persistence.
+- `poc-server/test/blogPostPages.test.ts`
+  - Covers page hooks and confirms browser code only calls poc-server blog post APIs.
 
 ## API Behavior
 
-`GET /api/stores/:storeId/ruleset` returns:
+`POST /api/stores/:storeId/blog-posts/generate` returns:
+
+- `contentGeneration`
+- shaped `blogPost`
+- placeholder `mediaAssets`
+- `seoScore`
+
+`GET /api/stores/:storeId/blog-posts` returns:
 
 - store summary
-- latest ruleset summary
-- latest learning snapshot summary
-- latest analysis summary
-- editable ruleset fields:
-  - `fieldKey`
-  - `aiValue`
-  - `userValue`
-  - `finalValue`
-  - `source`
-  - `locked`
-  - `evidenceItemIds`
-  - `confidence`
-  - `updatedAt`
+- shaped posts sorted newest first
+- `pendingApprovalCount`
 
-`PATCH /api/stores/:storeId/ruleset/fields/:fieldKey` accepts:
+`GET /api/blog-posts/:postId` returns:
 
-```json
-{ "userValue": "..." }
-```
-
-It persists:
-
-- `userValue`
-- `finalValue`
-- `fieldValue` for repository compatibility
-- `source = user_edited`
-- `locked = 1`
-- fresh `updatedAt`
-
-`POST /api/stores/:storeId/ruleset/fields/:fieldKey/reset` restores:
-
-- `finalValue = aiValue`
-- `fieldValue = aiValue`
-- `userValue = null`
-- `source = ai_generated`
-- `locked = 0`
-
-`GET /api/stores/:storeId/ruleset/fields/:fieldKey/evidence` returns linked `collection_items` as short shaped evidence records and does not expose raw `bodyText`.
+- shaped blog post
+- source content generation
+- linked media assets
+- latest SEO score
 
 ## Guardrails
 
-- Browser pages call poc-server APIs only for RULESET-001 behavior.
-- No browser-side or server-side Naver/OpenAI calls were added.
-- No ruleset regeneration was added.
-- No blog generation or image generation was added.
+- Browser pages call poc-server APIs only.
+- Mock generation works without external keys.
+- No server-side or browser-side OpenAI calls were added.
+- No server-side or browser-side Naver calls were added.
+- Media records are prompt placeholders only; no image generation is performed.
+- No detailed editor, regeneration, publish request, analysis, collection, or ruleset regeneration behavior was added.
 - Existing Event-to-Operation workflows were not modified.
 - `admin/` and `pc-web/` were not modified.
-- `web/07_마케팅전략룰셋.html` was not redesigned; only data hooks, a status badge, small edit controls, and a page script include were added.
+- Existing HTML pages were not redesigned; only data hooks, one suitable generate button, and a small page script include were added.
 
 ## Local Run Notes
 
@@ -95,19 +85,29 @@ Run the server from `poc-server/`:
 npm run dev
 ```
 
-Open the ruleset page:
+Open either page:
 
 ```text
-http://localhost:5177/07_마케팅전략룰셋.html?storeId=store_demo_cake
+http://localhost:5177/02_블로그관리.html?storeId=store_demo_cake
+http://localhost:5177/08_AI콘텐츠생성_목록.html?storeId=store_demo_cake
 ```
 
 Useful API checks:
 
 ```bash
-curl http://localhost:5177/api/stores/store_demo_cake/ruleset
-curl http://localhost:5177/api/stores/store_demo_cake/ruleset/fields/positioning/evidence
+curl http://localhost:5177/api/stores/store_demo_cake/blog-posts
+curl -X POST http://localhost:5177/api/stores/store_demo_cake/blog-posts/generate
+curl http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval
+```
+
+Useful DB checks:
+
+```bash
+sqlite3 data/store-learning.sqlite "select id, status, title from blog_posts order by created_at desc limit 5;"
+sqlite3 data/store-learning.sqlite "select id, store_id from content_generations order by created_at desc limit 5;"
+sqlite3 data/store-learning.sqlite "select blog_post_id, total_score from seo_scores order by created_at desc limit 5;"
 ```
 
 ## Next Suggested Task
 
-BLOG-001 can use the latest editable marketing ruleset to generate approval-pending blog drafts. Keep real OpenAI/Naver provider work and image generation behind later provider-boundary tasks unless explicitly requested.
+CONTENT-001 can connect the content detail screen to `GET /api/blog-posts/:postId` and add preview, SEO detail, and later regeneration actions. Keep real OpenAI/image generation provider work behind future provider-boundary tasks unless explicitly requested.

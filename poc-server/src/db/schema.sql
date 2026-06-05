@@ -199,6 +199,7 @@ CREATE TABLE IF NOT EXISTS seo_scores (
   id TEXT PRIMARY KEY,
   blog_post_id TEXT NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
   score INTEGER NOT NULL,
+  total_score INTEGER,
   status TEXT NOT NULL,
   rubric_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
