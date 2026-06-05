@@ -5,9 +5,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { getRuntimeStatus, probeOpenAIRuntime } from './ai/runtimeHealth.js';
+import { createDatabaseConnection } from './db/connection.js';
+import { migrateDatabase } from './db/migrate.js';
 import { ApprovalPackageSchema } from './schemas/approvalPackage.js';
 import { BusinessMemorySchema } from './schemas/businessMemory.js';
 import { EventSchema } from './schemas/event.js';
+import { createStoreRoutes } from './storeLearning/routes/stores.js';
 import { buildApprovalPackage } from './workflows/buildApprovalPackage.js';
 import { buildBusinessMemory, buildBusinessMemoryWithAI } from './workflows/buildBusinessMemory.js';
 import { generateChannelDraftsWithAI } from './workflows/generateChannelDrafts.js';
@@ -24,6 +27,10 @@ const webRoot = path.resolve(repoRoot, 'web');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+
+const storeLearningConnection = createDatabaseConnection();
+migrateDatabase(storeLearningConnection);
+app.use('/api/stores', createStoreRoutes({ connection: storeLearningConnection }));
 
 const ApprovalDecisionRequestSchema = z.object({
   action: z.enum(['request_revision', 'reject', 'approve']),
