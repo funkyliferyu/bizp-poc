@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import { getAnalysisArtifacts, startAnalysisRun } from '../analysis/analysisExecutionService.js';
 
 type AnalysisRunRoutesOptions = {
   connection: DbConnection;
@@ -34,6 +35,24 @@ function selectedCounts(items: CollectionItem[]) {
 export function createAnalysisRunRoutes({ connection }: AnalysisRunRoutesOptions) {
   const router = express.Router();
   const repos = createStoreLearningRepositories(connection);
+
+  router.get('/:analysisRunId', (req, res) => {
+    const artifacts = getAnalysisArtifacts(repos, req.params.analysisRunId);
+    if (!artifacts) {
+      res.status(404).json({ error: `Analysis run not found: ${req.params.analysisRunId}` });
+      return;
+    }
+    res.json(artifacts);
+  });
+
+  router.post('/:analysisRunId/start', async (req, res, next) => {
+    try {
+      const artifacts = await startAnalysisRun(repos, req.params.analysisRunId);
+      res.json(artifacts);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.post('/', (req, res, next) => {
     try {

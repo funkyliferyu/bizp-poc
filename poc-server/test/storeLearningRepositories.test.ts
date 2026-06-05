@@ -23,6 +23,18 @@ describe('Store Learning repositories', () => {
           updated_at TEXT NOT NULL
         );
       `);
+      connection.exec(`
+        CREATE TABLE ruleset_fields (
+          id TEXT PRIMARY KEY,
+          ruleset_id TEXT NOT NULL,
+          field_key TEXT NOT NULL,
+          field_value TEXT NOT NULL,
+          source TEXT NOT NULL,
+          confidence REAL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
 
       migrateDatabase(connection);
 
@@ -30,7 +42,14 @@ describe('Store Learning repositories', () => {
         .prepare('PRAGMA table_info(collection_items)')
         .all()
         .map((row) => (row as { name: string }).name);
+      const rulesetFieldColumns = connection
+        .prepare('PRAGMA table_info(ruleset_fields)')
+        .all()
+        .map((row) => (row as { name: string }).name);
       expect(columns).toEqual(expect.arrayContaining(['status', 'selected_for_analysis', 'selection_reason', 'selected_at']));
+      expect(rulesetFieldColumns).toEqual(
+        expect.arrayContaining(['ai_value', 'user_value', 'final_value', 'locked', 'evidence_item_ids_json'])
+      );
     } finally {
       connection.close();
     }
@@ -153,7 +172,12 @@ describe('Store Learning repositories', () => {
         rulesetId: ruleset.id,
         fieldKey: 'positioning',
         fieldValue: '분당 커스텀 케이크 전문점',
+        aiValue: '분당 커스텀 케이크 전문점',
+        userValue: null,
+        finalValue: '분당 커스텀 케이크 전문점',
         source: 'ai',
+        locked: 0,
+        evidenceItemIds: [collectionItem.id],
         confidence: 0.88
       });
 
@@ -254,6 +278,7 @@ describe('Store Learning repositories', () => {
       });
       const updatedRulesetField = repos.rulesetFields.update('ruleset_field_positioning', {
         fieldValue: '분당 당일 제작 케이크 전문점',
+        finalValue: '분당 당일 제작 케이크 전문점',
         confidence: 0.91
       });
       const updatedGeneration = repos.contentGenerations.update(generation.id, {
@@ -290,6 +315,8 @@ describe('Store Learning repositories', () => {
       expect(updatedSnapshot.status).toBe('current');
       expect(activeRuleset.status).toBe('active');
       expect(updatedRulesetField.fieldValue).toBe('분당 당일 제작 케이크 전문점');
+      expect(updatedRulesetField.finalValue).toBe('분당 당일 제작 케이크 전문점');
+      expect(updatedRulesetField.evidenceItemIds).toEqual([collectionItem.id]);
       expect(updatedGeneration.status).toBe('approved_for_review');
       expect(approvedPost.status).toBe('publish_requested');
       expect(updatedMediaAsset.status).toBe('approved');

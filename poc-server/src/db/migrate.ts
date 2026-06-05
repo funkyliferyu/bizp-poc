@@ -16,6 +16,11 @@ export function migrateDatabase(connection: DbConnection) {
   ensureColumn(connection, 'collection_items', 'selected_for_analysis', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(connection, 'collection_items', 'selection_reason', 'TEXT');
   ensureColumn(connection, 'collection_items', 'selected_at', 'TEXT');
+  ensureColumn(connection, 'ruleset_fields', 'ai_value', "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(connection, 'ruleset_fields', 'user_value', 'TEXT');
+  ensureColumn(connection, 'ruleset_fields', 'final_value', "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(connection, 'ruleset_fields', 'locked', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(connection, 'ruleset_fields', 'evidence_item_ids_json', "TEXT NOT NULL DEFAULT '[]'");
 }
 
 function ensureColumn(connection: DbConnection, tableName: string, columnName: string, columnDefinition: string) {

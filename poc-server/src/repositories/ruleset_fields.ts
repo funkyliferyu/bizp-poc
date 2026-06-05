@@ -1,11 +1,16 @@
 import type { DbConnection } from '../db/connection.js';
-import { createRepository, type BaseEntity } from './base.js';
+import { createRepository, type BaseEntity, type JsonValue } from './base.js';
 
 export type RulesetField = BaseEntity & {
   rulesetId: string;
   fieldKey: string;
   fieldValue: string;
+  aiValue: string;
+  userValue: string | null;
+  finalValue: string;
   source: string;
+  locked: number;
+  evidenceItemIds: JsonValue;
   confidence: number | null;
 };
 
@@ -14,7 +19,12 @@ const columns = [
   'rulesetId',
   'fieldKey',
   'fieldValue',
+  'aiValue',
+  'userValue',
+  'finalValue',
   'source',
+  'locked',
+  'evidenceItemIds',
   'confidence',
   'createdAt',
   'updatedAt'
@@ -23,7 +33,11 @@ const columns = [
 export function createRulesetFieldsRepository(connection: DbConnection) {
   const repository = createRepository<RulesetField>(connection, {
     tableName: 'ruleset_fields',
-    columns
+    columns,
+    jsonColumns: ['evidenceItemIds'],
+    columnOverrides: {
+      evidenceItemIds: 'evidence_item_ids_json'
+    }
   });
   return {
     ...repository,

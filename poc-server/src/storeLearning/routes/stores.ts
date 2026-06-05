@@ -8,6 +8,7 @@ import type { Store } from '../../repositories/stores.js';
 import { importNaverPlaceUrl } from '../providers/placeImportService.js';
 import type { JsonRecord, PlaceImportProvider, ProviderEnv } from '../providers/placeImportTypes.js';
 import { parseNaverPlaceUrl } from '../providers/naverPlaceUrlParser.js';
+import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
 
 type StoreRoutesOptions = {
   connection: DbConnection;
@@ -249,6 +250,22 @@ export function createStoreRoutes({ connection, env = process.env }: StoreRoutes
       return;
     }
     res.json(payload);
+  });
+
+  router.get('/:storeId/latest-analysis', (req, res) => {
+    const store = repos.stores.findById(req.params.storeId);
+    if (!store) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+
+    const artifacts = getLatestAnalysisArtifacts(repos, store.id);
+    if (!artifacts) {
+      res.status(404).json({ error: `Latest analysis not found for store: ${store.id}` });
+      return;
+    }
+
+    res.json(artifacts);
   });
 
   router.patch('/:storeId', (req, res, next) => {
