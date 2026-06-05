@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import type { JsonValue } from '../../repositories/base.js';
+import type { BlogPost } from '../../repositories/blog_posts.js';
+import type { MediaAsset } from '../../repositories/media_assets.js';
 import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
+import type { SeoScore } from '../../repositories/seo_scores.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import type { Store } from '../../repositories/stores.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
@@ -26,6 +29,39 @@ export const BlogDraftOutputSchema = z.object({
 
 export type BlogDraftOutput = z.infer<typeof BlogDraftOutputSchema>;
 
+const SeoScoreItemSchema = z.object({
+  label: z.string().min(1),
+  score: z.number().int().min(0),
+  maxScore: z.number().int().min(1),
+  feedback: z.string().min(1)
+});
+
+const SeoScoreRubricSchema = z.object({
+  titleKeyword: SeoScoreItemSchema,
+  bodyKeyword: SeoScoreItemSchema,
+  metaDescription: SeoScoreItemSchema,
+  readability: SeoScoreItemSchema,
+  imageAltPrompt: SeoScoreItemSchema,
+  cta: SeoScoreItemSchema
+});
+
+const SeoScoreOutputSchema = z.object({
+  totalScore: z.number().int().min(0).max(100),
+  rubric: SeoScoreRubricSchema
+});
+
+type NormalizedArticle = {
+  title: string;
+  metaDescription: string;
+  bodySections: Array<{ heading: string; body: string }>;
+  bodyText: string;
+  seoKeywords: string[];
+  cta: string;
+  imagePrompts: string[];
+  generatedFromRulesetId: string | null;
+  revisions: Array<Record<string, JsonValue>>;
+};
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -48,6 +84,23 @@ function asRecord(value: JsonValue | unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function asString(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
+function jsonArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function splitCsv(value: string | null | undefined) {
   if (!value) return [];
   return value
@@ -58,6 +111,85 @@ function splitCsv(value: string | null | undefined) {
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function normalizedArticle(post: BlogPost): NormalizedArticle {
+  const article = asRecord(post.article);
+  const rawSections = jsonArray(article.bodySections);
+  const bodySections = rawSections
+    .map((section) => {
+      const record = asRecord(section);
+      return {
+        heading: asString(record.heading),
+        body: asString(record.body)
+      };
+    })
+    .filter((section) => section.heading || section.body);
+
+  const blocks = jsonArray(article.blocks).map((block) => asRecord(block));
+  if (bodySections.length === 0 && blocks.length > 0) {
+    const heading = asString(blocks.find((block) => block.type === 'heading')?.text) || post.title;
+    const paragraphs = blocks
+      .filter((block) => block.type !== 'heading')
+      .map((block) => asString(block.text))
+      .filter(Boolean);
+    bodySections.push({
+      heading,
+      body: paragraphs.join('\n') || asString(article.body) || post.title
+    });
+  }
+
+  if (bodySections.length === 0) {
+    bodySections.push({
+      heading: post.title,
+      body: asString(article.body) || asString(article.bodyText) || post.title
+    });
+  }
+
+  const bodyText = bodySections.map((section) => `${section.heading}\n${section.body}`).join('\n\n');
+  const seoKeywords = jsonArray(article.seoKeywords)
+    .map((keyword) => asString(keyword).trim())
+    .filter(Boolean);
+  const fallbackKeywords = unique([
+    ...post.title.split(/[ -]+/).filter((token) => token.includes('케이크') || token.includes('분당')),
+    '분당 케이크',
+    '레터링 케이크'
+  ]);
+  const imagePrompts = jsonArray(article.imagePrompts)
+    .map((prompt) => asString(prompt).trim())
+    .filter(Boolean);
+  const revisions = jsonArray(article.revisions)
+    .map((revision) => asRecord(revision))
+    .filter((revision) => Object.keys(revision).length > 0) as Array<Record<string, JsonValue>>;
+
+  return {
+    title: asString(article.title) || post.title,
+    metaDescription:
+      asString(article.metaDescription) || bodySections[0]?.body.slice(0, 110) || `${post.title} 블로그 초안입니다.`,
+    bodySections,
+    bodyText,
+    seoKeywords: unique([...seoKeywords, ...fallbackKeywords]).slice(0, 8),
+    cta: asString(article.cta) || '예약 가능 여부와 픽업 시간을 확인해 주세요.',
+    imagePrompts,
+    generatedFromRulesetId: asString(article.generatedFromRulesetId) || null,
+    revisions
+  };
+}
+
+function promptFromAsset(asset: MediaAsset) {
+  const metadata = asRecord(asset.metadata);
+  return asset.prompt || asString(metadata.prompt) || asString(metadata.alt) || `${asset.assetType} placeholder`;
+}
+
+function serializeMediaAsset(asset: MediaAsset) {
+  const metadata = asRecord(asset.metadata);
+  const prompt = promptFromAsset(asset);
+  return {
+    ...asset,
+    prompt,
+    alt: asString(metadata.alt) || prompt,
+    placement: asString(metadata.placement) || null
+  };
 }
 
 function fieldValue(fields: RulesetField[], keys: string[], fallback: string) {
@@ -128,6 +260,125 @@ function seoScoreForDraft(draft: BlogDraftOutput) {
   return Math.min(100, keywordFit + readability + structure + localIntent);
 }
 
+function scoreBlogPost(post: BlogPost, mediaAssets: MediaAsset[]) {
+  const article = normalizedArticle(post);
+  const keyword = article.seoKeywords.find((item) => post.title.includes(item)) ?? article.seoKeywords[0] ?? '케이크';
+  const titleKeywordScore = post.title.includes(keyword) || post.title.includes('분당') ? 18 : 12;
+  const bodyKeywordHits = article.seoKeywords.filter((item) => article.bodyText.includes(item)).length;
+  const bodyKeywordScore = Math.min(20, 12 + bodyKeywordHits * 2);
+  const metaLength = article.metaDescription.length;
+  const metaDescriptionScore = metaLength >= 45 && metaLength <= 140 ? 14 : metaLength > 0 ? 10 : 4;
+  const averageSectionLength =
+    article.bodySections.reduce((total, section) => total + section.body.length, 0) / article.bodySections.length;
+  const readabilityScore = averageSectionLength >= 35 && averageSectionLength <= 220 ? 14 : 11;
+  const promptedAssets = mediaAssets.filter((asset) => promptFromAsset(asset).length > 0).length;
+  const imageAltPromptScore = Math.min(15, 8 + promptedAssets * 2);
+  const ctaScore = article.cta.length > 0 || /예약|문의|확인/.test(article.bodyText) ? 14 : 8;
+
+  return SeoScoreOutputSchema.parse({
+    totalScore: Math.min(
+      100,
+      titleKeywordScore +
+        bodyKeywordScore +
+        metaDescriptionScore +
+        readabilityScore +
+        imageAltPromptScore +
+        ctaScore
+    ),
+    rubric: {
+      titleKeyword: {
+        label: '제목 키워드',
+        score: titleKeywordScore,
+        maxScore: 20,
+        feedback: `${keyword} 중심 키워드가 제목에 반영되어 있습니다.`
+      },
+      bodyKeyword: {
+        label: '본문 키워드',
+        score: bodyKeywordScore,
+        maxScore: 20,
+        feedback: `본문에 ${bodyKeywordHits}개의 주요 키워드가 자연스럽게 포함되어 있습니다.`
+      },
+      metaDescription: {
+        label: '메타 설명',
+        score: metaDescriptionScore,
+        maxScore: 15,
+        feedback: '검색 결과에서 보일 요약 문장이 포함되어 있습니다.'
+      },
+      readability: {
+        label: '가독성',
+        score: readabilityScore,
+        maxScore: 15,
+        feedback: '문단 길이와 흐름이 블로그 초안 검토에 적합합니다.'
+      },
+      imageAltPrompt: {
+        label: '이미지 ALT/프롬프트',
+        score: imageAltPromptScore,
+        maxScore: 15,
+        feedback: '이미지 프롬프트 placeholder가 발행 전 검토 가능한 형태로 준비되어 있습니다.'
+      },
+      cta: {
+        label: 'CTA',
+        score: ctaScore,
+        maxScore: 15,
+        feedback: '예약/문의로 이어지는 행동 유도 문장이 포함되어 있습니다.'
+      }
+    }
+  });
+}
+
+function createSeoScore(repos: Repositories, post: BlogPost, mediaAssets: MediaAsset[]) {
+  const scored = scoreBlogPost(post, mediaAssets);
+  const timestamp = nowIso();
+  const sequence = repos.seoScores.listByBlogPostId(post.id).length + 1;
+  return repos.seoScores.create({
+    id: `seo_score_${post.id}_${sequence}_${Date.now()}`,
+    blogPostId: post.id,
+    score: scored.totalScore,
+    totalScore: scored.totalScore,
+    status: 'scored',
+    rubric: scored.rubric,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+}
+
+function serializeSeoScore(score: SeoScore | null, post: BlogPost, mediaAssets: MediaAsset[]) {
+  const scored = scoreBlogPost(post, mediaAssets);
+  return {
+    id: score?.id ?? null,
+    blogPostId: post.id,
+    score: score?.score ?? scored.totalScore,
+    totalScore: score?.totalScore ?? score?.score ?? scored.totalScore,
+    status: score?.status ?? 'scored',
+    rubric: scored.rubric,
+    createdAt: score?.createdAt ?? null,
+    updatedAt: score?.updatedAt ?? null
+  };
+}
+
+function previewHtml(post: BlogPost, mediaAssets: MediaAsset[]) {
+  const article = normalizedArticle(post);
+  const media = mediaAssets.map(serializeMediaAsset);
+  const bodyHtml = article.bodySections
+    .map((section, index) => {
+      const prompt = media[index]?.prompt;
+      const imageHtml = prompt
+        ? `<div class="preview-image">${escapeHtml(prompt)}</div>`
+        : '';
+      return `<h2>${escapeHtml(section.heading)}</h2><p>${escapeHtml(section.body)}</p>${imageHtml}`;
+    })
+    .join('');
+
+  return {
+    title: post.title,
+    metaDescription: article.metaDescription,
+    html: `<article class="blog-preview"><h1>${escapeHtml(post.title)}</h1><p class="meta">${escapeHtml(
+      article.metaDescription
+    )}</p>${bodyHtml}<p class="cta">${escapeHtml(article.cta)}</p></article>`,
+    mediaAssets: media
+  };
+}
+
 export function generateApprovalPendingBlogPost(repos: Repositories, storeId: string) {
   const store = repos.stores.findById(storeId);
   if (!store) throw new Error(`Store not found: ${storeId}`);
@@ -181,6 +432,7 @@ export function generateApprovalPendingBlogPost(repos: Repositories, storeId: st
       assetType: 'image_prompt',
       status: 'placeholder',
       url: null,
+      prompt,
       metadata: {
         prompt,
         placement: index === 0 ? 'cover' : `body_${index}`,
@@ -262,17 +514,206 @@ export function listBlogPostsForStore(repos: Repositories, storeId: string) {
 }
 
 export function getBlogPostDetail(repos: Repositories, postId: string) {
-  const blogPost = serializeBlogPost(repos, postId);
-  if (!blogPost) return null;
-  const contentGeneration = blogPost.contentGenerationId
-    ? repos.contentGenerations.findById(blogPost.contentGenerationId)
+  const post = repos.blogPosts.findById(postId);
+  if (!post) return null;
+  const blogPost = serializeBlogPost(repos, post.id);
+  const article = normalizedArticle(post);
+  const rawMediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  const latestSeoScore = latestByUpdatedAt(repos.seoScores.listByBlogPostId(post.id));
+  const contentGeneration = post.contentGenerationId
+    ? repos.contentGenerations.findById(post.contentGenerationId)
     : null;
-  const mediaAssets = repos.mediaAssets.listByBlogPostId(blogPost.id);
-  const seoScore = latestByUpdatedAt(repos.seoScores.listByBlogPostId(blogPost.id));
   return {
     blogPost,
+    article,
     contentGeneration,
-    mediaAssets,
-    seoScore
+    mediaAssets: rawMediaAssets.map(serializeMediaAsset),
+    seoScore: serializeSeoScore(latestSeoScore, post, rawMediaAssets)
   };
+}
+
+function rulesetForPost(repos: Repositories, post: BlogPost) {
+  const article = normalizedArticle(post);
+  const contentGeneration = post.contentGenerationId ? repos.contentGenerations.findById(post.contentGenerationId) : null;
+  const rulesetId = article.generatedFromRulesetId ?? contentGeneration?.rulesetId ?? null;
+  return rulesetId ? repos.marketingRulesets.findById(rulesetId) : latestRuleset(repos, post.storeId);
+}
+
+function draftForPost(repos: Repositories, post: BlogPost) {
+  const store = repos.stores.findById(post.storeId);
+  if (!store) throw new Error(`Store not found: ${post.storeId}`);
+  const ruleset = rulesetForPost(repos, post);
+  if (!ruleset) throw new Error(`Marketing ruleset not found for store: ${post.storeId}`);
+  const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
+  return buildDraft(store, ruleset, fields);
+}
+
+export function regenerateBlogPostText(repos: Repositories, postId: string) {
+  const post = repos.blogPosts.findById(postId);
+  if (!post) return null;
+  const currentArticle = normalizedArticle(post);
+  const draft = draftForPost(repos, post);
+  const timestamp = nowIso();
+  const revisionNumber = currentArticle.revisions.length + 1;
+  const revision = {
+    type: 'text',
+    revision: revisionNumber,
+    generator: draft.generator,
+    regeneratedAt: timestamp
+  } satisfies Record<string, JsonValue>;
+  const revisedDraft = BlogDraftOutputSchema.parse({
+    ...draft,
+    title: `${draft.title} · ${revisionNumber + 1}차 초안`,
+    metaDescription: `${draft.metaDescription} 재생성 초안 ${revisionNumber + 1}차입니다.`,
+    bodySections: draft.bodySections.map((section, index) => ({
+      heading: index === 0 ? `${section.heading} - 재생성 초안` : section.heading,
+      body:
+        index === 2
+          ? `${section.body} CONTENT-001 mock regeneration revision ${revisionNumber} 기준으로 SEO와 CTA를 다시 점검했습니다.`
+          : section.body
+    }))
+  });
+  const contentGeneration = repos.contentGenerations.create({
+    id: `content_generation_text_regen_${post.id}_${revisionNumber}_${Date.now()}`,
+    storeId: post.storeId,
+    rulesetId: revisedDraft.generatedFromRulesetId,
+    status: 'generated',
+    contentType: 'blog_post_text_revision',
+    prompt: {
+      mode: 'mock',
+      action: 'regenerate_text',
+      previousContentGenerationId: post.contentGenerationId,
+      revision: revisionNumber
+    },
+    output: revisedDraft,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+  repos.blogPosts.update(post.id, {
+    contentGenerationId: contentGeneration.id,
+    title: revisedDraft.title,
+    article: {
+      ...revisedDraft,
+      status: post.status,
+      revisions: [...currentArticle.revisions, revision]
+    },
+    updatedAt: timestamp
+  });
+  const updated = repos.blogPosts.findById(post.id);
+  if (!updated) return null;
+  const mediaAssets = repos.mediaAssets.listByBlogPostId(updated.id);
+  const seoScore = createSeoScore(repos, updated, mediaAssets);
+  return {
+    ...getBlogPostDetail(repos, updated.id),
+    contentGeneration,
+    seoScore: serializeSeoScore(seoScore, updated, mediaAssets)
+  };
+}
+
+export function regenerateBlogPostImages(repos: Repositories, postId: string) {
+  const post = repos.blogPosts.findById(postId);
+  if (!post) return null;
+  const article = normalizedArticle(post);
+  const timestamp = nowIso();
+  const existingAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  const prompts = [0, 1, 2].map((index) => {
+    const basePrompt = article.imagePrompts[index] || `${post.title} 이미지 ${index + 1}`;
+    return `${basePrompt} · 재생성 placeholder ${index + 1}`;
+  });
+
+  prompts.forEach((prompt, index) => {
+    const existing = existingAssets[index];
+    const metadata = {
+      prompt,
+      alt: prompt,
+      placement: index === 0 ? 'cover' : `body_${index}`,
+      generator: 'mock_image_prompt_regenerator',
+      note: 'CONTENT-001 placeholder only; no image generation performed',
+      regeneratedAt: timestamp
+    };
+    if (existing) {
+      repos.mediaAssets.update(existing.id, {
+        assetType: 'image_prompt',
+        status: 'placeholder',
+        url: null,
+        prompt,
+        metadata,
+        updatedAt: timestamp
+      });
+      return;
+    }
+    repos.mediaAssets.create({
+      id: `media_asset_${post.id}_${index + 1}`,
+      storeId: post.storeId,
+      blogPostId: post.id,
+      assetType: 'image_prompt',
+      status: 'placeholder',
+      url: null,
+      prompt,
+      metadata,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+  });
+
+  repos.blogPosts.update(post.id, {
+    article: {
+      ...asRecord(post.article),
+      imagePrompts: prompts,
+      imageRevision: {
+        generator: 'mock_image_prompt_regenerator',
+        regeneratedAt: timestamp
+      }
+    },
+    updatedAt: timestamp
+  });
+
+  const updated = repos.blogPosts.findById(post.id);
+  if (!updated) return null;
+  const mediaAssets = repos.mediaAssets.listByBlogPostId(updated.id);
+  const seoScore = createSeoScore(repos, updated, mediaAssets);
+  return {
+    ...getBlogPostDetail(repos, updated.id),
+    mediaAssets: mediaAssets.map(serializeMediaAsset),
+    seoScore: serializeSeoScore(seoScore, updated, mediaAssets)
+  };
+}
+
+export function rescoreBlogPostSeo(repos: Repositories, postId: string) {
+  const post = repos.blogPosts.findById(postId);
+  if (!post) return null;
+  const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  const seoScore = createSeoScore(repos, post, mediaAssets);
+  return {
+    blogPost: serializeBlogPost(repos, post.id),
+    seoScore: serializeSeoScore(seoScore, post, mediaAssets)
+  };
+}
+
+export function getBlogPostPreview(repos: Repositories, postId: string) {
+  const post = repos.blogPosts.findById(postId);
+  if (!post) return null;
+  const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  return {
+    blogPost: serializeBlogPost(repos, post.id),
+    preview: previewHtml(post, mediaAssets),
+    seoScore: serializeSeoScore(latestByUpdatedAt(repos.seoScores.listByBlogPostId(post.id)), post, mediaAssets)
+  };
+}
+
+export function requestBlogPostPublish(repos: Repositories, postId: string) {
+  const post = repos.blogPosts.findById(postId);
+  if (!post) return null;
+  const timestamp = nowIso();
+  const article = asRecord(post.article);
+  repos.blogPosts.update(post.id, {
+    status: 'publish_requested',
+    article: {
+      ...article,
+      status: 'publish_requested',
+      publishRequestedAt: timestamp
+    },
+    updatedAt: timestamp
+  });
+  return getBlogPostDetail(repos, post.id);
 }

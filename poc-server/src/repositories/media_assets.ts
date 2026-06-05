@@ -7,6 +7,7 @@ export type MediaAsset = BaseEntity & {
   assetType: string;
   status: string;
   url: string | null;
+  prompt?: string | null;
   metadata: JsonValue;
 };
 
@@ -17,6 +18,7 @@ const columns = [
   'assetType',
   'status',
   'url',
+  'prompt',
   'metadata',
   'createdAt',
   'updatedAt'
@@ -26,7 +28,10 @@ export function createMediaAssetsRepository(connection: DbConnection) {
   const repository = createRepository<MediaAsset>(connection, {
     tableName: 'media_assets',
     columns,
-    jsonColumns: ['metadata']
+    jsonColumns: ['metadata'],
+    columnOverrides: {
+      prompt: 'prompt'
+    }
   });
   return {
     ...repository,

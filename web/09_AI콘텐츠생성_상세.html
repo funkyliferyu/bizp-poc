@@ -69,12 +69,12 @@
   <div class="card">
     <div class="card-header">
       <div>
-        <div style="font-size:15px;font-weight:700;color:#1A1A2E;margin-bottom:4px">분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</div>
-        <div style="font-size:11px;color:#9AA0B4">2026.05.23 생성 · 블로그</div>
+        <div id="content-detail-title" style="font-size:15px;font-weight:700;color:#1A1A2E;margin-bottom:4px">분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</div>
+        <div id="content-detail-meta" style="font-size:11px;color:#9AA0B4">2026.05.23 생성 · 블로그</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button class="btn btn-ghost btn-sm" id="openBlogPreviewBtn" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
-        <span class="badge b-orange">승인 대기</span>
+        <span class="badge b-orange" id="content-detail-status">승인 대기</span>
       </div>
     </div>
     <div class="card-body">
@@ -98,14 +98,14 @@
       <div style="margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px">SEO 점수</div>
         <div class="seo-bar">
-          <span style="font-size:22px;font-weight:700;color:#2F9E44">84</span>
-          <div class="seo-track"><div class="seo-fill"></div></div>
-          <span style="font-size:11px;color:#4A5568">지역 키워드 보강 권장</span>
+          <span id="seo-total-score" style="font-size:22px;font-weight:700;color:#2F9E44">84</span>
+          <div class="seo-track"><div class="seo-fill" id="seo-score-fill"></div></div>
+          <span id="seo-score-summary" style="font-size:11px;color:#4A5568">지역 키워드 보강 권장</span>
         </div>
         <div class="seo-breakdown" id="seoScoreBreakdown">
           <div class="seo-breakdown-head">
             <div class="seo-breakdown-title">SEO 세부 평가</div>
-            <span class="badge b-green">총점 84점</span>
+            <span class="badge b-green" id="seo-score-badge">총점 84점</span>
           </div>
           <div class="seo-score-items" id="seoScoreItems">
             <div class="seo-score-item">
@@ -141,7 +141,7 @@
       <!-- 이미지 선택 -->
       <div style="margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px">이미지 <span style="color:#9AA0B4;font-weight:400">· 발행할 이미지를 선택하세요</span></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div id="content-image-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
           <div class="img-card selected" onclick="selectImg(this)">
             <div class="img-thumb"><span class="icon-image" data-icon="image" data-size="24" data-color="#9AA0B4"></span></div>
             <div class="img-label">이미지 1 <div class="sel-dot"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></div>
@@ -163,13 +163,14 @@
   <!-- 액션 바 -->
   <div class="action-bar">
     <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost btn-sm"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 글 재생성</button>
-      <button class="btn btn-ghost btn-sm"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 이미지 재생성</button>
+      <button class="btn btn-ghost btn-sm" id="regenerate-text-btn"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 글 재생성</button>
+      <button class="btn btn-ghost btn-sm" id="regenerate-images-btn"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 이미지 재생성</button>
+      <button class="btn btn-ghost btn-sm" id="seo-rescore-btn"><span class="icon-search" data-icon="search" data-size="12" data-color="currentColor"></span> SEO 재평가</button>
       <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-cancel').style.display='flex'">취소</button>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-schedule').style.display='flex'" data-flow-target="modal:schedule-publish" data-flow-label="상태: 발행 일시 모달">일시 지정 발행 요청</button>
-      <button class="btn btn-primary" onclick="location.href='10_블로그_발행대기_상세.html'" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">바로 발행 요청</button>
+      <button class="btn btn-primary" id="request-publish-btn" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">바로 발행 요청</button>
     </div>
   </div>
 </div>
@@ -185,7 +186,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-schedule').style.display='none'">취소</button>
-      <button class="btn btn-primary" onclick="location.href='10_블로그_발행대기_상세.html'" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">발행 요청</button>
+      <button class="btn btn-primary" id="schedule-request-publish-btn" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">발행 요청</button>
     </div>
   </div>
 </div>
@@ -215,8 +216,8 @@
     <div class="blog-preview-scroll">
       <div class="blog-preview-shell">
         <article class="blog-preview-article">
-          <h1>분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</h1>
-          <div class="blog-preview-meta">BizPlanet 블로그 · 2026.05.23 · AI 자동 생성 초안</div>
+          <h1 id="blogPreviewTitle">분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</h1>
+          <div class="blog-preview-meta" id="blogPreviewMeta">BizPlanet 블로그 · 2026.05.23 · AI 자동 생성 초안</div>
           <div class="blog-preview-body" id="blogPreviewBody"></div>
         </article>
         <aside class="blog-preview-sidebar" id="blogPreviewImages">
@@ -276,5 +277,6 @@ function selectImg(el){
   label.appendChild(dot);
 }
 </script>
+<script src="content_detail.js"></script>
 </body>
 </html>
