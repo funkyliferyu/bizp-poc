@@ -9,6 +9,12 @@ import { importNaverPlaceUrl } from '../providers/placeImportService.js';
 import type { JsonRecord, PlaceImportProvider, ProviderEnv } from '../providers/placeImportTypes.js';
 import { parseNaverPlaceUrl } from '../providers/naverPlaceUrlParser.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
+import {
+  buildBlogLearningStatus,
+  buildInstagramLearningStatus,
+  buildLearningStatus,
+  buildPlaceLearningStatus
+} from '../learning/learningStatusService.js';
 
 type StoreRoutesOptions = {
   connection: DbConnection;
@@ -266,6 +272,42 @@ export function createStoreRoutes({ connection, env = process.env }: StoreRoutes
     }
 
     res.json(artifacts);
+  });
+
+  router.get('/:storeId/learning-status', (req, res) => {
+    const payload = buildLearningStatus(repos, req.params.storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+    res.json(payload);
+  });
+
+  router.get('/:storeId/learning-status/blog', (req, res) => {
+    const payload = buildBlogLearningStatus(repos, req.params.storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+    res.json(payload);
+  });
+
+  router.get('/:storeId/learning-status/place', (req, res) => {
+    const payload = buildPlaceLearningStatus(repos, req.params.storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+    res.json(payload);
+  });
+
+  router.get('/:storeId/learning-status/instagram', (req, res) => {
+    const payload = buildInstagramLearningStatus(repos, req.params.storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+      return;
+    }
+    res.json(payload);
   });
 
   router.patch('/:storeId', (req, res, next) => {

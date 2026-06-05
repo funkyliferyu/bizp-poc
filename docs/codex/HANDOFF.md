@@ -2,77 +2,71 @@
 
 ## Current Scope
 
-ANALYZE-001 implements deterministic mock analysis execution for the Store Learning & Blog Content Automation PoC.
+LEARN-001 connects the AI learning status page for the Store Learning & Blog Content Automation PoC to persisted Store Learning data.
 
-This change starts queued `analysis_runs`, validates analyzer output with Zod, and persists analysis evidence, learning snapshots, marketing rulesets, and editable ruleset fields. It does not call OpenAI, run real LLM analysis, generate blog content, generate images, call Naver, or fully connect the learning status/ruleset UI pages.
+This change exposes shaped learning status APIs and wires `web/06_AI학습_현황.html` to those APIs with a small page-specific script. It displays Blog, Place, and Instagram tab data from SQLite-backed repositories. Instagram remains a not-connected/empty state. This does not generate analysis, edit rulesets, generate blog content, call Naver, call OpenAI, or redesign the page.
 
 ## Added Runtime Pieces
 
-- `poc-server/src/storeLearning/analysis/analyzer.ts`
-  - Defines the analyzer provider boundary.
-  - Provides `createMockAnalysisProvider()`.
-  - Validates analyzer output with `AnalyzerOutputSchema`.
-- `poc-server/src/storeLearning/analysis/analysisExecutionService.ts`
-  - Starts a queued analysis run.
-  - Persists `analysis_evidence`, `learning_snapshots`, `marketing_rulesets`, and `ruleset_fields`.
-  - Updates `analysis_runs.status` to `completed` or `failed`.
-  - Provides artifact lookup helpers.
-- `poc-server/src/storeLearning/routes/analysisRuns.ts` now also exposes:
-  - `POST /api/analysis-runs/:analysisRunId/start`
-  - `GET /api/analysis-runs/:analysisRunId`
+- `poc-server/src/storeLearning/learning/learningStatusService.ts`
+  - Builds shaped learning status responses from repositories.
+  - Combines latest analysis artifacts, learning snapshot, ruleset status, and collected item summaries.
+  - Summarizes collection items without exposing raw `body_text`.
+  - Produces Blog, Place, and Instagram tab payloads.
 - `poc-server/src/storeLearning/routes/stores.ts` now also exposes:
-  - `GET /api/stores/:storeId/latest-analysis`
-- `ruleset_fields` now supports editable field data:
-  - `ai_value`
-  - `user_value`
-  - `final_value`
-  - `locked`
-  - `evidence_item_ids_json`
-- `poc-server/test/analysisExecutionApi.test.ts` covers analysis execution, artifact persistence, ruleset fields, and evidence linkage.
+  - `GET /api/stores/:storeId/learning-status`
+  - `GET /api/stores/:storeId/learning-status/blog`
+  - `GET /api/stores/:storeId/learning-status/place`
+  - `GET /api/stores/:storeId/learning-status/instagram`
+- `web/learning_status.js`
+  - Loads learning status data from poc-server APIs only.
+  - Populates last analyzed time, ruleset state, channel status badges, Blog rows, Place profile/reviews, and Instagram empty state.
+- `web/06_AI학습_현황.html`
+  - Keeps the existing visual structure.
+  - Adds stable IDs for dynamic data insertion.
+  - Loads `learning_status.js`.
+- `poc-server/test/learningStatusApi.test.ts`
+  - Covers shaped API responses for overall, Blog, Place, and Instagram status.
+- `poc-server/test/learningStatusPage.test.ts`
+  - Covers static page wiring and verifies browser code calls only poc-server learning APIs.
 
-## Analyzer Output
+## Data Shape
 
-The mock analyzer produces validated output for:
+The overall status response includes:
 
-- store positioning
-- key strengths
-- target customers
-- tone and manner
-- blog writing style
-- SEO keywords
-- CTA style
-- image direction
-- negative/forbidden expressions
-- evidence linked back to `collection_items`
-- editable ruleset fields with evidence item IDs
+- `storeId`
+- `storeName`
+- `lastAnalyzedAt`
+- latest `analysis`
+- latest `snapshot`
+- latest `ruleset`
+- channel summaries for Blog, Place, and Instagram:
+  - `status`
+  - `collectedCount`
+  - `selectedCount`
 
-## Data Touchpoints
+The tab responses include:
 
-- `analysis_runs`
-  - `queued` runs are updated to `analyzing`, then `completed`.
-  - failures update the run to `failed` and save an error payload.
-  - completed run `result_json` stores analyzer mode/provider and generated artifact IDs.
-- `analysis_evidence`
-  - one or more evidence rows link back to selected `collection_items`.
-- `learning_snapshots`
-  - one active snapshot is created for the analysis run.
-- `marketing_rulesets`
-  - one draft ruleset is created for the snapshot.
-  - version increments per store.
-- `ruleset_fields`
-  - one editable field row is created for each major analyzer output field.
-  - `field_value` remains populated for legacy compatibility and mirrors `final_value`.
+- Blog:
+  - collected Blog item summaries
+  - SEO keywords from latest learning snapshot or ruleset fallback
+  - writing style from latest snapshot or ruleset fallback
+- Place:
+  - Place profile summary
+  - Place review summaries
+  - review keywords from latest snapshot, analysis result, or ruleset fallback
+- Instagram:
+  - `not_connected` state when no usable Instagram channel source is connected
+  - empty item list and user-facing message
 
 ## Guardrails
 
-- Mock mode works without external keys.
+- Browser pages call poc-server APIs only.
 - No browser-side or server-side Naver/OpenAI calls were added.
-- The OpenAI/provider boundary exists only as a TypeScript interface and mock provider implementation.
-- Browser pages still call poc-server APIs only.
-- Existing Event-to-Operation workflows were not changed beyond Store Learning route additions from previous tasks.
+- No real provider collection, LLM analysis, ruleset editing, or blog generation was added.
+- Existing Event-to-Operation workflows were not modified.
 - `admin/` and `pc-web/` were not modified.
-- Blog generation, image generation, and real provider collection remain out of scope.
-- Learning status and ruleset pages are not fully connected in ANALYZE-001.
+- `web/06_AI학습_현황.html` was not redesigned; only IDs, loading placeholders, and a page script include were added.
 
 ## Local Run Notes
 
@@ -82,19 +76,21 @@ Run the server from `poc-server/`:
 npm run dev
 ```
 
-Start analysis through API after SELECT-001 has created a queued run:
+Open the learning status page:
 
-```bash
-curl -X POST http://localhost:5177/api/analysis-runs/<analysisRunId>/start
+```text
+http://localhost:5177/06_AI학습_현황.html?storeId=store_demo_cake
 ```
 
-Then inspect:
+Useful API checks:
 
 ```bash
-curl http://localhost:5177/api/analysis-runs/<analysisRunId>
-curl http://localhost:5177/api/stores/store_demo_cake/latest-analysis
+curl http://localhost:5177/api/stores/store_demo_cake/learning-status
+curl http://localhost:5177/api/stores/store_demo_cake/learning-status/blog
+curl http://localhost:5177/api/stores/store_demo_cake/learning-status/place
+curl http://localhost:5177/api/stores/store_demo_cake/learning-status/instagram
 ```
 
 ## Next Suggested Task
 
-LEARN-001 can connect `06_AI학습_현황.html` to `latest-analysis` and display Blog, Place, and Instagram status tabs using persisted learning snapshot data. Keep ruleset editing and blog generation as later tasks unless explicitly requested.
+RULESET-001 can connect the marketing strategy ruleset page to `marketing_rulesets` and `ruleset_fields`, including editable fields, locked states, and evidence references. Keep blog generation and image generation as later tasks unless explicitly requested.
