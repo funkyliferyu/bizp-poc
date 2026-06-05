@@ -108,6 +108,14 @@
 .writing-preview-body{font-size:13px;color:#1A1A2E;line-height:1.75;white-space:pre-line}
 .writing-preview-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .writing-preview-tag{font-size:11px;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;font-weight:700}
+.ruleset-status-badge{font-size:11px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;margin-left:8px;vertical-align:middle}
+.ruleset-val[contenteditable="true"]{outline:none}
+.ruleset-val[contenteditable="true"]:focus{border-color:#3B5BDB;background:#fff}
+.ruleset-action-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.ruleset-action-btn{height:26px;padding:0 8px;border:1px solid #D8E0EC;border-radius:6px;background:#fff;color:#4A5568;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
+.ruleset-action-btn:hover{border-color:#3B5BDB;color:#3B5BDB;background:#EEF2FF}
+.ruleset-field-state{font-size:11px;color:#9AA0B4}
+.ruleset-lock-badge{background:#EEF2FF;color:#3B5BDB;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;border:1px solid #3B5BDB}
 @media(max-width:900px){
   .benchmark-summary{grid-template-columns:1fr}
   .benchmark-candidates{grid-template-columns:1fr}
@@ -128,7 +136,7 @@
   </div>
 </div>
 <div class="main-content">
-  <div class="page-title">마케팅 전략 룰셋</div>
+  <div class="page-title">마케팅 전략 룰셋 <span class="ruleset-status-badge" id="ruleset-status">불러오는 중</span></div>
 
   <!-- 상위 탭 -->
   <div class="top-tab-row">
@@ -144,9 +152,9 @@
     <div class="card">
       <div class="card-header">매장 정보</div>
       <div class="card-body">
-        <div class="ruleset-field"><div class="ruleset-label">상호명 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">분당 베이커리</div></div>
-        <div class="ruleset-field"><div class="ruleset-label">카테고리 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">베이커리·케이크</div></div>
-        <div class="ruleset-field"><div class="ruleset-label">주소 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">경기 성남시 분당구 정자일로 95</div></div>
+        <div class="ruleset-field" data-store-field="name"><div class="ruleset-label">상호명 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">분당 베이커리</div></div>
+        <div class="ruleset-field" data-store-field="category"><div class="ruleset-label">카테고리 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">베이커리·케이크</div></div>
+        <div class="ruleset-field" data-store-field="address"><div class="ruleset-label">주소 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">경기 성남시 분당구 정자일로 95</div></div>
         <div class="ruleset-field">
           <div class="ruleset-label">운영시간 <span class="src-edited">수정됨</span></div>
           <div class="ruleset-val edited">월~금 10:00–20:00, 토 11:00–19:00</div>
@@ -167,20 +175,20 @@
       <div class="card-body">
         <div class="analysis-focus-layout">
           <div class="analysis-list">
-            <div class="ruleset-field">
+            <div class="ruleset-field" data-ruleset-field="positioning" data-ruleset-aliases="storePositioning">
               <div class="analysis-field-head">
                 <div class="ruleset-label">포지셔닝 <span class="src-ai">AI 분석</span></div>
                 <button type="button" class="reference-btn active" data-reference-key="positioning" onclick="showReferenceLayer('positioning')">참고</button>
               </div>
-              <div class="ruleset-val">분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div>
+              <div class="ruleset-val" data-ruleset-value>분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div>
               <div class="ruleset-hint">시장 내 위치 · 차별점 요약</div>
             </div>
-            <div class="ruleset-field">
+            <div class="ruleset-field" data-ruleset-field="keyStrengths" data-ruleset-aliases="reviewStrength">
               <div class="analysis-field-head">
                 <div class="ruleset-label">업체 주장 강점 <span class="src-ai">AI 분석</span></div>
                 <button type="button" class="reference-btn" data-reference-key="strength" onclick="showReferenceLayer('strength')">참고</button>
               </div>
-              <div class="ruleset-val">당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div>
+              <div class="ruleset-val" data-ruleset-value>당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div>
             </div>
             <div class="ruleset-field">
               <div class="analysis-field-head">
@@ -189,14 +197,14 @@
               </div>
               <div class="ruleset-val">커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div>
             </div>
-            <div class="ruleset-field">
+            <div class="ruleset-field" data-ruleset-field="targetCustomers">
               <div class="analysis-field-head">
                 <div class="ruleset-label">주 타겟층 <span class="src-ai">AI 분석</span></div>
                 <button type="button" class="reference-btn" data-reference-key="target" onclick="showReferenceLayer('target')">참고</button>
               </div>
-              <div class="ruleset-val">20~40대 분당·수지 지역 여성 / 생일·기념일 케이크 구매 고객</div>
+              <div class="ruleset-val" data-ruleset-value>20~40대 분당·수지 지역 여성 / 생일·기념일 케이크 구매 고객</div>
             </div>
-            <div class="ruleset-field">
+            <div class="ruleset-field" data-ruleset-field="contentKeywords" data-ruleset-aliases="seoKeywords">
               <div class="analysis-field-head">
                 <div class="ruleset-label">콘텐츠 소재 키워드 <span class="src-ai">AI 분석</span></div>
                 <button type="button" class="reference-btn" data-reference-key="contentKeywords" onclick="showReferenceLayer('contentKeywords')">참고</button>
@@ -208,21 +216,22 @@
                 <span class="benchmark-tag">당일제작</span>
                 <span class="benchmark-tag">생일케이크</span>
               </div>
+              <div class="ruleset-val" data-ruleset-value style="margin-top:8px">분당 케이크, 레터링케이크, 커스텀케이크, 당일제작, 생일케이크</div>
               <div class="ruleset-hint">콘텐츠 자동 생성 시 주제 소재로 활용됩니다.</div>
             </div>
-            <div class="ruleset-field">
+            <div class="ruleset-field" data-ruleset-field="reviewStrength" data-ruleset-aliases="keyStrengths">
               <div class="analysis-field-head">
                 <div class="ruleset-label">리뷰 강점 <span class="src-ai">AI 분석</span></div>
                 <button type="button" class="reference-btn" data-reference-key="reviewStrength" onclick="showReferenceLayer('reviewStrength')">참고</button>
               </div>
-              <div class="ruleset-val">예쁜 케이크 디자인, 친절한 사장님, 빠른 제작</div>
+              <div class="ruleset-val" data-ruleset-value>예쁜 케이크 디자인, 친절한 사장님, 빠른 제작</div>
             </div>
-            <div class="ruleset-field">
+            <div class="ruleset-field" data-ruleset-field="reviewWeakness">
               <div class="analysis-field-head">
                 <div class="ruleset-label">리뷰 약점 <span class="src-ai">AI 분석</span></div>
                 <button type="button" class="reference-btn" data-reference-key="reviewWeakness" onclick="showReferenceLayer('reviewWeakness')">참고</button>
               </div>
-              <div class="ruleset-val">주차 공간 협소, 현금 결제 불가 언급</div>
+              <div class="ruleset-val" data-ruleset-value>주차 공간 협소, 현금 결제 불가 언급</div>
               <div class="warn-box"><span>콘텐츠에서 직접 언급하지 않습니다. 보완 전략 수립 참고용으로만 활용됩니다.</span></div>
             </div>
           </div>
@@ -254,9 +263,9 @@
           <div class="sub-tab" onclick="showSub('write','blog',this)">블로그</div>
         </div>
         <div id="write-common">
-          <div class="ruleset-field"><div class="ruleset-label">톤 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">친근하고 감성적인 구어체 / 과장 없는 사실 기반</div></div>
+          <div class="ruleset-field" data-ruleset-field="toneAndManner"><div class="ruleset-label">톤 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>친근하고 감성적인 구어체 / 과장 없는 사실 기반</div></div>
           <div class="ruleset-field"><div class="ruleset-label">캐치프레이즈 <span class="src-edited">수정됨</span></div><div class="ruleset-val edited">특별한 날을 더 특별하게 / 분당에서 제일 예쁜 케이크</div><div class="ruleset-hint">재학습 시 자동 업데이트되지 않습니다.</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">피할 문구 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">강추드려요, 완전 맛있어요 반복, 최고의 케이크</div></div>
+          <div class="ruleset-field" data-ruleset-field="negativeExpressions"><div class="ruleset-label">피할 문구 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>강추드려요, 완전 맛있어요 반복, 최고의 케이크</div></div>
           <div class="ruleset-field"><div class="ruleset-label">개그 레벨 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">낮음 — 가벼운 언어 유희만</div></div>
           <div class="ruleset-field"><div class="ruleset-label">트렌드 민감도 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">중간 — 시즌 트렌드 반영</div></div>
         </div>
@@ -269,10 +278,10 @@
         </div>
         <div id="write-blog" style="display:none">
           <div class="ruleset-field"><div class="ruleset-label">글의 목적 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">검색 유입 + 상세 설명</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">문장 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">방문기 형식, 의문형 도입 후 단정 서술</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogWritingStyle"><div class="ruleset-label">문장 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>방문기 형식, 의문형 도입 후 단정 서술</div></div>
           <div class="ruleset-field"><div class="ruleset-label">선호 길이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">본문 700–1,000자 + 사진 8장 이상</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">SEO 키워드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">제목·소제목에 지역+메뉴 키워드 삽입 (예: 분당 레터링케이크)</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">CTA <span class="src-ai">AI 분석</span></div><div class="ruleset-val">예약·방문 유도</div></div>
+          <div class="ruleset-field" data-ruleset-field="seoKeywords" data-ruleset-aliases="contentKeywords"><div class="ruleset-label">SEO 키워드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>제목·소제목에 지역+메뉴 키워드 삽입 (예: 분당 레터링케이크)</div></div>
+          <div class="ruleset-field" data-ruleset-field="ctaStyle"><div class="ruleset-label">CTA <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>예약·방문 유도</div></div>
           <div class="ruleset-field"><div class="ruleset-label">이모지 사용 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">사용 안 함</div></div>
         </div>
       </div>
@@ -346,7 +355,7 @@
               <span><span class="color-swatch" style="background:#E8A0BF"></span><span style="font-size:12px;color:#4A5568">#E8A0BF 로즈 핑크</span></span>
             </div>
           </div>
-          <div class="ruleset-field"><div class="ruleset-label">이미지 무드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">밝고 감성적인 자연광, 따뜻한 톤, 케이크 디테일 강조</div></div>
+          <div class="ruleset-field" data-ruleset-field="imageDirection"><div class="ruleset-label">이미지 무드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>밝고 감성적인 자연광, 따뜻한 톤, 케이크 디테일 강조</div></div>
           <div class="ruleset-field"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">감성적 미니멀, 케이크 클로즈업 중심</div></div>
           <div class="ruleset-field"><div class="ruleset-label">피할 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">어두운 톤, 과도한 필터, 복잡한 배경</div></div>
         </div>
@@ -799,5 +808,6 @@ function regenerateWritingPreview(){
 loadBenchmarkFixture();
 renderWritingPreview('common');
 </script>
+<script src="ruleset_editor.js"></script>
 </body>
 </html>
