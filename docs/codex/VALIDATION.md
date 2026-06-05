@@ -1,121 +1,101 @@
 # Validation
 
-## ANALYZE-001 Commands
+## LEARN-001 Commands
 
 Run from `poc-server/`:
 
 ```bash
 npm run db:migrate
 npm run db:seed
-npm test -- analysisExecutionApi.test.ts
 npm run typecheck
 npm test
 npm run demo
 npm run demo:store-learning
 ```
 
-SQLite spot checks:
+Manual smoke test:
 
 ```bash
-sqlite3 data/store-learning.sqlite "select id, status from analysis_runs;"
-sqlite3 data/store-learning.sqlite "select id, store_id from learning_snapshots;"
-sqlite3 data/store-learning.sqlite "select id, store_id from marketing_rulesets;"
-sqlite3 data/store-learning.sqlite "select field_key, source, locked from ruleset_fields limit 20;"
-sqlite3 data/store-learning.sqlite "select count(*) from analysis_evidence;"
+npm run dev
 ```
+
+Then open:
+
+```text
+http://localhost:5177/06_AI학습_현황.html?storeId=store_demo_cake
+```
+
+Expected page checks:
+
+- Blog tab displays stored Blog learning data.
+- Place tab displays stored Place profile/review learning data.
+- Instagram tab displays a not-connected/empty state.
+- Last analyzed time is populated.
+- Ruleset status is populated.
 
 ## Expected Coverage
 
-- `npm run db:migrate` applies the Store Learning SQLite schema, including editable `ruleset_fields` columns.
-- `npm run db:seed` keeps the demo store seed path idempotent with the expanded ruleset field model.
-- `npm test -- analysisExecutionApi.test.ts` verifies queued analysis execution, artifact persistence, evidence linkage, and latest-analysis lookup.
-- `npm run typecheck` verifies analyzer schemas, provider boundary, execution service, route changes, repository types, and migrations compile.
-- `npm test` runs existing Event-to-Operation tests plus Store Learning repository, registration, training, collection, selection, and analysis tests.
+- `npm run db:migrate` applies the Store Learning SQLite schema.
+- `npm run db:seed` keeps the demo store seed path idempotent.
+- `npm run typecheck` verifies the learning status service, routes, repository usage, and tests compile.
+- `npm test` runs existing Event-to-Operation tests plus Store Learning repository, registration, training, collection, selection, analysis, and learning status tests.
 - `npm run demo` verifies the existing Event-to-Operation demo still runs.
 - `npm run demo:store-learning` verifies the Store Learning demo seed path still runs.
-- SQLite checks verify persisted analysis runs, snapshots, rulesets, editable fields, and evidence rows.
+- Manual smoke verifies `06_AI학습_현황.html` renders Blog, Place, and Instagram tabs from backend APIs.
 
 ## TDD Evidence
 
-- RED `npm test -- analysisExecutionApi.test.ts`: failed because `POST /api/analysis-runs/:analysisRunId/start` and latest-analysis behavior did not exist.
-- GREEN `npm test -- analysisExecutionApi.test.ts`: passed, 1 file / 2 tests.
-- Early `npm run typecheck`: passed after implementation.
-- Early `npm test`: passed, 18 files / 68 tests.
+- RED `npm test -- learningStatusApi.test.ts learningStatusPage.test.ts`: failed because the learning status API routes, page IDs, and `learning_status.js` did not exist.
+- GREEN `npm test -- learningStatusApi.test.ts learningStatusPage.test.ts`: passed, 2 files / 4 tests.
 
 ## Final Sequential Validation
 
 - `npm run db:migrate`: passed.
 - `npm run db:seed`: passed.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 18 files / 68 tests.
+- `npm test`: passed, 20 files / 72 tests.
 - `npm run demo`: passed and generated the existing Event-to-Operation approval package.
 - `npm run demo:store-learning`: passed and printed the seeded Store Learning summary.
 
-## SQLite Evidence
+## Manual Browser Smoke
 
-Persistent DB analysis execution sample:
+Browser plugin note:
 
-```text
-analysisRunId=analysis_run_validation_1780672952917
-status=completed
-snapshotId=learning_snapshot_analysis_run_validation_1780672952917
-rulesetId=marketing_ruleset_analysis_run_validation_1780672952917_v2
-evidenceCount=3
-fieldCount=9
-```
+- The Codex in-app browser object was listed but returned a disconnected Playwright browser object in this session.
+- The same Browser plugin's Chrome tab control was used as a local browser fallback.
 
-Analysis run statuses:
+Smoke URL:
 
 ```text
-analysis_run_demo_store_learning|succeeded
-analysis_run_store_demo_cake_1780672202266|queued
-analysis_run_validation_1780672952917|completed
+http://127.0.0.1:5178/06_AI학습_현황.html?storeId=store_demo_cake
 ```
 
-Learning snapshots:
+Observed page state:
 
 ```text
-learning_snapshot_demo_store_learning|store_demo_cake
-learning_snapshot_analysis_run_validation_1780672952917|store_demo_cake
+lastAnalyzed=2026.06.06
+rulesetStatus=✓ 생성 완료
+channelStatusText=네이버 블로그분석 완료 네이버 플레이스분석 완료 인스타그램미연결
+blogVisible=10 / 101개 표시
+placeReviewCount=8
+placeKeywords=당일 제작 상담커스텀 디자인친절한 픽업 안내
+instagramEmpty=인스타그램 채널이 연결되지 않았습니다.
+instagramVisible=미연결
+screenshot=/tmp/learn-001-smoke-final.png
 ```
 
-Marketing rulesets:
+Console notes:
 
-```text
-marketing_ruleset_demo_v1|store_demo_cake
-marketing_ruleset_analysis_run_validation_1780672952917_v2|store_demo_cake
-```
+- No page script errors were observed.
+- Chrome extension warnings appeared from an installed extension script, not from the Store Learning page code.
 
-Ruleset field sample:
-
-```text
-positioning|analysis|0
-contentKeywords|analysis|0
-storePositioning|mock_analyzer|0
-keyStrengths|mock_analyzer|0
-targetCustomers|mock_analyzer|0
-toneAndManner|mock_analyzer|0
-blogWritingStyle|mock_analyzer|0
-seoKeywords|mock_analyzer|0
-ctaStyle|mock_analyzer|0
-imageDirection|mock_analyzer|0
-negativeExpressions|mock_analyzer|0
-```
-
-Analysis evidence count:
-
-```text
-5
-```
-
-## ANALYZE-001 Boundaries
+## LEARN-001 Boundaries
 
 - No browser-side Naver/OpenAI calls are present.
 - No real server-side Naver/OpenAI calls are present.
-- Analyzer execution uses deterministic mock provider data only.
-- Analyzer output is validated with Zod before persistence.
-- No blog generation, image generation, or Naver collection is implemented.
-- Learning status and ruleset pages are not fully connected.
+- No analysis generation behavior was changed.
+- No ruleset editing behavior was added.
+- No blog generation or image generation was added.
 - Existing Event-to-Operation workflows should remain behaviorally unchanged.
 - `admin/` and `pc-web/` should remain unchanged.
 - The generated local SQLite file is under ignored `poc-server/data/`.
