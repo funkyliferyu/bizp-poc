@@ -2,10 +2,12 @@ import express from 'express';
 import type { DbConnection } from '../../db/connection.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
-import { startMockCollectionRun } from '../collection/mockCollectionRunner.js';
+import { startCollectionRun } from '../collection/collectionRunner.js';
+import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type CollectionRunRoutesOptions = {
   connection: DbConnection;
+  env?: ProviderEnv;
   stepDelayMs?: number;
 };
 
@@ -44,7 +46,7 @@ function serializeSelectableItem(item: CollectionItem) {
   };
 }
 
-export function createCollectionRunRoutes({ connection, stepDelayMs }: CollectionRunRoutesOptions) {
+export function createCollectionRunRoutes({ connection, env = process.env, stepDelayMs }: CollectionRunRoutesOptions) {
   const router = express.Router();
   const repos = createStoreLearningRepositories(connection);
 
@@ -84,14 +86,18 @@ export function createCollectionRunRoutes({ connection, stepDelayMs }: Collectio
     res.json({ collectionRunId: collectionRun.id, collectionItems: repos.collectionItems.listByRunId(collectionRun.id) });
   });
 
-  router.post('/:runId/start', (req, res) => {
+  router.post('/:runId/start', async (req, res, next) => {
     const collectionRun = repos.collectionRuns.findById(req.params.runId);
     if (!collectionRun) {
       res.status(404).json({ error: `Collection run not found: ${req.params.runId}` });
       return;
     }
-    const started = startMockCollectionRun(repos, collectionRun.id, { stepDelayMs });
-    res.json({ collectionRun: started ?? collectionRun });
+    try {
+      const started = await startCollectionRun(repos, collectionRun.id, { env, stepDelayMs });
+      res.json({ collectionRun: started ?? collectionRun });
+    } catch (error) {
+      next(error);
+    }
   });
 
   return router;
