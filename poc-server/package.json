@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "demo": "tsx src/demo.ts",
-    "test": "vitest run",
+    "demo:store-learning": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/demoStoreLearning.ts",
+    "db:migrate": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/db/migrate.ts",
+    "db:seed": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/seedStoreLearning.ts",
+    "test": "NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

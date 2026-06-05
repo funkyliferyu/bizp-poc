@@ -1,56 +1,51 @@
-# Store Learning PoC Handoff
+# Codex Handoff
 
-## Current Task
+## Current Scope
 
-Create planning and operating documents for the Store Learning & Blog Content Automation PoC. Product behavior is not implemented in this task.
+DATA-001 adds the SQLite-backed data model and repository layer for the Store Learning & Blog Content Automation PoC.
 
-## Source Of Truth
+This change does not connect UI behavior, does not implement Naver/OpenAI calls, and does not modify the existing Event-to-Operation workflows.
 
-Use these files for the new PoC:
+## Added Runtime Pieces
 
-- `AGENTS.md`
-- `poc-server/AGENTS.md`
-- `docs/product/store-learning-blog-content-poc.md`
-- `docs/architecture/runtime-model-v0.md`
-- `docs/architecture/data-model-v0.md`
-- `docs/architecture/api-contract-v0.md`
-- `docs/qa/acceptance-checklist-v0.md`
-- `docs/codex/PLAN.md`
-- `docs/codex/VALIDATION.md`
+- `poc-server/src/db/connection.ts` creates SQLite connections and defaults local PoC data to `poc-server/data/store-learning.sqlite`.
+- `poc-server/src/db/migrate.ts` applies the schema.
+- `poc-server/src/db/schema.sql` defines the Store Learning tables and indexes.
+- `poc-server/src/repositories/*.ts` contains one repository module per requested table plus a shared CRUD helper.
+- `poc-server/src/seedStoreLearning.ts` seeds one idempotent demo store.
+- `poc-server/src/demoStoreLearning.ts` runs the Store Learning demo seed and prints a concise summary.
+- `collection_items` persists selected-content state with `selected_for_analysis`, `selection_reason`, and `selected_at`.
 
-Do not use `README_POC.md` or `web/event_operation_poc.html` as product source of truth. They belong to the older Event-to-Operation / watermelon event flow.
+## Repository Modules
 
-## Non-Negotiables
+The repository layer covers:
 
-- Keep existing Event-to-Operation files untouched.
-- Do not modify `admin/`.
-- Do not modify `pc-web/`.
-- Do not redesign current `web/` HTML pages in this docs-only task.
-- Browser pages must call `poc-server` APIs only.
-- Naver/OpenAI credentials must stay server-side.
-- Mock mode must work without external keys.
-- Real Naver collection must be behind provider adapters.
-- Official Naver APIs are limited; full blog body and Place reviews need provider/fallback design.
-- LLM outputs must use Zod schemas and structured validation before saving.
-- Use SQLite as the local PoC DB with repository interfaces for future Postgres migration.
+- `stores`
+- `store_channels`
+- `training_settings`
+- `collection_runs`
+- `collection_items`
+- `analysis_runs`
+- `analysis_evidence`
+- `learning_snapshots`
+- `marketing_rulesets`
+- `ruleset_fields`
+- `content_generations`
+- `blog_posts`
+- `media_assets`
+- `seo_scores`
+- `audit_events`
 
-## Current Repo Notes
+Use `createStoreLearningRepositories(connection)` from `poc-server/src/repositories/storeLearningRepositories.ts` when a workflow needs all repositories.
 
-- The current server package is still named for the old Event-to-Operation PoC.
-- Existing `poc-server/src/index.ts` contains old `/api/events/*` and approval endpoints.
-- The new Store Learning API should be introduced under a clearly separated module/route namespace.
-- `web/07_마케팅전략룰셋.html` currently reads `strategy_benchmark_fixture.json`; future implementation should replace that with `poc-server` API data without redesigning the page.
-- The static `web/` screen map is documented in `docs/product/store-learning-blog-content-poc.md`.
+## Guardrails
 
-## Recommended Next Implementation Move
+- Keep browser/UI work out of DATA-001.
+- Keep Naver and OpenAI calls out of DATA-001.
+- Keep existing Event-to-Operation workflows untouched.
+- Do not modify `admin/` or `pc-web/`.
+- Keep SQLite access behind repositories so a future Postgres repository can share the same workflow surface.
 
-Start with server-side foundations before touching browser behavior:
+## Next Suggested Task
 
-1. Add Store Learning Zod schemas.
-2. Add repository interfaces.
-3. Add SQLite implementation and migrations.
-4. Add mock provider adapters.
-5. Add store registration and learning settings APIs.
-
-This keeps mock mode runnable and prevents browser pages from taking dependencies on incomplete provider behavior.
-
+The next task can add Store Learning API route skeletons that use these repositories in mock mode. Provider adapters and LLM validation should remain separate follow-up tasks unless explicitly requested.

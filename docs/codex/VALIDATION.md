@@ -1,58 +1,27 @@
 # Validation
 
-## Docs-Only Validation
+## DATA-001 Commands
 
-For this planning-docs task, validate by checking the diff and confirming only requested docs changed.
-
-Commands:
+Run from `poc-server/`:
 
 ```bash
-git status --short
-git diff --name-only
-git diff --stat
-git diff -- AGENTS.md poc-server/AGENTS.md docs/product/store-learning-blog-content-poc.md docs/architecture/runtime-model-v0.md docs/architecture/data-model-v0.md docs/architecture/api-contract-v0.md docs/qa/acceptance-checklist-v0.md docs/codex/PLAN.md docs/codex/HANDOFF.md docs/codex/VALIDATION.md
-```
-
-Expected result:
-
-- Only the requested planning/operating documents are added or changed.
-- No files under `admin/` are changed.
-- No files under `pc-web/` are changed.
-- Existing Event-to-Operation files are unchanged.
-- Existing `web/*.html` pages are unchanged.
-
-## Future Server Validation
-
-When product behavior is implemented, run:
-
-```bash
-cd poc-server
-npm test
 npm run typecheck
+npm test
+npm run demo:store-learning
 ```
 
-Add focused tests for:
+## Expected Coverage
 
-- Store registration from Naver Place URL in mock mode.
-- Learning settings persistence.
-- Collection run progress and retry state.
-- Collected content selection.
-- Analysis job success and failure.
-- Strategy ruleset Zod validation.
-- Blog article Zod validation.
-- SEO score Zod validation.
-- Blog approval and publishing state transitions.
-- Provider capability errors for full blog body and Place reviews.
+- `npm run typecheck` verifies the new SQLite connection, migration, repository, seed, and demo modules compile.
+- `npm test` runs the existing Event-to-Operation tests plus Store Learning repository tests.
+- `npm run demo:store-learning` migrates the local SQLite DB, seeds one demo store, and prints a summary.
+- Store Learning repository tests also cover selected-content persistence, repository update/read flows, migration backfill for selection columns, and idempotent demo seeding.
 
-## Future Browser Validation
+## DATA-001 Boundaries
 
-When static pages are wired to APIs:
-
-- Start `poc-server` in mock mode.
-- Open `web/index.html` through the server.
-- Walk the eight-step Store Learning & Blog Content Automation PoC flow.
-- Confirm all product data requests are same-origin `/api/*` calls to `poc-server`.
-- Confirm browser devtools never expose Naver/OpenAI credentials.
-- Confirm the flow works without external keys.
-- Confirm current HTML layout is not redesigned unless that task explicitly requests it.
-
+- No UI wiring is expected.
+- No Naver/OpenAI calls are expected.
+- Existing Event-to-Operation workflows should remain behaviorally unchanged.
+- `admin/` and `pc-web/` should remain unchanged.
+- The generated local SQLite file is under ignored `poc-server/data/`.
+- `.DS_Store` files should not appear in PR status.
