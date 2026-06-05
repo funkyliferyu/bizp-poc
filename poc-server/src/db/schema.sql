@@ -134,7 +134,12 @@ CREATE TABLE IF NOT EXISTS ruleset_fields (
   ruleset_id TEXT NOT NULL REFERENCES marketing_rulesets(id) ON DELETE CASCADE,
   field_key TEXT NOT NULL,
   field_value TEXT NOT NULL,
+  ai_value TEXT NOT NULL DEFAULT '',
+  user_value TEXT,
+  final_value TEXT NOT NULL DEFAULT '',
   source TEXT NOT NULL,
+  locked INTEGER NOT NULL DEFAULT 0,
+  evidence_item_ids_json TEXT NOT NULL DEFAULT '[]',
   confidence REAL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
