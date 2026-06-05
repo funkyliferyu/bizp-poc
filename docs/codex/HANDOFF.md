@@ -2,138 +2,90 @@
 
 ## Current Scope
 
-CONTENT-001 connects the AI content detail page for the Store Learning & Blog Content Automation PoC to generated blog post data.
+REAL-001 adds the first real provider path for the Store Learning & Blog Content Automation PoC.
 
-This change shows generated article content, media prompts/placeholders, SEO score detail, preview data, deterministic text regeneration, deterministic image prompt regeneration, SEO rescoring, and publish request state transition. It does not call OpenAI, call Naver, generate real images, publish to Naver Blog, redesign the page, or touch `admin/` / `pc-web/`.
+This change connects store Place URL import to a server-side Naver Local Search provider when mock mode is disabled and Naver credentials are present. It keeps mock mode as the default, keeps browser pages calling poc-server APIs only, and does not change collection, analysis, rulesets, blog generation, publishing, `admin/`, `pc-web/`, or existing Event-to-Operation workflows.
 
 ## Added Runtime Pieces
 
-- `poc-server/src/storeLearning/blog/blogGenerator.ts`
-  - Extends blog post detail shaping with:
-    - normalized article data
-    - media prompt/alt display data
-    - itemized SEO rubric
-  - Adds deterministic mock text regeneration.
-  - Adds deterministic mock image prompt regeneration.
-  - Adds structured SEO scoring with Zod validation.
-  - Adds server-side preview data and escaped preview HTML.
-  - Adds publish request status transition to `publish_requested`.
-- `poc-server/src/storeLearning/routes/blogPosts.ts` now exposes:
-  - `GET /api/blog-posts/:postId`
-  - `POST /api/blog-posts/:postId/regenerate-text`
-  - `POST /api/blog-posts/:postId/regenerate-images`
-  - `POST /api/blog-posts/:postId/seo-score`
-  - `GET /api/blog-posts/:postId/preview`
-  - `POST /api/blog-posts/:postId/request-publish`
-- `poc-server/src/db/schema.sql`, `poc-server/src/db/migrate.ts`, `poc-server/src/repositories/media_assets.ts`
-  - Add `media_assets.prompt` as a local PoC compatibility column for image prompt checks.
-- `poc-server/src/seedStoreLearning.ts`
-  - Seeds the demo media asset prompt.
-- `web/09_AI콘텐츠생성_상세.html`
-  - Preserves the existing layout.
-  - Adds stable hooks for title, metadata, status, body, media list, SEO score, action buttons, and preview.
-  - Loads `content_detail.js`.
-- `web/content_detail.js`
-  - Loads by `postId` query parameter.
-  - Calls poc-server blog detail APIs only.
-  - Renders article body, image prompts, SEO total, SEO checklist, preview, and status.
-  - Wires text regeneration, image prompt regeneration, SEO rescoring, preview, and publish request.
-- `poc-server/test/contentDetailApi.test.ts`
-  - Covers detail shape, text regeneration, image prompt regeneration, SEO rescoring, preview, and publish request persistence.
-- `poc-server/test/contentDetailPage.test.ts`
-  - Covers page hooks and verifies browser code calls only poc-server APIs.
+- `poc-server/src/storeLearning/providers/naverLocalSearchProvider.ts`
+  - Calls Naver Local Search from the server only.
+  - Requires `NAVER_CLIENT_ID` and `NAVER_CLIENT_SECRET`.
+  - Respects `STORE_LEARNING_MOCK_MODE=false`; otherwise `mockPlaceProvider` remains first.
+  - Supports `NAVER_LOCAL_SEARCH_ENDPOINT` as a test/local override.
+  - Parses and validates the Naver response with Zod before building the store draft.
+  - Stores only metadata from the official local search response; credentials are never persisted.
+- `poc-server/src/storeLearning/providers/naverPlaceUrlParser.ts`
+  - Prefers numeric Place IDs in URLs like `/place/{id}/home`.
+  - Avoids generic path segments such as `home`, `review`, and `search` as store IDs.
+- `poc-server/test/storeRegistrationApi.test.ts`
+  - Adds RED/GREEN coverage for server-side Naver Local Search import with a fake local endpoint.
+  - Verifies headers stay server-side and the persisted channel uses `providerMode = real`.
 
-## API Behavior
+## Runtime Behavior
 
-`GET /api/blog-posts/:postId` returns:
+Default local demo:
 
-- shaped `blogPost`
-- normalized `article`
-- source `contentGeneration`
-- shaped `mediaAssets` with `prompt`
-- itemized `seoScore`
+```text
+STORE_LEARNING_MOCK_MODE is unset
+```
 
-`POST /api/blog-posts/:postId/regenerate-text`:
+Result:
 
-- uses deterministic mock generation
-- preserves ruleset constraints through the existing ruleset-backed generator
-- updates `blog_posts.title`, `blog_posts.article_json`, and revision metadata
-- creates a new text revision `content_generation`
-- creates a fresh itemized `seo_score`
+- `mockPlaceProvider` handles store import.
+- No external keys are required.
+- No Naver request is made.
 
-`POST /api/blog-posts/:postId/regenerate-images`:
+Credentialed local search mode:
 
-- does not call image providers
-- updates or creates three placeholder `media_assets`
-- stores regenerated prompts in both `prompt` and `metadata_json`
-- creates a fresh itemized `seo_score`
+```text
+STORE_LEARNING_MOCK_MODE=false
+NAVER_CLIENT_ID=...
+NAVER_CLIENT_SECRET=...
+```
 
-`POST /api/blog-posts/:postId/seo-score`:
+Result:
 
-- creates a fresh `seo_scores` row with:
-  - title keyword score
-  - body keyword score
-  - meta description score
-  - readability score
-  - image alt/prompt score
-  - CTA score
-  - total score
+- `POST /api/stores/import-place` attempts Naver Local Search when the URL provides a usable search query.
+- Returned store fields are limited to official Local Search metadata:
+  - title
+  - category
+  - description
+  - address / roadAddress
+  - mapx / mapy metadata
+- If there is no usable search query in the URL, the flow falls back to `naverPlaceUrlParser`.
 
-`GET /api/blog-posts/:postId/preview`:
+## Provider Limits
 
-- returns blog-shaped preview data with escaped HTML for the local PoC preview modal.
+Naver Local Search does not provide full Naver Place body data or Place reviews. Those remain out of scope for REAL-001 and need the next provider/fallback design step.
 
-`POST /api/blog-posts/:postId/request-publish`:
+Naver Blog body collection, Place review collection, OpenAI analysis, image generation, and Naver Blog publishing are unchanged.
 
-- updates `blog_posts.status` to `publish_requested`
-- updates article status metadata
-- does not publish externally
+## Manual Smoke
 
-## Guardrails
-
-- Browser pages call poc-server APIs only.
-- Mock mode works without external keys.
-- No server-side or browser-side OpenAI calls were added.
-- No server-side or browser-side Naver calls were added.
-- Image regeneration is prompt/placeholder regeneration only.
-- Publish request is a local status transition only.
-- Existing Event-to-Operation workflows were not modified.
-- `admin/` and `pc-web/` were not modified.
-- `web/09_AI콘텐츠생성_상세.html` was not redesigned; only hooks, one SEO button, and a page script include were added.
-
-## Local Run Notes
-
-Run the server from `poc-server/`:
+Run from `poc-server/`:
 
 ```bash
-npm run dev
+PORT=5178 npm run dev
 ```
 
 Open:
 
 ```text
-http://localhost:5177/09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval
+http://localhost:5178/soho_store_register.html
 ```
 
-Useful API checks:
+Default mock check:
 
-```bash
-curl http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval
-curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/regenerate-text
-curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/regenerate-images
-curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/seo-score
-curl http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/preview
-curl -X POST http://localhost:5177/api/blog-posts/blog_post_demo_pending_approval/request-publish
-```
+- Enter a demo Naver Place URL.
+- Confirm fields populate through `mockPlaceProvider`.
 
-Useful DB checks:
+Credentialed provider check:
 
-```bash
-sqlite3 data/store-learning.sqlite "select id, status, title from blog_posts where id='blog_post_demo_pending_approval';"
-sqlite3 data/store-learning.sqlite "select blog_post_id, total_score from seo_scores where blog_post_id='blog_post_demo_pending_approval';"
-sqlite3 data/store-learning.sqlite "select blog_post_id, asset_type, prompt from media_assets where blog_post_id='blog_post_demo_pending_approval';"
-```
+- Set `STORE_LEARNING_MOCK_MODE=false`, `NAVER_CLIENT_ID`, and `NAVER_CLIENT_SECRET`.
+- Use a Naver URL that includes a searchable keyword, for example a `map.naver.com/p/search/{keyword}/place/{id}` style URL.
+- Confirm the response provider is `naverLocalSearchProvider` and the saved channel has `providerMode = real`.
 
 ## Next Suggested Task
 
-After CONTENT-001 is merged, the next work should decide whether to continue with local approval/publish workflow depth or introduce provider-boundary tasks for real OpenAI/image generation/Naver publishing. Keep those real integrations server-side and behind provider adapters.
+REAL-002 should introduce collection provider adapters for blog/place collection. Keep official Naver Search API usage limited to available metadata, keep full blog body and Place review collection behind a separate compliant provider/fallback decision, and preserve mock mode for no-key local demos.

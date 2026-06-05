@@ -31,7 +31,12 @@ function candidateFromUrl(url: URL) {
   if (safeSegment(searchCandidate)) return safeSegment(searchCandidate);
 
   const segments = url.pathname.split('/').map(safeSegment).filter((segment): segment is string => Boolean(segment));
-  return segments.at(-1) ?? null;
+  const numericPlaceId = segments.find((segment) => /^\d{5,}$/.test(segment));
+  if (numericPlaceId) return numericPlaceId;
+
+  const genericSegments = new Set(['entry', 'home', 'map', 'menu', 'p', 'photo', 'review', 'search']);
+  const meaningfulSegments = segments.filter((segment) => !genericSegments.has(segment));
+  return meaningfulSegments.at(-1) ?? null;
 }
 
 export function parseNaverPlaceUrl(input: string): ParsedNaverPlaceUrl | null {

@@ -73,6 +73,89 @@ describe('Store registration API', () => {
     expect(repos.storeChannels.listByStoreId('store_demo_tteokbokki')).toHaveLength(1);
   });
 
+  it('imports a Naver Place URL through server-side Naver Local Search when mock mode is disabled', async () => {
+    const providerEnv = {
+      STORE_LEARNING_MOCK_MODE: 'false',
+      NAVER_CLIENT_ID: 'test-client-id',
+      NAVER_CLIENT_SECRET: 'test-client-secret',
+      NAVER_LOCAL_SEARCH_ENDPOINT: ''
+    };
+    const app = express();
+    app.use(express.json());
+    app.get('/fake-naver/local', (req, res) => {
+      expect(req.header('X-Naver-Client-Id')).toBe('test-client-id');
+      expect(req.header('X-Naver-Client-Secret')).toBe('test-client-secret');
+      expect(req.query.query).toBe('분당 케이크하우스');
+      expect(req.query.display).toBe('1');
+      expect(req.query.start).toBe('1');
+      res.json({
+        total: 1,
+        start: 1,
+        display: 1,
+        items: [
+          {
+            title: '<b>분당</b> 케이크하우스',
+            link: 'https://map.naver.com/p/entry/place/123456789',
+            category: '음식점>카페,디저트',
+            description: '정자동 레터링 케이크 예약 전문점입니다.',
+            telephone: '',
+            address: '경기도 성남시 분당구 정자동 1-1',
+            roadAddress: '경기도 성남시 분당구 정자일로 1',
+            mapx: '321000',
+            mapy: '532000'
+          }
+        ]
+      });
+    });
+    app.use('/api/stores', createStoreRoutes({ connection, env: providerEnv }));
+    const realServer = app.listen(0);
+    const realAddress = realServer.address() as AddressInfo;
+    const realBaseUrl = `http://127.0.0.1:${realAddress.port}`;
+    providerEnv.NAVER_LOCAL_SEARCH_ENDPOINT = `${realBaseUrl}/fake-naver/local`;
+
+    try {
+      const response = await fetch(`${realBaseUrl}/api/stores/import-place`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          naverPlaceUrl: 'https://map.naver.com/p/search/%EB%B6%84%EB%8B%B9%20%EC%BC%80%EC%9D%B4%ED%81%AC%ED%95%98%EC%9A%B0%EC%8A%A4/place/123456789'
+        })
+      });
+      const body = await readJson(response);
+
+      expect(response.status).toBe(200);
+      expect(body.provider).toEqual({ name: 'naverLocalSearchProvider', mode: 'real' });
+      expect(body.store).toEqual(
+        expect.objectContaining({
+          id: 'store_123456789',
+          name: '분당 케이크하우스',
+          naverPlaceId: '123456789',
+          category: '음식점>카페,디저트',
+          address: '경기도 성남시 분당구 정자일로 1',
+          phone: null,
+          description: '정자동 레터링 케이크 예약 전문점입니다.'
+        })
+      );
+      expect(body.store.metadata).toEqual(
+        expect.objectContaining({
+          provider: 'naverLocalSearchProvider',
+          importMode: 'real',
+          query: '분당 케이크하우스',
+          bodyAvailability: 'official_local_search_metadata_only'
+        })
+      );
+      expect(body.channel).toEqual(
+        expect.objectContaining({
+          storeId: 'store_123456789',
+          channel: 'place',
+          providerMode: 'real'
+        })
+      );
+    } finally {
+      await new Promise<void>((resolve) => realServer.close(() => resolve()));
+    }
+  });
+
   it('saves, reads, and patches a store through SQLite-backed repositories', async () => {
     const createResponse = await fetch(`${baseUrl}/api/stores`, {
       method: 'POST',
@@ -128,4 +211,3 @@ describe('Store registration API', () => {
     expect(loaded.store).toEqual(patched.store);
   });
 });
-
