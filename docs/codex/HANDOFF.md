@@ -8,6 +8,13 @@ This change exposes a safe server-side readiness contract that shows which mock/
 
 ## Added Runtime Pieces
 
+- `poc-server/test/openaiLiveIntegration.test.ts`
+  - Adds opt-in live OpenAI validation.
+  - Skips during normal `npm test`.
+  - Runs only when `RUN_OPENAI_INTEGRATION=1`.
+  - Verifies OpenAI runtime probe, OpenAI analysis persistence, OpenAI blog generation, and OpenAI SEO rescoring.
+- `poc-server/package.json`
+  - Adds `npm run openai:verify` for the live validation set.
 - `poc-server/src/storeLearning/readiness/providerReadiness.ts`
   - Builds a secret-safe provider readiness payload.
   - Reports mock vs real provider selection for Place import, collection, analysis, blog generation, image generation, and publishing.
@@ -68,14 +75,34 @@ Result:
 
 - Browser pages still call poc-server APIs only.
 - OpenAI and Naver credentials stay server-side.
+- `poc-server/.env` is ignored and must not be committed.
+- `poc-server/.env.example` remains trackable but must not contain real keys.
 - Readiness payloads expose booleans and provider names, not secret values.
 - Mock mode still works without external keys.
+- Live OpenAI tests are opt-in and may consume API quota.
 - Official Naver APIs remain treated as partial data sources:
   - Blog Search: snippet/metadata only.
   - Local Search: local metadata only.
   - Full blog body, full Place body, and Place reviews require fallback provider design.
 - LLM output validation remains enforced in analysis and blog generation providers.
 - Real image generation and real Naver Blog publishing remain out of scope.
+
+## OpenAI Validation Operating Notes
+
+Run from `poc-server/`:
+
+```bash
+npm run openai:verify
+```
+
+This command performs live OpenAI calls for:
+
+- model access probe
+- analysis provider structured output
+- blog generation provider structured output
+- SEO scoring provider structured output
+
+Normal `npm test` remains mock-safe because `openaiLiveIntegration.test.ts` is skipped unless `RUN_OPENAI_INTEGRATION=1` is set.
 
 ## Manual Smoke
 
