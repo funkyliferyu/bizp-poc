@@ -146,7 +146,7 @@ describe('Store Learning provider readiness', () => {
     });
     expect(readiness.providers.placeImport).toMatchObject({
       selectedProvider: 'naverPlaceRenderedProvider',
-      status: 'fallback_required',
+      status: 'ready',
       mode: 'real'
     });
     expect(readiness.providers.collection.capabilities).toEqual(

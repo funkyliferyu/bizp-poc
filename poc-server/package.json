@@ -9,6 +9,7 @@
     "demo:store-learning": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/demoStoreLearning.ts",
     "db:migrate": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/db/migrate.ts",
     "db:seed": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/seedStoreLearning.ts",
+    "naver:verify": "RUN_NAVER_LIVE=1 NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run test/naverPlaceLiveIntegration.test.ts",
     "openai:verify": "RUN_OPENAI_INTEGRATION=1 NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run test/openaiLiveIntegration.test.ts",
     "test": "NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run",
     "typecheck": "tsc --noEmit"
@@ -18,6 +19,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "openai": "^4.77.0",
+    "playwright": "^1.60.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
