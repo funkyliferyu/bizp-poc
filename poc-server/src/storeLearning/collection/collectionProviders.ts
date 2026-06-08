@@ -1,5 +1,6 @@
 import type { JsonRecord, ProviderEnv } from '../providers/placeImportTypes.js';
 import type { Store } from '../../repositories/stores.js';
+import type { StoreChannel } from '../../repositories/store_channels.js';
 import { configuredBlogProvider, configuredPlaceProvider } from '../providers/ownerSourcePolicy.js';
 
 export type CollectionPlan = {
@@ -22,6 +23,7 @@ export type CollectionProviderContext = {
   env: ProviderEnv;
   plan: CollectionPlan;
   store: Store;
+  storeChannels?: StoreChannel[];
 };
 
 export type CollectionProvider = {

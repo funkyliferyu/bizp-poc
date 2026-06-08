@@ -1,5 +1,52 @@
 # Validation
 
+## NAVER-BLOG-001 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run typecheck
+npm test
+npm run naver:verify
+npm run demo
+npm run demo:store-learning
+npm audit --omit=dev --json
+```
+
+## NAVER-BLOG-001 TDD Evidence
+
+- RED `npm test -- naverBlogRenderedCollectionProvider.test.ts`: failed because `naverBlogRenderedCollectionProvider` did not exist.
+- GREEN `npm test -- naverBlogRenderedCollectionProvider.test.ts providerReadinessApi.test.ts`: passed after adding rendered Blog URL parsing, full-body collection, collection provider selection, and readiness updates.
+- GREEN `npm run typecheck && npm test -- collectionProgressApi.test.ts naverPlaceRenderedCollectionProvider.test.ts naverBlogRenderedCollectionProvider.test.ts providerReadinessApi.test.ts`: passed, 4 files / 14 tests.
+- GREEN `npm test -- naverBlogLiveIntegration.test.ts naverBlogRenderedCollectionProvider.test.ts`: passed with the live Blog test skipped by default.
+- GREEN `npm run naver:verify`: passed. Place live checks verified Naver restriction handling; Blog live check reported that `NAVER_LIVE_BLOG_URL` was not configured.
+
+## NAVER-BLOG-001 Expected Live Verification
+
+- `npm run naver:verify` now runs both Place and Blog live verification files.
+- Set `NAVER_LIVE_BLOG_URL` to an owner-authorized Naver Blog URL to perform live Blog body verification.
+- If Naver returns a restriction page, the command should pass by verifying restriction handling.
+- If Naver allows the rendered request, the command expects:
+  - Blog collection provider `naverBlogRenderedCollectionProvider`.
+  - Blog post drafts with `sourceType=post`.
+  - Blog metadata including `providerMode=real`.
+  - Non-empty body text for collectible posts.
+
+## NAVER-BLOG-001 Final Sequential Validation
+
+- `npm run db:migrate`: passed.
+- `npm run db:seed`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 30 files / 111 tests plus 3 skipped live files / 6 skipped tests.
+- `npm run naver:verify`: passed.
+  - Place live checks verified current Naver restriction-page handling.
+  - Blog live check reported that `NAVER_LIVE_BLOG_URL` was not configured.
+- `npm run demo`: passed and generated the existing Event-to-Operation approval package.
+- `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
+- `npm audit --omit=dev --json`: passed with 0 vulnerabilities.
+
 ## NAVER-REVIEW-001 Commands
 
 Run from `poc-server/`:

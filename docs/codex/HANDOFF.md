@@ -2,6 +2,68 @@
 
 ## Current Scope
 
+NAVER-BLOG-001 adds server-side rendered Naver Blog body collection for the Store Learning & Blog Content Automation PoC.
+
+This change implements collection-run integration when `NAVER_BLOG_PROVIDER=page` or `NAVER_BLOG_PROVIDER=rendered`. It discovers Naver Blog post links from a configured owner Blog URL, renders individual post pages, stores full blog bodies as `collection_items`, keeps browser pages calling `poc-server` APIs only, and preserves mock mode. It does not implement Naver Blog publishing, Naver login automation, UI redesign, `admin/`, `pc-web/`, or old Event-to-Operation workflow changes.
+
+## NAVER-BLOG-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/collection/naverBlogRenderedCollectionProvider.ts`
+  - Adds `naverBlogRenderedCollectionProvider`.
+  - Normalizes Naver Blog root/list/post URLs.
+  - Uses `NAVER_BLOG_RENDERER_ENDPOINT` when provided. The endpoint receives `?url=...` and may return JSON `{ finalUrl, html, bodyText }` or raw HTML.
+  - Falls back to the existing Playwright renderer path when no renderer endpoint is configured.
+  - Extracts post title, full body text, author, published date, tags, image URLs, blogId, and logNo from rendered Blog snapshots.
+  - Detects Naver restriction pages and throws instead of saving restricted HTML as successful Blog data.
+- `poc-server/src/storeLearning/collection/collectionRunner.ts`
+  - Passes `storeChannels` into collection providers so the Blog channel URL can be used as the owner Blog source.
+  - Selects `naverBlogRenderedCollectionProvider` when only the Blog provider is rendered/page.
+- `poc-server/src/storeLearning/collection/naverPlaceRenderedCollectionProvider.ts`
+  - Uses rendered Blog body collection when both `NAVER_PLACE_PROVIDER=rendered` and `NAVER_BLOG_PROVIDER=page|rendered` are configured.
+- `poc-server/src/storeLearning/readiness/providerReadiness.ts`
+  - Reports rendered/page Blog body collection as `ready`.
+  - Keeps RSS collection, Naver Blog publishing, and image generation as separate provider work.
+- `poc-server/test/naverBlogRenderedCollectionProvider.test.ts`
+  - Fixture-first tests for Blog URL normalization, post link/body parsing, and API-backed collection item persistence.
+- `poc-server/test/naverBlogLiveIntegration.test.ts`
+  - Extends opt-in `npm run naver:verify` for Blog body collection when `NAVER_LIVE_BLOG_URL` is provided.
+
+## NAVER-BLOG-001 Operating Notes
+
+Rendered Blog body collection configuration:
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_BLOG_PROVIDER=rendered
+```
+
+Equivalent page-provider configuration:
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_BLOG_PROVIDER=page
+```
+
+Optional deterministic/external Blog renderer configuration:
+
+```text
+NAVER_BLOG_RENDERER_ENDPOINT=http://127.0.0.1:PORT/render-blog
+```
+
+Optional explicit post URL list:
+
+```text
+NAVER_BLOG_POST_URLS=https://blog.naver.com/blogId/123,https://blog.naver.com/blogId/456
+```
+
+If `NAVER_BLOG_POST_URLS` is not set, the provider uses the store's `blog` channel `sourceUrl`, or `NAVER_BLOG_URL`, to render a mobile `PostList.naver` page and discover post URLs.
+
+## Next Suggested Task
+
+NAVER-REPLY-001 or PUBLISH-REAL-001 should add owner-authorized server-side provider design for Naver owner reply/publishing actions. Real write actions must stay explicitly gated and should not run from browser JavaScript.
+
+## Previous Scope
+
 NAVER-REVIEW-001 adds server-side rendered Naver Place visitor review collection for the Store Learning & Blog Content Automation PoC.
 
 This change implements collection-run integration when `NAVER_PLACE_PROVIDER=rendered`. It renders/parses the Place visitor review tab, stores visitor reviews as `collection_items` with reply/keyword metadata, keeps browser pages calling `poc-server` APIs only, and preserves mock mode. It does not implement owner reply publishing, Naver Blog body collection, UI redesign, `admin/`, `pc-web/`, or old Event-to-Operation workflow changes.

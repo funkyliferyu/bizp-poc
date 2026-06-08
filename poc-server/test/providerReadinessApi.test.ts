@@ -129,7 +129,7 @@ describe('Store Learning provider readiness', () => {
     expect(JSON.stringify(readiness)).not.toContain('naver-secret');
   });
 
-  it('reports explicit owner-authorized rendered Place review collection and future Blog page adapter work', () => {
+  it('reports explicit owner-authorized rendered Place review and Blog body collection', () => {
     const readiness = buildProviderReadiness(
       {
         NAVER_OWNER_AUTHORIZED: 'true',
@@ -151,7 +151,7 @@ describe('Store Learning provider readiness', () => {
     });
     expect(readiness.providers.collection).toMatchObject({
       selectedProvider: 'naverPlaceRenderedCollectionProvider',
-      status: 'partial_ready',
+      status: 'ready',
       mode: 'real'
     });
     expect(readiness.providers.collection.capabilities).toEqual(
@@ -168,11 +168,42 @@ describe('Store Learning provider readiness', () => {
         }),
         expect.objectContaining({
           key: 'owner_blog_body',
-          status: 'fallback_required',
-          dataAvailability: 'page_provider_adapter_not_implemented'
+          status: 'ready',
+          dataAvailability: 'rendered_blog_full_body'
         })
       ])
     );
+  });
+
+  it('reports rendered Blog collection when only the Blog provider is real', () => {
+    const readiness = buildProviderReadiness(
+      {
+        NAVER_OWNER_AUTHORIZED: 'true',
+        NAVER_PLACE_PROVIDER: 'mock',
+        NAVER_BLOG_PROVIDER: 'rendered'
+      },
+      () => '2026-06-06T00:00:00.000Z'
+    );
+
+    expect(readiness.providers.collection).toMatchObject({
+      selectedProvider: 'naverBlogRenderedCollectionProvider',
+      status: 'ready',
+      mode: 'real'
+    });
+    expect(readiness.providers.collection.capabilities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'owner_blog_body',
+          status: 'ready',
+          dataAvailability: 'rendered_blog_full_body'
+        }),
+        expect.objectContaining({
+          key: 'place_visitor_reviews',
+          status: 'mock'
+        })
+      ])
+    );
+    expect(readiness.nextActions).not.toContain('select_approved_fallback_provider_for_full_blog_body');
   });
 
   it('serves readiness through a poc-server API route only', async () => {
