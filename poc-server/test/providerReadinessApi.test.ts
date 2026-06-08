@@ -129,7 +129,7 @@ describe('Store Learning provider readiness', () => {
     expect(JSON.stringify(readiness)).not.toContain('naver-secret');
   });
 
-  it('reports explicit owner-authorized provider configuration for future rendered/page adapters', () => {
+  it('reports explicit owner-authorized rendered Place review collection and future Blog page adapter work', () => {
     const readiness = buildProviderReadiness(
       {
         NAVER_OWNER_AUTHORIZED: 'true',
@@ -149,12 +149,22 @@ describe('Store Learning provider readiness', () => {
       status: 'ready',
       mode: 'real'
     });
+    expect(readiness.providers.collection).toMatchObject({
+      selectedProvider: 'naverPlaceRenderedCollectionProvider',
+      status: 'partial_ready',
+      mode: 'real'
+    });
     expect(readiness.providers.collection.capabilities).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           key: 'owner_authorized_place_data',
-          status: 'fallback_required',
-          dataAvailability: 'rendered_provider_adapter_not_implemented'
+          status: 'ready',
+          dataAvailability: 'store_profile_snapshot_plus_rendered_review_tab'
+        }),
+        expect.objectContaining({
+          key: 'place_visitor_reviews',
+          status: 'ready',
+          dataAvailability: 'rendered_place_visitor_reviews'
         }),
         expect.objectContaining({
           key: 'owner_blog_body',

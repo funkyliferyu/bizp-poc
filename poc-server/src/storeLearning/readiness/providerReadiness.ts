@@ -142,6 +142,42 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
   const placeProvider = configuredPlaceProvider(env);
   const blogProvider = configuredBlogProvider(env);
 
+  if (placeProvider === 'rendered') {
+    const blogBodyFallbackRequired = blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered';
+    return {
+      selectedProvider: 'naverPlaceRenderedCollectionProvider',
+      status: blogBodyFallbackRequired ? 'partial_ready' : 'ready',
+      mode: 'real',
+      capabilities: [
+        {
+          key: 'owner_authorized_place_data',
+          status: 'ready',
+          dataAvailability: 'store_profile_snapshot_plus_rendered_review_tab'
+        },
+        {
+          key: 'place_visitor_reviews',
+          status: 'ready',
+          dataAvailability: 'rendered_place_visitor_reviews'
+        },
+        {
+          key: 'owner_blog_body',
+          status: blogBodyFallbackRequired ? 'fallback_required' : blogProvider === 'official_search' ? 'ready' : 'mock',
+          dataAvailability: blogBodyFallbackRequired
+            ? `${blogProvider}_provider_adapter_not_implemented`
+            : blogProvider === 'official_search'
+              ? 'official_blog_search_snippet_only'
+              : 'deterministic_demo_items',
+          officialApi: blogProvider === 'official_search' ? 'Naver Search API - Blog' : undefined,
+          fallbackRequired: blogBodyFallbackRequired
+        }
+      ],
+      notes: [
+        'Rendered Naver Place visitor review collection is enabled server-side.',
+        'Full owner Blog body collection remains a separate provider step.'
+      ]
+    };
+  }
+
   if (canUseRealNaverCollection(env)) {
     return {
       selectedProvider: 'naverSearchCollectionProvider',
@@ -179,7 +215,7 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
     };
   }
 
-  if (placeProvider === 'rendered' || blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered') {
+  if (blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered') {
     return {
       selectedProvider: null,
       status: 'fallback_required',
@@ -187,10 +223,8 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
       capabilities: [
         {
           key: 'owner_authorized_place_data',
-          status: placeProvider === 'rendered' ? 'fallback_required' : 'mock',
-          dataAvailability:
-            placeProvider === 'rendered' ? 'rendered_provider_adapter_not_implemented' : 'not_selected_for_place',
-          fallbackRequired: placeProvider === 'rendered'
+          status: 'mock',
+          dataAvailability: 'not_selected_for_place'
         },
         {
           key: 'owner_blog_body',
@@ -203,13 +237,11 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
         },
         {
           key: 'place_visitor_reviews',
-          status: placeProvider === 'rendered' ? 'fallback_required' : 'mock',
-          dataAvailability:
-            placeProvider === 'rendered' ? 'rendered_provider_adapter_not_implemented' : 'deterministic_demo_reviews',
-          fallbackRequired: placeProvider === 'rendered'
+          status: 'mock',
+          dataAvailability: 'deterministic_demo_reviews'
         }
       ],
-      notes: ['Owner-authorized Naver page collection is selected but rendered/page/RSS provider adapters are not implemented yet.']
+      notes: ['Owner-authorized Naver Blog page/RSS collection is selected but that provider adapter is not implemented yet.']
     };
   }
 
@@ -404,7 +436,7 @@ function nextActions(env: ProviderEnv) {
   if (!naverSearchConfigured(env)) actions.push('configure_naver_search_credentials_for_real_official_search');
   if (mockModeForced(env) && naverSearchConfigured(env)) actions.push('set_store_learning_mock_mode_false_for_real_naver_search');
   actions.push('select_approved_fallback_provider_for_full_blog_body');
-  actions.push('select_approved_fallback_provider_for_place_reviews');
+  if (configuredPlaceProvider(env) !== 'rendered') actions.push('select_approved_fallback_provider_for_place_reviews');
   actions.push('define_server_side_image_generation_provider_before_real_images');
   actions.push('define_server_side_naver_blog_publish_adapter_before_real_publish');
   return actions;
