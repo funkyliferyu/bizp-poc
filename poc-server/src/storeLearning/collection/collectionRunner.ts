@@ -1,7 +1,8 @@
 import type { JsonValue } from '../../repositories/base.js';
 import type { CollectionRun } from '../../repositories/collection_runs.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
-import type { ProviderEnv } from '../providers/placeImportTypes.js';
+import type { JsonRecord, ProviderEnv } from '../providers/placeImportTypes.js';
+import { sourceMetadata, type SourceKind } from '../providers/ownerSourcePolicy.js';
 import {
   canUseRealNaverCollection,
   type CollectionPlan,
@@ -64,6 +65,30 @@ function itemId(runId: string, sourceType: string, index: number) {
   return `collection_item_${runId}_${sourceType}_${index}`;
 }
 
+function sourceKindForDraft(draft: CollectionProviderItemDraft): SourceKind {
+  if (draft.channel === 'place' && draft.sourceType === 'profile') return 'place_profile';
+  if (draft.channel === 'place' && draft.sourceType === 'review') return 'place_visitor_review';
+  return 'owner_blog_post';
+}
+
+function defaultBodyAvailability(draft: CollectionProviderItemDraft, provider: CollectionProvider) {
+  if (draft.bodyText) return provider.mode === 'mock' ? 'mock_body' : 'provider_body';
+  if (draft.status === 'failed') return 'unavailable';
+  return 'metadata_only';
+}
+
+function enrichItemMetadata(
+  draft: CollectionProviderItemDraft,
+  provider: CollectionProvider,
+  env: ProviderEnv
+): JsonRecord {
+  return {
+    bodyAvailability: defaultBodyAvailability(draft, provider),
+    ...draft.metadata,
+    ...sourceMetadata(sourceKindForDraft(draft), env)
+  };
+}
+
 async function ensureProviderItems(
   repos: Repositories,
   run: CollectionRun,
@@ -95,7 +120,7 @@ async function ensureProviderItems(
       selectedForAnalysis: 0,
       selectionReason: null,
       selectedAt: null,
-      metadata: draft.metadata
+      metadata: enrichItemMetadata(draft, provider, env)
     })
   );
 }

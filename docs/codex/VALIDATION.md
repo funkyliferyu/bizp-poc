@@ -1,5 +1,67 @@
 # Validation
 
+## OWNER-SOURCE-001 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run typecheck
+npm test
+npm run demo
+npm run demo:store-learning
+```
+
+## OWNER-SOURCE-001 TDD Evidence
+
+- RED `npm test -- storeRegistrationApi.test.ts providerReadinessApi.test.ts collectionProgressApi.test.ts`: failed because:
+  - explicit `NAVER_PLACE_PROVIDER=official_search` still returned `mockPlaceProvider`;
+  - readiness did not expose `ownerSourcePolicy`;
+  - collection run summaries did not include `sourcePolicy`.
+- GREEN `npm test -- storeRegistrationApi.test.ts providerReadinessApi.test.ts collectionProgressApi.test.ts`: passed, 3 files / 11 tests.
+- GREEN `npm run typecheck`: passed.
+
+## OWNER-SOURCE-001 Final Sequential Validation
+
+- `npm run db:migrate`: passed.
+- `npm run db:seed`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: first run failed in `trainingSettingsApi.test.ts` because the old assertion did not include the new `summary.sourcePolicy`.
+- Minimal validation fix: updated that test to assert the default mock source policy.
+- `npm test`: passed, 27 files / 100 tests plus 1 skipped live OpenAI file / 3 skipped tests.
+- `npm run demo`: passed and generated the existing Event-to-Operation approval package.
+- `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
+
+## OWNER-SOURCE-001 Manual Smoke Notes
+
+No frontend behavior changed in this step.
+
+Expected readiness shape for future rendered/page adapters:
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_PLACE_PROVIDER=rendered
+NAVER_BLOG_PROVIDER=page
+
+ownerSourcePolicy.ownerAuthorized => true
+ownerSourcePolicy.placeProvider => rendered
+ownerSourcePolicy.blogProvider => page
+providers.placeImport.selectedProvider => naverPlaceRenderedProvider
+providers.placeImport.status => fallback_required
+providers.collection.status => fallback_required
+```
+
+Expected collection item metadata after a mock owner-authorized run:
+
+```text
+metadata.ownerAuthorized => true
+metadata.sourceKind => owner_blog_post | place_profile | place_visitor_review
+metadata.sourceOwnership => owner_managed | user_generated
+metadata.configuredPlaceProvider/configuredBlogProvider => selected env provider
+metadata.bodyAvailability => mock_body | provider_body | metadata_only | unavailable
+```
+
 ## OPS-001 Commands
 
 Run from `poc-server/`:

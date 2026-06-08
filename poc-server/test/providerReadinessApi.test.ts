@@ -129,6 +129,42 @@ describe('Store Learning provider readiness', () => {
     expect(JSON.stringify(readiness)).not.toContain('naver-secret');
   });
 
+  it('reports explicit owner-authorized provider configuration for future rendered/page adapters', () => {
+    const readiness = buildProviderReadiness(
+      {
+        NAVER_OWNER_AUTHORIZED: 'true',
+        NAVER_PLACE_PROVIDER: 'rendered',
+        NAVER_BLOG_PROVIDER: 'page'
+      },
+      () => '2026-06-06T00:00:00.000Z'
+    );
+
+    expect(readiness.ownerSourcePolicy).toEqual({
+      ownerAuthorized: true,
+      placeProvider: 'rendered',
+      blogProvider: 'page'
+    });
+    expect(readiness.providers.placeImport).toMatchObject({
+      selectedProvider: 'naverPlaceRenderedProvider',
+      status: 'fallback_required',
+      mode: 'real'
+    });
+    expect(readiness.providers.collection.capabilities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'owner_authorized_place_data',
+          status: 'fallback_required',
+          dataAvailability: 'rendered_provider_adapter_not_implemented'
+        }),
+        expect.objectContaining({
+          key: 'owner_blog_body',
+          status: 'fallback_required',
+          dataAvailability: 'page_provider_adapter_not_implemented'
+        })
+      ])
+    );
+  });
+
   it('serves readiness through a poc-server API route only', async () => {
     const app = express();
     app.use('/api/store-learning', createStoreLearningReadinessRoutes({ env: {}, now: () => '2026-06-06T00:00:00.000Z' }));

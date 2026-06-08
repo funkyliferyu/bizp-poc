@@ -106,6 +106,85 @@ describe('Collection progress API', () => {
     expect(items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'review')).toHaveLength(3);
   });
 
+  it('persists owner-authorized source metadata on collection runs and items', async () => {
+    const ownerEnv = {
+      NAVER_OWNER_AUTHORIZED: 'true',
+      NAVER_PLACE_PROVIDER: 'mock',
+      NAVER_BLOG_PROVIDER: 'mock'
+    };
+    const ownerApp = express();
+    ownerApp.use(express.json());
+    ownerApp.use('/api/stores', createStoreRoutes({ connection, env: ownerEnv }));
+    ownerApp.use('/api/collection-runs', createCollectionRunRoutes({ connection, stepDelayMs: 0, env: ownerEnv }));
+    const ownerServer = ownerApp.listen(0);
+    const ownerAddress = ownerServer.address() as AddressInfo;
+    const ownerBaseUrl = `http://127.0.0.1:${ownerAddress.port}`;
+
+    try {
+      await fetch(`${ownerBaseUrl}/api/stores/store_demo_cake/training-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channels: {
+            naverBlog: { enabled: true, blogPostLimit: 1 },
+            naverPlace: { enabled: true, placeReviewLimit: 1 },
+            instagram: { enabled: false, instagramPostLimit: 0 }
+          }
+        })
+      });
+      const createRunResponse = await fetch(`${ownerBaseUrl}/api/stores/store_demo_cake/collection-runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const created = await readJson(createRunResponse);
+
+      expect(created.collectionRun.summary.sourcePolicy).toEqual({
+        ownerAuthorized: true,
+        placeProvider: 'mock',
+        blogProvider: 'mock'
+      });
+
+      await fetch(`${ownerBaseUrl}/api/collection-runs/${created.collectionRunId}/start`, {
+        method: 'POST'
+      });
+      await waitForCompleted(ownerBaseUrl, created.collectionRunId);
+
+      const itemsResponse = await fetch(`${ownerBaseUrl}/api/collection-runs/${created.collectionRunId}/items`);
+      const items = await readJson(itemsResponse);
+      const post = items.collectionItems.find((item: { sourceType: string }) => item.sourceType === 'post');
+      const profile = items.collectionItems.find((item: { sourceType: string }) => item.sourceType === 'profile');
+      const review = items.collectionItems.find((item: { sourceType: string }) => item.sourceType === 'review');
+
+      expect(post.metadata).toEqual(
+        expect.objectContaining({
+          ownerAuthorized: true,
+          sourceKind: 'owner_blog_post',
+          sourceOwnership: 'owner_managed',
+          configuredBlogProvider: 'mock'
+        })
+      );
+      expect(profile.metadata).toEqual(
+        expect.objectContaining({
+          ownerAuthorized: true,
+          sourceKind: 'place_profile',
+          sourceOwnership: 'owner_managed',
+          configuredPlaceProvider: 'mock'
+        })
+      );
+      expect(review.metadata).toEqual(
+        expect.objectContaining({
+          ownerAuthorized: true,
+          sourceKind: 'place_visitor_review',
+          sourceOwnership: 'user_generated',
+          configuredPlaceProvider: 'mock'
+        })
+      );
+    } finally {
+      await new Promise<void>((resolve) => ownerServer.close(() => resolve()));
+    }
+  });
+
   it('uses Naver Search providers for collection metadata when mock mode is disabled', async () => {
     const providerEnv = {
       STORE_LEARNING_MOCK_MODE: 'false',
