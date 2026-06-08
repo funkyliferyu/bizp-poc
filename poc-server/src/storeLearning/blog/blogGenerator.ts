@@ -8,6 +8,7 @@ import type { SeoScore } from '../../repositories/seo_scores.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import type { Store } from '../../repositories/stores.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
+import type { BlogPublishProvider, BlogPublishRequest } from '../publishing/blogPublishProvider.js';
 import {
   BlogDraftSectionSchema,
   BlogProviderDraftOutputSchema,
@@ -69,6 +70,11 @@ function latestRuleset(repos: Repositories, storeId: string) {
 function asRecord(value: JsonValue | unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
+}
+
+function asJsonRecord(value: unknown): Record<string, JsonValue> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return JSON.parse(JSON.stringify(value)) as Record<string, JsonValue>;
 }
 
 function asString(value: unknown) {
@@ -764,18 +770,71 @@ export function getBlogPostPreview(repos: Repositories, postId: string) {
   };
 }
 
-export function requestBlogPostPublish(repos: Repositories, postId: string) {
+export async function requestBlogPostPublish(
+  repos: Repositories,
+  postId: string,
+  request: BlogPublishRequest,
+  publishProvider: BlogPublishProvider
+) {
   const post = repos.blogPosts.findById(postId);
   if (!post) return null;
+  const store = repos.stores.findById(post.storeId);
+  if (!store) throw new Error(`Store not found: ${post.storeId}`);
   const timestamp = nowIso();
   const article = asRecord(post.article);
+  const normalized = normalizedArticle(post);
+  const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  const serializedMediaAssets = mediaAssets.map((asset) => asJsonRecord(serializeMediaAsset(asset)));
+  const latestSeoScore = latestByUpdatedAt(repos.seoScores.listByBlogPostId(post.id));
+  const seoScore = asJsonRecord(serializeSeoScore(latestSeoScore, post, mediaAssets));
+  const preview = previewHtml(post, mediaAssets);
+  const publishResult = await publishProvider.requestPublish({
+    env: {},
+    request,
+    store: {
+      id: store.id,
+      name: store.name
+    },
+    post: {
+      id: post.id,
+      storeId: post.storeId,
+      title: post.title
+    },
+    article: {
+      metaDescription: normalized.metaDescription,
+      bodyText: normalized.bodyText,
+      cta: normalized.cta,
+      seoKeywords: normalized.seoKeywords
+    },
+    preview: {
+      html: preview.html
+    },
+    mediaAssets: serializedMediaAssets,
+    seoScore
+  });
+  const publishRequestMetadata = asJsonRecord({
+    status: publishResult.status,
+    publishMode: request.publishMode,
+    scheduledAt: request.scheduledAt ?? null,
+    requestedBy: request.requestedBy ?? null,
+    requestedAt: timestamp,
+    provider: publishResult.provider,
+    writeAction: publishResult.writeAction,
+    externalWriteAttempted: publishResult.externalWriteAttempted,
+    externalRequestId: publishResult.externalRequestId,
+    payload: publishResult.payload,
+    notes: publishResult.notes
+  });
+
   repos.blogPosts.update(post.id, {
     status: 'publish_requested',
-    article: {
+    scheduledAt: request.publishMode === 'scheduled' ? (request.scheduledAt ?? null) : null,
+    article: asJsonRecord({
       ...article,
       status: 'publish_requested',
-      publishRequestedAt: timestamp
-    },
+      publishRequestedAt: timestamp,
+      publishRequest: publishRequestMetadata
+    }),
     updatedAt: timestamp
   });
   return getBlogPostDetail(repos, post.id);

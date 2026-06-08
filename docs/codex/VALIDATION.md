@@ -1,5 +1,46 @@
 # Validation
 
+## PUBLISH-REAL-001 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run typecheck
+npm test
+npm run naver:verify
+npm run demo
+npm run demo:store-learning
+npm audit --omit=dev --json
+```
+
+## PUBLISH-REAL-001 TDD Evidence
+
+- RED `npm test -- blogPublishProvider.test.ts`: failed because request-publish did not store provider payload metadata and did not block unsupported direct Naver Blog write configuration.
+- RED `npm test -- providerReadinessApi.test.ts blogPublishProvider.test.ts`: failed because publishing readiness did not understand manual export or unsupported direct Naver Blog write actions.
+- GREEN `npm test -- providerReadinessApi.test.ts blogPublishProvider.test.ts contentDetailApi.test.ts`: passed after adding the publish provider boundary and request-publish wiring.
+- GREEN `npm run typecheck && npm test -- providerReadinessApi.test.ts blogPublishProvider.test.ts contentDetailApi.test.ts`: passed after JSON metadata normalization.
+
+## PUBLISH-REAL-001 Official API Note
+
+- Naver Developers announced that the login-based Blog write Open API target `글쓰기` ended on 2020-05-06.
+- This branch therefore does not attempt direct Naver Blog writes.
+- `manual_export` is the supported PoC provider mode for owner-approved publishing payloads.
+
+## PUBLISH-REAL-001 Final Sequential Validation
+
+- `npm run db:migrate`: passed.
+- `npm run db:seed`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 31 files / 114 tests plus 3 skipped live files / 6 skipped tests.
+- `npm run naver:verify`: passed.
+  - Place live checks verified current Naver restriction-page handling.
+  - Blog live check reported that `NAVER_LIVE_BLOG_URL` was not configured.
+- `npm run demo`: passed and generated the existing Event-to-Operation approval package.
+- `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
+- `npm audit --omit=dev --json`: passed with 0 vulnerabilities.
+
 ## NAVER-BLOG-001 Commands
 
 Run from `poc-server/`:

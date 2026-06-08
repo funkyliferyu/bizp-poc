@@ -11,6 +11,7 @@ import {
 } from '../blog/blogGenerator.js';
 import type { BlogContentProvider } from '../blog/blogProvider.js';
 import { createBlogContentProvider, type OpenAIBlogParseClient } from '../blog/openAIBlogProvider.js';
+import { BlogPublishRequestSchema, createBlogPublishProvider } from '../publishing/blogPublishProvider.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type BlogPostRoutesOptions = {
@@ -37,6 +38,7 @@ export function createBlogPostRoutes({
             ? { client: blogProviderClient, model: env.OPENAI_MODEL }
             : { model: env.OPENAI_MODEL }
         );
+  const selectedPublishProvider = createBlogPublishProvider(env);
 
   router.post('/:postId/regenerate-text', async (req, res, next) => {
     try {
@@ -86,9 +88,10 @@ export function createBlogPostRoutes({
     res.json(payload);
   });
 
-  router.post('/:postId/request-publish', (req, res, next) => {
+  router.post('/:postId/request-publish', async (req, res, next) => {
     try {
-      const payload = requestBlogPostPublish(repos, req.params.postId);
+      const request = BlogPublishRequestSchema.parse(req.body ?? {});
+      const payload = await requestBlogPostPublish(repos, req.params.postId, request, selectedPublishProvider);
       if (!payload) {
         res.status(404).json({ error: `Blog post not found: ${req.params.postId}` });
         return;

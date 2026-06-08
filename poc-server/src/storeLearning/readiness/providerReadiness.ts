@@ -6,6 +6,7 @@ import {
   mockModeForced,
   ownerSourcePolicy
 } from '../providers/ownerSourcePolicy.js';
+import { configuredBlogPublishProvider } from '../publishing/blogPublishProvider.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type ProviderStatus =
@@ -30,7 +31,7 @@ type ProviderCapability = {
 type ProviderReadinessEntry = {
   selectedProvider: string | null;
   status: ProviderStatus;
-  mode: 'mock' | 'parser' | 'real' | 'openai' | 'placeholder' | 'local_status';
+  mode: 'mock' | 'parser' | 'real' | 'openai' | 'placeholder' | 'local_status' | 'manual_export';
   capabilities: ProviderCapability[];
   model?: string;
   notes: string[];
@@ -422,7 +423,57 @@ function imageGenerationReadiness(): ProviderReadinessEntry {
   };
 }
 
-function publishingReadiness(): ProviderReadinessEntry {
+function publishingReadiness(env: ProviderEnv): ProviderReadinessEntry {
+  const publishProvider = configuredBlogPublishProvider(env);
+  if (publishProvider === 'manual_export') {
+    return {
+      selectedProvider: 'manualExportBlogPublishProvider',
+      status: 'ready',
+      mode: 'manual_export',
+      capabilities: [
+        {
+          key: 'publish_request_state',
+          status: 'ready',
+          dataAvailability: 'sqlite_status_transition'
+        },
+        {
+          key: 'publish_payload_export',
+          status: 'ready',
+          dataAvailability: 'manual_export_payload'
+        },
+        {
+          key: 'real_naver_blog_publish',
+          status: 'fallback_required',
+          dataAvailability: 'official_blog_write_api_ended',
+          fallbackRequired: true
+        }
+      ],
+      notes: ['Manual export prepares a server-side payload for owner-approved Naver Blog publishing; no external write is attempted.']
+    };
+  }
+
+  if (publishProvider === 'naver_blog_write') {
+    return {
+      selectedProvider: 'unsupportedNaverBlogWriteProvider',
+      status: 'fallback_required',
+      mode: 'real',
+      capabilities: [
+        {
+          key: 'publish_request_state',
+          status: 'local_status_only',
+          dataAvailability: 'sqlite_status_transition'
+        },
+        {
+          key: 'real_naver_blog_publish',
+          status: 'fallback_required',
+          dataAvailability: 'official_blog_write_api_ended',
+          fallbackRequired: true
+        }
+      ],
+      notes: ['Naver Developer notice ended the login-based Blog write API on 2020-05-06; use manual export or an approved publishing partner adapter.']
+    };
+  }
+
   return {
     selectedProvider: null,
     status: 'local_status_only',
@@ -460,6 +511,11 @@ function officialNaverLimitations(): NaverLimitation[] {
       capability: 'full_place_body',
       officialApiCoverage: 'Naver Local Search returns local metadata only.',
       requiredApproach: 'fallback_provider_required'
+    },
+    {
+      capability: 'blog_write_api',
+      officialApiCoverage: 'Login-based Naver Blog write API ended on 2020-05-06.',
+      requiredApproach: 'provider_adapter_required'
     }
   ];
 }
@@ -474,7 +530,9 @@ function nextActions(env: ProviderEnv) {
   }
   if (configuredPlaceProvider(env) !== 'rendered') actions.push('select_approved_fallback_provider_for_place_reviews');
   actions.push('define_server_side_image_generation_provider_before_real_images');
-  actions.push('define_server_side_naver_blog_publish_adapter_before_real_publish');
+  if (configuredBlogPublishProvider(env) !== 'manual_export') {
+    actions.push('define_server_side_naver_blog_publish_adapter_before_real_publish');
+  }
   return actions;
 }
 
@@ -499,7 +557,7 @@ export function buildProviderReadiness(env: ProviderEnv = process.env, now: () =
       analysis: analysisReadiness(env),
       blogGeneration: blogGenerationReadiness(env),
       imageGeneration: imageGenerationReadiness(),
-      publishing: publishingReadiness()
+      publishing: publishingReadiness(env)
     },
     officialNaverLimitations: officialNaverLimitations(),
     nextActions: nextActions(env)

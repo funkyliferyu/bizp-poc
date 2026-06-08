@@ -2,6 +2,57 @@
 
 ## Current Scope
 
+PUBLISH-REAL-001 adds a server-side Blog publish provider boundary for the Store Learning & Blog Content Automation PoC.
+
+This change upgrades `POST /api/blog-posts/:postId/request-publish` from a plain local status transition into a provider-mediated publish request. The default still performs local status only. `NAVER_BLOG_PUBLISH_PROVIDER=manual_export` prepares and stores a structured manual publishing payload without attempting an external write. `NAVER_BLOG_PUBLISH_PROVIDER=naver_blog_write` is explicitly blocked because Naver's login-based Blog write Open API ended on 2020-05-06. No browser-side Naver calls, no real Naver write calls, no UI redesign, no `admin/`, no `pc-web/`, and no Event-to-Operation workflow changes are included.
+
+## PUBLISH-REAL-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/publishing/blogPublishProvider.ts`
+  - Adds `BlogPublishRequestSchema`.
+  - Adds `localStatusBlogPublishProvider`, `manualExportBlogPublishProvider`, and `unsupportedNaverBlogWriteProvider`.
+  - Builds a Zod-validated publish payload containing title, body text, preview HTML, SEO keywords, image prompts/assets, SEO score, publish mode, scheduled time, and requester.
+  - Keeps all Naver credentials and write decisions server-side.
+- `poc-server/src/storeLearning/blog/blogGenerator.ts`
+  - Persists `article.publishRequest` metadata returned from the publish provider.
+  - Stores scheduled publish time for scheduled requests.
+  - Does not update the post if the configured provider rejects the write action.
+- `poc-server/src/storeLearning/routes/blogPosts.ts`
+  - Validates request-publish input and injects the configured publish provider.
+- `poc-server/src/storeLearning/readiness/providerReadiness.ts`
+  - Reports manual export as ready.
+  - Reports direct Naver Blog write as fallback-required/unsupported because the official write API is ended.
+- `poc-server/test/blogPublishProvider.test.ts`
+  - Covers manual-export payload persistence and blocked direct Naver write configuration.
+
+## PUBLISH-REAL-001 Operating Notes
+
+Default local status-only request:
+
+```text
+NAVER_BLOG_PUBLISH_PROVIDER unset
+```
+
+Manual export payload mode:
+
+```text
+NAVER_BLOG_PUBLISH_PROVIDER=manual_export
+```
+
+Explicitly blocked unsupported mode:
+
+```text
+NAVER_BLOG_PUBLISH_PROVIDER=naver_blog_write
+```
+
+Official source note: Naver Developers announced that the login-based Blog write API target `글쓰기` ended on 2020-05-06 (`https://developers.naver.com/notice/article/7527`). A real publishing integration must use an approved server-side publishing partner or separate owner-authorized workflow.
+
+## Next Suggested Task
+
+NAVER-REPLY-001 can add a similar server-side provider boundary for Place visitor review owner-reply draft/export actions. Real reply writes should remain explicitly gated behind an approved provider adapter.
+
+## Previous Scope
+
 NAVER-BLOG-001 adds server-side rendered Naver Blog body collection for the Store Learning & Blog Content Automation PoC.
 
 This change implements collection-run integration when `NAVER_BLOG_PROVIDER=page` or `NAVER_BLOG_PROVIDER=rendered`. It discovers Naver Blog post links from a configured owner Blog URL, renders individual post pages, stores full blog bodies as `collection_items`, keeps browser pages calling `poc-server` APIs only, and preserves mock mode. It does not implement Naver Blog publishing, Naver login automation, UI redesign, `admin/`, `pc-web/`, or old Event-to-Operation workflow changes.

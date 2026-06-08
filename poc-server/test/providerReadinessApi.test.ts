@@ -206,6 +206,53 @@ describe('Store Learning provider readiness', () => {
     expect(readiness.nextActions).not.toContain('select_approved_fallback_provider_for_full_blog_body');
   });
 
+  it('reports manual publish export readiness and unsupported Naver Blog write actions', () => {
+    const manualReadiness = buildProviderReadiness(
+      {
+        NAVER_OWNER_AUTHORIZED: 'true',
+        NAVER_BLOG_PUBLISH_PROVIDER: 'manual_export'
+      },
+      () => '2026-06-06T00:00:00.000Z'
+    );
+    const naverWriteReadiness = buildProviderReadiness(
+      {
+        NAVER_OWNER_AUTHORIZED: 'true',
+        NAVER_BLOG_PUBLISH_PROVIDER: 'naver_blog_write'
+      },
+      () => '2026-06-06T00:00:00.000Z'
+    );
+
+    expect(manualReadiness.providers.publishing).toMatchObject({
+      selectedProvider: 'manualExportBlogPublishProvider',
+      status: 'ready',
+      mode: 'manual_export'
+    });
+    expect(manualReadiness.providers.publishing.capabilities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'publish_payload_export',
+          status: 'ready',
+          dataAvailability: 'manual_export_payload'
+        })
+      ])
+    );
+    expect(naverWriteReadiness.providers.publishing).toMatchObject({
+      selectedProvider: 'unsupportedNaverBlogWriteProvider',
+      status: 'fallback_required',
+      mode: 'real'
+    });
+    expect(naverWriteReadiness.providers.publishing.capabilities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'real_naver_blog_publish',
+          status: 'fallback_required',
+          dataAvailability: 'official_blog_write_api_ended',
+          fallbackRequired: true
+        })
+      ])
+    );
+  });
+
   it('serves readiness through a poc-server API route only', async () => {
     const app = express();
     app.use('/api/store-learning', createStoreLearningReadinessRoutes({ env: {}, now: () => '2026-06-06T00:00:00.000Z' }));
