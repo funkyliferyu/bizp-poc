@@ -1,5 +1,52 @@
 # Validation
 
+## NAVER-REVIEW-001 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run typecheck
+npm test
+npm run naver:verify
+npm run demo
+npm run demo:store-learning
+npm audit --omit=dev --json
+```
+
+## NAVER-REVIEW-001 TDD Evidence
+
+- RED `npm test -- naverPlaceRenderedCollectionProvider.test.ts`: failed because `naverPlaceRenderedCollectionProvider` did not exist.
+- GREEN `npm test -- naverPlaceRenderedCollectionProvider.test.ts providerReadinessApi.test.ts`: passed after adding rendered visitor review parsing, collection provider selection, and readiness updates.
+- GREEN `npm test -- naverPlaceLiveIntegration.test.ts naverPlaceRenderedCollectionProvider.test.ts`: passed with live tests skipped by default.
+- GREEN `npm run typecheck`: passed.
+- GREEN `npm test -- collectionProgressApi.test.ts providerReadinessApi.test.ts naverPlaceRenderedCollectionProvider.test.ts`: passed, 3 files / 10 tests.
+
+## NAVER-REVIEW-001 Expected Live Verification
+
+- `npm run naver:verify` is opt-in and may use Playwright.
+- If Naver returns the current restriction page, the command should pass by verifying restriction handling.
+- If Naver allows the rendered request, the command expects:
+  - Place import provider `naverPlaceRenderedProvider`.
+  - Visitor review collection provider `naverPlaceRenderedCollectionProvider`.
+  - Review drafts with `sourceType=review`.
+  - Review metadata including `providerMode=real`.
+
+## NAVER-REVIEW-001 Final Sequential Validation
+
+- `npm run db:migrate`: passed.
+- `npm run db:seed`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 29 files / 107 tests plus 2 skipped live files / 5 skipped tests.
+- `npm run naver:verify`: passed.
+  - Current environment result:
+    - Naver returned restriction pages for both rendered Place profile and rendered visitor review requests.
+    - The provider detected the restrictions and did not save restricted HTML as successful data.
+- `npm run demo`: passed and generated the existing Event-to-Operation approval package.
+- `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
+- `npm audit --omit=dev --json`: passed with 0 vulnerabilities.
+
 ## NAVER-PLACE-001 Commands
 
 Run from `poc-server/`:

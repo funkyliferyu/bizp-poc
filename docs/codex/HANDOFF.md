@@ -2,6 +2,53 @@
 
 ## Current Scope
 
+NAVER-REVIEW-001 adds server-side rendered Naver Place visitor review collection for the Store Learning & Blog Content Automation PoC.
+
+This change implements collection-run integration when `NAVER_PLACE_PROVIDER=rendered`. It renders/parses the Place visitor review tab, stores visitor reviews as `collection_items` with reply/keyword metadata, keeps browser pages calling `poc-server` APIs only, and preserves mock mode. It does not implement owner reply publishing, Naver Blog body collection, UI redesign, `admin/`, `pc-web/`, or old Event-to-Operation workflow changes.
+
+## NAVER-REVIEW-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/collection/naverPlaceRenderedCollectionProvider.ts`
+  - Adds `naverPlaceRenderedCollectionProvider`.
+  - Builds `/review/visitor` URLs from full Naver Place URLs and can resolve short URLs through the renderer's final URL.
+  - Parses rendered visitor review cards into body text, reviewer/date/rating, review keywords, media/video flags, owner reply text, `hasOwnerReply`, and `replyStatus`.
+  - Emits place profile snapshot items from the stored store record.
+  - Keeps blog collection mocked or official-search-only in this step; full owner Blog body collection remains separate.
+  - Detects Naver restriction pages and fails the collection run instead of saving partial restricted HTML as successful review data.
+- `poc-server/src/storeLearning/collection/collectionRunner.ts`
+  - Selects `naverPlaceRenderedCollectionProvider` when `NAVER_PLACE_PROVIDER=rendered`.
+  - Existing source metadata enrichment stores `sourceKind=place_visitor_review`, `sourceOwnership=user_generated`, and owner authorization metadata.
+- `poc-server/src/storeLearning/readiness/providerReadiness.ts`
+  - Reports rendered Place visitor review collection as ready.
+  - Continues to report full owner Blog body collection as future provider work.
+- `poc-server/test/naverPlaceRenderedCollectionProvider.test.ts`
+  - Fixture-first tests for review URL construction, review parsing, and API-backed collection item persistence.
+- `poc-server/test/naverPlaceLiveIntegration.test.ts`
+  - Extends opt-in `npm run naver:verify` to cover visitor review collection behavior or Naver restriction handling.
+
+## NAVER-REVIEW-001 Operating Notes
+
+Rendered review collection configuration:
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_PLACE_PROVIDER=rendered
+```
+
+Optional renderer endpoint for deterministic or externally managed browser rendering:
+
+```text
+NAVER_PLACE_RENDERER_ENDPOINT=http://127.0.0.1:PORT/render-place
+```
+
+The rendered review provider stores visitor reviews as user-generated source data. Actual owner reply automation and Naver Blog body crawling are still not implemented.
+
+## Next Suggested Task
+
+NAVER-BLOG-001 should add owner-authorized Naver Blog body collection behind a server-side provider adapter, keeping official Blog Search as snippet-only and preserving mock mode.
+
+## Previous Scope
+
 NAVER-PLACE-001 adds a server-side rendered Naver Place import provider for the Store Learning & Blog Content Automation PoC.
 
 This change implements `NAVER_PLACE_PROVIDER=rendered` for store registration/import. It parses rendered Naver Place profile snapshots into store fields, supports an optional renderer endpoint for deterministic tests or external browser workers, and uses Playwright as the default local renderer. It does not connect collection runs to rendered Place data yet, does not collect visitor reviews yet, does not collect Naver Blog bodies, does not modify browser-side external provider rules, and does not modify `admin/`, `pc-web/`, or old Event-to-Operation workflows.

@@ -2,7 +2,7 @@ import type { JsonValue } from '../../repositories/base.js';
 import type { CollectionRun } from '../../repositories/collection_runs.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import type { JsonRecord, ProviderEnv } from '../providers/placeImportTypes.js';
-import { sourceMetadata, type SourceKind } from '../providers/ownerSourcePolicy.js';
+import { configuredPlaceProvider, sourceMetadata, type SourceKind } from '../providers/ownerSourcePolicy.js';
 import {
   canUseRealNaverCollection,
   type CollectionPlan,
@@ -10,6 +10,7 @@ import {
   type CollectionProviderItemDraft
 } from './collectionProviders.js';
 import { createMockCollectionProvider } from './mockCollectionProvider.js';
+import { createNaverPlaceRenderedCollectionProvider } from './naverPlaceRenderedCollectionProvider.js';
 import { createNaverSearchCollectionProvider } from './naverSearchCollectionProvider.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
@@ -57,6 +58,7 @@ function readPlan(run: CollectionRun): CollectionPlan {
 }
 
 function collectionProvider(env: ProviderEnv): CollectionProvider {
+  if (configuredPlaceProvider(env) === 'rendered') return createNaverPlaceRenderedCollectionProvider();
   if (canUseRealNaverCollection(env)) return createNaverSearchCollectionProvider();
   return createMockCollectionProvider();
 }
