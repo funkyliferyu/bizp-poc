@@ -10,6 +10,7 @@ import {
   type CollectionProviderItemDraft
 } from './collectionProviders.js';
 import { createMockCollectionProvider } from './mockCollectionProvider.js';
+import { createNaverBlogRenderedCollectionProvider, isRenderedBlogCollectionProvider } from './naverBlogRenderedCollectionProvider.js';
 import { createNaverPlaceRenderedCollectionProvider } from './naverPlaceRenderedCollectionProvider.js';
 import { createNaverSearchCollectionProvider } from './naverSearchCollectionProvider.js';
 
@@ -59,6 +60,7 @@ function readPlan(run: CollectionRun): CollectionPlan {
 
 function collectionProvider(env: ProviderEnv): CollectionProvider {
   if (configuredPlaceProvider(env) === 'rendered') return createNaverPlaceRenderedCollectionProvider();
+  if (isRenderedBlogCollectionProvider(env)) return createNaverBlogRenderedCollectionProvider();
   if (canUseRealNaverCollection(env)) return createNaverSearchCollectionProvider();
   return createMockCollectionProvider();
 }
@@ -105,7 +107,8 @@ async function ensureProviderItems(
   const drafts = await provider.collect({
     env,
     plan: readPlan(run),
-    store
+    store,
+    storeChannels: repos.storeChannels.listByStoreId(store.id)
   });
 
   return drafts.map((draft: CollectionProviderItemDraft, index) =>

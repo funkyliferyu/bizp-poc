@@ -8,6 +8,7 @@ import {
   type RenderedPlaceSnapshot
 } from '../providers/naverPlaceRenderedProvider.js';
 import type { CollectionPlan, CollectionProvider, CollectionProviderItemDraft } from './collectionProviders.js';
+import { collectRenderedBlogItems, isRenderedBlogCollectionProvider } from './naverBlogRenderedCollectionProvider.js';
 import { createNaverSearchCollectionProvider } from './naverSearchCollectionProvider.js';
 
 export type RenderedPlaceReview = {
@@ -269,8 +270,16 @@ function unavailableBlogItems(plan: CollectionPlan): CollectionProviderItemDraft
   return items;
 }
 
-async function collectBlogItems(env: ProviderEnv, plan: CollectionPlan, store: Store) {
+async function collectBlogItems(
+  env: ProviderEnv,
+  plan: CollectionPlan,
+  store: Store,
+  storeChannels: Parameters<typeof collectRenderedBlogItems>[0]['storeChannels']
+) {
   if (plan.blogPostLimit <= 0) return [];
+  if (isRenderedBlogCollectionProvider(env)) {
+    return collectRenderedBlogItems({ env, plan, store, storeChannels });
+  }
   if (configuredBlogProvider(env) === 'official_search' && env.NAVER_CLIENT_ID && env.NAVER_CLIENT_SECRET) {
     return createNaverSearchCollectionProvider().collect({
       env,
@@ -413,9 +422,9 @@ export function createNaverPlaceRenderedCollectionProvider(
   return {
     name: 'naverPlaceRenderedCollectionProvider',
     mode: 'real',
-    async collect({ env, plan, store }) {
+    async collect({ env, plan, store, storeChannels }) {
       const [blogItems, reviewItems] = await Promise.all([
-        collectBlogItems(env, plan, store),
+        collectBlogItems(env, plan, store, storeChannels),
         collectReviewItems(env, plan, store, renderer)
       ]);
       return [...blogItems, ...profileItem(store, plan), ...reviewItems];

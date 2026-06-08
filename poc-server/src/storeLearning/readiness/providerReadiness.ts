@@ -141,9 +141,10 @@ function placeImportReadiness(env: ProviderEnv): ProviderReadinessEntry {
 function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
   const placeProvider = configuredPlaceProvider(env);
   const blogProvider = configuredBlogProvider(env);
+  const renderedBlogProvider = blogProvider === 'page' || blogProvider === 'rendered';
 
   if (placeProvider === 'rendered') {
-    const blogBodyFallbackRequired = blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered';
+    const blogBodyFallbackRequired = blogProvider === 'rss';
     return {
       selectedProvider: 'naverPlaceRenderedCollectionProvider',
       status: blogBodyFallbackRequired ? 'partial_ready' : 'ready',
@@ -161,10 +162,18 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
         },
         {
           key: 'owner_blog_body',
-          status: blogBodyFallbackRequired ? 'fallback_required' : blogProvider === 'official_search' ? 'ready' : 'mock',
+          status: renderedBlogProvider
+            ? 'ready'
+            : blogBodyFallbackRequired
+              ? 'fallback_required'
+              : blogProvider === 'official_search'
+                ? 'ready'
+                : 'mock',
           dataAvailability: blogBodyFallbackRequired
             ? `${blogProvider}_provider_adapter_not_implemented`
-            : blogProvider === 'official_search'
+            : renderedBlogProvider
+              ? 'rendered_blog_full_body'
+              : blogProvider === 'official_search'
               ? 'official_blog_search_snippet_only'
               : 'deterministic_demo_items',
           officialApi: blogProvider === 'official_search' ? 'Naver Search API - Blog' : undefined,
@@ -173,7 +182,9 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
       ],
       notes: [
         'Rendered Naver Place visitor review collection is enabled server-side.',
-        'Full owner Blog body collection remains a separate provider step.'
+        renderedBlogProvider
+          ? 'Rendered Naver Blog body collection is enabled server-side.'
+          : 'Full owner Blog body collection remains a separate provider step.'
       ]
     };
   }
@@ -215,7 +226,33 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
     };
   }
 
-  if (blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered') {
+  if (renderedBlogProvider) {
+    return {
+      selectedProvider: 'naverBlogRenderedCollectionProvider',
+      status: 'ready',
+      mode: 'real',
+      capabilities: [
+        {
+          key: 'owner_blog_body',
+          status: 'ready',
+          dataAvailability: 'rendered_blog_full_body'
+        },
+        {
+          key: 'owner_authorized_place_data',
+          status: 'mock',
+          dataAvailability: 'not_selected_for_place'
+        },
+        {
+          key: 'place_visitor_reviews',
+          status: 'mock',
+          dataAvailability: 'deterministic_demo_reviews'
+        }
+      ],
+      notes: ['Rendered Naver Blog body collection is enabled server-side.']
+    };
+  }
+
+  if (blogProvider === 'rss') {
     return {
       selectedProvider: null,
       status: 'fallback_required',
@@ -228,12 +265,9 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
         },
         {
           key: 'owner_blog_body',
-          status: blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered' ? 'fallback_required' : 'mock',
-          dataAvailability:
-            blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered'
-              ? `${blogProvider}_provider_adapter_not_implemented`
-              : 'not_selected_for_blog',
-          fallbackRequired: blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered'
+          status: 'fallback_required',
+          dataAvailability: 'rss_provider_adapter_not_implemented',
+          fallbackRequired: true
         },
         {
           key: 'place_visitor_reviews',
@@ -241,7 +275,7 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
           dataAvailability: 'deterministic_demo_reviews'
         }
       ],
-      notes: ['Owner-authorized Naver Blog page/RSS collection is selected but that provider adapter is not implemented yet.']
+      notes: ['Owner-authorized Naver Blog RSS collection is selected but that provider adapter is not implemented yet.']
     };
   }
 
@@ -435,7 +469,9 @@ function nextActions(env: ProviderEnv) {
   if (!openaiConfigured(env)) actions.push('configure_openai_api_key_for_real_llm_outputs');
   if (!naverSearchConfigured(env)) actions.push('configure_naver_search_credentials_for_real_official_search');
   if (mockModeForced(env) && naverSearchConfigured(env)) actions.push('set_store_learning_mock_mode_false_for_real_naver_search');
-  actions.push('select_approved_fallback_provider_for_full_blog_body');
+  if (!['page', 'rendered'].includes(configuredBlogProvider(env))) {
+    actions.push('select_approved_fallback_provider_for_full_blog_body');
+  }
   if (configuredPlaceProvider(env) !== 'rendered') actions.push('select_approved_fallback_provider_for_place_reviews');
   actions.push('define_server_side_image_generation_provider_before_real_images');
   actions.push('define_server_side_naver_blog_publish_adapter_before_real_publish');
