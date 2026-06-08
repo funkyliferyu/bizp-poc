@@ -7,6 +7,7 @@ Run from `poc-server/`:
 ```bash
 npm run db:migrate
 npm run db:seed
+npm run openai:verify
 npm run typecheck
 npm test
 npm run demo
@@ -24,6 +25,7 @@ curl http://localhost:5178/api/store-learning/provider-readiness
 
 - `npm run db:migrate` keeps the Store Learning SQLite schema available.
 - `npm run db:seed` keeps the demo store path available without external keys.
+- `npm run openai:verify` performs opt-in live OpenAI verification when `poc-server/.env` has `OPENAI_API_KEY`.
 - `npm run typecheck` verifies readiness types and route mounting.
 - `npm test` runs existing Event-to-Operation tests plus Store Learning API/page tests.
 - `npm run demo` verifies the old Event-to-Operation demo remains behaviorally unchanged.
@@ -39,10 +41,21 @@ curl http://localhost:5178/api/store-learning/provider-readiness
 
 - `npm run db:migrate`: passed.
 - `npm run db:seed`: passed.
+- `npm run openai:verify`: passed, 1 file / 3 live OpenAI tests.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 27 files / 97 tests.
+- `npm test`: passed, 27 files / 97 tests plus 1 skipped live OpenAI file / 3 skipped tests.
 - `npm run demo`: passed and generated the existing Event-to-Operation approval package.
 - `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
+
+## OpenAI Live Integration Validation
+
+- `npm test -- openaiLiveIntegration.test.ts` without live flag: passed with 3 skipped tests.
+- `npm run openai:verify`: passed in about 30 seconds.
+- Runtime probe: passed with `OpenAI model access verified`.
+- Analysis provider: completed and persisted validated artifacts.
+- Blog provider: generated an approval-pending post through `openAIBlogProvider`.
+- SEO provider: rescored the generated post and returned the expected itemized rubric keys.
+- Secrets were not printed.
 
 ## Manual Smoke Result
 
@@ -67,6 +80,23 @@ GET /api/store-learning/provider-readiness
   imageGenerationStatus => placeholder_only
   publishingStatus => local_status_only
   fallbackCapabilities => full_blog_body, place_reviews, full_place_body
+```
+
+Observed API smoke with local OpenAI key configured:
+
+```text
+GET /api/store-learning/provider-readiness
+  mode => real_configured
+  openaiConfigured => true
+  naverSearchConfigured => false
+  analysisProvider => openAIAnalysisProvider
+  analysisStatus => ready
+  blogProvider => openAIBlogProvider
+  blogStatus => ready
+  collectionProvider => mockCollectionProvider
+  collectionStatus => mock_ready
+  imageStatus => placeholder_only
+  publishingStatus => local_status_only
 ```
 
 ## Manual Smoke Checklist
