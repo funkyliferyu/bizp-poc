@@ -58,14 +58,13 @@ function placeImportReadiness(env: ProviderEnv): ProviderReadinessEntry {
   if (placeProvider === 'rendered') {
     return {
       selectedProvider: 'naverPlaceRenderedProvider',
-      status: 'fallback_required',
+      status: 'ready',
       mode: 'real',
       capabilities: [
         {
           key: 'owner_authorized_place_data',
-          status: 'fallback_required',
-          dataAvailability: 'rendered_provider_adapter_not_implemented',
-          fallbackRequired: true
+          status: 'ready',
+          dataAvailability: 'rendered_place_profile'
         },
         {
           key: 'place_url_candidate_parsing',
@@ -74,7 +73,7 @@ function placeImportReadiness(env: ProviderEnv): ProviderReadinessEntry {
           officialApi: null
         }
       ],
-      notes: ['Rendered Naver Place collection is selected but its server-side provider adapter is not implemented yet.']
+      notes: ['Rendered Naver Place import is enabled server-side; collection runner integration is handled separately.']
     };
   }
 

@@ -1,6 +1,7 @@
 import type { PlaceImportResult, ProviderEnv } from './placeImportTypes.js';
 import { importWithMockPlaceProvider } from './mockPlaceProvider.js';
 import { importWithNaverLocalSearchProvider } from './naverLocalSearchProvider.js';
+import { importWithNaverPlaceRenderedProvider } from './naverPlaceRenderedProvider.js';
 import { importWithNaverPlaceUrlParser, parseNaverPlaceUrl } from './naverPlaceUrlParser.js';
 import { configuredPlaceProvider, sourceMetadata } from './ownerSourcePolicy.js';
 
@@ -33,6 +34,11 @@ export async function importNaverPlaceUrl(naverPlaceUrl: string, env: ProviderEn
   if (placeProvider === 'official_search') {
     const localSearchResult = await importWithNaverLocalSearchProvider(parsed, env);
     if (localSearchResult) return withOwnerSourceMetadata(localSearchResult, env);
+  }
+
+  if (placeProvider === 'rendered') {
+    const renderedResult = await importWithNaverPlaceRenderedProvider(parsed, env);
+    if (renderedResult) return withOwnerSourceMetadata(renderedResult, env);
   }
 
   return withOwnerSourceMetadata(importWithNaverPlaceUrlParser(parsed), env);

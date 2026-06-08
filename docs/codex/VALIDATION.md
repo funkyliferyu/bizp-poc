@@ -1,5 +1,62 @@
 # Validation
 
+## NAVER-PLACE-001 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run typecheck
+npm test
+npm run naver:verify
+npm run demo
+npm run demo:store-learning
+```
+
+## NAVER-PLACE-001 TDD Evidence
+
+- RED `npm test -- naverPlaceRenderedProvider.test.ts`: failed because `naverPlaceRenderedProvider` did not exist.
+- GREEN `npm test -- naverPlaceRenderedProvider.test.ts`: passed after adding the rendered profile parser/provider and API route coverage.
+- RED `npm test -- naverPlaceRenderedProvider.test.ts`: failed for the Naver restriction-page case because partial metadata was being accepted as a successful import.
+- GREEN `npm test -- naverPlaceRenderedProvider.test.ts`: passed after restriction-page detection was added.
+- GREEN `npm test -- providerReadinessApi.test.ts storeRegistrationApi.test.ts naverPlaceRenderedProvider.test.ts`: passed, 3 files / 11 tests.
+- GREEN `npm run typecheck`: passed.
+
+## NAVER-PLACE-001 Live Verification
+
+- `npm run naver:verify`: passed.
+- Current environment result:
+  - Playwright reached the live Naver Place URL.
+  - Naver returned a restriction page for the current IP/request pattern.
+  - The provider detected the restriction and did not persist partial metadata as a successful import.
+
+Expected command output includes:
+
+```text
+Naver Place live rendered request was restricted by Naver; restriction handling verified.
+```
+
+For a successful unrestricted live import, the same test expects:
+
+```text
+provider.name => naverPlaceRenderedProvider
+store.name => non-empty and not parser fallback
+store.address => non-empty
+metadata.bodyAvailability => rendered_place_profile
+metadata.sourceKind => place_profile
+```
+
+## NAVER-PLACE-001 Final Sequential Validation
+
+- `npm run db:migrate`: passed.
+- `npm run db:seed`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 28 files / 104 tests plus 2 skipped live files / 4 skipped tests.
+- `npm run naver:verify`: passed by verifying current Naver restriction-page handling.
+- `npm run demo`: passed and generated the existing Event-to-Operation approval package.
+- `npm run demo:store-learning`: passed and printed the Store Learning demo summary.
+
 ## OWNER-SOURCE-001 Commands
 
 Run from `poc-server/`:
@@ -48,7 +105,7 @@ ownerSourcePolicy.ownerAuthorized => true
 ownerSourcePolicy.placeProvider => rendered
 ownerSourcePolicy.blogProvider => page
 providers.placeImport.selectedProvider => naverPlaceRenderedProvider
-providers.placeImport.status => fallback_required
+providers.placeImport.status => ready
 providers.collection.status => fallback_required
 ```
 

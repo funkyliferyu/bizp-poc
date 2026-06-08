@@ -2,6 +2,66 @@
 
 ## Current Scope
 
+NAVER-PLACE-001 adds a server-side rendered Naver Place import provider for the Store Learning & Blog Content Automation PoC.
+
+This change implements `NAVER_PLACE_PROVIDER=rendered` for store registration/import. It parses rendered Naver Place profile snapshots into store fields, supports an optional renderer endpoint for deterministic tests or external browser workers, and uses Playwright as the default local renderer. It does not connect collection runs to rendered Place data yet, does not collect visitor reviews yet, does not collect Naver Blog bodies, does not modify browser-side external provider rules, and does not modify `admin/`, `pc-web/`, or old Event-to-Operation workflows.
+
+## NAVER-PLACE-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/providers/naverPlaceRenderedProvider.ts`
+  - Adds `naverPlaceRenderedProvider`.
+  - Extracts store name, category, address, phone, directions/description, business hours, homepage, convenience, rating, review counts, and image URLs from rendered Place snapshots.
+  - Uses `NAVER_PLACE_RENDERER_ENDPOINT` when provided. The endpoint receives `?url=...` and may return JSON `{ finalUrl, html, bodyText }` or raw HTML.
+  - Falls back to Playwright rendering when no renderer endpoint is configured.
+  - Detects Naver restriction pages and throws instead of saving partial metadata as a successful import.
+- `poc-server/src/storeLearning/providers/placeImportService.ts`
+  - Routes `NAVER_PLACE_PROVIDER=rendered` to `naverPlaceRenderedProvider`.
+- `poc-server/src/storeLearning/readiness/providerReadiness.ts`
+  - Reports rendered Place import as `ready`.
+  - Keeps collection runner rendered/page/RSS capabilities as `fallback_required` until later collection PRs.
+- `poc-server/package.json`
+  - Adds Playwright runtime dependency.
+  - Adds `npm run naver:verify` for opt-in live rendered Place verification.
+- `poc-server/test/naverPlaceRenderedProvider.test.ts`
+  - Fixture-first parser and API coverage for rendered Place import.
+- `poc-server/test/naverPlaceLiveIntegration.test.ts`
+  - Opt-in live verification. Normal `npm test` skips it unless `RUN_NAVER_LIVE=1`.
+
+## NAVER-PLACE-001 Operating Notes
+
+Default local tests do not require browser rendering or live Naver access.
+
+Rendered provider configuration:
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_PLACE_PROVIDER=rendered
+```
+
+Optional deterministic/external renderer configuration:
+
+```text
+NAVER_PLACE_RENDERER_ENDPOINT=http://127.0.0.1:PORT/render-place
+```
+
+Optional Playwright knobs:
+
+```text
+NAVER_PLACE_RENDERER_CHANNEL=chrome
+NAVER_PLACE_RENDERER_CHROME_PATH=/path/to/chrome
+NAVER_PLACE_RENDERER_TIMEOUT_MS=15000
+NAVER_PLACE_RENDERER_SETTLE_MS=1200
+NAVER_PLACE_RENDERER_HEADLESS=true
+```
+
+Current live smoke note: in this local environment, Naver returned a restriction page for the Playwright-rendered request. `npm run naver:verify` passed by verifying that restriction handling works and does not persist partial metadata as a successful import.
+
+## Next Suggested Task
+
+NAVER-REVIEW-001 should connect rendered Place review-page collection behind `NAVER_PLACE_PROVIDER=rendered`, store visitor review items with reply metadata, and keep fixture tests plus opt-in live verification separate.
+
+## Previous Scope
+
 OWNER-SOURCE-001 adds owner-authorized Naver source routing metadata for the Store Learning & Blog Content Automation PoC.
 
 This change prepares the codebase for real owner-managed Naver Place, Naver Blog, and visitor review collection without implementing rendered page crawling yet. It keeps browser pages calling `poc-server` only, preserves mock mode, and does not modify `admin/`, `pc-web/`, static page design, or the old Event-to-Operation workflow.
@@ -52,11 +112,11 @@ NAVER_BLOG_PROVIDER=page
 
 The second example is intentionally readiness-only for now. Rendered Place and page/RSS Blog providers are selected as future adapters but not implemented in OWNER-SOURCE-001.
 
-## Next Suggested Task
+## OWNER-SOURCE-001 Follow-Up Status
 
-NAVER-PLACE-001 should implement `naverPlaceRenderedProvider` behind `NAVER_PLACE_PROVIDER=rendered`, using fixture-first parser tests plus opt-in live verification. It should collect owner-authorized Place profile fields and visitor review summary signals without changing browser-side API rules.
+NAVER-PLACE-001 has now implemented the rendered Place import provider. Rendered Place collection-run integration and visitor review collection remain separate follow-up work.
 
-## Previous Scope
+## Earlier Scope
 
 OPS-001 adds provider readiness guardrails for the Store Learning & Blog Content Automation PoC.
 
