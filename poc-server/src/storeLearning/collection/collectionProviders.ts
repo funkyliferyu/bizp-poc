@@ -1,5 +1,6 @@
 import type { JsonRecord, ProviderEnv } from '../providers/placeImportTypes.js';
 import type { Store } from '../../repositories/stores.js';
+import { configuredBlogProvider, configuredPlaceProvider } from '../providers/ownerSourcePolicy.js';
 
 export type CollectionPlan = {
   blogPostLimit: number;
@@ -30,5 +31,7 @@ export type CollectionProvider = {
 };
 
 export function canUseRealNaverCollection(env: ProviderEnv) {
-  return env.STORE_LEARNING_MOCK_MODE === 'false' && Boolean(env.NAVER_CLIENT_ID && env.NAVER_CLIENT_SECRET);
+  const usesOfficialSearch =
+    configuredPlaceProvider(env) === 'official_search' || configuredBlogProvider(env) === 'official_search';
+  return usesOfficialSearch && Boolean(env.NAVER_CLIENT_ID && env.NAVER_CLIENT_SECRET);
 }

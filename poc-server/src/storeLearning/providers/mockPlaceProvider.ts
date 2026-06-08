@@ -1,6 +1,7 @@
 import type { ParsedNaverPlaceUrl, PlaceImportResult, ProviderEnv } from './placeImportTypes.js';
 
 function mockModeEnabled(env: ProviderEnv) {
+  if (env.NAVER_PLACE_PROVIDER === 'mock') return true;
   return env.STORE_LEARNING_MOCK_MODE !== 'false';
 }
 

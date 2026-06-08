@@ -117,6 +117,11 @@ describe('Training settings API', () => {
         naverBlog: { enabled: true, limit: 30 },
         naverPlace: { enabled: true, limit: 20 },
         instagram: { enabled: true, limit: 10 }
+      },
+      sourcePolicy: {
+        ownerAuthorized: false,
+        placeProvider: 'mock',
+        blogProvider: 'mock'
       }
     });
   });

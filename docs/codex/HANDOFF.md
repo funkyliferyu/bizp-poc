@@ -2,6 +2,62 @@
 
 ## Current Scope
 
+OWNER-SOURCE-001 adds owner-authorized Naver source routing metadata for the Store Learning & Blog Content Automation PoC.
+
+This change prepares the codebase for real owner-managed Naver Place, Naver Blog, and visitor review collection without implementing rendered page crawling yet. It keeps browser pages calling `poc-server` only, preserves mock mode, and does not modify `admin/`, `pc-web/`, static page design, or the old Event-to-Operation workflow.
+
+## OWNER-SOURCE-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/providers/ownerSourcePolicy.ts`
+  - Centralizes `NAVER_OWNER_AUTHORIZED`, `NAVER_PLACE_PROVIDER`, and `NAVER_BLOG_PROVIDER` parsing.
+  - Supports place provider values: `mock`, `official_search`, `rendered`.
+  - Supports blog provider values: `mock`, `official_search`, `rss`, `page`, `rendered`.
+  - Provides source metadata for `owner_blog_post`, `place_profile`, `place_visitor_review`, and `place_blog_review`.
+- `poc-server/src/storeLearning/providers/placeImportService.ts`
+  - Honors explicit `NAVER_PLACE_PROVIDER=official_search` even when legacy mock mode is unset.
+  - Adds owner/source metadata to imported store metadata.
+- `poc-server/src/storeLearning/routes/stores.ts`
+  - Stores owner/source metadata on the Place channel settings.
+  - Persists `summary.sourcePolicy` when creating collection runs.
+- `poc-server/src/storeLearning/collection/collectionRunner.ts`
+  - Enriches collection item metadata with `ownerAuthorized`, `sourceKind`, `sourceOwnership`, configured provider fields, and default `bodyAvailability`.
+- `poc-server/src/storeLearning/readiness/providerReadiness.ts`
+  - Exposes `ownerSourcePolicy`.
+  - Shows selected rendered/page/RSS provider adapters as `fallback_required` until those adapters are implemented.
+
+## OWNER-SOURCE-001 Env Contract
+
+Default local demo still works without external keys:
+
+```text
+NAVER_OWNER_AUTHORIZED unset => false
+NAVER_PLACE_PROVIDER unset => mock when STORE_LEARNING_MOCK_MODE is not false
+NAVER_BLOG_PROVIDER unset => mock when STORE_LEARNING_MOCK_MODE is not false
+```
+
+Explicit owner-authorized configuration examples:
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_PLACE_PROVIDER=official_search
+NAVER_CLIENT_ID=...
+NAVER_CLIENT_SECRET=...
+```
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_PLACE_PROVIDER=rendered
+NAVER_BLOG_PROVIDER=page
+```
+
+The second example is intentionally readiness-only for now. Rendered Place and page/RSS Blog providers are selected as future adapters but not implemented in OWNER-SOURCE-001.
+
+## Next Suggested Task
+
+NAVER-PLACE-001 should implement `naverPlaceRenderedProvider` behind `NAVER_PLACE_PROVIDER=rendered`, using fixture-first parser tests plus opt-in live verification. It should collect owner-authorized Place profile fields and visitor review summary signals without changing browser-side API rules.
+
+## Previous Scope
+
 OPS-001 adds provider readiness guardrails for the Store Learning & Blog Content Automation PoC.
 
 This change exposes a safe server-side readiness contract that shows which mock/real providers are active, which credentials are configured, and which Naver/OpenAI-dependent capabilities still require approved fallback providers. It does not connect new UI behavior, make external provider calls, generate real images, publish to Naver Blog, modify `admin/` or `pc-web/`, or change existing Event-to-Operation workflows.

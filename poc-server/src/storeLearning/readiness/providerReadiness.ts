@@ -1,5 +1,11 @@
 import { canUseRealNaverCollection } from '../collection/collectionProviders.js';
 import { canUseNaverLocalSearchProvider } from '../providers/naverLocalSearchProvider.js';
+import {
+  configuredBlogProvider,
+  configuredPlaceProvider,
+  mockModeForced,
+  ownerSourcePolicy
+} from '../providers/ownerSourcePolicy.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type ProviderStatus =
@@ -46,12 +52,33 @@ function naverSearchConfigured(env: ProviderEnv) {
   return Boolean(env.NAVER_CLIENT_ID && env.NAVER_CLIENT_SECRET);
 }
 
-function mockModeForced(env: ProviderEnv) {
-  return env.STORE_LEARNING_MOCK_MODE !== 'false';
-}
-
 function placeImportReadiness(env: ProviderEnv): ProviderReadinessEntry {
-  if (canUseNaverLocalSearchProvider(env) && !mockModeForced(env)) {
+  const placeProvider = configuredPlaceProvider(env);
+
+  if (placeProvider === 'rendered') {
+    return {
+      selectedProvider: 'naverPlaceRenderedProvider',
+      status: 'fallback_required',
+      mode: 'real',
+      capabilities: [
+        {
+          key: 'owner_authorized_place_data',
+          status: 'fallback_required',
+          dataAvailability: 'rendered_provider_adapter_not_implemented',
+          fallbackRequired: true
+        },
+        {
+          key: 'place_url_candidate_parsing',
+          status: 'ready',
+          dataAvailability: 'url_metadata_only',
+          officialApi: null
+        }
+      ],
+      notes: ['Rendered Naver Place collection is selected but its server-side provider adapter is not implemented yet.']
+    };
+  }
+
+  if (placeProvider === 'official_search' && canUseNaverLocalSearchProvider(env)) {
     return {
       selectedProvider: 'naverLocalSearchProvider',
       status: 'ready',
@@ -65,6 +92,29 @@ function placeImportReadiness(env: ProviderEnv): ProviderReadinessEntry {
         }
       ],
       notes: ['Full Place body and reviews are not available from the official Local Search API.']
+    };
+  }
+
+  if (placeProvider === 'official_search') {
+    return {
+      selectedProvider: 'naverLocalSearchProvider',
+      status: 'not_configured',
+      mode: 'real',
+      capabilities: [
+        {
+          key: 'place_url_resolution',
+          status: 'not_configured',
+          dataAvailability: 'requires_naver_search_credentials',
+          officialApi: 'Naver Search API - Local'
+        },
+        {
+          key: 'place_url_candidate_parsing',
+          status: 'ready',
+          dataAvailability: 'url_metadata_only',
+          officialApi: null
+        }
+      ],
+      notes: ['Set NAVER_CLIENT_ID and NAVER_CLIENT_SECRET to enable official Naver Local Search import.']
     };
   }
 
@@ -90,6 +140,9 @@ function placeImportReadiness(env: ProviderEnv): ProviderReadinessEntry {
 }
 
 function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
+  const placeProvider = configuredPlaceProvider(env);
+  const blogProvider = configuredBlogProvider(env);
+
   if (canUseRealNaverCollection(env)) {
     return {
       selectedProvider: 'naverSearchCollectionProvider',
@@ -124,6 +177,40 @@ function collectionReadiness(env: ProviderEnv): ProviderReadinessEntry {
         }
       ],
       notes: ['Official Naver APIs provide search snippets/metadata, not full blog bodies or Place reviews.']
+    };
+  }
+
+  if (placeProvider === 'rendered' || blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered') {
+    return {
+      selectedProvider: null,
+      status: 'fallback_required',
+      mode: 'real',
+      capabilities: [
+        {
+          key: 'owner_authorized_place_data',
+          status: placeProvider === 'rendered' ? 'fallback_required' : 'mock',
+          dataAvailability:
+            placeProvider === 'rendered' ? 'rendered_provider_adapter_not_implemented' : 'not_selected_for_place',
+          fallbackRequired: placeProvider === 'rendered'
+        },
+        {
+          key: 'owner_blog_body',
+          status: blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered' ? 'fallback_required' : 'mock',
+          dataAvailability:
+            blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered'
+              ? `${blogProvider}_provider_adapter_not_implemented`
+              : 'not_selected_for_blog',
+          fallbackRequired: blogProvider === 'rss' || blogProvider === 'page' || blogProvider === 'rendered'
+        },
+        {
+          key: 'place_visitor_reviews',
+          status: placeProvider === 'rendered' ? 'fallback_required' : 'mock',
+          dataAvailability:
+            placeProvider === 'rendered' ? 'rendered_provider_adapter_not_implemented' : 'deterministic_demo_reviews',
+          fallbackRequired: placeProvider === 'rendered'
+        }
+      ],
+      notes: ['Owner-authorized Naver page collection is selected but rendered/page/RSS provider adapters are not implemented yet.']
     };
   }
 
@@ -338,6 +425,7 @@ export function buildProviderReadiness(env: ProviderEnv = process.env, now: () =
       naverSearchConfigured: naverSearchConfigured(env),
       storeLearningMockMode: mockModeForced(env)
     },
+    ownerSourcePolicy: ownerSourcePolicy(env),
     providers: {
       placeImport: placeImportReadiness(env),
       collection: collectionReadiness(env),

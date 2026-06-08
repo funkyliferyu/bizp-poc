@@ -156,6 +156,75 @@ describe('Store registration API', () => {
     }
   });
 
+  it('honors explicit official_search place provider routing and owner authorization metadata', async () => {
+    const providerEnv = {
+      NAVER_PLACE_PROVIDER: 'official_search',
+      NAVER_OWNER_AUTHORIZED: 'true',
+      NAVER_CLIENT_ID: 'explicit-client-id',
+      NAVER_CLIENT_SECRET: 'explicit-client-secret',
+      NAVER_LOCAL_SEARCH_ENDPOINT: ''
+    };
+    const app = express();
+    app.use(express.json());
+    app.get('/fake-naver/local', (req, res) => {
+      expect(req.header('X-Naver-Client-Id')).toBe('explicit-client-id');
+      expect(req.header('X-Naver-Client-Secret')).toBe('explicit-client-secret');
+      expect(req.query.query).toBe('분당 케이크하우스');
+      res.json({
+        total: 1,
+        start: 1,
+        display: 1,
+        items: [
+          {
+            title: '<b>분당</b> 케이크하우스',
+            link: 'https://map.naver.com/p/entry/place/123456789',
+            category: '음식점>카페,디저트',
+            description: '정자동 레터링 케이크 예약 전문점입니다.',
+            roadAddress: '경기도 성남시 분당구 정자일로 1'
+          }
+        ]
+      });
+    });
+    app.use('/api/stores', createStoreRoutes({ connection, env: providerEnv }));
+    const explicitServer = app.listen(0);
+    const explicitAddress = explicitServer.address() as AddressInfo;
+    const explicitBaseUrl = `http://127.0.0.1:${explicitAddress.port}`;
+    providerEnv.NAVER_LOCAL_SEARCH_ENDPOINT = `${explicitBaseUrl}/fake-naver/local`;
+
+    try {
+      const response = await fetch(`${explicitBaseUrl}/api/stores/import-place`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          naverPlaceUrl: 'https://map.naver.com/p/search/%EB%B6%84%EB%8B%B9%20%EC%BC%80%EC%9D%B4%ED%81%AC%ED%95%98%EC%9A%B0%EC%8A%A4/place/123456789'
+        })
+      });
+      const body = await readJson(response);
+
+      expect(response.status).toBe(200);
+      expect(body.provider).toEqual({ name: 'naverLocalSearchProvider', mode: 'real' });
+      expect(body.store.name).toBe('분당 케이크하우스');
+      expect(body.store.metadata).toEqual(
+        expect.objectContaining({
+          configuredPlaceProvider: 'official_search',
+          ownerAuthorized: true,
+          sourceKind: 'place_profile',
+          sourceOwnership: 'owner_managed'
+        })
+      );
+      expect(body.channel.settings).toEqual(
+        expect.objectContaining({
+          configuredPlaceProvider: 'official_search',
+          ownerAuthorized: true,
+          sourceKind: 'place_profile',
+          sourceOwnership: 'owner_managed'
+        })
+      );
+    } finally {
+      await new Promise<void>((resolve) => explicitServer.close(() => resolve()));
+    }
+  });
+
   it('saves, reads, and patches a store through SQLite-backed repositories', async () => {
     const createResponse = await fetch(`${baseUrl}/api/stores`, {
       method: 'POST',

@@ -8,6 +8,7 @@ import type { Store } from '../../repositories/stores.js';
 import { importNaverPlaceUrl } from '../providers/placeImportService.js';
 import type { JsonRecord, PlaceImportProvider, ProviderEnv } from '../providers/placeImportTypes.js';
 import { parseNaverPlaceUrl } from '../providers/naverPlaceUrlParser.js';
+import { configuredPlaceProvider, ownerSourcePolicy, sourceMetadata } from '../providers/ownerSourcePolicy.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
 import {
   buildBlogLearningStatus,
@@ -169,7 +170,7 @@ function normalizeTrainingSettings(value: unknown) {
   });
 }
 
-function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainingSettings>) {
+function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainingSettings>, env: ProviderEnv) {
   const channels = settings.channels;
   return {
     requestedLimits: {
@@ -190,14 +191,16 @@ function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainin
         enabled: channels.instagram.enabled,
         limit: channels.instagram.instagramPostLimit ?? 0
       }
-    }
+    },
+    sourcePolicy: ownerSourcePolicy(env)
   };
 }
 
 function upsertPlaceChannel(
   repos: ReturnType<typeof createStoreLearningRepositories>,
   store: Store,
-  provider: PlaceImportProvider | null
+  provider: PlaceImportProvider | null,
+  env: ProviderEnv
 ) {
   if (!store.naverPlaceUrl) return null;
 
@@ -210,7 +213,9 @@ function upsertPlaceChannel(
     providerMode: provider?.mode ?? 'parser',
     settings: {
       providerName: provider?.name ?? 'manual',
-      naverPlaceId: store.naverPlaceId
+      naverPlaceId: store.naverPlaceId,
+      configuredPlaceProvider: configuredPlaceProvider(env),
+      ...sourceMetadata('place_profile', env)
     }
   });
 }
@@ -250,7 +255,7 @@ export function createStoreRoutes({
         ...imported.store,
         metadata: imported.store.metadata
       });
-      const channel = upsertPlaceChannel(repos, store, imported.provider);
+      const channel = upsertPlaceChannel(repos, store, imported.provider, env);
       res.json({ store, channel, provider: imported.provider });
     } catch (error) {
       next(error);
@@ -271,7 +276,7 @@ export function createStoreRoutes({
         description: body.description ?? null,
         metadata: toJsonRecord(body.metadata)
       });
-      const channel = upsertPlaceChannel(repos, store, null);
+      const channel = upsertPlaceChannel(repos, store, null, env);
       res.json({ store, channel });
     } catch (error) {
       next(error);
@@ -433,7 +438,7 @@ export function createStoreRoutes({
         description: body.description !== undefined ? body.description : existing.description,
         metadata: mergeMetadata(existing.metadata, body.metadata)
       });
-      const channel = upsertPlaceChannel(repos, store, null);
+      const channel = upsertPlaceChannel(repos, store, null, env);
       res.json({ store, channel, channels: repos.storeChannels.listByStoreId(store.id) });
     } catch (error) {
       next(error);
@@ -502,7 +507,7 @@ export function createStoreRoutes({
         mode: 'mock',
         startedAt: null,
         completedAt: null,
-        summary: collectionPlanFromSettings(settings)
+        summary: collectionPlanFromSettings(settings, env)
       });
 
       res.json({ collectionRunId: run.id, collectionRun: run });
