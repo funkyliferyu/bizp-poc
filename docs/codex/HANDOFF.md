@@ -2,6 +2,22 @@
 
 ## Current Scope
 
+MILESTONE-03-TRAINING-SETTINGS-CONTRACT records configured training source URLs in the collection run summary.
+
+The contract change is intentionally small:
+
+- `POST /api/stores/:storeId/collection-runs` now writes `summary.sourceUrls`.
+- `summary.sourceUrls` contains `naverBlog`, `naverPlace`, `instagram`, and `daangn` from the latest saved training settings.
+- Existing `summary.requestedLimits`, `summary.channelPlan`, and `summary.sourcePolicy` are preserved.
+- Disabled Instagram/Daangn channels can still retain stored source URLs for future provider work, but this milestone does not enable those providers.
+- `web/training_settings.js` remains browser-API-only: it saves settings through `PUT /api/stores/:storeId/training-settings`, then starts collection with `POST /api/stores/:storeId/collection-runs`.
+
+This milestone does not change Blog collection reliability, Blog RAW views, rulesets, learning status, dashboard flows, `admin/`, `pc-web/`, or old Event-to-Operation files.
+
+The branch is stacked on `codex/store-registration-cleanup` while PR #27 is open. After PR #27 merges, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-02-STORE-REGISTRATION-CLEANUP makes `사업자번호` optional in the Store Learning store-registration browser flow.
 
 The change is intentionally narrow:
