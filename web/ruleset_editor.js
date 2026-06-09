@@ -42,12 +42,12 @@
   }
 
   async function loadRuleset(storeId) {
-    const response = await fetch(`/api/stores/${storeId}/ruleset`);
+    const response = await fetch(`/api/stores/${storeId}/strategy-ruleset`);
     return readResponse(response);
   }
 
   async function saveRulesetField(storeId, fieldKey, userValue) {
-    const response = await fetch(`/api/stores/${storeId}/ruleset/fields/${fieldKey}`, {
+    const response = await fetch(`/api/stores/${storeId}/strategy-ruleset/fields/${fieldKey}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userValue })
@@ -56,14 +56,14 @@
   }
 
   async function resetRulesetField(storeId, fieldKey) {
-    const response = await fetch(`/api/stores/${storeId}/ruleset/fields/${fieldKey}/reset`, {
+    const response = await fetch(`/api/stores/${storeId}/strategy-ruleset/fields/${fieldKey}/reset`, {
       method: 'POST'
     });
     return readResponse(response);
   }
 
   async function loadRulesetEvidence(storeId, fieldKey) {
-    const response = await fetch(`/api/stores/${storeId}/ruleset/fields/${fieldKey}/evidence`);
+    const response = await fetch(`/api/stores/${storeId}/strategy-ruleset/fields/${fieldKey}/evidence`);
     return readResponse(response);
   }
 
@@ -210,11 +210,37 @@
     element.appendChild(note);
   }
 
-  function renderStoreFields(store) {
+  function directFactValue(storeFacts, fieldKey) {
+    if (!storeFacts || !fieldKey) return null;
+    return storeFacts[fieldKey] ?? null;
+  }
+
+  function preferredCurrentValue(payload, fieldKey, existingValue) {
+    const rulesetField = findFieldForMatrixRow({ fieldKey });
+    if (rulesetField) return rulesetField.finalValue || rulesetField.aiValue || existingValue;
+    const matrix = matrixForFieldKey(fieldKey);
+    const matrixCurrentValue = matrix ? matrix.currentValue : null;
+    return matrixCurrentValue ?? directFactValue(payload.storeFacts, fieldKey) ?? existingValue;
+  }
+
+  function renderDirectRulesetRow(element, payload) {
+    const value = element.querySelector('[data-ruleset-value]');
+    const fieldKey = element.dataset.rulesetField;
+    if (!value || !fieldKey) return;
+    const nextValue = preferredCurrentValue(payload, fieldKey, value.textContent);
+    value.textContent = nextValue || '-';
+    value.dataset.originalValue = value.textContent;
+    renderKeywordTags(element, value.textContent);
+    renderRulesetSourceNote(element, matrixForFieldKey(fieldKey));
+  }
+
+  function renderStoreFields(payload) {
+    const storeFacts = payload.storeFacts || payload.store || {};
     document.querySelectorAll('[data-store-field]').forEach((element) => {
       const value = element.querySelector('.ruleset-val');
       const key = element.dataset.storeField;
-      if (value && key && store[key]) value.textContent = store[key];
+      const nextValue = key ? storeFacts[key] : null;
+      if (value && nextValue) value.textContent = nextValue;
     });
   }
 
@@ -228,15 +254,15 @@
     status.textContent = `v${payload.ruleset.version} · ${payload.ruleset.status}`;
   }
 
-  function currentStoreValue(store, row) {
-    const value = store?.[row.fieldKey];
+  function currentStoreValue(storeFacts, row) {
+    const value = storeFacts?.[row.fieldKey];
     if (value) return String(value);
-    if (row.fieldKey === 'storeIntro') return store?.description || null;
     return null;
   }
 
   function currentMatrixValue(payload, row) {
-    if (row.section === 'store') return currentStoreValue(payload.store || {}, row);
+    if (row.currentValue) return String(row.currentValue);
+    if (row.section === 'store') return currentStoreValue(payload.storeFacts || {}, row);
     const rulesetField = findFieldForMatrixRow(row);
     return rulesetField?.finalValue || rulesetField?.aiValue || null;
   }
@@ -291,11 +317,15 @@
     (payload.fields || []).forEach((rulesetField) => fieldMap.set(rulesetField.fieldKey, rulesetField));
     (payload.sourceMatrix || []).forEach((row) => sourceMatrixMap.set(row.fieldKey, row));
     renderStatus(payload);
-    renderStoreFields(payload.store || {});
+    renderStoreFields(payload);
 
     document.querySelectorAll('[data-ruleset-field]').forEach((element) => {
       const rulesetField = findFieldForElement(element);
-      if (rulesetField) renderRulesetField(element, rulesetField);
+      if (rulesetField) {
+        renderRulesetField(element, rulesetField);
+      } else {
+        renderDirectRulesetRow(element, payload);
+      }
     });
     renderSourceMatrix(payload);
   }

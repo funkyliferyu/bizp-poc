@@ -366,7 +366,8 @@ describe('web static flow connectivity', () => {
     const ruleset = readWeb('07_마케팅전략룰셋.html');
     const brandSection = ruleset.match(/<!-- 우리 매장 분석 -->[\s\S]*?<!-- 글쓰기 스타일 -->/)?.[0] ?? '';
 
-    expect(ruleset).toContain('strategy_benchmark_fixture.json');
+    expect(ruleset).not.toContain("fetch('strategy_benchmark_fixture.json')");
+    expect(ruleset).toContain('/strategy-ruleset/benchmark-evidence');
     expect(ruleset).toContain('loadBenchmarkFixture');
     expect(ruleset).toContain('showReferenceLayer');
     expect(brandSection).toContain('class="analysis-focus-layout"');
@@ -466,19 +467,18 @@ describe('web static flow connectivity', () => {
     expect(writeSection).toContain('리뷰 강점');
     expect(writeSection).toContain('리뷰 약점');
     expect(writeSection).toContain('# 전체 글 예시는 LLM API 연동 및 프롬프트 테스트 단계에서 업데이트합니다.');
-    expect(ruleset).toContain('const WRITING_PREVIEWS');
-    expect(ruleset).toContain('variants: [');
+    expect(ruleset).toContain('/strategy-ruleset/regenerate-preview');
+    expect(ruleset).toContain('previewChannelForTab');
+    expect(ruleset).toContain('renderWritingPreviewPayload');
+    expect(ruleset).toContain('미리보기를 생성하는 중입니다.');
+    expect(ruleset).not.toContain('const WRITING_PREVIEWS');
     expect(ruleset).toContain('let activeWritingChannel');
     expect(ruleset).toContain('let writingPreviewIndexes');
     expect(ruleset).toContain('renderWritingPreview');
     expect(ruleset).toContain('regenerateWritingPreview');
     expect(ruleset).toContain("renderWritingPreview(id)");
-    expect(ruleset).toContain("common: {");
-    expect(ruleset).toContain("insta: {");
-    expect(ruleset).toContain("blog: {");
-    expect(ruleset).toContain('특별한 날을 더 특별하게');
+    expect(ruleset).toContain("renderWritingPreview('common')");
     expect(ruleset).toContain('분당 딸기 생크림 케이크 예약 안내');
-    expect(ruleset).toContain('#분당케이크 #수지케이크 #레터링케이크');
   });
 
   it('shows detailed SEO scoring, image slots, and a fullscreen blog preview in AI content detail', () => {

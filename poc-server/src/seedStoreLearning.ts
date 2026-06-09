@@ -41,6 +41,9 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     description: '당일 제작과 레터링 케이크에 강한 커스텀 케이크 전문점입니다.',
     metadata: {
       representativeKeywords: ['분당 케이크', '당일 제작', '레터링 케이크'],
+      operatingHours: '월-금 10:00-20:00, 토 11:00-19:00',
+      closedDays: '매주 일요일',
+      parking: '건물 지하 주차장 1시간 지원',
       mockMode: true
     },
     createdAt: timestamp(0),

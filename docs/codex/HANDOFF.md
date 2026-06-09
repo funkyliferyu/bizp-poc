@@ -1,5 +1,21 @@
 # Codex Handoff
 
+## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
+
+Canonical ruleset API is now `/api/stores/:storeId/strategy-ruleset`.
+The old `/api/stores/:storeId/ruleset` routes remain as compatibility aliases.
+Benchmark evidence and writing preview regeneration are served through `poc-server`
+APIs, so `web/07_마케팅전략룰셋.html` no longer fetches local fixture JSON or
+uses browser-side preview fixtures.
+
+The follow-up also adds direct row values to the ruleset payload:
+
+- `storeFacts` exposes direct store facts such as name, category, address, phone, intro, hours, closed days, and parking.
+- `sourceMatrix[].currentValue` is populated from ruleset fields first, then direct store facts.
+- `web/ruleset_editor.js` now fills remaining visible ruleset rows from editable field values, source matrix values, store facts, or existing static fallback text in that order.
+
+No real benchmark provider, real LLM preview provider, browser-side Naver/OpenAI calls, `admin/`, `pc-web/`, or old Event-to-Operation changes are included.
+
 ## Current Scope
 
 MILESTONE-09-BLOG-MANAGEMENT-RESULTS makes Blog management and AI content list pages show approval-pending AI drafts as learning/ruleset-backed results.
