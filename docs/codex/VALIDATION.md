@@ -1,5 +1,50 @@
 # Validation
 
+## MILESTONE-05-BLOG-RAW-VIEWER-EVIDENCE Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- collectionRawDataPage.test.ts collectionProgressPage.test.ts selectionPage.test.ts
+npm test -- staticWebConnectivity.test.ts
+npm test -- selectionApi.test.ts collectionProgressApi.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+git status --short
+```
+
+## MILESTONE-05-BLOG-RAW-VIEWER-EVIDENCE TDD Evidence
+
+- RED `npm test -- collectionRawDataPage.test.ts collectionProgressPage.test.ts selectionPage.test.ts`: failed because `collection_raw_data.html/js`, `collection-blog-raw-button`, `selection-blog-raw-button`, and `evidenceBadges` did not exist.
+- GREEN `npm test -- collectionRawDataPage.test.ts collectionProgressPage.test.ts selectionPage.test.ts`: passed after adding the collection RAW viewer, RAW buttons, and Blog evidence badges.
+
+## MILESTONE-05-BLOG-RAW-VIEWER-EVIDENCE Final Validation
+
+- `npm test -- collectionRawDataPage.test.ts collectionProgressPage.test.ts selectionPage.test.ts`: passed, 6 tests.
+- `npm test -- staticWebConnectivity.test.ts`: passed, 28 tests.
+- `npm test -- selectionApi.test.ts collectionProgressApi.test.ts`: passed, 5 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_05_BLOG_RAW_VIEWER_EVIDENCE_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/test/collectionRawDataPage.test.ts`
+  - `poc-server/test/collectionProgressPage.test.ts`
+  - `poc-server/test/selectionPage.test.ts`
+  - `web/04_AI학습_수집중.html`
+  - `web/05_AI학습_콘텐츠선택.html`
+  - `web/collection_progress.js`
+  - `web/collection_raw_data.html`
+  - `web/collection_raw_data.js`
+  - `web/content_selection.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-04-BLOG-COLLECTION-RELIABILITY Commands
 
 Run from `poc-server/`:

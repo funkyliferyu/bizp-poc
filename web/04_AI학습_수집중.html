@@ -124,7 +124,10 @@ tr.unchecked td{color:#9AA0B4}
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
       <span style="font-size:12px;color:#4A5568" id="collection-ready-count">수집 완료 후 선택할 수 있습니다</span>
-      <button class="btn btn-primary" id="collection-next-btn" disabled data-flow-target="05_AI학습_콘텐츠선택.html" data-flow-label="다음: 콘텐츠 선택">분석할 콘텐츠 선택</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" id="collection-blog-raw-button" disabled data-raw-url-template="collection_raw_data.html?runId=">RAW data 보기</button>
+        <button class="btn btn-primary" id="collection-next-btn" disabled data-flow-target="05_AI학습_콘텐츠선택.html" data-flow-label="다음: 콘텐츠 선택">분석할 콘텐츠 선택</button>
+      </div>
     </div>
   </div>
 

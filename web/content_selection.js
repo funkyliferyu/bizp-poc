@@ -65,6 +65,18 @@
     return ' <span class="ai-suspect">AI 작성 의심</span>';
   }
 
+  function evidenceBadges(item) {
+    const metadata = item.metadata || {};
+    const badges = [];
+    const availability = metadata.bodyAvailability;
+    if (availability) badges.push(['본문', availability]);
+    if (metadata.blogSourceDiscovery) badges.push(['수집', metadata.blogSourceDiscovery]);
+    if (item.sourceUrl) badges.push(['출처', 'URL']);
+    return badges
+      .map(([label, value]) => `<span class="evidence-badge"><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>`)
+      .join('');
+  }
+
   function renderBlogItems(items) {
     const container = field('selection-blog-list');
     if (items.length === 0) {
@@ -76,9 +88,13 @@
     container.innerHTML = items
       .map((item) => {
         const title = `${escapeHtml(item.title || '제목 없음')}${qualityBadges(item)}`;
+        const evidence = evidenceBadges(item);
         return `<tr class="${isSelected(item) ? '' : 'unchecked'}">
           <td class="check-cell">${checkMarkup(item)}</td>
-          <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</td>
+          <td>
+            <div class="selection-title-main">${title}</div>
+            ${evidence ? `<div class="selection-evidence">${evidence}</div>` : ''}
+          </td>
           <td>${dateLabel(item.createdAt)}</td>
           <td>${escapeHtml(item.metadata?.views ?? '-')}</td>
         </tr>`;
@@ -114,6 +130,7 @@
     field('selection-place-count').textContent = `· ${placeItems.length}개 수집`;
     field('selection-selected-count').textContent = `${selectedCount}개 선택됨`;
     field('selection-analysis-btn').disabled = selectedCount === 0;
+    field('selection-blog-raw-button').disabled = !latestRunId;
   }
 
   function render() {
@@ -170,6 +187,13 @@
     window.location.href = `${next.pathname}${next.search}`;
   }
 
+  function rawDataUrl() {
+    const next = new URL('collection_raw_data.html?', window.location.href);
+    next.searchParams.set('runId', latestRunId || '');
+    next.searchParams.set('section', 'blogItems');
+    return `${next.pathname}${next.search}`;
+  }
+
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest('[data-item-id]') : null;
     if (!target) return;
@@ -190,6 +214,10 @@
       createAnalysisRun().catch((error) => {
         alert(error instanceof Error ? error.message : '분석 실행을 시작하지 못했습니다.');
       });
+    });
+    field('selection-blog-raw-button').disabled = !latestRunId;
+    field('selection-blog-raw-button').addEventListener('click', () => {
+      window.location.href = rawDataUrl();
     });
 
     if (!latestRunId) {

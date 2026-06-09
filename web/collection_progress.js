@@ -95,6 +95,7 @@
       run.status === 'completed' ? `${counts.collected}개 수집됨` : `수집 중 ${counts.collected} / ${counts.total}`;
     field('content-select').style.display = run.status === 'completed' ? 'block' : 'none';
     field('collection-next-btn').disabled = run.status !== 'completed';
+    field('collection-blog-raw-button').disabled = !latestRunId;
   }
 
   function renderItems(items) {
@@ -147,9 +148,20 @@
     return `${next.pathname}${next.search}`;
   }
 
+  function rawDataUrl() {
+    const next = new URL('collection_raw_data.html?', window.location.href);
+    next.searchParams.set('runId', latestRunId || '');
+    next.searchParams.set('section', 'blogItems');
+    return `${next.pathname}${next.search}`;
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     latestRunId = params().get('runId');
     latestStoreId = params().get('storeId');
+    field('collection-blog-raw-button').disabled = !latestRunId;
+    field('collection-blog-raw-button').addEventListener('click', () => {
+      window.location.href = rawDataUrl();
+    });
     field('collection-next-btn').addEventListener('click', () => {
       window.location.href = nextUrl();
     });

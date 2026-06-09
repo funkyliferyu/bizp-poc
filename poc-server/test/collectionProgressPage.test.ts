@@ -13,6 +13,8 @@ describe('collection progress static page API wiring', () => {
     expect(html).toContain('id="collection-progress-status"');
     expect(html).toContain('id="collection-item-list"');
     expect(html).toContain('id="collection-next-btn"');
+    expect(html).toContain('id="collection-blog-raw-button"');
+    expect(html).toContain('collection_raw_data.html?runId=');
     expect(html).toContain('collection_progress.js');
   });
 
@@ -23,6 +25,9 @@ describe('collection progress static page API wiring', () => {
     expect(js).toContain('fetch(`/api/collection-runs/${runId}/items`');
     expect(js).toContain('fetch(`/api/collection-runs/${runId}/start`');
     expect(js).toContain('05_AI학습_콘텐츠선택.html?');
+    expect(js).toContain('function rawDataUrl');
+    expect(js).toContain('collection_raw_data.html?');
+    expect(js).toContain("next.searchParams.set('section', 'blogItems')");
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');

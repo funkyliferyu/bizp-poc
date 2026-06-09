@@ -14,6 +14,8 @@ describe('content selection static page API wiring', () => {
     expect(html).toContain('id="selection-place-list"');
     expect(html).toContain('id="selection-selected-count"');
     expect(html).toContain('id="selection-analysis-btn"');
+    expect(html).toContain('id="selection-blog-raw-button"');
+    expect(html).toContain('selection-evidence');
     expect(html).toContain('content_selection.js');
   });
 
@@ -24,6 +26,11 @@ describe('content selection static page API wiring', () => {
     expect(js).toContain('fetch(`/api/collection-items/${itemId}/selection`');
     expect(js).toContain("fetch('/api/analysis-runs'");
     expect(js).toContain('06_AI학습_현황.html?');
+    expect(js).toContain('function evidenceBadges');
+    expect(js).toContain('bodyAvailability');
+    expect(js).toContain('blogSourceDiscovery');
+    expect(js).toContain('collection_raw_data.html?');
+    expect(js).toContain("next.searchParams.set('section', 'blogItems')");
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
