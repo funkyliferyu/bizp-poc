@@ -1,5 +1,50 @@
 # Validation
 
+## MILESTONE-06-RULESET-SOURCE-MATRIX Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetApi.test.ts -t "field source matrix"
+npm test -- analysisExecutionApi.test.ts -t "generates a learning snapshot"
+npm test -- analysisExecutionApi.test.ts -t "OpenAI analyzer output"
+npm test -- rulesetApi.test.ts analysisExecutionApi.test.ts
+npm test -- rulesetPage.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+git status --short
+```
+
+## MILESTONE-06-RULESET-SOURCE-MATRIX TDD Evidence
+
+- RED `npm test -- rulesetApi.test.ts -t "field source matrix"`: failed because `body.sourceMatrix` was `undefined` and serialized fields had no source matrix metadata.
+- RED `npm test -- analysisExecutionApi.test.ts -t "generates a learning snapshot"`: failed because the mock analyzer only generated the original 9 ruleset field keys.
+- RED `npm test -- analysisExecutionApi.test.ts -t "OpenAI analyzer output"`: failed because the OpenAI prompt did not include expanded field keys such as `reviewWeakness`, `blogImageFormat`, and `representativeMenu`.
+- GREEN `npm test -- rulesetApi.test.ts analysisExecutionApi.test.ts`: passed after adding the source matrix module, ruleset payload metadata, expanded mock analyzer fields, and shared OpenAI prompt field-key list.
+
+## MILESTONE-06-RULESET-SOURCE-MATRIX Final Validation
+
+- `npm test -- rulesetApi.test.ts analysisExecutionApi.test.ts`: passed, 8 tests.
+- `npm test -- rulesetPage.test.ts`: passed, 2 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_06_RULESET_SOURCE_MATRIX_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`
+  - `poc-server/src/storeLearning/rulesets/rulesetService.ts`
+  - `poc-server/src/storeLearning/analysis/analyzer.ts`
+  - `poc-server/src/storeLearning/analysis/openAIAnalysisProvider.ts`
+  - `poc-server/test/rulesetApi.test.ts`
+  - `poc-server/test/analysisExecutionApi.test.ts`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-05-BLOG-RAW-VIEWER-EVIDENCE Commands
 
 Run from `poc-server/`:

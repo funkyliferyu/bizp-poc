@@ -68,6 +68,67 @@ describe('marketing ruleset API', () => {
     expect(body.fields[0]).not.toHaveProperty('fieldValue');
   });
 
+  it('returns a field source matrix for direct Place/manual rows and AI ruleset rows', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.sourceMatrix).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'operatingHours',
+          label: '운영시간',
+          section: 'store',
+          sourceTier: 'place_direct',
+          requiresAi: false,
+          automationStatus: 'available_now'
+        }),
+        expect.objectContaining({
+          fieldKey: 'representativeMenu',
+          label: '대표 메뉴',
+          section: 'brand',
+          sourceTier: 'place_then_ai',
+          requiresAi: true,
+          automationStatus: 'ai_processing'
+        }),
+        expect.objectContaining({
+          fieldKey: 'reviewWeakness',
+          label: '리뷰 약점',
+          section: 'brand',
+          sourceTier: 'ai_processing',
+          requiresAi: true,
+          automationStatus: 'ai_processing'
+        }),
+        expect.objectContaining({
+          fieldKey: 'blogPreferredLength',
+          label: '선호 길이',
+          section: 'write_blog',
+          sourceTier: 'ai_processing',
+          requiresAi: true,
+          automationStatus: 'ai_processing'
+        }),
+        expect.objectContaining({
+          fieldKey: 'blogImageFormat',
+          label: '비율·포맷',
+          section: 'image_blog',
+          sourceTier: 'ai_processing',
+          requiresAi: true,
+          automationStatus: 'ai_processing'
+        })
+      ])
+    );
+    expect(body.sourceMatrix.find((row: { fieldKey: string }) => row.fieldKey === 'reviewWeakness')).toMatchObject({
+      currentImplementation: expect.stringContaining('static'),
+      futureSuggestion: expect.stringContaining('Place')
+    });
+    expect(body.fields.find((field: { fieldKey: string }) => field.fieldKey === 'positioning')).toMatchObject({
+      sourceMatrix: expect.objectContaining({
+        fieldKey: 'storePositioning',
+        sourceTier: 'ai_processing'
+      })
+    });
+  });
+
   it('persists user edits, locks the field, and can reset to the AI value', async () => {
     const editedValue = '분당 기념일 레터링 케이크 예약 전문점';
     const editResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/positioning`, {

@@ -3,6 +3,7 @@ import type { CollectionItem } from '../../repositories/collection_items.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
+import { serializeRulesetSourceMatrix, sourceMatrixForFieldKey } from './rulesetSourceMatrix.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
 
@@ -31,6 +32,7 @@ function serializeField(field: RulesetField) {
     locked: field.locked === 1,
     evidenceItemIds: asStringArray(field.evidenceItemIds),
     confidence: field.confidence,
+    sourceMatrix: sourceMatrixForFieldKey(field.fieldKey),
     updatedAt: field.updatedAt
   };
 }
@@ -84,7 +86,8 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
       ruleset: null,
       learningSnapshot: null,
       analysis: null,
-      fields: []
+      fields: [],
+      sourceMatrix: serializeRulesetSourceMatrix()
     };
   }
 
@@ -116,7 +119,8 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
           updatedAt: analysisRun.updatedAt
         }
       : null,
-    fields: fields.map((field) => serializeField(field))
+    fields: fields.map((field) => serializeField(field)),
+    sourceMatrix: serializeRulesetSourceMatrix()
   };
 }
 

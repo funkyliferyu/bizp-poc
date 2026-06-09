@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import type { Store } from '../../repositories/stores.js';
+import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
 
 const EvidenceSchema = z.object({
   collectionItemId: z.string().min(1),
@@ -98,6 +99,142 @@ export function createMockAnalysisProvider(): AnalysisProvider {
       const ctaStyle = '예약 가능 여부와 픽업 시간을 확인하도록 부드럽게 유도';
       const imageDirection = '케이크 디테일, 레터링 문구, 포장 상태, 픽업 동선을 함께 보여주는 이미지 구성';
       const negativeExpressions = ['전국 최고', '무조건 가능', '효능 보장', '과장된 원조 표현'];
+      const fieldValues: Record<string, { aiValue: string; evidenceItemIds: string[]; confidence: number }> = {
+        storePositioning: { aiValue: storePositioning, evidenceItemIds: [profileItemId, reviewItemId], confidence: 0.91 },
+        keyStrengths: { aiValue: csv(keyStrengths), evidenceItemIds: [reviewItemId, blogItemId], confidence: 0.88 },
+        representativeMenu: {
+          aiValue: '레터링 케이크, 딸기 생크림 케이크, 커스텀 기념일 케이크',
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.79
+        },
+        targetCustomers: { aiValue: csv(targetCustomers), evidenceItemIds: [blogItemId, reviewItemId], confidence: 0.84 },
+        contentKeywords: {
+          aiValue: csv(unique([...seoKeywords, '기념일 케이크', '픽업 예약'])),
+          evidenceItemIds: allItemIds,
+          confidence: 0.87
+        },
+        reviewStrength: {
+          aiValue: '친절한 디자인 상담, 사진과 비슷한 완성도, 빠른 제작 안내',
+          evidenceItemIds: [reviewItemId, blogItemId],
+          confidence: 0.86
+        },
+        reviewWeakness: {
+          aiValue: '주차 공간이 협소할 수 있어 픽업 시간과 이동 동선을 미리 안내해야 함',
+          evidenceItemIds: [reviewItemId],
+          confidence: 0.74
+        },
+        toneAndManner: { aiValue: toneAndManner, evidenceItemIds: [blogItemId], confidence: 0.86 },
+        catchphrase: {
+          aiValue: '특별한 날을 더 특별하게, 분당에서 차분하게 준비하는 레터링 케이크',
+          evidenceItemIds: [blogItemId, profileItemId],
+          confidence: 0.76
+        },
+        negativeExpressions: { aiValue: csv(negativeExpressions), evidenceItemIds: allItemIds, confidence: 0.9 },
+        humorLevel: {
+          aiValue: '낮음 — 가벼운 언어 유희만 허용',
+          evidenceItemIds: [blogItemId],
+          confidence: 0.73
+        },
+        trendSensitivity: {
+          aiValue: '중간 — 시즌과 기념일 트렌드만 선별 반영',
+          evidenceItemIds: [blogItemId, profileItemId],
+          confidence: 0.72
+        },
+        instagramPurpose: {
+          aiValue: '비주얼 중심 브랜딩과 신규 고객 유입',
+          evidenceItemIds: [profileItemId],
+          confidence: 0.72
+        },
+        instagramWritingStyle: {
+          aiValue: '짧은 단정 서술과 지역/메뉴 해시태그 중심',
+          evidenceItemIds: [blogItemId],
+          confidence: 0.72
+        },
+        instagramPreferredLength: {
+          aiValue: '캡션 80-150자와 해시태그 4-6개',
+          evidenceItemIds: [blogItemId],
+          confidence: 0.71
+        },
+        instagramHashtags: {
+          aiValue: '#분당케이크 #레터링케이크 #커스텀케이크 #당일제작케이크',
+          evidenceItemIds: allItemIds,
+          confidence: 0.78
+        },
+        instagramEmojiPolicy: {
+          aiValue: '문장 끝 1-2개까지 허용',
+          evidenceItemIds: [blogItemId],
+          confidence: 0.7
+        },
+        blogPurpose: {
+          aiValue: '검색 유입과 예약 전 상세 정보 안내',
+          evidenceItemIds: [blogItemId, profileItemId],
+          confidence: 0.85
+        },
+        blogWritingStyle: { aiValue: blogWritingStyle, evidenceItemIds: [blogItemId], confidence: 0.87 },
+        blogPreferredLength: {
+          aiValue: '본문 700-1,000자와 사진 8장 이상 권장',
+          evidenceItemIds: [blogItemId],
+          confidence: 0.77
+        },
+        blogEmojiPolicy: {
+          aiValue: '검색형 본문에서는 이모지 사용 안 함',
+          evidenceItemIds: [blogItemId],
+          confidence: 0.78
+        },
+        seoKeywords: { aiValue: csv(seoKeywords), evidenceItemIds: allItemIds, confidence: 0.89 },
+        ctaStyle: { aiValue: ctaStyle, evidenceItemIds: [profileItemId], confidence: 0.82 },
+        primaryColors: {
+          aiValue: '#FAD9E3 파스텔 핑크, #FFFFFF 화이트',
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.69
+        },
+        accentColors: {
+          aiValue: '#E8A0BF 로즈 핑크',
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.68
+        },
+        imageDirection: { aiValue: imageDirection, evidenceItemIds: [profileItemId, reviewItemId], confidence: 0.81 },
+        imageStyle: {
+          aiValue: '감성적 미니멀, 케이크 클로즈업 중심',
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.74
+        },
+        imageAvoidStyle: {
+          aiValue: '어두운 톤, 과도한 필터, 복잡한 배경',
+          evidenceItemIds: [profileItemId],
+          confidence: 0.73
+        },
+        instagramImageFormat: {
+          aiValue: '정방형 1:1 또는 세로 4:5',
+          evidenceItemIds: [profileItemId],
+          confidence: 0.7
+        },
+        instagramImageStyle: {
+          aiValue: '감성 접사와 플랫레이 중심',
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.7
+        },
+        instagramOverlayPolicy: {
+          aiValue: '카드뉴스형 가능, 로고 워터마크는 owner asset이 있을 때만 사용',
+          evidenceItemIds: [profileItemId],
+          confidence: 0.68
+        },
+        blogImageFormat: {
+          aiValue: '가로 3:2 권장, 최소 8장, 1200x800px 이상',
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.76
+        },
+        blogImageStyle: {
+          aiValue: '전체샷, 디테일샷, 공간샷을 혼합',
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.75
+        },
+        blogOverlayPolicy: {
+          aiValue: '이미지 내 텍스트 최소화',
+          evidenceItemIds: [profileItemId],
+          confidence: 0.74
+        }
+      };
       const evidence = selectedItems.map((item, index) => ({
         collectionItemId: item.id,
         evidenceType:
@@ -117,17 +254,11 @@ export function createMockAnalysisProvider(): AnalysisProvider {
         imageDirection,
         negativeExpressions,
         evidence,
-        rulesetFields: [
-          field('storePositioning', storePositioning, [profileItemId, reviewItemId], 0.91),
-          field('keyStrengths', csv(keyStrengths), [reviewItemId, blogItemId], 0.88),
-          field('targetCustomers', csv(targetCustomers), [blogItemId, reviewItemId], 0.84),
-          field('toneAndManner', toneAndManner, [blogItemId], 0.86),
-          field('blogWritingStyle', blogWritingStyle, [blogItemId], 0.87),
-          field('seoKeywords', csv(seoKeywords), allItemIds, 0.89),
-          field('ctaStyle', ctaStyle, [profileItemId], 0.82),
-          field('imageDirection', imageDirection, [profileItemId, reviewItemId], 0.81),
-          field('negativeExpressions', csv(negativeExpressions), allItemIds, 0.9)
-        ]
+        rulesetFields: REQUIRED_ANALYZER_RULESET_FIELD_KEYS.map((fieldKey) => {
+          const definition = fieldValues[fieldKey];
+          if (!definition) throw new Error(`Missing mock analyzer field definition: ${fieldKey}`);
+          return field(fieldKey, definition.aiValue, definition.evidenceItemIds, definition.confidence);
+        })
       };
     }
   };

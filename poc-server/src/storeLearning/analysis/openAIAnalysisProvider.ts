@@ -1,6 +1,7 @@
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { getOpenAIClient } from '../../ai/openaiClient.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
+import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
 import { AnalyzerOutputSchema, createMockAnalysisProvider, type AnalysisProvider, type AnalyzerInput } from './analyzer.js';
 
 type ParseClient = {
@@ -53,17 +54,7 @@ function promptInput({ store, selectedItems }: AnalyzerInput) {
     },
     selectedItemIds: selectedItems.map((item) => item.id),
     selectedItems: selectedItems.map((item) => compactItem(item)),
-    requiredRulesetFieldKeys: [
-      'storePositioning',
-      'keyStrengths',
-      'targetCustomers',
-      'toneAndManner',
-      'blogWritingStyle',
-      'seoKeywords',
-      'ctaStyle',
-      'imageDirection',
-      'negativeExpressions'
-    ]
+    requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS
   };
 }
 
