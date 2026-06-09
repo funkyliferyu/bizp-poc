@@ -1,5 +1,31 @@
 # Validation
 
+## MILESTONE-01-DATA-MAP Commands
+
+Run from repo root:
+
+```bash
+test -f docs/codex/MILESTONE_01_DATA_MAP_PLAN.md
+test -f docs/product/STORE_LEARNING_DATA_MAP.md
+rg -n "Place Immediate|Blog Parser|AI Processing|사업자번호|RAW data|룰셋" docs/codex/MILESTONE_01_DATA_MAP_PLAN.md docs/product/STORE_LEARNING_DATA_MAP.md docs/codex/HANDOFF.md docs/codex/VALIDATION.md
+git diff --check
+git status --short
+```
+
+## MILESTONE-01-DATA-MAP Final Validation
+
+- Documentation-only milestone; full runtime test suite is not required.
+- `test -f docs/codex/MILESTONE_01_DATA_MAP_PLAN.md`: passed.
+- `test -f docs/product/STORE_LEARNING_DATA_MAP.md`: passed.
+- `rg -n "Place Immediate|Blog Parser|AI Processing|사업자번호|RAW data|룰셋" ...`: passed and found the expected source-tier, optional business-number, RAW data, and ruleset references.
+- `git diff --check`: passed.
+- `git status --short`: passed for milestone scope; expected milestone files appeared:
+  - `docs/codex/MILESTONE_01_DATA_MAP_PLAN.md`
+  - `docs/product/STORE_LEARNING_DATA_MAP.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## RAG-REVIEW-COLLECTION-002 Commands
 
 Run from `poc-server/`:
