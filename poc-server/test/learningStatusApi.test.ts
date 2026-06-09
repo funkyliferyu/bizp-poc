@@ -72,6 +72,39 @@ describe('learning status API', () => {
     });
   });
 
+  it('returns completion criteria from collected Blog, updated Place profile, analysis, and ruleset results', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/learning-status`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.completion).toMatchObject({
+      status: 'completed',
+      label: '학습 완료',
+      criteria: {
+        blogCollection: {
+          status: 'complete',
+          collectedCount: 1,
+          selectedCount: 1
+        },
+        placeProfile: {
+          status: 'complete',
+          collectedCount: 1
+        },
+        aiAnalysis: {
+          status: 'complete',
+          analysisRunId: 'analysis_run_demo_store_learning'
+        },
+        marketingRuleset: {
+          status: 'complete',
+          rulesetId: 'marketing_ruleset_demo_v1',
+          version: 1
+        }
+      }
+    });
+    expect(body.completion.message).toContain('블로그 수집');
+    expect(body.completion.message).toContain('마케팅 전략 룰셋');
+  });
+
   it('returns blog, place, and instagram tab data without raw collection item rows', async () => {
     const [blogResponse, placeResponse, instagramResponse] = await Promise.all([
       fetch(`${baseUrl}/api/stores/store_demo_cake/learning-status/blog`),

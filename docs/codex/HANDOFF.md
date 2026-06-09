@@ -2,6 +2,33 @@
 
 ## Current Scope
 
+MILESTONE-08-LEARNING-STATUS-RESULTS replaces the AI learning status completion display with persisted Store Learning results.
+
+The learning status API now adds a `completion` contract to `GET /api/stores/:storeId/learning-status`.
+
+Completion is computed from persisted PoC data:
+
+- Blog collection is complete when collected Blog post items exist.
+- Place profile update is complete when collected Place profile items exist.
+- AI analysis is complete when the latest successful analysis artifacts exist.
+- Marketing ruleset generation is complete when the latest marketing ruleset and ruleset fields exist.
+
+The learning status page now:
+
+- Renders an API-backed completion summary inside the existing learning status card.
+- Shows compact criteria rows for Blog collection, Place information update, AI analysis, and marketing ruleset generation.
+- Replaces hardcoded next collection and collection cycle KPI values with API-backed values.
+- Keeps ruleset navigation behavior unchanged.
+- Keeps browser calls limited to `poc-server` `/api/*` endpoints.
+
+This milestone does not change provider behavior, run external provider calls from the browser, redesign the whole learning status page, change Blog generation/content detail behavior, modify `admin/`, modify `pc-web/`, or touch old Event-to-Operation files.
+
+Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/33.
+
+The branch is stacked on `codex/ruleset-ui-source-matrix` while PR #32 is open. After PR #32 merges, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-07-RULESET-UI-SOURCE-MATRIX wires the marketing strategy ruleset screen to the source matrix API contract introduced in Milestone 06.
 
 The ruleset page now:

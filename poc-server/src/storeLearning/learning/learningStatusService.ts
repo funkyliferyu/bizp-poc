@@ -63,6 +63,10 @@ function rulesetStatusLabel(status: string | null | undefined) {
   return status;
 }
 
+function latestAnalysisRun(repos: Repositories, storeId: string) {
+  return latestByUpdatedAt(repos.analysisRuns.listByStoreId(storeId));
+}
+
 function channelStatus(collectedCount: number, analysisStatus: string | null, connected = true) {
   if (!connected) return 'not_connected';
   if (analysisStatus === 'completed' || analysisStatus === 'succeeded') return collectedCount > 0 ? 'analyzed' : 'empty';
@@ -110,6 +114,103 @@ function analysisPayload(repos: Repositories, storeId: string) {
   };
 }
 
+function completionStatusMessage(status: string) {
+  if (status === 'completed') {
+    return '블로그 수집, 플레이스 정보 최신화, AI 분석, 마케팅 전략 룰셋 생성이 완료되었습니다.';
+  }
+  if (status === 'needs_collection') {
+    return '학습 완료를 위해 블로그 수집과 플레이스 기본 정보 수집이 먼저 필요합니다.';
+  }
+  if (status === 'needs_analysis') {
+    return '수집 데이터가 준비되었습니다. AI 분석을 실행하면 마케팅 전략 룰셋을 생성할 수 있습니다.';
+  }
+  if (status === 'needs_ruleset') {
+    return 'AI 분석은 완료되었지만 마케팅 전략 룰셋 결과가 아직 생성되지 않았습니다.';
+  }
+  if (status === 'analysis_failed') {
+    return '수집 데이터는 있으나 AI 분석이 실패했습니다. 분석만 다시 실행할 수 있습니다.';
+  }
+  return '학습이 진행 중입니다. 수집과 분석 결과가 준비되면 완료 상태로 전환됩니다.';
+}
+
+function completionStatusLabel(status: string) {
+  if (status === 'completed') return '학습 완료';
+  if (status === 'analysis_failed') return '분석 실패';
+  if (status === 'needs_collection') return '수집 필요';
+  if (status === 'needs_analysis') return '분석 필요';
+  if (status === 'needs_ruleset') return '룰셋 생성 필요';
+  return '학습 진행 중';
+}
+
+function criterionStatus(done: boolean, failed = false) {
+  if (done) return 'complete';
+  if (failed) return 'failed';
+  return 'waiting';
+}
+
+function completionPayload(repos: Repositories, storeId: string, items: CollectionItem[]) {
+  const artifacts = latestArtifacts(repos, storeId);
+  const run = artifacts?.analysisRun ?? latestAnalysisRun(repos, storeId);
+  const ruleset = artifacts?.marketingRuleset ?? null;
+  const rulesetFields = artifacts?.rulesetFields ?? [];
+  const blogItems = items.filter((item) => item.channel === 'blog' && item.sourceType === 'post');
+  const placeProfiles = items.filter((item) => item.channel === 'place' && item.sourceType === 'profile');
+  const latestPlaceProfile = latestByUpdatedAt([...placeProfiles]);
+  const analysisComplete = Boolean(
+    artifacts?.analysisRun && ['completed', 'succeeded'].includes(artifacts.analysisRun.status)
+  );
+  const analysisFailed = run?.status === 'failed' && !analysisComplete;
+  const rulesetComplete = Boolean(ruleset && rulesetFields.length > 0);
+  const blogComplete = blogItems.length > 0;
+  const placeComplete = placeProfiles.length > 0;
+
+  let status = 'in_progress';
+  if (blogComplete && placeComplete && analysisComplete && rulesetComplete) {
+    status = 'completed';
+  } else if (analysisFailed) {
+    status = 'analysis_failed';
+  } else if (!blogComplete || !placeComplete) {
+    status = 'needs_collection';
+  } else if (!analysisComplete) {
+    status = 'needs_analysis';
+  } else if (!rulesetComplete) {
+    status = 'needs_ruleset';
+  }
+
+  return {
+    status,
+    label: completionStatusLabel(status),
+    message: completionStatusMessage(status),
+    completedAt: status === 'completed' ? (artifacts?.analysisRun.completedAt ?? artifacts?.analysisRun.updatedAt ?? null) : null,
+    criteria: {
+      blogCollection: {
+        status: criterionStatus(blogComplete),
+        label: '블로그 수집',
+        collectedCount: blogItems.length,
+        selectedCount: selectedCount(blogItems)
+      },
+      placeProfile: {
+        status: criterionStatus(placeComplete),
+        label: '플레이스 정보 최신화',
+        collectedCount: placeProfiles.length,
+        latestItemId: latestPlaceProfile?.id ?? null
+      },
+      aiAnalysis: {
+        status: criterionStatus(analysisComplete, analysisFailed),
+        label: 'AI 분석',
+        analysisRunId: run?.id ?? null,
+        completedAt: analysisComplete ? (artifacts?.analysisRun.completedAt ?? artifacts?.analysisRun.updatedAt ?? null) : null
+      },
+      marketingRuleset: {
+        status: criterionStatus(rulesetComplete),
+        label: '마케팅 전략 룰셋',
+        rulesetId: ruleset?.id ?? null,
+        version: ruleset?.version ?? null
+      }
+    }
+  };
+}
+
 function learningContext(repos: Repositories, storeId: string) {
   const artifacts = latestArtifacts(repos, storeId);
   const fields = artifacts?.rulesetFields ?? [];
@@ -149,6 +250,7 @@ export function buildLearningStatus(repos: Repositories, storeId: string) {
     analysis,
     snapshot,
     ruleset,
+    completion: completionPayload(repos, store.id, items),
     channels: {
       blog: {
         status: channelStatus(blogItems.length, analysis?.status ?? null),

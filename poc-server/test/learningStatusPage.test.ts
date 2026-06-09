@@ -35,4 +35,24 @@ describe('learning status static page API wiring', () => {
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
   });
+
+  it('renders API-backed completion result hooks without provider calls', () => {
+    const html = readFileSync(path.join(webRoot, '06_AI학습_현황.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
+
+    expect(html).toContain('id="learning-completion-summary"');
+    expect(html).toContain('id="learning-completion-label"');
+    expect(html).toContain('id="learning-completion-message"');
+    expect(html).toContain('id="learning-completion-checklist"');
+    expect(html).toContain('id="learning-next-collection"');
+    expect(html).toContain('id="learning-collection-cycle"');
+
+    expect(js).toContain('function renderCompletion');
+    expect(js).toContain('status.completion');
+    expect(js).toContain('learning-completion-checklist');
+    expect(js).toContain('learning-next-collection');
+    expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
 });

@@ -19,6 +19,19 @@
 .insta-info{padding:6px 8px}
 .sec-title{font-size:13px;font-weight:700;color:#1A1A2E;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .learning-empty{font-size:12px;color:#9AA0B4;line-height:1.6;padding:12px 0}
+.learning-completion-summary{border:1px solid #E2E8F0;background:#F8FAFC;border-radius:6px;padding:12px;margin-bottom:14px}
+.learning-completion-summary[data-status="completed"]{border-color:#B2F2BB;background:#F4FFF6}
+.learning-completion-label{font-size:13px;font-weight:800;color:#1A1A2E;margin-bottom:3px}
+.learning-completion-summary[data-status="completed"] .learning-completion-label{color:#2F9E44}
+.learning-completion-message{font-size:12px;color:#4A5568;line-height:1.6;margin-bottom:10px}
+.learning-completion-checklist{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.learning-completion-step{border:1px solid #E2E8F0;background:#fff;border-radius:6px;padding:8px 9px;min-width:0}
+.learning-completion-step.complete{border-color:#B2F2BB;background:#FBFFFC}
+.learning-completion-step.failed{border-color:#FFC9C9;background:#FFF5F5}
+.learning-completion-step-label{font-size:11px;font-weight:700;color:#4A5568;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.learning-completion-step-state{font-size:11px;color:#9AA0B4}
+.learning-completion-step.complete .learning-completion-step-state{color:#2F9E44;font-weight:700}
+.learning-completion-step.failed .learning-completion-step-state{color:#C92A2A;font-weight:700}
 .ruleset-alert{display:none;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:11px 12px;border:1px solid #B2F2BB;background:#EBFBEE;border-radius:6px}
 .ruleset-alert-title{font-size:13px;font-weight:700;color:#2F9E44;margin-bottom:2px}
 .ruleset-alert-desc{font-size:12px;color:#4A5568}
@@ -62,10 +75,15 @@
         </div>
         <button type="button" class="ruleset-alert-link" id="learning-ruleset-alert-link">룰셋 보러가기</button>
       </div>
+      <div class="learning-completion-summary" id="learning-completion-summary" data-status="loading">
+        <div class="learning-completion-label" id="learning-completion-label">학습 상태 확인 중</div>
+        <div class="learning-completion-message" id="learning-completion-message">수집, 분석, 룰셋 생성 결과를 불러오는 중입니다.</div>
+        <div class="learning-completion-checklist" id="learning-completion-checklist"></div>
+      </div>
       <div class="grid-4" style="margin-bottom:14px">
         <div class="kpi-card"><div class="kpi-label">마지막 학습일</div><div class="kpi-val" id="learning-last-analyzed" style="font-size:16px">-</div></div>
-        <div class="kpi-card"><div class="kpi-label">다음 수집 예정일</div><div class="kpi-val" style="font-size:16px">2026.05.30</div></div>
-        <div class="kpi-card"><div class="kpi-label">수집 주기</div><div class="kpi-val" style="font-size:16px">2주마다</div></div>
+        <div class="kpi-card"><div class="kpi-label">다음 수집 예정일</div><div class="kpi-val" id="learning-next-collection" style="font-size:16px">-</div></div>
+        <div class="kpi-card"><div class="kpi-label">수집 주기</div><div class="kpi-val" id="learning-collection-cycle" style="font-size:16px">-</div></div>
         <button type="button" class="kpi-card ruleset-kpi" id="learning-ruleset-card"><div class="kpi-label">룰셋 상태</div><div class="kpi-val" id="learning-ruleset-status" style="font-size:16px;color:#2F9E44">-</div></button>
       </div>
       <div id="ch-status">
