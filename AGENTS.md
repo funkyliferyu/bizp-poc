@@ -33,6 +33,9 @@ Do not treat `README_POC.md` or `web/event_operation_poc.html` as the product so
 - `develop` is the integration branch for API-backed local validation.
 - Feature work should branch from `develop` unless the user explicitly requests another base.
 - Before starting a new task, confirm `pwd`, current branch, PR base, `git status --short`, task scope, forbidden areas, and validation commands.
+- `docs/codex/PLAN.md` is the central sequential plan ledger for Store Learning work.
+- Before creating a milestone-specific plan, branch, or PR, read `docs/codex/PLAN.md`, confirm the first item not merged/validated on `develop`, and update that ledger as work moves forward.
+- "다음 투두" means the next ledger item by `develop` integration status, not simply the newest local branch or newest PR.
 - GitHub Pages is static UI only. Store Learning runtime behavior must be validated with local `poc-server` APIs and SQLite.
 
 ## Browser And API Rules

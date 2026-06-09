@@ -2,14 +2,16 @@
 
 ## Current Phase
 
-Project workflow stabilization before the next Store Learning feature task.
+Sequential plan ledger control for Store Learning work.
 
 ## Repository State
 
-- Latest Store Learning work through PR #23 has been merged into `codex/api-backed-poc-flow`.
 - `main` is the intended public/stable branch.
 - `develop` is the intended integration branch.
-- Future implementation work should branch from `develop` unless explicitly redirected.
+- `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
+- Milestone PRs #26-#34 are merged to `develop`.
+- They are not fully complete until milestone 10 validation is run and
+  recorded on `develop`.
 
 ## Branch Policy
 
@@ -55,15 +57,31 @@ http://localhost:5177/soho_store_register.html
 
 ## Next Exact Step
 
-Start the next feature from `develop` in a new session only after confirming:
+Start every session by reading `docs/codex/PLAN.md` and choosing the first
+milestone that is not validated on `develop`.
+
+Current next todo:
+
+1. Run milestone 10 develop validation:
+   - `cd poc-server && npm run typecheck`
+   - `cd poc-server && npm test`
+   - `cd poc-server && npm run demo:store-learning`
+2. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+   validation result.
+3. Keep `develop` as the PR base for any follow-up fixes.
+4. Prepare the `develop` -> `main` promotion path only after validation passes
+   and the user approves publication timing.
+
+Before editing files, confirm:
 
 1. `pwd`
 2. current branch
 3. `git status --short`
-4. intended task id and scope
-5. files allowed to change
-6. files forbidden to change
-7. validation commands
+4. next ledger todo
+5. intended task id and scope
+6. files allowed to change
+7. files forbidden to change
+8. validation commands
 
 ## Forbidden Areas By Default
 
