@@ -1,5 +1,50 @@
 # Validation
 
+## MILESTONE-07-RULESET-UI-SOURCE-MATRIX Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetPage.test.ts -t "source matrix containers"
+npm test -- rulesetApi.test.ts -t "seeds ruleset fields"
+npm test -- rulesetPage.test.ts rulesetApi.test.ts
+npm test -- staticWebConnectivity.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+git status --short
+```
+
+## MILESTONE-07-RULESET-UI-SOURCE-MATRIX TDD Evidence
+
+- RED `npm test -- rulesetPage.test.ts -t "source matrix containers"`: failed because `web/07_마케팅전략룰셋.html` had no `data-source-matrix-section` hooks and `web/ruleset_editor.js` had no `renderSourceMatrix` implementation.
+- RED `npm test -- rulesetApi.test.ts -t "seeds ruleset fields"`: failed because the demo seed only returned `positioning` and `contentKeywords`.
+- GREEN `npm test -- rulesetPage.test.ts -t "source matrix containers"`: passed after adding source matrix containers, missing field hooks, and browser rendering logic.
+- GREEN `npm test -- rulesetApi.test.ts -t "seeds ruleset fields"`: passed after adding expanded demo ruleset fields.
+
+## MILESTONE-07-RULESET-UI-SOURCE-MATRIX Final Validation
+
+- `npm test -- rulesetPage.test.ts rulesetApi.test.ts`: passed, 8 tests.
+- `npm test -- staticWebConnectivity.test.ts`: passed, 28 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- `curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_demo_cake"`: returned `200`.
+- Browser plugin was not exposed by tool discovery in this session; use local HTTP/static checks for smoke validation.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_07_RULESET_UI_SOURCE_MATRIX_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/seedStoreLearning.ts`
+  - `poc-server/test/rulesetApi.test.ts`
+  - `poc-server/test/rulesetPage.test.ts`
+  - `web/07_마케팅전략룰셋.html`
+  - `web/ruleset_editor.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-06-RULESET-SOURCE-MATRIX Commands
 
 Run from `poc-server/`:

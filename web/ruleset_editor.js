@@ -1,6 +1,15 @@
 (function () {
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
   const fieldMap = new Map();
+  const sourceMatrixMap = new Map();
+  const FIELD_ALIASES = {
+    positioning: ['storePositioning'],
+    storePositioning: ['positioning'],
+    contentKeywords: ['seoKeywords'],
+    seoKeywords: ['contentKeywords'],
+    reviewStrength: ['keyStrengths'],
+    keyStrengths: ['reviewStrength']
+  };
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -72,9 +81,57 @@
     return null;
   }
 
+  function fieldCandidatesForKey(fieldKey) {
+    return [fieldKey, ...(FIELD_ALIASES[fieldKey] || [])].filter(Boolean);
+  }
+
+  function findFieldForMatrixRow(row) {
+    for (const key of fieldCandidatesForKey(row.fieldKey)) {
+      const found = fieldMap.get(key);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function matrixForFieldKey(fieldKey) {
+    for (const key of fieldCandidatesForKey(fieldKey)) {
+      const found = sourceMatrixMap.get(key);
+      if (found) return found;
+    }
+    return null;
+  }
+
   function sourceLabel(source, locked) {
     if (locked || source === 'user_edited') return { text: '수정됨', className: 'src-edited' };
     return { text: 'AI 분석', className: 'src-ai' };
+  }
+
+  function sourceTierLabel(sourceTier) {
+    const labels = {
+      place_direct: 'Place 직접',
+      manual_only: '수동 입력',
+      blog_parser: 'Blog 파싱',
+      place_then_ai: 'Place+AI',
+      ai_processing: 'AI 처리'
+    };
+    return labels[sourceTier] || sourceTier || '-';
+  }
+
+  function automationLabel(status) {
+    const labels = {
+      available_now: '바로 적용',
+      parser_ready: '파서 적용',
+      ai_processing: 'AI 판단',
+      deferred: '후속'
+    };
+    return labels[status] || status || '-';
+  }
+
+  function sourceChipClass(row) {
+    if (row.sourceTier === 'place_direct') return 'direct';
+    if (row.sourceTier === 'manual_only') return 'manual';
+    if (row.automationStatus === 'deferred') return 'wait';
+    return '';
   }
 
   function updateSourceBadge(element, rulesetField) {
@@ -137,6 +194,20 @@
     const row = ensureActionRow(element);
     const state = row.querySelector('[data-ruleset-state]');
     if (state) state.textContent = rulesetField.locked ? '수정값 고정' : 'AI 원값';
+    renderRulesetSourceNote(element, rulesetField.sourceMatrix || matrixForFieldKey(rulesetField.fieldKey));
+  }
+
+  function renderRulesetSourceNote(element, matrix) {
+    element.querySelectorAll('.ruleset-source-note').forEach((note) => note.remove());
+    if (!matrix) return;
+    const note = document.createElement('div');
+    note.className = 'ruleset-source-note';
+    note.innerHTML = [
+      `<strong>${escapeHtml(sourceTierLabel(matrix.sourceTier))}</strong> · ${escapeHtml(automationLabel(matrix.automationStatus))}`,
+      `<br>${escapeHtml(matrix.currentImplementation)}`,
+      `<br><strong>개선 제안</strong> ${escapeHtml(matrix.futureSuggestion)}`
+    ].join('');
+    element.appendChild(note);
   }
 
   function renderStoreFields(store) {
@@ -157,9 +228,68 @@
     status.textContent = `v${payload.ruleset.version} · ${payload.ruleset.status}`;
   }
 
+  function currentStoreValue(store, row) {
+    const value = store?.[row.fieldKey];
+    if (value) return String(value);
+    if (row.fieldKey === 'storeIntro') return store?.description || null;
+    return null;
+  }
+
+  function currentMatrixValue(payload, row) {
+    if (row.section === 'store') return currentStoreValue(payload.store || {}, row);
+    const rulesetField = findFieldForMatrixRow(row);
+    return rulesetField?.finalValue || rulesetField?.aiValue || null;
+  }
+
+  function sourceMatrixSections(value) {
+    return String(value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  function renderSourceMatrix(payload) {
+    document.querySelectorAll('[data-source-matrix-section]').forEach((container) => {
+      const sections = sourceMatrixSections(container.dataset.sourceMatrixSection);
+      const rows = (payload.sourceMatrix || []).filter((row) => sections.includes(row.section));
+      container.innerHTML = [
+        '<div class="ruleset-source-matrix-head">',
+        '<div class="ruleset-source-matrix-title">자동 입력 기준</div>',
+        `<div class="ruleset-source-matrix-count">${rows.length}개 항목</div>`,
+        '</div>',
+        '<table class="ruleset-source-matrix-table" aria-label="룰셋 자동 입력 기준">',
+        '<thead><tr><th>항목</th><th>현재 값</th><th>소스/상태</th><th>현재 구현</th><th>개선 제안</th></tr></thead>',
+        '<tbody>',
+        rows
+          .map((row) => {
+            const value = currentMatrixValue(payload, row);
+            const chipClass = sourceChipClass(row);
+            return [
+              '<tr>',
+              `<td><strong>${escapeHtml(row.label)}</strong><span class="source-field-key">${escapeHtml(row.fieldKey)}</span></td>`,
+              `<td><span class="${value ? 'source-current-value' : 'source-muted'}">${escapeHtml(value || '수집/AI 결과 대기')}</span></td>`,
+              '<td>',
+              '<div class="source-chip-row">',
+              `<span class="source-chip ${chipClass}">${escapeHtml(sourceTierLabel(row.sourceTier))}</span>`,
+              `<span class="source-chip ${row.automationStatus === 'deferred' ? 'wait' : ''}">${escapeHtml(automationLabel(row.automationStatus))}</span>`,
+              '</div>',
+              '</td>',
+              `<td>${escapeHtml(row.currentImplementation)}</td>`,
+              `<td>${escapeHtml(row.futureSuggestion)}</td>`,
+              '</tr>'
+            ].join('');
+          })
+          .join(''),
+        '</tbody></table>'
+      ].join('');
+    });
+  }
+
   function renderRuleset(payload) {
     fieldMap.clear();
+    sourceMatrixMap.clear();
     (payload.fields || []).forEach((rulesetField) => fieldMap.set(rulesetField.fieldKey, rulesetField));
+    (payload.sourceMatrix || []).forEach((row) => sourceMatrixMap.set(row.fieldKey, row));
     renderStatus(payload);
     renderStoreFields(payload.store || {});
 
@@ -167,6 +297,7 @@
       const rulesetField = findFieldForElement(element);
       if (rulesetField) renderRulesetField(element, rulesetField);
     });
+    renderSourceMatrix(payload);
   }
 
   function fieldValue(element) {

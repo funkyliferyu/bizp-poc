@@ -28,4 +28,22 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
   });
+
+  it('renders source matrix containers and field hooks for currently static ruleset rows', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
+
+    expect(html).toContain('data-source-matrix-section="store"');
+    expect(html).toContain('data-source-matrix-section="brand"');
+    expect(html).toContain('data-source-matrix-section="write_common,write_instagram,write_blog"');
+    expect(html).toContain('data-source-matrix-section="image_common,image_instagram,image_blog"');
+    expect(html).toContain('data-ruleset-field="representativeMenu"');
+    expect(html).toContain('data-ruleset-field="catchphrase"');
+    expect(html).toContain('data-ruleset-field="blogPreferredLength"');
+    expect(html).toContain('data-ruleset-field="blogImageFormat"');
+    expect(js).toContain('function renderSourceMatrix');
+    expect(js).toContain('payload.sourceMatrix');
+    expect(js).toContain('currentImplementation');
+    expect(js).toContain('futureSuggestion');
+  });
 });

@@ -267,6 +267,213 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     updatedAt: timestamp(24)
   });
 
+  const expandedRulesetFields = [
+    {
+      fieldKey: 'representativeMenu',
+      value: '레터링 케이크, 딸기 생크림 케이크, 커스텀 기념일 케이크',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.79
+    },
+    {
+      fieldKey: 'targetCustomers',
+      value: '기념일 케이크 고객, 레터링 케이크 예약 고객, 정자동 픽업 고객',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_review'],
+      confidence: 0.84
+    },
+    {
+      fieldKey: 'reviewStrength',
+      value: '친절한 디자인 상담, 사진과 비슷한 완성도, 빠른 제작 안내',
+      evidenceItemIds: ['collection_item_demo_place_review', 'collection_item_demo_blog'],
+      confidence: 0.86
+    },
+    {
+      fieldKey: 'reviewWeakness',
+      value: '주차 공간이 협소할 수 있어 픽업 시간과 이동 동선을 미리 안내해야 함',
+      evidenceItemIds: ['collection_item_demo_place_review'],
+      confidence: 0.74
+    },
+    {
+      fieldKey: 'toneAndManner',
+      value: '친절하고 구체적인 예약 안내형',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.86
+    },
+    {
+      fieldKey: 'catchphrase',
+      value: '특별한 날을 더 특별하게, 분당에서 차분하게 준비하는 레터링 케이크',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
+      confidence: 0.76
+    },
+    {
+      fieldKey: 'negativeExpressions',
+      value: '전국 최고, 무조건 가능, 효능 보장, 과장된 원조 표현',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
+      confidence: 0.9
+    },
+    {
+      fieldKey: 'humorLevel',
+      value: '낮음 — 가벼운 언어 유희만 허용',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.73
+    },
+    {
+      fieldKey: 'trendSensitivity',
+      value: '중간 — 시즌과 기념일 트렌드만 선별 반영',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
+      confidence: 0.72
+    },
+    {
+      fieldKey: 'instagramPurpose',
+      value: '비주얼 중심 브랜딩과 신규 고객 유입',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.72
+    },
+    {
+      fieldKey: 'instagramWritingStyle',
+      value: '짧은 단정 서술과 지역/메뉴 해시태그 중심',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.72
+    },
+    {
+      fieldKey: 'instagramPreferredLength',
+      value: '캡션 80-150자와 해시태그 4-6개',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.71
+    },
+    {
+      fieldKey: 'instagramHashtags',
+      value: '#분당케이크 #레터링케이크 #커스텀케이크 #당일제작케이크',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
+      confidence: 0.78
+    },
+    {
+      fieldKey: 'instagramEmojiPolicy',
+      value: '문장 끝 1-2개까지 허용',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.7
+    },
+    {
+      fieldKey: 'blogPurpose',
+      value: '검색 유입과 예약 전 상세 정보 안내',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
+      confidence: 0.85
+    },
+    {
+      fieldKey: 'blogWritingStyle',
+      value: '실제 후기 근거를 먼저 제시하고 주문/픽업 정보를 자연스럽게 연결하는 검색 유입형',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.87
+    },
+    {
+      fieldKey: 'blogPreferredLength',
+      value: '본문 700-1,000자와 사진 8장 이상 권장',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.77
+    },
+    {
+      fieldKey: 'blogEmojiPolicy',
+      value: '검색형 본문에서는 이모지 사용 안 함',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.78
+    },
+    {
+      fieldKey: 'seoKeywords',
+      value: '분당 케이크, 레터링 케이크, 정자동 케이크, 당일 제작 케이크',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
+      confidence: 0.89
+    },
+    {
+      fieldKey: 'ctaStyle',
+      value: '예약 가능 여부와 픽업 시간을 확인하도록 부드럽게 유도',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.82
+    },
+    {
+      fieldKey: 'primaryColors',
+      value: '#FAD9E3 파스텔 핑크, #FFFFFF 화이트',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.69
+    },
+    {
+      fieldKey: 'accentColors',
+      value: '#E8A0BF 로즈 핑크',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.68
+    },
+    {
+      fieldKey: 'imageDirection',
+      value: '케이크 디테일, 레터링 문구, 포장 상태, 픽업 동선을 함께 보여주는 이미지 구성',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_place_review'],
+      confidence: 0.81
+    },
+    {
+      fieldKey: 'imageStyle',
+      value: '감성적 미니멀, 케이크 클로즈업 중심',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.74
+    },
+    {
+      fieldKey: 'imageAvoidStyle',
+      value: '어두운 톤, 과도한 필터, 복잡한 배경',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.73
+    },
+    {
+      fieldKey: 'instagramImageFormat',
+      value: '정방형 1:1 또는 세로 4:5',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.7
+    },
+    {
+      fieldKey: 'instagramImageStyle',
+      value: '감성 접사와 플랫레이 중심',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.7
+    },
+    {
+      fieldKey: 'instagramOverlayPolicy',
+      value: '카드뉴스형 가능, 로고 워터마크는 owner asset이 있을 때만 사용',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.68
+    },
+    {
+      fieldKey: 'blogImageFormat',
+      value: '가로 3:2 권장, 최소 8장, 1200x800px 이상',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.76
+    },
+    {
+      fieldKey: 'blogImageStyle',
+      value: '전체샷, 디테일샷, 공간샷을 혼합',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.75
+    },
+    {
+      fieldKey: 'blogOverlayPolicy',
+      value: '이미지 내 텍스트 최소화',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.74
+    }
+  ];
+
+  expandedRulesetFields.forEach((field, index) => {
+    repos.rulesetFields.upsert({
+      id: `ruleset_field_demo_${field.fieldKey}`,
+      rulesetId,
+      fieldKey: field.fieldKey,
+      fieldValue: field.value,
+      aiValue: field.value,
+      userValue: null,
+      finalValue: field.value,
+      source: 'analysis',
+      locked: 0,
+      evidenceItemIds: field.evidenceItemIds,
+      confidence: field.confidence,
+      createdAt: timestamp(30 + index),
+      updatedAt: timestamp(30 + index)
+    });
+  });
+
   repos.contentGenerations.upsert({
     id: contentGenerationId,
     storeId,

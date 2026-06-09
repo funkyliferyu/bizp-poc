@@ -116,10 +116,30 @@
 .ruleset-action-btn:hover{border-color:#3B5BDB;color:#3B5BDB;background:#EEF2FF}
 .ruleset-field-state{font-size:11px;color:#9AA0B4}
 .ruleset-lock-badge{background:#EEF2FF;color:#3B5BDB;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;border:1px solid #3B5BDB}
+.ruleset-source-note{margin-top:7px;border-left:2px solid #BAC8FF;background:#F8FAFF;padding:7px 9px;font-size:11px;line-height:1.55;color:#4A5568}
+.ruleset-source-note strong{color:#1A1A2E;font-weight:700}
+.ruleset-source-matrix{margin-top:14px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;overflow:hidden}
+.ruleset-source-matrix-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border-bottom:1px solid #EDF2F7;background:#FAFBFC}
+.ruleset-source-matrix-title{font-size:12px;font-weight:700;color:#1A1A2E}
+.ruleset-source-matrix-count{font-size:11px;color:#6B7280;font-weight:700}
+.ruleset-source-matrix-table{width:100%;border-collapse:collapse;font-size:11px}
+.ruleset-source-matrix-table th{padding:8px 9px;text-align:left;background:#F7F8FA;color:#6B7280;border-bottom:1px solid #E2E8F0;white-space:nowrap}
+.ruleset-source-matrix-table td{padding:9px;vertical-align:top;border-bottom:1px solid #EDF2F7;color:#1A1A2E;line-height:1.55}
+.ruleset-source-matrix-table tr:last-child td{border-bottom:none}
+.source-field-key{display:block;margin-top:2px;font-size:10px;color:#9AA0B4;font-weight:600}
+.source-chip-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.source-chip{display:inline-flex;align-items:center;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:700;background:#EEF2FF;color:#3B5BDB}
+.source-chip.direct{background:#EBFBEE;color:#2F9E44}
+.source-chip.manual{background:#FFF9DB;color:#F08C00}
+.source-chip.wait{background:#F1F3F5;color:#6B7280}
+.source-current-value{font-weight:700;color:#1A1A2E}
+.source-muted{color:#6B7280}
 @media(max-width:900px){
   .benchmark-summary{grid-template-columns:1fr}
   .benchmark-candidates{grid-template-columns:1fr}
   .comparison-table{min-width:760px}
+  .ruleset-source-matrix{overflow-x:auto}
+  .ruleset-source-matrix-table{min-width:820px}
   .comparison-scroll{overflow-x:auto}
   .analysis-focus-layout,.similar-compare-layout,.full-comparison-grid{grid-template-columns:1fr}
   .reference-panel{position:static}
@@ -161,6 +181,7 @@
           <div class="ruleset-hint">재학습 시 자동 업데이트되지 않습니다.</div>
         </div>
         <div class="ruleset-field"><div class="ruleset-label">휴무일 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">매주 월요일</div></div>
+        <div class="ruleset-source-matrix" data-source-matrix-section="store"></div>
       </div>
     </div>
   </div>
@@ -190,12 +211,12 @@
               </div>
               <div class="ruleset-val" data-ruleset-value>당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div>
             </div>
-            <div class="ruleset-field">
+            <div class="ruleset-field" data-ruleset-field="representativeMenu">
               <div class="analysis-field-head">
                 <div class="ruleset-label">대표 메뉴 <span class="src-ai">AI 분석</span></div>
                 <button type="button" class="reference-btn" data-reference-key="menu" onclick="showReferenceLayer('menu')">참고</button>
               </div>
-              <div class="ruleset-val">커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div>
+              <div class="ruleset-val" data-ruleset-value>커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div>
             </div>
             <div class="ruleset-field" data-ruleset-field="targetCustomers">
               <div class="analysis-field-head">
@@ -248,6 +269,7 @@
             </div>
           </aside>
         </div>
+        <div class="ruleset-source-matrix" data-source-matrix-section="brand"></div>
       </div>
     </div>
   </div>
@@ -264,26 +286,27 @@
         </div>
         <div id="write-common">
           <div class="ruleset-field" data-ruleset-field="toneAndManner"><div class="ruleset-label">톤 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>친근하고 감성적인 구어체 / 과장 없는 사실 기반</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">캐치프레이즈 <span class="src-edited">수정됨</span></div><div class="ruleset-val edited">특별한 날을 더 특별하게 / 분당에서 제일 예쁜 케이크</div><div class="ruleset-hint">재학습 시 자동 업데이트되지 않습니다.</div></div>
+          <div class="ruleset-field" data-ruleset-field="catchphrase"><div class="ruleset-label">캐치프레이즈 <span class="src-edited">수정됨</span></div><div class="ruleset-val edited" data-ruleset-value>특별한 날을 더 특별하게 / 분당에서 제일 예쁜 케이크</div><div class="ruleset-hint">재학습 시 자동 업데이트되지 않습니다.</div></div>
           <div class="ruleset-field" data-ruleset-field="negativeExpressions"><div class="ruleset-label">피할 문구 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>강추드려요, 완전 맛있어요 반복, 최고의 케이크</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">개그 레벨 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">낮음 — 가벼운 언어 유희만</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">트렌드 민감도 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">중간 — 시즌 트렌드 반영</div></div>
+          <div class="ruleset-field" data-ruleset-field="humorLevel"><div class="ruleset-label">개그 레벨 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>낮음 — 가벼운 언어 유희만</div></div>
+          <div class="ruleset-field" data-ruleset-field="trendSensitivity"><div class="ruleset-label">트렌드 민감도 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>중간 — 시즌 트렌드 반영</div></div>
         </div>
         <div id="write-insta" style="display:none">
-          <div class="ruleset-field"><div class="ruleset-label">글의 목적 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">비주얼 중심 브랜딩·신규 고객 유입</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">문장 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">짧은 감탄·단정 서술, 해시태그로 마무리</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">선호 길이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">캡션 80–150자 + 해시태그</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">해시태그 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">#분당케이크 #수지케이크 #레터링케이크 #커스텀케이크 #당일제작케이크</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">이모지 사용 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">문장 끝 1–2개 허용</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramPurpose"><div class="ruleset-label">글의 목적 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>비주얼 중심 브랜딩·신규 고객 유입</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramWritingStyle"><div class="ruleset-label">문장 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>짧은 감탄·단정 서술, 해시태그로 마무리</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramPreferredLength"><div class="ruleset-label">선호 길이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>캡션 80–150자 + 해시태그</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramHashtags"><div class="ruleset-label">해시태그 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>#분당케이크 #수지케이크 #레터링케이크 #커스텀케이크 #당일제작케이크</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramEmojiPolicy"><div class="ruleset-label">이모지 사용 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>문장 끝 1–2개 허용</div></div>
         </div>
         <div id="write-blog" style="display:none">
-          <div class="ruleset-field"><div class="ruleset-label">글의 목적 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">검색 유입 + 상세 설명</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogPurpose"><div class="ruleset-label">글의 목적 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>검색 유입 + 상세 설명</div></div>
           <div class="ruleset-field" data-ruleset-field="blogWritingStyle"><div class="ruleset-label">문장 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>방문기 형식, 의문형 도입 후 단정 서술</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">선호 길이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">본문 700–1,000자 + 사진 8장 이상</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogPreferredLength"><div class="ruleset-label">선호 길이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>본문 700–1,000자 + 사진 8장 이상</div></div>
           <div class="ruleset-field" data-ruleset-field="seoKeywords" data-ruleset-aliases="contentKeywords"><div class="ruleset-label">SEO 키워드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>제목·소제목에 지역+메뉴 키워드 삽입 (예: 분당 레터링케이크)</div></div>
           <div class="ruleset-field" data-ruleset-field="ctaStyle"><div class="ruleset-label">CTA <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>예약·방문 유도</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">이모지 사용 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">사용 안 함</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogEmojiPolicy"><div class="ruleset-label">이모지 사용 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>사용 안 함</div></div>
         </div>
+        <div class="ruleset-source-matrix" data-source-matrix-section="write_common,write_instagram,write_blog"></div>
       </div>
     </div>
 
@@ -342,33 +365,34 @@
           <div class="sub-tab" onclick="showSub('img','blog',this)">블로그</div>
         </div>
         <div id="img-common">
-          <div class="ruleset-field">
+          <div class="ruleset-field" data-ruleset-field="primaryColors">
             <div class="ruleset-label">주 사용 색상 <span class="src-ai">AI 분석</span></div>
-            <div style="display:flex;align-items:center;gap:16px">
+            <div class="ruleset-val" data-ruleset-value style="display:flex;align-items:center;gap:16px">
               <span><span class="color-swatch" style="background:#FAD9E3"></span><span style="font-size:12px;color:#4A5568">#FAD9E3 파스텔 핑크</span></span>
               <span><span class="color-swatch" style="background:#FFFFFF"></span><span style="font-size:12px;color:#4A5568">#FFFFFF 흰색</span></span>
             </div>
           </div>
-          <div class="ruleset-field">
+          <div class="ruleset-field" data-ruleset-field="accentColors">
             <div class="ruleset-label">강조 색상 <span class="src-ai">AI 분석</span></div>
-            <div style="display:flex;align-items:center;">
+            <div class="ruleset-val" data-ruleset-value style="display:flex;align-items:center;">
               <span><span class="color-swatch" style="background:#E8A0BF"></span><span style="font-size:12px;color:#4A5568">#E8A0BF 로즈 핑크</span></span>
             </div>
           </div>
           <div class="ruleset-field" data-ruleset-field="imageDirection"><div class="ruleset-label">이미지 무드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>밝고 감성적인 자연광, 따뜻한 톤, 케이크 디테일 강조</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">감성적 미니멀, 케이크 클로즈업 중심</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">피할 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">어두운 톤, 과도한 필터, 복잡한 배경</div></div>
+          <div class="ruleset-field" data-ruleset-field="imageStyle"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>감성적 미니멀, 케이크 클로즈업 중심</div></div>
+          <div class="ruleset-field" data-ruleset-field="imageAvoidStyle"><div class="ruleset-label">피할 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>어두운 톤, 과도한 필터, 복잡한 배경</div></div>
         </div>
         <div id="img-insta" style="display:none">
-          <div class="ruleset-field"><div class="ruleset-label">비율·포맷 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">정방형 1:1 또는 세로 4:5 / 1080×1080px</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">감성 접사·플랫레이 중심</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">텍스트 오버레이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">카드뉴스형 가능, 로고 워터마크 삽입</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramImageFormat"><div class="ruleset-label">비율·포맷 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>정방형 1:1 또는 세로 4:5 / 1080×1080px</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramImageStyle"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>감성 접사·플랫레이 중심</div></div>
+          <div class="ruleset-field" data-ruleset-field="instagramOverlayPolicy"><div class="ruleset-label">텍스트 오버레이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>카드뉴스형 가능, 로고 워터마크 삽입</div></div>
         </div>
         <div id="img-blog" style="display:none">
-          <div class="ruleset-field"><div class="ruleset-label">비율·포맷 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">가로 3:2 권장, 최소 8장 / 1200×800px 이상</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">전체샷·디테일샷·공간샷 혼합</div></div>
-          <div class="ruleset-field"><div class="ruleset-label">텍스트 오버레이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val">이미지 내 텍스트 최소화</div><div class="ruleset-hint">이미지 내 과도한 텍스트는 SEO 불이익</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogImageFormat"><div class="ruleset-label">비율·포맷 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>가로 3:2 권장, 최소 8장 / 1200×800px 이상</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogImageStyle"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>전체샷·디테일샷·공간샷 혼합</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogOverlayPolicy"><div class="ruleset-label">텍스트 오버레이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>이미지 내 텍스트 최소화</div><div class="ruleset-hint">이미지 내 과도한 텍스트는 SEO 불이익</div></div>
         </div>
+        <div class="ruleset-source-matrix" data-source-matrix-section="image_common,image_instagram,image_blog"></div>
       </div>
     </div>
   </div>
