@@ -2,6 +2,29 @@
 
 ## Current Scope
 
+MILESTONE-04-BLOG-COLLECTION-RELIABILITY adds RSS post-link discovery as a fallback inside the rendered/page Naver Blog collection provider.
+
+The fallback order is now:
+
+1. explicit `NAVER_BLOG_POST_URLS`;
+2. direct Naver Blog post URL;
+3. mobile `PostList.naver` post-link discovery;
+4. `https://rss.blog.naver.com/<blogId>.xml` RSS post-link discovery.
+
+The rendered Blog provider now:
+
+- Builds RSS URLs from Naver Blog root/list/post URLs.
+- Extracts Naver Blog post links from RSS `<link>` and `<guid>` entries.
+- Falls back to RSS when `PostList.naver` returns no post links.
+- Falls back to RSS when `PostList.naver` is restricted by Naver.
+- Records `metadata.blogSourceDiscovery` on collected Blog items, such as `post_list` or `rss`.
+
+This milestone does not add Blog RAW viewing, change content selection UI, implement Naver login/publishing automation, call Naver from browser pages, or modify `admin/`, `pc-web/`, or old Event-to-Operation files.
+
+The branch is stacked on `codex/training-settings-contract` while PR #28 is open. After PR #28 merges, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-03-TRAINING-SETTINGS-CONTRACT records configured training source URLs in the collection run summary.
 
 The contract change is intentionally small:

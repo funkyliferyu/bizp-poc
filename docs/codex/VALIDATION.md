@@ -1,5 +1,44 @@
 # Validation
 
+## MILESTONE-04-BLOG-COLLECTION-RELIABILITY Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- naverBlogRenderedCollectionProvider.test.ts -t "RSS"
+npm test -- naverBlogRenderedCollectionProvider.test.ts
+npm test -- collectionProgressApi.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+git status --short
+```
+
+## MILESTONE-04-BLOG-COLLECTION-RELIABILITY TDD Evidence
+
+- RED `npm test -- naverBlogRenderedCollectionProvider.test.ts -t "RSS"`: failed because the provider did not request `https://rss.blog.naver.com/demo-cake.xml` when PostList had no post links, and restricted PostList still threw `Naver Blog rendered request was restricted by Naver.`
+- GREEN `npm test -- naverBlogRenderedCollectionProvider.test.ts -t "RSS"`: passed after adding RSS URL building, RSS link extraction, PostList no-link fallback, PostList restriction fallback, and `metadata.blogSourceDiscovery`.
+
+## MILESTONE-04-BLOG-COLLECTION-RELIABILITY Final Validation
+
+- `npm test -- naverBlogRenderedCollectionProvider.test.ts -t "RSS"`: passed, 2 tests.
+- `npm test -- naverBlogRenderedCollectionProvider.test.ts`: passed, 5 tests.
+- `npm test -- collectionProgressApi.test.ts`: passed, 3 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_04_BLOG_COLLECTION_RELIABILITY_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/storeLearning/collection/naverBlogRenderedCollectionProvider.ts`
+  - `poc-server/test/fixtures/naver-blog-rss.xml`
+  - `poc-server/test/naverBlogRenderedCollectionProvider.test.ts`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-03-TRAINING-SETTINGS-CONTRACT Commands
 
 Run from `poc-server/`:
