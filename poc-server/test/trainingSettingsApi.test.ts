@@ -124,6 +124,12 @@ describe('Training settings API', () => {
         instagramPostLimit: 10,
         daangnPostLimit: 1
       },
+      sourceUrls: {
+        naverBlog: 'https://blog.naver.com/demo-cake',
+        naverPlace: 'https://naver.me/demo-cake',
+        instagram: 'https://instagram.com/demo-cake',
+        daangn: 'https://www.daangn.com/kr/local-profile/demo'
+      },
       channelPlan: {
         naverBlog: { enabled: true, limit: 30 },
         naverPlace: { enabled: true, limit: 20 },
@@ -136,5 +142,36 @@ describe('Training settings API', () => {
         blogProvider: 'mock'
       }
     });
+  });
+
+  it('records configured source URLs in collection run summaries without enabling future providers', async () => {
+    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channels: {
+          naverBlog: { enabled: true, blogPostLimit: 10, sourceUrl: 'https://blog.naver.com/demo-cake' },
+          naverPlace: { enabled: true, placeReviewLimit: 10, sourceUrl: 'https://naver.me/demo-cake' },
+          instagram: { enabled: false, instagramPostLimit: 0, sourceUrl: 'https://instagram.com/demo-cake' },
+          daangn: { enabled: false, daangnPostLimit: 0, sourceUrl: null }
+        }
+      })
+    });
+
+    const runResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const run = await readJson(runResponse);
+
+    expect(run.collectionRun.summary.sourceUrls).toEqual({
+      naverBlog: 'https://blog.naver.com/demo-cake',
+      naverPlace: 'https://naver.me/demo-cake',
+      instagram: 'https://instagram.com/demo-cake',
+      daangn: null
+    });
+    expect(run.collectionRun.summary.channelPlan.instagram).toEqual({ enabled: false, limit: 0 });
+    expect(run.collectionRun.summary.channelPlan.daangn).toEqual({ enabled: false, limit: 0 });
   });
 });

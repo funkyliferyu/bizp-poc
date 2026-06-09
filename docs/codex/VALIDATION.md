@@ -1,5 +1,44 @@
 # Validation
 
+## MILESTONE-03-TRAINING-SETTINGS-CONTRACT Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- trainingSettingsApi.test.ts -t "source URLs"
+npm test -- trainingSettingsApi.test.ts trainingSettingsPage.test.ts
+npm test -- collectionProgressApi.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+git status --short
+```
+
+## MILESTONE-03-TRAINING-SETTINGS-CONTRACT TDD Evidence
+
+- RED `npm test -- trainingSettingsApi.test.ts -t "source URLs"`: failed because `run.collectionRun.summary.sourceUrls` was `undefined`.
+- GREEN `npm test -- trainingSettingsApi.test.ts -t "source URLs"`: passed after `collectionPlanFromSettings` started recording channel source URLs in collection run summaries.
+
+## MILESTONE-03-TRAINING-SETTINGS-CONTRACT Final Validation
+
+- `npm test -- trainingSettingsApi.test.ts -t "source URLs"`: passed, 1 test.
+- `npm test -- trainingSettingsApi.test.ts trainingSettingsPage.test.ts`: passed, 5 tests.
+- `npm test -- collectionProgressApi.test.ts`: passed, 3 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_03_TRAINING_SETTINGS_CONTRACT_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/storeLearning/routes/stores.ts`
+  - `poc-server/test/trainingSettingsApi.test.ts`
+  - `poc-server/test/trainingSettingsPage.test.ts`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-02-STORE-REGISTRATION-CLEANUP Commands
 
 Run from `poc-server/`:

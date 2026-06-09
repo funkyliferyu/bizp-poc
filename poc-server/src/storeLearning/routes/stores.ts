@@ -196,6 +196,12 @@ function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainin
       instagramPostLimit: channels.instagram.instagramPostLimit ?? 0,
       daangnPostLimit: channels.daangn?.daangnPostLimit ?? 0
     },
+    sourceUrls: {
+      naverBlog: channels.naverBlog.sourceUrl ?? null,
+      naverPlace: channels.naverPlace.sourceUrl ?? null,
+      instagram: channels.instagram.sourceUrl ?? null,
+      daangn: channels.daangn?.sourceUrl ?? null
+    },
     channelPlan: {
       naverBlog: {
         enabled: channels.naverBlog.enabled,

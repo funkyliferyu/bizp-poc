@@ -43,6 +43,11 @@ describe('AI training onboarding page API wiring', () => {
     expect(js).toContain('function setChannelStatus');
     expect(js).toContain('function renderTrainingMaterials');
     expect(js).toContain('function renderTrainingKeywords');
+    expect(js).toContain("channelSource(payload, 'blog') ||");
+    expect(js).toContain('firstUrlMatching(homepageUrls, /(^|\\/\\/)(m\\.)?blog\\.naver\\.com\\//i)');
+    expect(js).toContain("setTextValue('training-blog-url', settings.channels.naverBlog.sourceUrl || storeChannelSources.blog)");
+    expect(js).toContain('await saveSettings();');
+    expect(js).toContain('body: JSON.stringify({})');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
