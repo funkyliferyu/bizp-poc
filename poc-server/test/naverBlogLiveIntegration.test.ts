@@ -6,12 +6,7 @@ const maybeDescribe = runLive ? describe : describe.skip;
 
 maybeDescribe('Naver Blog live rendered integration', () => {
   it('collects owner-authorized Blog body data through the rendered provider when configured and reachable', async () => {
-    const naverBlogUrl = process.env.NAVER_LIVE_BLOG_URL;
-    if (!naverBlogUrl) {
-      console.warn('Set NAVER_LIVE_BLOG_URL to run live rendered Naver Blog body verification.');
-      expect(true).toBe(true);
-      return;
-    }
+    const naverBlogUrl = process.env.NAVER_LIVE_BLOG_URL ?? 'https://blog.naver.com/jasengblog/224253201649';
 
     const provider = createNaverBlogRenderedCollectionProvider();
     let items: Awaited<ReturnType<typeof provider.collect>>;
@@ -84,5 +79,6 @@ maybeDescribe('Naver Blog live rendered integration', () => {
         bodyText: expect.any(String)
       })
     );
+    expect(items[0].bodyText?.length).toBeGreaterThan(100);
   }, 30000);
 });

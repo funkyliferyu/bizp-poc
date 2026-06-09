@@ -11,6 +11,9 @@ describe('learning status static page API wiring', () => {
 
     expect(html).toContain('AI 학습');
     expect(html).toContain('id="learning-last-analyzed"');
+    expect(html).toContain('id="learning-ruleset-alert"');
+    expect(html).toContain('id="learning-ruleset-alert-link"');
+    expect(html).toContain('id="learning-ruleset-card"');
     expect(html).toContain('id="learning-ruleset-status"');
     expect(html).toContain('id="learning-blog-list"');
     expect(html).toContain('id="learning-place-profile"');
@@ -26,6 +29,8 @@ describe('learning status static page API wiring', () => {
     expect(js).toContain('fetch(`/api/stores/${storeId}/learning-status/blog`)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/learning-status/place`)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/learning-status/instagram`)');
+    expect(js).toContain('07_마케팅전략룰셋.html?');
+    expect(js).toContain('wireRulesetNavigation(storeId)');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');

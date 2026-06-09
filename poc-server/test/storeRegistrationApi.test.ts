@@ -225,6 +225,76 @@ describe('Store registration API', () => {
     }
   });
 
+  it('reuses the saved store data on read without calling the Naver renderer again', async () => {
+    const providerEnv = {
+      NAVER_PLACE_PROVIDER: 'rendered',
+      NAVER_OWNER_AUTHORIZED: 'true',
+      NAVER_PLACE_RENDERER_ENDPOINT: ''
+    };
+    const renderedPlaceUrl = 'https://m.place.naver.com/restaurant/1838952735/home';
+    const renderedHtml = `<html><body><script>window.__APOLLO_STATE__ = ${JSON.stringify({
+      'PlaceDetailBase:1838952735': {
+        __typename: 'PlaceDetailBase',
+        id: '1838952735',
+        name: '해방식당',
+        category: '한식',
+        roadAddress: '서울 용산구 신흥로22길 5 1층 해방식당',
+        virtualPhone: '0507-1382-7050',
+        visitorReviewsTotal: 1680,
+        cafeBlogReviewsTotal: 1509,
+        microReviews: ['고등어돌솥밥으로 전하는 따뜻한 한 끼']
+      },
+      ROOT_QUERY: {
+        __typename: 'Query',
+        'placeDetail({"input":{"deviceType":"mobile","id":"1838952735","isNx":false}})': {
+          __typename: 'PlaceDetail',
+          base: { __ref: 'PlaceDetailBase:1838952735' },
+          'description({"source":["shopWindow"]})': '해방촌 골목에서 고등어돌솥밥과 정갈한 한식을 준비하는 식당입니다.'
+        }
+      }
+    })};</script></body></html>`;
+    const app = express();
+    const rendererCalls: string[] = [];
+    app.use(express.json());
+    app.get('/fake-renderer', (req, res) => {
+      rendererCalls.push(String(req.query.url));
+      res.json({
+        finalUrl: renderedPlaceUrl,
+        html: renderedHtml,
+        bodyText: null
+      });
+    });
+    app.use('/api/stores', createStoreRoutes({ connection, env: providerEnv }));
+    const renderedServer = app.listen(0);
+    const renderedAddress = renderedServer.address() as AddressInfo;
+    const renderedBaseUrl = `http://127.0.0.1:${renderedAddress.port}`;
+    providerEnv.NAVER_PLACE_RENDERER_ENDPOINT = `${renderedBaseUrl}/fake-renderer`;
+
+    try {
+      const importResponse = await fetch(`${renderedBaseUrl}/api/stores/import-place`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ naverPlaceUrl: renderedPlaceUrl })
+      });
+      expect(importResponse.status).toBe(200);
+
+      const readResponse = await fetch(`${renderedBaseUrl}/api/stores/store_1838952735`);
+      const loaded = await readJson(readResponse);
+
+      expect(readResponse.status).toBe(200);
+      expect(rendererCalls).toEqual([renderedPlaceUrl]);
+      expect(loaded.store).toEqual(
+        expect.objectContaining({
+          id: 'store_1838952735',
+          name: '해방식당',
+          description: expect.stringContaining('(AI요약정보) 고등어돌솥밥으로 전하는 따뜻한 한 끼')
+        })
+      );
+    } finally {
+      await new Promise<void>((resolve) => renderedServer.close(() => resolve()));
+    }
+  });
+
   it('saves, reads, and patches a store through SQLite-backed repositories', async () => {
     const createResponse = await fetch(`${baseUrl}/api/stores`, {
       method: 'POST',

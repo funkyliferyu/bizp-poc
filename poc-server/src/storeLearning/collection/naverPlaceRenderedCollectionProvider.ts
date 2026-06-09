@@ -3,7 +3,9 @@ import { configuredBlogProvider } from '../providers/ownerSourcePolicy.js';
 import type { JsonRecord, ProviderEnv } from '../providers/placeImportTypes.js';
 import { parseNaverPlaceUrl } from '../providers/naverPlaceUrlParser.js';
 import {
+  extractNaverApolloState,
   renderNaverPlacePage,
+  resolveNaverApolloRef,
   type NaverPlaceRenderer,
   type RenderedPlaceSnapshot
 } from '../providers/naverPlaceRenderedProvider.js';
@@ -32,6 +34,9 @@ const RESTRICTED_MARKERS = [
   '과도한 접근 요청으로 서비스 이용이 제한되었습니다',
   '잠시 후 다시 시도해주세요'
 ];
+
+const NAVER_MOBILE_USER_AGENT =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
 function decodeHtmlEntities(value: string) {
   return value
@@ -68,6 +73,15 @@ function attribute(tag: string, name: string) {
   return cleanText(match?.[1]);
 }
 
+function absoluteUrl(value: string | null, baseUrl: string) {
+  if (!value) return null;
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 function asBooleanAttribute(value: string | null) {
   if (!value) return false;
   return ['true', '1', 'yes', 'y'].includes(value.toLowerCase());
@@ -80,12 +94,26 @@ function numberValue(value: string | null) {
 }
 
 function isRestrictedSnapshot(snapshot: RenderedPlaceSnapshot) {
-  const text = `${snapshot.bodyText ?? ''}\n${snapshot.html}`;
+  const text = snapshot.bodyText ?? stripTags(snapshot.html) ?? '';
   return RESTRICTED_MARKERS.some((marker) => text.includes(marker));
 }
 
 function isVisitorReviewUrl(value: string) {
   return /\/review\/visitor(?:[/?#]|$)/.test(value);
+}
+
+function nextReviewUrlFromSnapshot(html: string, baseUrl: string) {
+  const dataNext =
+    html.match(/data-next-review-url=["']([^"']+)["']/i)?.[1] ??
+    html.match(/data-next-url=["']([^"']*\/review\/visitor[^"']*)["']/i)?.[1];
+  const nextFromData = absoluteUrl(cleanText(dataNext), baseUrl);
+  if (nextFromData) return nextFromData;
+
+  const relNext = html.match(/<a\b[^>]*rel=["'][^"']*\bnext\b[^"']*["'][^>]*>/i)?.[0];
+  const nextFromRel = absoluteUrl(attribute(relNext ?? '', 'href'), baseUrl);
+  if (nextFromRel && isVisitorReviewUrl(nextFromRel)) return nextFromRel;
+
+  return null;
 }
 
 function categorySegmentFromPath(segments: string[], idIndex: number) {
@@ -215,6 +243,288 @@ function reviewsFromJsonLd(html: string, finalUrl: string) {
   return reviews;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function asNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return null;
+  const parsed = Number(value.replace(/,/g, ''));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function asArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function refKey(value: unknown) {
+  return asString(asRecord(value)?.__ref);
+}
+
+function reviewRefsFromApolloState(state: Record<string, unknown>) {
+  const refs: string[] = [];
+  const seen = new Set<string>();
+  const root = asRecord(state.ROOT_QUERY);
+  if (root) {
+    for (const [key, value] of Object.entries(root)) {
+      if (!key.startsWith('visitorReviews(')) continue;
+      const result = asRecord(value);
+      const items = Array.isArray(result?.items) ? result.items : [];
+      for (const item of items) {
+        const key = refKey(item);
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          refs.push(key);
+        }
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(state)) {
+    if (!key.startsWith('VisitorReview:') || key.startsWith('VisitorReviewAuthor:')) continue;
+    const record = asRecord(value);
+    if (!record || !asString(record.body) || seen.has(key)) continue;
+    seen.add(key);
+    refs.push(key);
+  }
+
+  return refs;
+}
+
+function reviewKeywordsFromApolloReview(review: Record<string, unknown>) {
+  const keywords = new Set<string>();
+  const votedKeywords = Array.isArray(review.votedKeywords) ? review.votedKeywords : [];
+  for (const value of votedKeywords) {
+    const name = asString(asRecord(value)?.name);
+    if (name) keywords.add(name);
+  }
+  const visitCategories = Array.isArray(review.visitCategories) ? review.visitCategories : [];
+  for (const category of visitCategories) {
+    const categoryRecord = asRecord(category);
+    const keywordsInCategory = Array.isArray(categoryRecord?.keywords) ? categoryRecord.keywords : [];
+    for (const value of keywordsInCategory) {
+      const name = asString(asRecord(value)?.name);
+      if (name) keywords.add(name);
+    }
+  }
+  return Array.from(keywords);
+}
+
+function hasVideoMedia(media: unknown) {
+  if (!Array.isArray(media)) return false;
+  return media.some((value) => {
+    const record = asRecord(value);
+    return record?.type === 'video' || Boolean(record?.videoId) || Boolean(record?.videoUrl);
+  });
+}
+
+function reviewsFromApolloState(html: string, finalUrl: string) {
+  const state = extractNaverApolloState(html);
+  if (!state) return [];
+
+  const reviews: RenderedPlaceReview[] = [];
+  for (const key of reviewRefsFromApolloState(state)) {
+    const review = asRecord(state[key]);
+    const bodyText = cleanText(review?.body);
+    if (!review || !bodyText) continue;
+    const author = resolveNaverApolloRef(state, review.author);
+    const media = Array.isArray(review.media) ? review.media : [];
+    const reply = asRecord(review.reply);
+    const ownerReplyText = cleanText(reply?.body);
+    const reviewId = cleanText(review.reviewId ?? review.id);
+    const ordinal = reviews.length + 1;
+    reviews.push({
+      reviewId,
+      reviewerName: cleanText(author?.nickname ?? review.nickname),
+      reviewDate: cleanText(review.representativeVisitDateTime ?? review.created ?? review.visited),
+      rating: asNumber(review.rating),
+      bodyText,
+      reviewKeywords: reviewKeywordsFromApolloReview(review),
+      hasMedia: media.length > 0 || Boolean(asString(review.thumbnail)),
+      hasVideo: hasVideoMedia(media),
+      hasOwnerReply: Boolean(ownerReplyText),
+      ownerReplyText,
+      replyStatus: ownerReplyText ? 'replied' : 'not_replied',
+      sourceUrl: `${finalUrl}#${reviewId ?? `review-${ordinal}`}`,
+      ordinal
+    });
+  }
+
+  return reviews;
+}
+
+function visitorReviewInputFromApolloState(html: string) {
+  const state = extractNaverApolloState(html);
+  const root = asRecord(state?.ROOT_QUERY);
+  if (!root) return null;
+
+  const inputs: Array<Record<string, unknown>> = [];
+  for (const key of Object.keys(root)) {
+    const match = key.match(/^visitorReviews\((.*)\)$/);
+    if (!match) continue;
+    try {
+      const parsed = JSON.parse(match[1]) as unknown;
+      const input = asRecord(asRecord(parsed)?.input);
+      if (input) inputs.push(input);
+    } catch {
+      continue;
+    }
+  }
+
+  return inputs.find((input) => input.includeContent === true) ?? inputs[0] ?? null;
+}
+
+function reviewFromGraphQlItem(item: Record<string, unknown>, finalUrl: string, ordinal: number): RenderedPlaceReview | null {
+  const bodyText = cleanText(item.body);
+  if (!bodyText) return null;
+  const author = asRecord(item.author);
+  const reply = asRecord(item.reply);
+  const media = asArray(item.media);
+  const reviewId = cleanText(item.reviewId ?? item.id);
+  const keywords = new Set<string>();
+  for (const keyword of asArray(item.votedKeywords)) {
+    const name = cleanText(asRecord(keyword)?.name);
+    if (name) keywords.add(name);
+  }
+  for (const category of asArray(item.visitCategories)) {
+    for (const keyword of asArray(asRecord(category)?.keywords)) {
+      const name = cleanText(asRecord(keyword)?.name);
+      if (name) keywords.add(name);
+    }
+  }
+  const ownerReplyText = cleanText(reply?.body);
+  return {
+    reviewId,
+    reviewerName: cleanText(author?.nickname ?? item.nickname),
+    reviewDate: cleanText(item.representativeVisitDateTime ?? item.created ?? item.visited),
+    rating: asNumber(item.rating),
+    bodyText,
+    reviewKeywords: Array.from(keywords),
+    hasMedia: media.length > 0 || Boolean(asString(item.thumbnail)),
+    hasVideo: hasVideoMedia(media),
+    hasOwnerReply: Boolean(ownerReplyText),
+    ownerReplyText,
+    replyStatus: ownerReplyText ? 'replied' : 'not_replied',
+    sourceUrl: `${finalUrl}#${reviewId ?? `review-${ordinal}`}`,
+    ordinal
+  };
+}
+
+const VISITOR_REVIEWS_QUERY = `query visitorReviews($input: VisitorReviewsInput) {
+  visitorReviews(input: $input) {
+    total
+    items {
+      id
+      reviewId
+      body
+      rating
+      created
+      representativeVisitDateTime
+      author { id nickname }
+      reply { body }
+      votedKeywords { name }
+      visitCategories { keywords { name } }
+      media { type videoId videoUrl thumbnail }
+    }
+  }
+}`;
+
+function graphQlBatchSize(env: ProviderEnv, requestedLimit: number) {
+  const configured = Number(env.NAVER_PLACE_REVIEW_GRAPHQL_BATCH_SIZE ?? '50');
+  const batchSize = Number.isFinite(configured) ? configured : 50;
+  return Math.max(1, Math.min(50, requestedLimit, Math.floor(batchSize)));
+}
+
+async function fetchGraphQlVisitorReviews(input: Record<string, unknown>, finalUrl: string, env: ProviderEnv) {
+  const endpoint = env.NAVER_PLACE_GRAPHQL_ENDPOINT ?? 'https://api.place.naver.com/graphql';
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json',
+      origin: 'https://m.place.naver.com',
+      referer: finalUrl,
+      'user-agent': env.NAVER_RENDERER_USER_AGENT ?? env.NAVER_PLACE_RENDERER_USER_AGENT ?? NAVER_MOBILE_USER_AGENT
+    },
+    body: JSON.stringify([
+      {
+        operationName: 'visitorReviews',
+        variables: { input },
+        query: VISITOR_REVIEWS_QUERY
+      }
+    ])
+  });
+  if (!response.ok) throw new Error(`Naver Place review GraphQL failed with HTTP ${response.status}`);
+  const payload = (await response.json()) as unknown;
+  const result = asRecord(asRecord(Array.isArray(payload) ? payload[0] : payload)?.data)?.visitorReviews;
+  const items = asArray(asRecord(result)?.items);
+  return items
+    .map((item, index) => reviewFromGraphQlItem(asRecord(item) ?? {}, finalUrl, index + 1))
+    .filter((review): review is RenderedPlaceReview => Boolean(review));
+}
+
+function reviewKey(review: RenderedPlaceReview) {
+  return review.reviewId ?? review.sourceUrl ?? review.bodyText ?? `ordinal:${review.ordinal}`;
+}
+
+function addUniqueReviews(
+  target: RenderedPlaceReview[],
+  seenReviews: Set<string>,
+  candidates: RenderedPlaceReview[],
+  limit: number
+) {
+  for (const review of candidates) {
+    const key = reviewKey(review);
+    if (seenReviews.has(key)) continue;
+    seenReviews.add(key);
+    target.push({ ...review, ordinal: target.length + 1 });
+    if (target.length >= limit) break;
+  }
+}
+
+async function collectGraphQlReviewFallback(input: {
+  html: string;
+  finalUrl: string;
+  env: ProviderEnv;
+  limit: number;
+  reviews: RenderedPlaceReview[];
+  seenReviews: Set<string>;
+}) {
+  const baseInput = visitorReviewInputFromApolloState(input.html);
+  if (!baseInput) return;
+  const size = graphQlBatchSize(input.env, input.limit);
+  const variants: Array<Record<string, unknown>> = [
+    {},
+    { sort: 'recent' },
+    { sort: 'recommend' },
+    { sort: 'rank' },
+    { hasContent: true },
+    { isPhotoUsed: true }
+  ];
+
+  for (const variant of variants) {
+    if (input.reviews.length >= input.limit) break;
+    const reviews = await fetchGraphQlVisitorReviews(
+      {
+        ...baseInput,
+        ...variant,
+        item: baseInput.item ?? '0',
+        includeContent: true,
+        size
+      },
+      input.finalUrl,
+      input.env
+    ).catch(() => []);
+    addUniqueReviews(input.reviews, input.seenReviews, reviews, input.limit);
+  }
+}
+
 export function extractRenderedPlaceReviews(input: {
   html: string;
   bodyText: string | null;
@@ -224,6 +534,8 @@ export function extractRenderedPlaceReviews(input: {
   if (blocks.length > 0) {
     return blocks.map((block, index) => reviewFromTaggedBlock(block, index + 1)).filter((review) => Boolean(review.bodyText));
   }
+  const apolloReviews = reviewsFromApolloState(input.html, input.finalUrl);
+  if (apolloReviews.length > 0) return apolloReviews;
   return reviewsFromJsonLd(input.html, input.finalUrl);
 }
 
@@ -369,15 +681,46 @@ async function collectReviewItems(env: ProviderEnv, plan: CollectionPlan, store:
 
   const rendered = await renderVisitorReviewSnapshot(store.naverPlaceUrl, env, renderer);
   if (!rendered) return failedReviewItems(plan, store.naverPlaceUrl, 'unable_to_build_naver_place_visitor_review_url');
-  if (isRestrictedSnapshot(rendered.snapshot)) {
-    throw new Error('Naver Place rendered review request was restricted by Naver.');
+  const reviews: RenderedPlaceReview[] = [];
+  const seenReviews = new Set<string>();
+  const seenPages = new Set<string>();
+  let currentReviewUrl = rendered.reviewUrl;
+  let currentSnapshot: RenderedPlaceSnapshot | null = rendered.snapshot;
+
+  for (let attempt = 0; currentSnapshot && attempt < 10 && reviews.length < plan.placeReviewLimit; attempt += 1) {
+    if (isRestrictedSnapshot(currentSnapshot)) {
+      throw new Error('Naver Place rendered review request was restricted by Naver.');
+    }
+    const finalUrl = currentSnapshot.finalUrl || currentReviewUrl;
+    const extracted = extractRenderedPlaceReviews({
+      html: currentSnapshot.html,
+      bodyText: currentSnapshot.bodyText,
+      finalUrl
+    });
+
+    for (const review of extracted) {
+      addUniqueReviews(reviews, seenReviews, [review], plan.placeReviewLimit);
+      if (reviews.length >= plan.placeReviewLimit) break;
+    }
+
+    if (reviews.length >= plan.placeReviewLimit) break;
+    seenPages.add(currentReviewUrl);
+    const nextReviewUrl = nextReviewUrlFromSnapshot(currentSnapshot.html, finalUrl);
+    if (!nextReviewUrl || seenPages.has(nextReviewUrl)) break;
+    currentReviewUrl = nextReviewUrl;
+    currentSnapshot = await renderer(nextReviewUrl, env);
   }
 
-  const reviews = extractRenderedPlaceReviews({
-    html: rendered.snapshot.html,
-    bodyText: rendered.snapshot.bodyText,
-    finalUrl: rendered.snapshot.finalUrl || rendered.reviewUrl
-  }).slice(0, plan.placeReviewLimit);
+  if (reviews.length < plan.placeReviewLimit) {
+    await collectGraphQlReviewFallback({
+      html: rendered.snapshot.html,
+      finalUrl: rendered.reviewUrl,
+      env,
+      limit: plan.placeReviewLimit,
+      reviews,
+      seenReviews
+    });
+  }
 
   const items = reviews.map((review): CollectionProviderItemDraft => {
     const sourceUrl = review.sourceUrl ?? `${rendered.reviewUrl}#review-${review.ordinal}`;

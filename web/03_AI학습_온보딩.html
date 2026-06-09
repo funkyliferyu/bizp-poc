@@ -26,16 +26,18 @@
       <div class="channel-block">
         <div class="channel-header">
           <span class="channel-name"><span class="icon-rss" data-icon="rss" data-size="14" data-color="#03C75A"></span> 네이버 블로그</span>
-          <span class="badge b-blue">자동 불러옴</span>
+          <span id="training-blog-status" class="badge b-gray">미등록</span>
         </div>
         <div class="channel-body">
           <div class="channel-url-row">
-            <input type="text" id="training-blog-url" value="https://blog.naver.com/mybakery2024" style="flex:1">
+            <input type="text" id="training-blog-url" placeholder="매장정보에서 확인된 네이버 블로그 URL" style="flex:1">
             <button class="btn btn-ghost btn-sm"><span class="icon-trash-2" data-icon="trash-2" data-size="12" data-color="#9AA0B4"></span></button>
           </div>
           <div class="channel-url-row">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 범위</span>
             <select id="training-blog-limit" style="width:160px">
+              <option value="1">최근 1개</option>
+              <option value="10">최근 10개</option>
               <option value="50">최근 50개</option>
               <option value="100">최근 100개</option>
               <option value="0">전체</option>
@@ -55,11 +57,11 @@
       <div class="channel-block">
         <div class="channel-header">
           <span class="channel-name"><span class="icon-map-pin" data-icon="map-pin" data-size="14" data-color="#03C75A"></span> 네이버 플레이스</span>
-          <span class="badge b-blue">자동 불러옴</span>
+          <span id="training-place-status" class="badge b-gray">미등록</span>
         </div>
         <div class="channel-body">
           <div class="channel-url-row">
-            <input type="text" id="training-place-url" value="https://naver.me/xxxxxx" style="flex:1">
+            <input type="text" id="training-place-url" placeholder="매장정보에서 확인된 네이버 플레이스 URL" style="flex:1">
             <button class="btn btn-ghost btn-sm"><span class="icon-trash-2" data-icon="trash-2" data-size="12" data-color="#9AA0B4"></span></button>
           </div>
           <div class="channel-note" style="margin-top:8px">
@@ -69,6 +71,8 @@
           <div class="channel-url-row" style="margin-top:8px;margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">리뷰 수집 범위</span>
             <select id="training-place-review-limit" style="width:160px">
+              <option value="1">최근 1개</option>
+              <option value="10">최근 10개</option>
               <option value="50">최근 50개</option>
               <option value="100">최근 100개</option>
               <option value="0">전체</option>
@@ -88,16 +92,18 @@
       <div class="channel-block">
         <div class="channel-header">
           <span class="channel-name"><span class="icon-instagram" data-icon="instagram" data-size="14" data-color="#E1306C"></span> 인스타그램</span>
-          <span class="badge b-gray">미등록</span>
+          <span id="training-instagram-status" class="badge b-gray">미등록</span>
         </div>
         <div class="channel-body">
           <div class="channel-url-row">
-            <input type="text" id="training-instagram-url" placeholder="URL을 입력하세요 (예: https://instagram.com/mybakery)" style="flex:1;color:#9AA0B4">
+            <input type="text" id="training-instagram-url" placeholder="매장정보에서 확인된 인스타그램 URL" style="flex:1">
           </div>
           <div class="channel-url-row" style="margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 범위</span>
             <select id="training-instagram-limit" style="width:160px">
               <option value="0">수집 안 함</option>
+              <option value="1">최근 1개</option>
+              <option value="10">최근 10개</option>
               <option value="30">최근 30개</option>
               <option value="50">최근 50개</option>
             </select>
@@ -116,11 +122,21 @@
       <div class="channel-block">
         <div class="channel-header">
           <span class="channel-name"><span class="icon-shopping-bag" data-icon="shopping-bag" data-size="14" data-color="#FF7010"></span> 당근</span>
-          <span class="badge b-gray">미등록</span>
+          <span id="training-daangn-status" class="badge b-gray">미등록</span>
         </div>
         <div class="channel-body">
           <div class="channel-url-row">
-            <input type="text" placeholder="URL을 입력하세요" style="flex:1;color:#9AA0B4">
+            <input type="text" id="training-daangn-url" placeholder="매장정보에서 확인된 당근 URL" style="flex:1">
+          </div>
+          <div class="channel-url-row" style="margin-bottom:0">
+            <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 범위</span>
+            <select id="training-daangn-limit" style="width:160px">
+              <option value="0">수집 안 함</option>
+              <option value="1">최근 1개</option>
+              <option value="10">최근 10개</option>
+              <option value="30">최근 30개</option>
+              <option value="50">최근 50개</option>
+            </select>
           </div>
           <div class="channel-url-row" style="margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 주기</span>
@@ -139,17 +155,9 @@
   <div class="card">
     <div class="card-header"><span style="display:flex;align-items:center;gap:6px"><span class="icon-file-text" data-icon="file-text" data-size="14" data-color="currentColor"></span> 매장 소개 자료</span></div>
     <div class="card-body">
-      <div style="font-size:12px;color:#4A5568;margin-bottom:12px">매장정보에서 업로드한 소개 자료도 학습에 포함됩니다.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;color:#4A5568;background:#F7F8FA">
-          <span class="icon-file-text" data-icon="file-text" data-size="13" data-color="currentColor"></span> 브랜드소개서.pdf
-        </span>
-        <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;color:#4A5568;background:#F7F8FA">
-          <span class="icon-image" data-icon="image" data-size="13" data-color="currentColor"></span> 매장사진 12장
-        </span>
-        <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;color:#4A5568;background:#F7F8FA">
-          <span class="icon-file-text" data-icon="file-text" data-size="13" data-color="currentColor"></span> 메뉴판.pdf
-        </span>
+      <div style="font-size:12px;color:#4A5568;margin-bottom:12px">매장정보에서 확인된 소개, 사진, 메뉴 정보를 학습에 포함합니다.</div>
+      <div id="training-material-list" style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12px;color:#9AA0B4">매장정보에서 확인된 소개 자료가 없습니다.</span>
       </div>
       <div style="font-size:11px;color:#9AA0B4;margin-top:8px">자료 추가는 매장정보에서 업로드할 수 있습니다.</div>
     </div>
@@ -161,15 +169,12 @@
     <div class="card-body">
       <div class="hint-box">
         <span style="flex-shrink:0;margin-top:1px" class="icon-lightbulb" data-icon="lightbulb" data-size="14" data-color="currentColor"></span>
-        <span><strong>대표 키워드</strong>는 AI가 콘텐츠 주제를 추천할 때 기준이 되며, 블로그 글 발행 시 태그로도 자동 활용됩니다.<br>우리 매장을 잘 나타내는 메뉴명, 서비스명, 특징 등을 입력해 주세요. (예: 분당 케이크, 당일제작, 커스텀케이크)</span>
+        <span><strong>대표 키워드</strong>는 AI가 콘텐츠 주제를 추천할 때 기준이 되며, 블로그 글 발행 시 태그로도 자동 활용됩니다.<br>우리 매장을 잘 나타내는 메뉴명, 서비스명, 특징 등을 입력해 주세요.</span>
       </div>
-      <div class="tag-input-wrap" style="margin-bottom:8px">
-        <span class="tag-item">분당 케이크 <span class="tag-remove">×</span></span>
-        <span class="tag-item">당일제작 <span class="tag-remove">×</span></span>
-        <span class="tag-item">커스텀케이크 <span class="tag-remove">×</span></span>
-        <span class="tag-item">레터링케이크 <span class="tag-remove">×</span></span>
+      <div id="training-keyword-list" class="tag-input-wrap" style="margin-bottom:8px">
+        <span style="font-size:12px;color:#9AA0B4">매장정보에서 확인된 대표 키워드가 없습니다.</span>
       </div>
-      <input type="text" placeholder="키워드 입력 후 Enter" style="width:100%">
+      <input type="text" id="training-keyword-input" placeholder="키워드 입력 후 Enter" style="width:100%">
     </div>
   </div>
 

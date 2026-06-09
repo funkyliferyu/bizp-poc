@@ -2,6 +2,254 @@
 
 ## Current Scope
 
+RAG-REVIEW-COLLECTION-002 fixes the RAG review DOCX path so the review document no longer silently stops at the first 10 Naver Place visitor reviews.
+
+Root cause: RAG document generation requested `reviewLimit=100`, but the rendered Place review provider only got the first SSR/Apollo review batch. The Playwright layer can be blocked by Naver on the local IP, and the direct mobile HTML snapshot exposes only `size=10`. The resulting collection run had 10 collected reviews and 90 failed placeholders, so `reviews_<업체명>.docx` included only 10 reviews.
+
+The provider now treats visitor review pages as interactive-rendering candidates, attempts Playwright scroll/more expansion, and adds a server-side GraphQL fallback using the SSR Apollo `visitorReviews` input. Naver currently returns body-bearing visitor reviews reliably up to `size=50`; the fallback combines default and `recent`/other variants, dedupes by review id/body/source, and includes as many collected review bodies as possible up to 100. If Naver still returns fewer than 100, the manifest warning states how many were actually included instead of presenting a quiet success.
+
+For `store_1824807602` (`해화로in수산`), live local generation increased the review DOCX from 10 reviews to 80 body-bearing reviews. The generated warning is: `네이버플레이스 리뷰 100개 수집을 시도했지만 80개만 수집되어 해당 리뷰만 문서에 포함했습니다.`
+
+The registration page now shows two progressive messages in the existing RAG status area: `네이버플레이스 리뷰를 가져오는 중입니다.` and then `RAG 문서를 생성하는 중입니다.` It also appends manifest warnings to the final status. Browser code still calls only `poc-server` APIs; Naver access remains server-side.
+
+## Previous Scope
+
+RAG-INFO-METADATA-002 improves the static `info_<업체명>.docx` builder so the RAG info document uses more of the already-imported Naver Place metadata.
+
+Root cause: rendered Place imports stored scalar fields such as `openTime`, `closeTime`, `breakStart`, `breakEnd`, `placeImageUrls`, and `reviewStats.visitorTextReviewCount`, but `storeInfoRagBuilder` only read detailed `businessHours` arrays/text fallbacks and `reviewStats.textReviewCount`. When the detailed array was empty, the generated info document omitted the whole `영업시간` section even though SQLite had the data.
+
+The builder now falls back to scalar operating hours and break time, includes parking availability labels, includes Place/menu photo counts and bounded usable image URL samples, filters known non-photo URL noise, maps `visitorTextReviewCount`, and keeps omitting empty values. The change uses stored SQLite metadata only; it does not re-call Naver, call OpenAI, change browser provider boundaries, modify `admin/`, modify `pc-web/`, or touch Event-to-Operation workflows.
+
+## Previous Scope
+
+RAG-DOCS-001 adds server-side RAG document generation for stores that have already imported Naver Place metadata and collected Place visitor reviews.
+
+The new flow generates two local DOCX artifacts from persisted SQLite data only:
+
+- `info_<업체명>.docx`: static store facts from `stores` and `stores.metadata_json.naverPlaceParsed`.
+- `reviews_<업체명>.docx`: Place visitor reviews from `collection_items`, including owner replies when `metadata.ownerReplyText` exists.
+
+No browser page calls Naver, OpenAI, SQLite, or document-generation libraries directly. The API and CLI reuse stored data and do not refresh Naver by default. Runtime output is written under `poc-server/data/rag-documents/<storeId>/`, which is ignored by git.
+
+The internal runtime manifest keeps absolute file paths for server-side download handling, but API responses expose only `fileName` and `downloadPath`. Browser callers do not receive server filesystem paths.
+
+Review selection follows the requested RAG rule: if collected reviews are 100 or fewer, include all; if more than 100, include the latest 20 and deterministically sample 80 older reviews using a seeded random interval strategy. Missing owner replies are represented as `사장님 답글 없음`.
+
+`POST /api/stores/:storeId/rag-documents/generate` now supports `refreshReviews=true`. In mock mode it refreshes 100 deterministic Place reviews without external keys. In rendered mode it uses the existing server-side Naver Place provider boundary, persists a dedicated `collection_run_<storeId>_rag_<timestamp>` and its `collection_items`, then generates DOCX files from that run. If the provider is blocked or no reviews are collected, generation fails instead of creating a misleading empty review document.
+
+## RAG-DOCS-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/rag/ragDocumentTypes.ts`
+  - Zod schemas for static info documents, review documents, sections, and review entries.
+- `poc-server/src/storeLearning/rag/storeInfoRagBuilder.ts`
+  - Maps persisted store and Place parsed metadata into RAG-friendly sections.
+  - Avoids stringifying nested metadata objects into `[object Object]` lines.
+- `poc-server/src/storeLearning/rag/reviewSampler.ts`
+  - Implements latest-20 plus sampled-80 deterministic review selection.
+- `poc-server/src/storeLearning/rag/reviewRagBuilder.ts`
+  - Converts collected Place review items into review entries with owner reply metadata.
+- `poc-server/src/storeLearning/rag/docxWriter.ts`
+  - Writes RAG document models to DOCX buffers.
+- `poc-server/src/storeLearning/rag/ragDocumentService.ts`
+  - Orchestrates repository reads, validation, DOCX writing, and manifest persistence.
+- `poc-server/src/storeLearning/rag/ragReviewRefresh.ts`
+  - Creates a RAG-specific collection run when `refreshReviews=true`.
+  - Uses mock or rendered Place provider adapters server-side and persists refreshed review items with owner/source metadata.
+- `poc-server/src/storeLearning/routes/ragDocuments.ts`
+  - Adds:
+    - `POST /api/stores/:storeId/rag-documents/generate`
+    - `GET /api/stores/:storeId/rag-documents`
+    - `GET /api/stores/:storeId/rag-documents/info/download`
+    - `GET /api/stores/:storeId/rag-documents/reviews/download`
+- `poc-server/src/exportStoreRagDocuments.ts`
+  - Adds local CLI usage: `npm run rag:export -- --storeId=<storeId>`.
+- `poc-server/src/storeLearning/collection/naverPlaceRenderedCollectionProvider.ts`
+  - Supports additional rendered review batches through next-review links, so a RAG refresh can collect beyond the first rendered snapshot when the renderer exposes more batches.
+- `poc-server/package.json`
+  - Adds `docx` and `rag:export`.
+
+## Previous Scope
+
+PLACE-METADATA-UI-001 expands `soho_store_register.html` from a basic store-registration form into a store-registration plus saved Naver Place data review screen.
+
+The browser still calls `poc-server` APIs only. The new UI does not re-call Naver, OpenAI, SQLite, or any external provider directly. It reuses the stored `GET /api/stores/:storeId` payload, especially `stores.metadata_json.naverPlaceParsed`, and renders the already-imported Place metadata for operator review.
+
+The registration page now includes a `RAW data 보기` button at the bottom of the basic info block. It opens `store_raw_data.html?storeId=...&section=naverPlaceParsed`, a server-backed JSON viewer that fetches `/api/stores/:storeId`, shows Parsed data / Snapshot / Full metadata tabs, and provides a copy action. This replaces the need for browser-side SQLite or `jq` access.
+
+The page also renders saved Place metadata in two sections below the basic information block: `네이버 플레이스 수집 정보` and `메뉴 정보`. The first section shows external channel links, facilities/services, booking URL, review stats, broadcast info, and keywords. The menu section shows menu count, up to four menu image thumbnails, five menu rows by default, and a `메뉴 전체보기` / `접기` toggle for longer menus. No UI redesign, provider call change, `admin/`, `pc-web/`, or old Event-to-Operation workflow change is included.
+
+## PLACE-METADATA-UI-001 Runtime Pieces
+
+- `web/soho_store_register.html`
+  - Adds RAW data button, saved Place metadata section, and menu section hooks.
+  - Adds compact row/chip/stat/menu styles consistent with the existing form.
+- `web/soho_store_register.js`
+  - Keeps `currentStore` state from the store API response.
+  - Renders `metadata.naverPlaceParsed` into the new information sections.
+  - Normalizes single or future multiple external links and handles empty metadata by hiding sections.
+- `web/store_raw_data.html`
+- `web/store_raw_data.js`
+  - Adds a local API-backed JSON viewer for `naverPlaceParsed`, `naverPlaceSnapshot`, and full metadata.
+- `poc-server/test/storeRegistrationPage.test.ts`
+  - Covers RAW viewer wiring, server-only browser calls, metadata section hooks, menu hooks, and menu toggle contract.
+
+## Previous Scope
+
+PLACE-ENRICHMENT-001 enriches store registration from a saved Naver Place snapshot/parsed metadata.
+
+The structure is now split into two layers. `POST /api/stores/import-place` is the only store-registration path that calls the Place provider. It stores a bounded source snapshot envelope in `stores.metadata_json.naverPlaceSnapshot`, including the Apollo `base` and `detail` source records, source hash, source sizes, and capture timestamp. It also stores normalized UI/learning fields in `stores.metadata_json.naverPlaceParsed`. `GET /api/stores/:storeId` reuses SQLite data and does not call Naver again; freshness checks and source diffing remain future work.
+
+The registration page now fills additional fields from saved `naverPlaceParsed`: open/close time, break time, closed days, parking value, and parking note. It also keeps metadata-only fields for later screens: homepage/social URL, facilities, payment info, menu items, menu images, review stats, broadcast info, keywords, booking URL, and place image URLs. Imported checkbox/radio groups use the existing autofill visual treatment. No UI redesign, browser-side Naver call, OpenAI call, `admin/`, `pc-web/`, or old Event-to-Operation flow change is included.
+
+## PLACE-ENRICHMENT-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/providers/naverPlaceRenderedProvider.ts`
+  - Parses `newBusinessHours(...)`, `informationTab(...)`, `homepages`, `menus(...)`, `menuImages`, `broadcastInfos`, and `naverBooking(...)` from the saved Apollo source.
+  - Persists `naverPlaceSnapshot`, `naverPlaceParsed`, and `naverPlaceImportedAt` in store metadata.
+- `web/soho_store_register.js`
+  - Uses `metadata.naverPlaceParsed` when populating imported fields.
+  - Keeps business number and email manual-only.
+- `web/soho_store_register.html`
+  - Adds grouped autofill hooks for closed days and parking controls without redesigning the page.
+- `poc-server/test/naverPlaceRenderedProvider.test.ts`
+- `poc-server/test/storeRegistrationApi.test.ts`
+- `poc-server/test/storeRegistrationPage.test.ts`
+  - Cover enrichment parsing, saved snapshot metadata, no-refetch reads, form field mapping, and autofill group hooks.
+
+## Previous Scope
+
+PLACE-INTRO-001 fixes Naver Place store registration descriptions so the owner-written Place `정보 > 소개` text is preserved before the AI summary.
+
+Root cause: the rendered Place import parser used `PlaceDetailBase.microReviews` as `store.description`. On current Naver mobile Place pages, that field is the short `AI 요약` text shown near the title. The owner-written introduction from the Place information tab is stored separately under the Apollo Place detail record, for example `placeDetail(...).description({"source":["shopWindow"]})`, so it was not being saved into the registration form.
+
+The fix keeps all Naver access server-side. When a Place intro exists, `store.description` is now composed as the original intro text followed by `(AI요약정보) ...` on a separate paragraph. The raw values are also stored in metadata as `placeIntro`, `aiSummary`, and `descriptionSource` for later learning/LLM prompts. The local renderer path is also layered: renderer endpoint, direct mobile HTTP, then Playwright. A restriction/empty/error result from one layer now falls through to the next layer instead of ending the import immediately. No UI redesign, browser-side Naver call, OpenAI call, `admin/`, `pc-web/`, or old Event-to-Operation flow change is included.
+
+## PLACE-INTRO-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/providers/naverPlaceRenderedProvider.ts`
+  - Finds the Apollo `PlaceDetail` record linked to the imported `PlaceDetailBase`.
+  - Extracts owner-written Place intro text from `description(...)` fields, with `shopWindow.description` as a secondary source.
+  - Keeps `microReviews` as `aiSummary` instead of treating it as the only introduction.
+  - Saves `placeIntro`, `aiSummary`, and `descriptionSource` into store metadata.
+  - Adds `renderNaverPlacePageWithRenderers` so blocked/empty/error snapshots from one renderer layer can fall through to another renderer layer.
+- `poc-server/test/naverPlaceRenderedProvider.test.ts`
+  - Covers Apollo profile extraction, imported store description composition, metadata persistence, and renderer-layer fallback after a Naver restriction page.
+
+## Place Data Currently Visible From Rendered Mobile Snapshots
+
+- Basic identity: Place ID, name, category/category codes, address/road address, coordinates, phone/virtual phone, route/static map URLs.
+- Description signals: owner-written intro from `description({"source":["shopWindow"]})`, short AI summary from `microReviews`, directions/road text.
+- Review signals: rating, visitor review totals, text review total, blog review total, visitor review stats/review settings, visitor review media count.
+- Operations: business hours/new business hours when present, missing-info flags, booking/order/tabling/smart-call tool availability.
+- Store features: conveniences, parking/facilities/information-tab keywords, payment info, accessibility/accessor info, indoor/street panorama metadata.
+- Content/media: owner/place images, menu images, menu records, UGC/CP images, related Blog/Cafe review references, TV/broadcast info, themes.
+
+## Previous Scope
+
+TRAINING-SOURCE-001 fixes Naver Blog collection from the AI training settings flow and adds small-count collection options.
+
+Root cause: `web/03_AI학습_온보딩.html` showed a Naver Blog URL field, but `web/training_settings.js` did not include that URL in the `PUT /api/stores/:storeId/training-settings` payload. The server therefore never wrote `store_channels.blog.source_url` for newly imported stores. Rendered collection runs could still collect Place visitor reviews from `stores.naver_place_url`, but Blog items failed with `store_missing_naver_blog_url`.
+
+The fix keeps browser pages calling only `poc-server` APIs. Training settings now persist channel source URLs for Blog, Place, Instagram, and Daangn into `store_channels`; rendered Blog collection then uses the saved Blog channel URL through the existing provider boundary. The training settings page also adds `최근 1개` and `최근 10개` options for Blog, Place reviews, Instagram, and Daangn. Daangn/Instagram external collection providers are still not implemented; their URLs and limits are stored for future provider work only.
+
+## TRAINING-SOURCE-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/routes/stores.ts`
+  - Extends training settings with `sourceUrl` plus `daangn.daangnPostLimit`.
+  - Syncs saved training settings into `store_channels` by `(storeId, channel)` so existing seeded channel IDs are updated instead of causing SQLite unique conflicts.
+  - Adds `daangnPostLimit` and `channelPlan.daangn` to collection run summaries.
+- `web/03_AI학습_온보딩.html`
+  - Adds `최근 1개` and `최근 10개` options to Blog, Place, Instagram, and Daangn collection controls.
+  - Adds `training-daangn-url` and `training-daangn-limit` hooks.
+- `web/training_settings.js`
+  - Loads saved source URLs from store channels.
+  - Sends source URLs and Daangn limit in the training settings payload.
+- `poc-server/test/trainingSettingsApi.test.ts`
+- `poc-server/test/trainingSettingsPage.test.ts`
+- `poc-server/test/naverBlogRenderedCollectionProvider.test.ts`
+  - Cover channel source persistence, small-count options, and rendered Blog collection using a Blog URL saved from training settings.
+
+## Previous Scope
+
+STORE-PLACE-SHORTURL-001 fixes Naver short Place URL import for store registration.
+
+This change keeps the Store Learning browser rule intact: `web/soho_store_register.html` still calls only `poc-server` APIs, and all Naver fetching stays server-side. The rendered Place provider now resolves `naver.me` URLs that land on `m.map.naver.com/appLink.naver?...pinId=...` to `https://m.place.naver.com/place/{pinId}/home` before extracting profile data. The store registration page also shows button-level loading state for slower import/save actions and keeps imported Place categories visible even when the static industry list has no exact match. It does not redesign the page, add new product behavior beyond import display, call OpenAI, modify `admin/`, modify `pc-web/`, or touch the old Event-to-Operation flow.
+
+## STORE-PLACE-SHORTURL-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/providers/naverPlaceRenderedProvider.ts`
+  - Detects Naver map app-link snapshots returned from short URLs.
+  - Extracts numeric Place IDs from `pinId`, `id`, `placeId`, `place_id`, or URL path segments.
+  - Re-renders the mobile Place detail URL before parsing Apollo state, so store IDs and saved Place URLs use the real numeric Place ID instead of the short-code token.
+- `web/soho_store_register.html`
+  - Adds stable IDs to the Place import and registration buttons.
+- `web/soho_store_register.js`
+  - Adds button-scoped busy state using the existing global `.spinner` class.
+  - Applies busy state to Place import and store save actions.
+  - Adds an imported category fallback option such as `불러온 업종: 생선회` when the returned Naver category is not present in `industry_categories.json`.
+- `poc-server/test/naverPlaceRenderedProvider.test.ts`
+- `poc-server/test/storeRegistrationPage.test.ts`
+  - Cover short URL resolution, loading button wiring, and unmatched imported category display.
+
+## Previous Scope
+
+LEARNING-CTA-001 clarifies the post-analysis path from AI Learning Status to the editable Marketing Ruleset.
+
+This change keeps the existing `분석 실행 -> AI 학습 현황` navigation intact and adds two visible ruleset entry points on `web/06_AI학습_현황.html`: a completion alert with `룰셋 보러가기` and a clickable `룰셋 상태` KPI card. Both route to `07_마케팅전략룰셋.html?storeId=...` while preserving `analysisRunId` when present. It does not redesign the page, add new backend behavior, call external providers from the browser, modify `admin/`, modify `pc-web/`, or touch the old Event-to-Operation flow.
+
+## Previous Scope
+
+NAVER-LIVE-001 hardens live Naver source collection for the Store Learning & Blog Content Automation PoC.
+
+This change replaces the default local Playwright path with server-side mobile HTML snapshots for Naver Place and Naver Blog when no explicit renderer endpoint is configured. It parses Naver Place profile and visitor review data from `window.__APOLLO_STATE__`, parses full Naver Blog mobile `PostView` bodies from the rendered HTML, and keeps all external calls behind `poc-server` providers. It does not implement Naver/OpenAI browser calls, Naver login automation, publishing automation, UI redesign, `admin/`, `pc-web/`, or old Event-to-Operation workflow changes.
+
+## NAVER-LIVE-001 Runtime Pieces
+
+- `poc-server/src/storeLearning/providers/naverPlaceRenderedProvider.ts`
+  - Adds `renderNaverHttpSnapshot` as the default local renderer path before Playwright fallback.
+  - Parses Place profile fields from mobile `window.__APOLLO_STATE__`: name, category, road address, phone, directions, convenience, review counts, rating, and image URLs.
+  - Narrows restriction-page detection to visible page text so normal bundled script strings do not create false positives.
+- `poc-server/src/storeLearning/collection/naverPlaceRenderedCollectionProvider.ts`
+  - Parses visitor review items from Apollo state, including reviewer nickname, body, date, rating, voted keywords, media/video flags, and owner reply state.
+  - Keeps collection item persistence and selection flow unchanged.
+- `poc-server/src/storeLearning/collection/naverBlogRenderedCollectionProvider.ts`
+  - Uses direct mobile HTTP snapshots for Blog pages when no renderer endpoint is configured.
+  - Fixes nested `.se-main-container` extraction so full Blog bodies are collected instead of the first nested block only.
+- `poc-server/test/naverBlogLiveIntegration.test.ts`
+  - Defaults live Blog verification to `https://blog.naver.com/jasengblog/224253201649` when `NAVER_LIVE_BLOG_URL` is unset.
+- `poc-server/test/naverPlaceRenderedProvider.test.ts`
+- `poc-server/test/naverPlaceRenderedCollectionProvider.test.ts`
+  - Add fixture-first coverage for Apollo state profile and visitor review parsing.
+
+## NAVER-LIVE-001 Operating Notes
+
+Default real source configuration:
+
+```text
+NAVER_OWNER_AUTHORIZED=true
+NAVER_PLACE_PROVIDER=rendered
+NAVER_BLOG_PROVIDER=rendered
+```
+
+The provider still supports external deterministic renderers:
+
+```text
+NAVER_PLACE_RENDERER_ENDPOINT=http://127.0.0.1:PORT/render-place
+NAVER_BLOG_RENDERER_ENDPOINT=http://127.0.0.1:PORT/render-blog
+```
+
+Direct mobile snapshot fallback can be disabled for diagnostics:
+
+```text
+NAVER_DIRECT_FETCH=false
+NAVER_PLACE_DIRECT_FETCH=false
+NAVER_BLOG_DIRECT_FETCH=false
+```
+
+Publishing automation is not part of the product direction. Existing local publish-request state is not expanded by this work and should not become an automatic Naver publishing provider.
+
+## Previous Scope
+
 NAVER-BLOG-001 adds server-side rendered Naver Blog body collection for the Store Learning & Blog Content Automation PoC.
 
 This change implements collection-run integration when `NAVER_BLOG_PROVIDER=page` or `NAVER_BLOG_PROVIDER=rendered`. It discovers Naver Blog post links from a configured owner Blog URL, renders individual post pages, stores full blog bodies as `collection_items`, keeps browser pages calling `poc-server` APIs only, and preserves mock mode. It does not implement Naver Blog publishing, Naver login automation, UI redesign, `admin/`, `pc-web/`, or old Event-to-Operation workflow changes.
@@ -60,7 +308,7 @@ If `NAVER_BLOG_POST_URLS` is not set, the provider uses the store's `blog` chann
 
 ## Next Suggested Task
 
-NAVER-REPLY-001 or PUBLISH-REAL-001 should add owner-authorized server-side provider design for Naver owner reply/publishing actions. Real write actions must stay explicitly gated and should not run from browser JavaScript.
+Continue with owner-authorized read-side hardening only: run a full local Store Learning flow with `NAVER_PLACE_PROVIDER=rendered` and `NAVER_BLOG_PROVIDER=rendered`, then decide whether to add an explicit owner export/import fallback for cases where Naver blocks public mobile snapshots.
 
 ## Previous Scope
 
@@ -360,6 +608,60 @@ Credentialed readiness smoke:
 - Repeat the readiness request.
 - Expect OpenAI/Naver provider entries to show ready or partial_ready.
 - Confirm full blog body and Place reviews still show fallback requirements.
+
+## RAG Document UI Hook
+
+The store registration page now exposes RAG document generation from the saved store context:
+
+- `soho_store_register.html` shows `RAG 문서 생성` beside `RAW data 보기` in the Naver Place collected-info header.
+- The browser calls only poc-server APIs:
+  - `GET /api/stores/:storeId/rag-documents`
+  - `POST /api/stores/:storeId/rag-documents/generate`
+  - generated download links returned by the server manifest
+- The generate action sends `refreshReviews: true` and `reviewLimit: 100`, so the server can refresh Place review data before creating `info_업체명.docx` and `reviews_업체명.docx`.
+- Existing generated documents are detected when a saved store is loaded, and the two download links are shown without regenerating.
+
+## Upload Source Asset UI
+
+The store registration upload section is now labeled `자료 업로드`.
+
+Inside that section, saved source data is surfaced before manual upload controls:
+
+- `매장 사진`: shows up to four images from `metadata.naverPlaceParsed.placeImageUrls`.
+- `메뉴판`: shows up to four images from `metadata.naverPlaceParsed.menuImageUrls`.
+- `매장 소개 문서`: shows generated RAG DOCX links from `GET /api/stores/:storeId/rag-documents`.
+
+The browser still calls only poc-server APIs. The source image panels reuse the existing image viewer hook, and generated document links use server-returned download paths instead of filesystem paths.
+
+Place photo normalization now filters saved/imported image lists before display. The rendered Place provider prioritizes `PlaceDetail.images.images`, unwraps `search.pstatic.net/common?...src=` URLs to their original image source, de-duplicates by original URL, and excludes default profile icons, blog/cafe links, TV thumbnails, panorama thumbnails, and other non-store-photo assets. The browser applies the same normalization so previously saved metadata is corrected on display without requiring a re-import.
+
+## Store Registration Business Hours Sync
+
+`soho_store_register.html` now treats day-specific business hours as the durable detailed source.
+
+- Rendered Naver Place imports save `metadata.naverPlaceParsed.weeklyBusinessHours`.
+- The main operating-hours fields show a single shared time only when all open weekdays use the same open/close values.
+- If at least one open weekday differs, the main operating-hours fields show `요일별 상이`.
+- If break times differ by weekday, the break-time fields also show `요일별 상이`.
+- The red `*요일별 운영시간 설정 필요` message appears when weekday values differ.
+- Opening the modal loads the stored weekday rows.
+- Saving the modal updates the main form summary and closed-day checkboxes.
+- Editing the main form open/close/break fields or closed-day checkboxes updates the weekday rows unless the field is in `요일별 상이` summary mode.
+
+Validation for this screen requires the local API runtime:
+
+```bash
+cd poc-server
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:5177/soho_store_register.html
+```
+
+Static GitHub Pages hosting alone cannot validate this PoC because the browser must call local `poc-server` APIs backed by SQLite.
 
 ## Next Suggested Task
 

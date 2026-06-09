@@ -51,11 +51,47 @@
     return `<span class="badge b-gray">${escapeHtml(status || '-')}</span>`;
   }
 
-  function renderOverview(status) {
+  function rulesetHref(storeId) {
+    const url = new URL('07_마케팅전략룰셋.html?', window.location.href);
+    url.searchParams.set('storeId', storeId);
+    const analysisRunId = params().get('analysisRunId');
+    if (analysisRunId) url.searchParams.set('analysisRunId', analysisRunId);
+    return `${url.pathname.split('/').pop()}${url.search}`;
+  }
+
+  function goToRuleset(storeId) {
+    window.location.href = rulesetHref(storeId);
+  }
+
+  function wireRulesetNavigation(storeId) {
+    [field('learning-ruleset-alert-link'), field('learning-ruleset-card')].forEach((element) => {
+      if (!element) return;
+      element.addEventListener('click', () => goToRuleset(storeId));
+    });
+  }
+
+  function renderRulesetEntry(status, storeId) {
+    const hasRuleset = Boolean(status.ruleset);
+    const alert = field('learning-ruleset-alert');
+    const alertLink = field('learning-ruleset-alert-link');
+    const card = field('learning-ruleset-card');
+    const href = rulesetHref(storeId);
+    if (alert) alert.style.display = hasRuleset ? 'flex' : 'none';
+    if (alertLink) alertLink.dataset.flowTarget = href;
+    if (card) {
+      card.disabled = !hasRuleset;
+      card.dataset.flowTarget = href;
+      card.dataset.flowLabel = '학습 현황: 룰셋 상태';
+      card.title = hasRuleset ? '마케팅 전략 룰셋 보기' : '생성된 룰셋이 없습니다';
+    }
+  }
+
+  function renderOverview(status, storeId) {
     field('learning-last-analyzed').textContent = formatDate(status.lastAnalyzedAt);
     field('learning-ruleset-status').innerHTML = status.ruleset
       ? `✓ ${escapeHtml(status.ruleset.statusLabel || status.ruleset.status)}`
       : '미생성';
+    renderRulesetEntry(status, storeId);
     field('learning-blog-count').textContent = status.channels.blog.collectedCount;
     field('learning-place-count').textContent = status.channels.place.collectedCount;
     field('learning-instagram-count').textContent = status.channels.instagram.collectedCount;
@@ -156,10 +192,11 @@
   document.addEventListener('DOMContentLoaded', async () => {
     const storeId = currentStoreId();
     window.localStorage.setItem(STORE_ID_KEY, storeId);
+    wireRulesetNavigation(storeId);
 
     try {
       const [status, blog, place, instagram] = await loadLearningStatus(storeId);
-      renderOverview(status);
+      renderOverview(status, storeId);
       renderBlog(blog);
       renderPlace(place);
       renderInstagram(instagram);

@@ -1,6 +1,7 @@
 node_modules/
 poc-server/node_modules/
 poc-server/data/
+poc-server/data/rag-documents/
 .playwright-cli/
 
 # Local secrets and environment overrides

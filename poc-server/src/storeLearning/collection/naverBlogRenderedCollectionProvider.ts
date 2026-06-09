@@ -3,6 +3,7 @@ import type { Store } from '../../repositories/stores.js';
 import { configuredBlogProvider, configuredPlaceProvider } from '../providers/ownerSourcePolicy.js';
 import type { JsonRecord, ProviderEnv } from '../providers/placeImportTypes.js';
 import {
+  renderNaverHttpSnapshot,
   renderNaverPlacePage,
   type RenderedPlaceSnapshot
 } from '../providers/naverPlaceRenderedProvider.js';
@@ -79,7 +80,7 @@ function metaMap(html: string) {
 }
 
 function isRestrictedSnapshot(snapshot: RenderedBlogSnapshot) {
-  const text = `${snapshot.bodyText ?? ''}\n${snapshot.html}`;
+  const text = snapshot.bodyText ?? stripTags(snapshot.html) ?? '';
   return RESTRICTED_MARKERS.some((marker) => text.includes(marker));
 }
 
@@ -146,9 +147,33 @@ function textFromMarkedBlock(html: string, marker: string) {
   return stripTags(match?.[1] ?? '');
 }
 
+function blockFromClass(html: string, className: string) {
+  const openerPattern = /<([a-z0-9]+)\b[^>]*class=["']([^"']*)["'][^>]*>/gi;
+  let opener: RegExpExecArray | null = null;
+  while ((opener = openerPattern.exec(html))) {
+    if (opener[2].split(/\s+/).includes(className)) break;
+  }
+  if (!opener) return null;
+
+  const tagName = opener[1];
+  const tagPattern = new RegExp(`<\\/?${tagName}\\b[^>]*>`, 'gi');
+  tagPattern.lastIndex = opener.index;
+  let depth = 0;
+  let tag: RegExpExecArray | null;
+  while ((tag = tagPattern.exec(html))) {
+    const isClosing = /^<\//.test(tag[0]);
+    const isSelfClosing = /\/>$/.test(tag[0]);
+    if (isClosing) depth -= 1;
+    else if (!isSelfClosing) depth += 1;
+    if (depth === 0) return html.slice(opener.index, tagPattern.lastIndex);
+  }
+
+  return html.slice(opener.index);
+}
+
 function textFromClass(html: string, className: string) {
-  const match = html.match(new RegExp(`<[^>]*class=["'][^"']*${className}[^"']*["'][^>]*>([\\s\\S]*?)<\\/[^>]+>`, 'i'));
-  return stripTags(match?.[1] ?? '');
+  const block = blockFromClass(html, className);
+  return stripTags(block ?? '');
 }
 
 function articleBlock(html: string) {
@@ -254,6 +279,13 @@ async function renderWithEndpoint(url: string, env: ProviderEnv): Promise<Render
 export async function renderNaverBlogPage(url: string, env: ProviderEnv): Promise<RenderedBlogSnapshot> {
   const endpointSnapshot = await renderWithEndpoint(url, env);
   if (endpointSnapshot) return endpointSnapshot;
+  if (env.NAVER_DIRECT_FETCH !== 'false' && env.NAVER_BLOG_DIRECT_FETCH !== 'false') {
+    try {
+      return await renderNaverHttpSnapshot(url, env);
+    } catch (error) {
+      if (env.NAVER_BLOG_DIRECT_FETCH === 'true') throw error;
+    }
+  }
   return renderNaverPlacePage(url, {
     ...env,
     NAVER_PLACE_RENDERER_ENDPOINT: env.NAVER_PLACE_RENDERER_ENDPOINT
