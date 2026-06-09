@@ -87,6 +87,17 @@ describe('store registration static page API wiring', () => {
     expect(js).not.toContain("alert('매장이 등록됐어요! AI 학습을 시작할 수 있어요.')");
   });
 
+  it('treats business number as optional in browser validation', () => {
+    const html = readFileSync(path.join(webRoot, 'soho_store_register.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
+
+    expect(html).toContain('<label>사업자번호</label>');
+    expect(html).not.toContain('<label>사업자번호 <span class="req">*</span></label>');
+    expect(js).toContain("const required = ['f-type', 'f-name', 'f-tel', 'f-addr1', 'f-open', 'f-close']");
+    expect(js).not.toContain("const required = ['f-type', 'f-name', 'f-biz'");
+    expect(html).not.toContain("const required = ['f-type', 'f-name', 'f-biz'");
+  });
+
   it('keeps imported Place categories visible even when the category is not in the static list', () => {
     const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
 

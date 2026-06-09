@@ -1061,7 +1061,7 @@
   }
 
   function validateRequiredFields() {
-    const required = ['f-type', 'f-name', 'f-biz', 'f-tel', 'f-addr1', 'f-open', 'f-close'];
+    const required = ['f-type', 'f-name', 'f-tel', 'f-addr1', 'f-open', 'f-close'];
     let valid = true;
     required.forEach((id) => {
       const element = field(id);

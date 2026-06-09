@@ -1,5 +1,42 @@
 # Validation
 
+## MILESTONE-02-STORE-REGISTRATION-CLEANUP Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- storeRegistrationPage.test.ts -t "business number"
+npm test -- storeRegistrationPage.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+git status --short
+```
+
+## MILESTONE-02-STORE-REGISTRATION-CLEANUP TDD Evidence
+
+- RED `npm test -- storeRegistrationPage.test.ts -t "business number"`: failed because `web/soho_store_register.html` still rendered `<label>사업자번호 <span class="req">*</span></label>`.
+- GREEN `npm test -- storeRegistrationPage.test.ts -t "business number"`: passed after removing `f-biz` from required browser validation while preserving optional `businessNumber` payload persistence.
+
+## MILESTONE-02-STORE-REGISTRATION-CLEANUP Final Validation
+
+- `npm test -- storeRegistrationPage.test.ts -t "business number"`: passed, 1 test.
+- `npm test -- storeRegistrationPage.test.ts`: passed, 15 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_02_STORE_REGISTRATION_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/test/storeRegistrationPage.test.ts`
+  - `web/soho_store_register.html`
+  - `web/soho_store_register.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-01-DATA-MAP Commands
 
 Run from repo root:

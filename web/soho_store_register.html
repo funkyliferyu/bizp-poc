@@ -243,7 +243,7 @@
           </div>
 
           <div class="field">
-            <label>사업자번호 <span class="req">*</span></label>
+            <label>사업자번호</label>
             <input type="text" id="f-biz" placeholder="000-00-00000">
           </div>
 
@@ -693,7 +693,7 @@ function removeFile(el) {
 
 // 등록 완료
 function submitForm() {
-  const required = ['f-type', 'f-name', 'f-biz', 'f-tel', 'f-addr1', 'f-open', 'f-close'];
+  const required = ['f-type', 'f-name', 'f-tel', 'f-addr1', 'f-open', 'f-close'];
   let valid = true;
   required.forEach(id => {
     const el = document.getElementById(id);

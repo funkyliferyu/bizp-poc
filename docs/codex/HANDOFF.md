@@ -2,6 +2,22 @@
 
 ## Current Scope
 
+MILESTONE-02-STORE-REGISTRATION-CLEANUP makes `사업자번호` optional in the Store Learning store-registration browser flow.
+
+The change is intentionally narrow:
+
+- `web/soho_store_register.html` no longer shows the required marker on `사업자번호`.
+- The legacy inline fallback validation in `web/soho_store_register.html` no longer includes `f-biz` in its required field list.
+- `web/soho_store_register.js` no longer blocks save when `f-biz` is empty.
+- `businessNumber: readValue('f-biz')` remains in the save payload, so an entered business number is still persisted as optional metadata.
+- `poc-server/test/storeRegistrationPage.test.ts` has a static browser contract test covering the optionality.
+
+This milestone does not change server schemas, SQLite migrations, provider adapters, Naver/OpenAI behavior, `admin/`, `pc-web/`, or old Event-to-Operation files.
+
+The branch is stacked on `codex/store-learning-data-map-audit` while the Milestone 01 PR is open. After Milestone 01 merges to `develop`, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-01-DATA-MAP establishes the sequential baseline for replacing Store Learning static mock values with persisted Place data, collected Blog data, and AI ruleset outputs.
 
 This milestone is documentation-only. It adds:
