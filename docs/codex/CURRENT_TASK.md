@@ -9,8 +9,9 @@ Sequential plan ledger control for Store Learning work.
 - `main` is the intended public/stable branch.
 - `develop` is the intended integration branch.
 - `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
-- Milestone PRs #26-#34 exist, but they are not complete until merged and
-  validated on `develop`.
+- Milestone PRs #26-#34 are merged to `develop`.
+- They are not fully complete until milestone 10 validation is run and
+  recorded on `develop`.
 
 ## Branch Policy
 
@@ -57,16 +58,19 @@ http://localhost:5177/soho_store_register.html
 ## Next Exact Step
 
 Start every session by reading `docs/codex/PLAN.md` and choosing the first
-milestone that is not merged and validated on `develop`.
+milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Review/integrate PR #26 into `develop`.
-2. Validate PR #26 on `develop` and update `docs/codex/PLAN.md`,
-   `docs/codex/HANDOFF.md`, and `docs/codex/VALIDATION.md` as needed.
-3. Continue sequentially with PR #27 through PR #34.
-4. Run the final document/validation milestone only after PRs #26-#34 are
-   merged to `develop`.
+1. Run milestone 10 develop validation:
+   - `cd poc-server && npm run typecheck`
+   - `cd poc-server && npm test`
+   - `cd poc-server && npm run demo:store-learning`
+2. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+   validation result.
+3. Keep `develop` as the PR base for any follow-up fixes.
+4. Prepare the `develop` -> `main` promotion path only after validation passes
+   and the user approves publication timing.
 
 Before editing files, confirm:
 

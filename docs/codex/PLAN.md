@@ -55,93 +55,95 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-09:
 
-1. Review and integrate PR #26 into `develop`.
-2. After #26 is merged and validated, continue with #27, then #28, and so on.
-3. Run milestone 10 only after milestones 1-9 are merged to `develop`.
+1. Run milestone 10 final develop validation.
+2. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+   develop validation result.
+3. Prepare the `develop` -> `main` promotion path only after validation passes
+   and the user approves publication timing.
 
 ## Milestone Ledger
 
 | # | Milestone | Current state | Tracking | Develop gate |
 |---|---|---|---|---|
-| 1 | 현황 감사와 데이터 매핑 | Implementation PR open | [#26](https://github.com/funkyliferyu/bizp-poc/pull/26) | Not merged |
-| 2 | 매장정보등록 정리 | Implementation PR open | [#27](https://github.com/funkyliferyu/bizp-poc/pull/27) | Not merged |
-| 3 | AI 학습 설정 데이터 정리 | Implementation PR open | [#28](https://github.com/funkyliferyu/bizp-poc/pull/28) | Not merged |
-| 4 | 수집 실행 안정화 | Implementation PR open | [#29](https://github.com/funkyliferyu/bizp-poc/pull/29) | Not merged |
-| 5 | 수집 데이터 선택/RAW 조회 확장 | Implementation PR open | [#30](https://github.com/funkyliferyu/bizp-poc/pull/30) | Not merged |
-| 6 | 분석 실행과 룰셋 생성 계약 정리 | Implementation PR open | [#31](https://github.com/funkyliferyu/bizp-poc/pull/31) | Not merged |
-| 7 | 마케팅 전략 룰셋 화면 적용 | Implementation PR open | [#32](https://github.com/funkyliferyu/bizp-poc/pull/32) | Not merged |
-| 8 | AI 학습 현황 화면 적용 | Implementation PR open | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Not merged |
-| 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Implementation PR open | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Not merged |
-| 10 | 최종 문서/검증 정리 | Not started | - | Wait for 1-9 |
+| 1 | 현황 감사와 데이터 매핑 | Merged to develop | [#26](https://github.com/funkyliferyu/bizp-poc/pull/26) | Awaiting milestone 10 validation |
+| 2 | 매장정보등록 정리 | Merged to develop | [#27](https://github.com/funkyliferyu/bizp-poc/pull/27) | Awaiting milestone 10 validation |
+| 3 | AI 학습 설정 데이터 정리 | Merged to develop | [#28](https://github.com/funkyliferyu/bizp-poc/pull/28) | Awaiting milestone 10 validation |
+| 4 | 수집 실행 안정화 | Merged to develop | [#29](https://github.com/funkyliferyu/bizp-poc/pull/29) | Awaiting milestone 10 validation |
+| 5 | 수집 데이터 선택/RAW 조회 확장 | Merged to develop | [#30](https://github.com/funkyliferyu/bizp-poc/pull/30) | Awaiting milestone 10 validation |
+| 6 | 분석 실행과 룰셋 생성 계약 정리 | Merged to develop | [#31](https://github.com/funkyliferyu/bizp-poc/pull/31) | Awaiting milestone 10 validation |
+| 7 | 마케팅 전략 룰셋 화면 적용 | Merged to develop | [#32](https://github.com/funkyliferyu/bizp-poc/pull/32) | Awaiting milestone 10 validation |
+| 8 | AI 학습 현황 화면 적용 | Merged to develop | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Awaiting milestone 10 validation |
+| 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting milestone 10 validation |
+| 10 | 최종 문서/검증 정리 | Not started | - | Ready to run |
 
 ## Sequential Checklist
 
 ### 1. 현황 감사와 데이터 매핑
 
 - [x] Milestone plan/branch/PR exists: PR #26.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 2. 매장정보등록 정리
 
 - [x] Milestone plan/branch/PR exists: PR #27.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 3. AI 학습 설정 데이터 정리
 
 - [x] Milestone plan/branch/PR exists: PR #28.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 4. 수집 실행 안정화
 
 - [x] Milestone plan/branch/PR exists: PR #29.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 5. 수집 데이터 선택/RAW 조회 확장
 
 - [x] Milestone plan/branch/PR exists: PR #30.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 6. 분석 실행과 룰셋 생성 계약 정리
 
 - [x] Milestone plan/branch/PR exists: PR #31.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 7. 마케팅 전략 룰셋 화면 적용
 
 - [x] Milestone plan/branch/PR exists: PR #32.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 8. AI 학습 현황 화면 적용
 
 - [x] Milestone plan/branch/PR exists: PR #33.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 9. 블로그 관리/콘텐츠 상세 후속 정리
 
 - [x] Milestone plan/branch/PR exists: PR #34.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] Ledger is updated with final status.
+- [x] Ledger is updated with current status.
 
 ### 10. 최종 문서/검증 정리
 
-- [ ] Confirm milestones 1-9 are merged to `develop`.
+- [x] Confirm milestones 1-9 are merged to `develop`.
 - [ ] Run `cd poc-server && npm run typecheck`.
 - [ ] Run `cd poc-server && npm test`.
 - [ ] Run `cd poc-server && npm run demo:store-learning`.
@@ -181,9 +183,8 @@ The current implementation stack should be integrated in this order:
 #26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34
 ```
 
-When a parent PR merges, retarget or update the next PR as needed before
-reviewing it. Do not treat child PRs as develop-ready until their base includes
-the parent work.
+This stack has been merged to `develop`. The next todo is milestone 10
+develop validation and document handoff.
 
 ## Validation Commands
 
