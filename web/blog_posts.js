@@ -7,7 +7,10 @@
   const blogList = document.getElementById('blog-post-list');
   const aiContentList = document.getElementById('ai-content-list');
   const blogPendingCount = document.getElementById('blog-pending-count');
+  const blogPendingAlert = document.getElementById('blog-pending-alert');
+  const blogPendingAction = document.getElementById('blog-pending-action');
   const aiContentPendingCount = document.getElementById('ai-content-pending-count');
+  const aiContentSourceNote = document.getElementById('ai-content-source-note');
   const generateButton = document.getElementById('blog-generate-btn');
 
   if (!blogList && !aiContentList && !generateButton) return;
@@ -61,6 +64,20 @@
     return `09_AI콘텐츠생성_상세.html?postId=${post.id}`;
   }
 
+  function generationSourceLabel(post) {
+    return post.generationSource?.label || (post.generatedFromRulesetId ? '마케팅 룰셋 기반' : 'AI 생성');
+  }
+
+  function generationSourceType(post) {
+    return post.generationSource?.type || (post.generatedFromRulesetId ? 'ruleset' : 'unknown');
+  }
+
+  function generationSourceLine(post) {
+    const label = generationSourceLabel(post);
+    const ruleset = post.generationSource?.rulesetId || post.generatedFromRulesetId;
+    return `<div style="font-size:11px;color:#6B7280;margin-top:3px">${escapeHtml(label)}${ruleset ? ` · ${escapeHtml(ruleset)}` : ''}</div>`;
+  }
+
   function emptyRow(colspan, message) {
     return `<tr><td class="td-empty" colspan="${colspan}" style="text-align:center;padding:24px">${escapeHtml(message)}</td></tr>`;
   }
@@ -75,10 +92,11 @@
     blogList.innerHTML = posts
       .map(
         (post) => `
-          <tr onclick="location.href='${postDetailUrl(post)}'" style="cursor:pointer" data-blog-post-id="${escapeHtml(post.id)}">
+          <tr onclick="location.href='${postDetailUrl(post)}'" style="cursor:pointer" data-blog-post-id="${escapeHtml(post.id)}" data-generation-source="${escapeHtml(generationSourceType(post))}">
             <td class="td-link" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
               ${escapeHtml(post.title)}
               <span style="margin-left:4px" class="icon-external-link" data-icon="external-link" data-size="11" data-color="#9AA0B4"></span>
+              ${generationSourceLine(post)}
             </td>
             <td><span class="badge b-blue">AI 자동</span></td>
             <td><span class="badge ${statusClass(post.status)}">${statusLabel(post.status)}</span></td>
@@ -102,8 +120,8 @@
     aiContentList.innerHTML = posts
       .map(
         (post) => `
-          <tr onclick="location.href='${postDetailUrl(post)}'" style="cursor:pointer" data-blog-post-id="${escapeHtml(post.id)}">
-            <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" class="td-link">${escapeHtml(post.title)}</td>
+          <tr onclick="location.href='${postDetailUrl(post)}'" style="cursor:pointer" data-blog-post-id="${escapeHtml(post.id)}" data-generation-source="${escapeHtml(generationSourceType(post))}">
+            <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" class="td-link">${escapeHtml(post.title)}${generationSourceLine(post)}</td>
             <td><span class="badge ${statusClass(post.status)}">${statusLabel(post.status)}</span></td>
             <td><span class="badge ${scoreClass(post.seoScore)}" style="font-size:10px">${post.seoScore ?? '-'}점</span></td>
             <td>${formatDate(post.createdAt)}</td>
@@ -118,6 +136,28 @@
     if (aiContentPendingCount) aiContentPendingCount.textContent = `${count}건`;
   }
 
+  function updateSummary(summary, posts) {
+    const count = summary?.pendingApprovalCount ?? posts.filter((post) => post.status === 'pending_approval').length;
+    const firstPendingApprovalHref =
+      summary?.firstPendingApprovalHref || postDetailUrl(posts.find((post) => post.status === 'pending_approval') || {});
+    updateCounts(count);
+
+    if (blogPendingAlert) blogPendingAlert.style.display = count > 0 ? 'flex' : 'none';
+    if (blogPendingAction && count > 0) {
+      blogPendingAction.onclick = () => {
+        window.location.href = firstPendingApprovalHref;
+      };
+      blogPendingAction.dataset.flowTarget = firstPendingApprovalHref;
+    }
+    if (aiContentSourceNote) {
+      const generatedCount = summary?.generatedDraftCount ?? posts.filter((post) => post.generationSource?.type !== 'manual').length;
+      aiContentSourceNote.textContent =
+        generatedCount > 0
+          ? `마케팅 룰셋 기반 생성 초안 ${generatedCount}건`
+          : '마케팅 룰셋 기반 생성 초안이 없습니다.';
+    }
+  }
+
   async function loadPosts() {
     try {
       const response = await fetch(`/api/stores/${storeId}/blog-posts`);
@@ -126,7 +166,7 @@
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
       renderBlogManagement(posts);
       renderAiContentList(posts);
-      updateCounts(payload.pendingApprovalCount ?? posts.filter((post) => post.status === 'pending_approval').length);
+      updateSummary(payload.summary, posts);
     } catch (error) {
       const message = error instanceof Error ? error.message : '블로그 목록을 불러오지 못했습니다.';
       if (blogList) blogList.innerHTML = emptyRow(7, message);

@@ -2,6 +2,31 @@
 
 ## Current Scope
 
+MILESTONE-09-BLOG-MANAGEMENT-RESULTS makes Blog management and AI content list pages show approval-pending AI drafts as learning/ruleset-backed results.
+
+The store blog-post list API now:
+
+- Adds `summary.pendingApprovalCount`, `summary.firstPendingApprovalPostId`, `summary.firstPendingApprovalHref`, and `summary.generatedDraftCount`.
+- Adds `generationSource` on each serialized blog post.
+- Falls back from article `generatedFromRulesetId` to the linked `contentGeneration.rulesetId` so older seeded/demo posts still show their ruleset source.
+- Keeps the legacy top-level `pendingApprovalCount` for existing browser compatibility.
+
+The Blog management and AI content list pages now:
+
+- Route the approval-pending alert CTA to the actual first pending approval post detail URL returned by the API.
+- Hide the approval alert when there are no pending approval posts.
+- Show a compact ruleset/source line under generated post titles.
+- Expose `data-generation-source` on rendered rows for static verification.
+- Keep browser calls limited to `poc-server` `/api/*` endpoints.
+
+This milestone does not implement real Blog publishing, change provider behavior, create images, redesign the full Blog management/content pages, modify `admin/`, modify `pc-web/`, or touch old Event-to-Operation files.
+
+Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/34.
+
+The branch is stacked on `codex/learning-status-results` while PR #33 is open. After PR #33 merges, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-08-LEARNING-STATUS-RESULTS replaces the AI learning status completion display with persisted Store Learning results.
 
 The learning status API now adds a `completion` contract to `GET /api/stores/:storeId/learning-status`.
