@@ -2,6 +2,31 @@
 
 ## Current Scope
 
+MILESTONE-01-DATA-MAP establishes the sequential baseline for replacing Store Learning static mock values with persisted Place data, collected Blog data, and AI ruleset outputs.
+
+This milestone is documentation-only. It adds:
+
+- `docs/codex/MILESTONE_01_DATA_MAP_PLAN.md`: the execution plan for the first milestone.
+- `docs/product/STORE_LEARNING_DATA_MAP.md`: a screen-by-screen and field-by-field data source map.
+
+The data map records recent product PR inputs from owner source routing, rendered Naver Place import, rendered Place visitor review collection, rendered/page Naver Blog body collection, and the later Place metadata/RAW/RAG hardening work. It classifies future population sources as `Place Immediate`, `Blog Parser`, `AI Processing`, and `Deferred`.
+
+The main follow-up order is:
+
+1. Store registration cleanup and `사업자번호` optionality.
+2. Training settings contract confirmation.
+3. Blog collection reliability and fallback behavior.
+4. Blog RAW viewer and selectable item evidence improvements.
+5. Analyzer/ruleset field-key expansion and source matrix implementation.
+6. Ruleset UI replacement.
+7. Learning status completion semantics and display replacement.
+8. Blog management/content detail downstream cleanup.
+9. Dashboard and state-variant/reference screen cleanup.
+
+No runtime code, browser UI behavior, providers, `admin/`, `pc-web/`, or old Event-to-Operation files are changed by this milestone.
+
+## Previous Scope
+
 RAG-REVIEW-COLLECTION-002 fixes the RAG review DOCX path so the review document no longer silently stops at the first 10 Naver Place visitor reviews.
 
 Root cause: RAG document generation requested `reviewLimit=100`, but the rendered Place review provider only got the first SSR/Apollo review batch. The Playwright layer can be blocked by Naver on the local IP, and the direct mobile HTML snapshot exposes only `size=10`. The resulting collection run had 10 collected reviews and 90 failed placeholders, so `reviews_<업체명>.docx` included only 10 reviews.
