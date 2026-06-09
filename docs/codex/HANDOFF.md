@@ -2,6 +2,26 @@
 
 ## Current Scope
 
+MILESTONE-07-RULESET-UI-SOURCE-MATRIX wires the marketing strategy ruleset screen to the source matrix API contract introduced in Milestone 06.
+
+The ruleset page now:
+
+- Adds source matrix containers for the store, brand, writing, and image sections.
+- Adds `data-ruleset-field` / `data-ruleset-value` hooks to rows that were previously static, including representative menu, catchphrase, Blog writing length, image format/style, and overlay policy rows.
+- Renders `payload.sourceMatrix` from `GET /api/stores/:storeId/ruleset` into an automatic-input matrix with current value, source tier, automation status, current implementation, and future suggestion columns.
+- Adds compact source guidance notes to loaded editable ruleset fields.
+- Keeps browser calls limited to `poc-server` APIs and the existing local benchmark fixture.
+
+`seedDemoStore` now seeds expanded demo ruleset fields so `store_demo_cake` has API-backed values for the rows used by the UI source matrix. Existing legacy demo keys such as `positioning` and `contentKeywords` remain for backward compatibility.
+
+This milestone does not redesign the whole ruleset page, add provider calls, change analyzer behavior, change Blog generation, change learning-status completion semantics, modify `admin/`, modify `pc-web/`, or touch old Event-to-Operation files.
+
+Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/32.
+
+The branch is stacked on `codex/ruleset-source-matrix` while PR #31 is open. After PR #31 merges, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-06-RULESET-SOURCE-MATRIX expands the analyzer/ruleset contract before replacing the full strategy ruleset UI.
 
 The new source matrix lives in:

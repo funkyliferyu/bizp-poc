@@ -129,6 +129,27 @@ describe('marketing ruleset API', () => {
     });
   });
 
+  it('seeds ruleset fields used by the UI source matrix rows', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset`);
+    const body = await readJson(response);
+    const fieldKeys = body.fields.map((field: { fieldKey: string }) => field.fieldKey);
+
+    expect(response.status).toBe(200);
+    expect(fieldKeys).toEqual(
+      expect.arrayContaining([
+        'representativeMenu',
+        'reviewStrength',
+        'reviewWeakness',
+        'catchphrase',
+        'blogPurpose',
+        'blogPreferredLength',
+        'blogImageFormat',
+        'blogImageStyle',
+        'blogOverlayPolicy'
+      ])
+    );
+  });
+
   it('persists user edits, locks the field, and can reset to the AI value', async () => {
     const editedValue = '분당 기념일 레터링 케이크 예약 전문점';
     const editResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/positioning`, {
