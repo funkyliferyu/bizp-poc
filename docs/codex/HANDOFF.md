@@ -2,6 +2,36 @@
 
 ## Current Scope
 
+MILESTONE-06-RULESET-SOURCE-MATRIX expands the analyzer/ruleset contract before replacing the full strategy ruleset UI.
+
+The new source matrix lives in:
+
+- `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`
+
+It defines direct Place/manual rows and AI-generated ruleset rows with:
+
+- `fieldKey`
+- `label`
+- `section`
+- `valueKind`
+- `sourceTier`
+- `currentImplementation`
+- `inputSources`
+- `requiresAi`
+- `automationStatus`
+- `futureSuggestion`
+- `notes`
+
+`GET /api/stores/:storeId/ruleset` now includes `sourceMatrix` on the top-level payload and attaches matching `sourceMatrix` metadata to each serialized ruleset field. Legacy seeded field key `positioning` maps to the canonical `storePositioning` source matrix row so older demo data still has correct source metadata.
+
+The mock analyzer now generates expanded ruleset fields for currently static ruleset rows such as representative menu, review strengths/weaknesses, channel writing policies, colors, image style, and Blog/Instagram image format policies. The OpenAI analyzer prompt reuses the same required field-key list so live analyzer output is asked to align with the matrix.
+
+This milestone does not replace the `web/07_마케팅전략룰셋.html` UI table, add competitor provider collection, change learning-status completion semantics, call external providers from browser pages, modify Blog generation behavior, or modify `admin/`, `pc-web/`, or old Event-to-Operation files.
+
+The branch is stacked on `codex/blog-raw-viewer-evidence` while PR #30 is open. After PR #30 merges, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-05-BLOG-RAW-VIEWER-EVIDENCE adds collection-run RAW data inspection and Blog evidence badges before analysis selection.
 
 The new RAW viewer is:

@@ -101,12 +101,36 @@ describe('analysis execution API', () => {
       expect.arrayContaining([
         'storePositioning',
         'keyStrengths',
+        'representativeMenu',
         'targetCustomers',
+        'reviewStrength',
+        'reviewWeakness',
+        'catchphrase',
+        'humorLevel',
+        'trendSensitivity',
+        'instagramPurpose',
+        'instagramWritingStyle',
+        'instagramPreferredLength',
+        'instagramHashtags',
+        'instagramEmojiPolicy',
+        'blogPurpose',
         'toneAndManner',
         'blogWritingStyle',
+        'blogPreferredLength',
+        'blogEmojiPolicy',
         'seoKeywords',
         'ctaStyle',
+        'primaryColors',
+        'accentColors',
         'imageDirection',
+        'imageStyle',
+        'imageAvoidStyle',
+        'instagramImageFormat',
+        'instagramImageStyle',
+        'instagramOverlayPolicy',
+        'blogImageFormat',
+        'blogImageStyle',
+        'blogOverlayPolicy',
         'negativeExpressions'
       ])
     );
@@ -117,6 +141,11 @@ describe('analysis execution API', () => {
       source: 'mock_analyzer',
       locked: 0,
       evidenceItemIds: expect.arrayContaining(['collection_item_demo_place_profile'])
+    });
+    expect(fields.find((field) => field.fieldKey === 'reviewWeakness')).toMatchObject({
+      aiValue: expect.stringContaining('주차'),
+      source: 'mock_analyzer',
+      evidenceItemIds: expect.arrayContaining(['collection_item_demo_place_review'])
     });
   });
 
@@ -141,7 +170,7 @@ describe('analysis execution API', () => {
     expect(latest.analysisRun.status).toBe('completed');
     expect(latest.learningSnapshot.status).toBe('active');
     expect(latest.marketingRuleset.status).toBe('draft');
-    expect(latest.rulesetFields.length).toBeGreaterThanOrEqual(9);
+    expect(latest.rulesetFields.length).toBeGreaterThanOrEqual(30);
     expect(latest.analysisEvidence.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -237,6 +266,9 @@ describe('analysis execution API', () => {
     expect(parseCalls).toHaveLength(1);
     expect(JSON.stringify(parseCalls[0])).toContain('test-openai-model');
     expect(JSON.stringify(parseCalls[0])).toContain('collection_item_demo_blog');
+    expect(JSON.stringify(parseCalls[0])).toContain('reviewWeakness');
+    expect(JSON.stringify(parseCalls[0])).toContain('blogImageFormat');
+    expect(JSON.stringify(parseCalls[0])).toContain('representativeMenu');
     expect(persistedRun?.status).toBe('completed');
     expect(persistedRun?.result).toEqual(
       expect.objectContaining({
