@@ -499,6 +499,7 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     status: 'pending_approval',
     title: '분당 케이크 맛집 추천 - 당일 제작 레터링 케이크 안내',
     article: {
+      generatedFromRulesetId: rulesetId,
       blocks: [
         { type: 'heading', text: '분당에서 당일 제작 케이크를 찾는다면' },
         { type: 'paragraph', text: '정자동에서 픽업 가능한 커스텀 케이크 예약 정보를 안내합니다.' }

@@ -1,5 +1,54 @@
 # Validation
 
+## MILESTONE-09-BLOG-MANAGEMENT-RESULTS Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- blogGenerationApi.test.ts -t "list summary"
+npm test -- blogPostPages.test.ts -t "pending approval CTA"
+npm test -- blogGenerationApi.test.ts blogPostPages.test.ts contentDetailPage.test.ts
+npm test -- staticWebConnectivity.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5177/02_%EB%B8%94%EB%A1%9C%EA%B7%B8%EA%B4%80%EB%A6%AC.html?storeId=store_demo_cake"
+curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5177/08_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EB%AA%A9%EB%A1%9D.html?storeId=store_demo_cake"
+git status --short --branch
+```
+
+## MILESTONE-09-BLOG-MANAGEMENT-RESULTS TDD Evidence
+
+- RED `npm test -- blogGenerationApi.test.ts -t "list summary"`: failed because `body.summary` was `undefined`.
+- GREEN `npm test -- blogGenerationApi.test.ts -t "list summary"`: passed after adding blog list summary metadata and post `generationSource`.
+- RED `npm test -- blogPostPages.test.ts -t "pending approval CTA"`: failed because `web/02_블로그관리.html` had no `blog-pending-alert`/`blog-pending-action` hooks and `web/blog_posts.js` had no summary/source renderer.
+- GREEN `npm test -- blogPostPages.test.ts -t "pending approval CTA"`: passed after adding the pending approval CTA hook, source note hook, and generation source row rendering.
+
+## MILESTONE-09-BLOG-MANAGEMENT-RESULTS Final Validation
+
+- `npm test -- blogGenerationApi.test.ts blogPostPages.test.ts contentDetailPage.test.ts`: passed, 9 tests.
+- `npm test -- staticWebConnectivity.test.ts`: passed, 28 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- `curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5177/02_%EB%B8%94%EB%A1%9C%EA%B7%B8%EA%B4%80%EB%A6%AC.html?storeId=store_demo_cake"`: returned `200`.
+- `curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5177/08_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EB%AA%A9%EB%A1%9D.html?storeId=store_demo_cake"`: returned `200`.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_09_BLOG_MANAGEMENT_RESULTS_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/storeLearning/blog/blogGenerator.ts`
+  - `poc-server/src/seedStoreLearning.ts`
+  - `poc-server/test/blogGenerationApi.test.ts`
+  - `poc-server/test/blogPostPages.test.ts`
+  - `web/02_블로그관리.html`
+  - `web/08_AI콘텐츠생성_목록.html`
+  - `web/blog_posts.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-08-LEARNING-STATUS-RESULTS Commands
 
 Run from `poc-server/`:

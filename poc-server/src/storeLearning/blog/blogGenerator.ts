@@ -501,6 +501,10 @@ export function serializeBlogPost(repos: Repositories, postId: string) {
   const article = asRecord(post.article);
   const seoScore = latestByUpdatedAt(repos.seoScores.listByBlogPostId(post.id));
   const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  const contentGeneration = post.contentGenerationId ? repos.contentGenerations.findById(post.contentGenerationId) : null;
+  const generatedFromRulesetId =
+    article.generatedFromRulesetId?.toString() || contentGeneration?.rulesetId?.toString() || null;
+  const generationSourceType = generatedFromRulesetId ? 'ruleset' : contentGeneration ? 'content_generation' : 'manual';
   return {
     id: post.id,
     storeId: post.storeId,
@@ -508,7 +512,18 @@ export function serializeBlogPost(repos: Repositories, postId: string) {
     status: post.status,
     title: post.title,
     article,
-    generatedFromRulesetId: article.generatedFromRulesetId?.toString() ?? null,
+    generatedFromRulesetId,
+    generationSource: {
+      type: generationSourceType,
+      label:
+        generationSourceType === 'ruleset'
+          ? '마케팅 룰셋 기반'
+          : generationSourceType === 'content_generation'
+            ? 'AI 생성'
+            : '직접등록',
+      rulesetId: generatedFromRulesetId,
+      contentGenerationId: post.contentGenerationId
+    },
     metaDescription: article.metaDescription?.toString() ?? null,
     seoKeywords: Array.isArray(article.seoKeywords) ? article.seoKeywords.filter((item): item is string => typeof item === 'string') : [],
     cta: article.cta?.toString() ?? null,
@@ -530,6 +545,15 @@ export function listBlogPostsForStore(repos: Repositories, storeId: string) {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((post) => serializeBlogPost(repos, post.id))
     .filter((post): post is NonNullable<typeof post> => Boolean(post));
+  const pendingPosts = posts.filter((post) => post.status === 'pending_approval');
+  const firstPendingPost = pendingPosts[0] ?? null;
+  const generatedDraftCount = posts.filter((post) => post.generationSource.type !== 'manual').length;
+  const summary = {
+    pendingApprovalCount: pendingPosts.length,
+    firstPendingApprovalPostId: firstPendingPost?.id ?? null,
+    firstPendingApprovalHref: firstPendingPost ? `09_AI콘텐츠생성_상세.html?postId=${firstPendingPost.id}` : null,
+    generatedDraftCount
+  };
 
   return {
     store: {
@@ -537,7 +561,8 @@ export function listBlogPostsForStore(repos: Repositories, storeId: string) {
       name: store.name
     },
     posts,
-    pendingApprovalCount: posts.filter((post) => post.status === 'pending_approval').length
+    pendingApprovalCount: summary.pendingApprovalCount,
+    summary
   };
 }
 

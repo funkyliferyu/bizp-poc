@@ -117,6 +117,29 @@ describe('ruleset based blog generation API', () => {
     expect(detail.contentGeneration.id).toBe(generated.contentGeneration.id);
   });
 
+  it('returns list summary metadata for the first approval-pending ruleset-generated draft', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/blog-posts`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.summary).toMatchObject({
+      pendingApprovalCount: 1,
+      firstPendingApprovalPostId: 'blog_post_demo_pending_approval',
+      firstPendingApprovalHref: '09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval',
+      generatedDraftCount: 1
+    });
+    expect(body.posts[0]).toMatchObject({
+      id: 'blog_post_demo_pending_approval',
+      status: 'pending_approval',
+      generationSource: {
+        type: 'ruleset',
+        label: '마케팅 룰셋 기반',
+        rulesetId: 'marketing_ruleset_demo_v1',
+        contentGenerationId: 'content_generation_demo_blog'
+      }
+    });
+  });
+
   it('generates an approval-pending blog post through the OpenAI blog provider when configured', async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     connection.close();
