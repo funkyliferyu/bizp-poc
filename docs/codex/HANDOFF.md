@@ -663,6 +663,33 @@ http://localhost:5177/soho_store_register.html
 
 Static GitHub Pages hosting alone cannot validate this PoC because the browser must call local `poc-server` APIs backed by SQLite.
 
+## Branch Workflow Bootstrap
+
+The repository is moving to a stable-public plus integration workflow:
+
+- `main`: public/stable branch and GitHub Pages source.
+- `develop`: integration branch for local API-backed validation.
+- `feature/*` or `codex/*`: task branches created from `develop`.
+
+Future task flow:
+
+```text
+feature/* -> develop -> main
+```
+
+Operating details are documented in `docs/codex/GIT_WORKFLOW.md`.
+
+New Codex sessions should start by reading:
+
+- `AGENTS.md`
+- `poc-server/AGENTS.md`
+- `docs/codex/GIT_WORKFLOW.md`
+- `docs/codex/CURRENT_TASK.md`
+- `docs/codex/HANDOFF.md`
+- `docs/codex/VALIDATION.md`
+
+Before editing files in a new session, confirm the current branch, `git status --short`, task scope, forbidden areas, and validation commands.
+
 ## Next Suggested Task
 
 Before any production-like pilot, decide approved fallback providers and operating policies for:

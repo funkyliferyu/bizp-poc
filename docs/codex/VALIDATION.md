@@ -813,3 +813,24 @@ Manual browser smoke at `http://localhost:5177/soho_store_register.html?qa=busin
 - The red `*요일별 운영시간 설정 필요` message was visible.
 - After setting every weekday to the same hours in the modal and saving, the main form showed the single shared hours and the warning disappeared.
 - After editing the main form hours, reopening the modal showed the edited hours applied to every open weekday row.
+
+## Branch Workflow Bootstrap Validation
+
+Purpose:
+
+- Establish `main` as the public/stable branch.
+- Establish `develop` as the integration branch.
+- Document that GitHub Pages is static UI only and cannot validate the API-backed SQLite runtime.
+
+Expected checks:
+
+- `git diff --check`
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test`
+
+Manual verification:
+
+- Confirm `docs/codex/GIT_WORKFLOW.md` exists.
+- Confirm `docs/codex/CURRENT_TASK.md` exists.
+- Confirm `AGENTS.md` points future feature work to `develop`.
+- Confirm GitHub Pages source is `main` after branch setup.

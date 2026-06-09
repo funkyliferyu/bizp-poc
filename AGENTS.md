@@ -26,6 +26,15 @@ Do not treat `README_POC.md` or `web/event_operation_poc.html` as the product so
 - Product planning and operating docs live under `docs/product/`, `docs/architecture/`, `docs/qa/`, and `docs/codex/`.
 - Runtime code for the PoC will live under `poc-server/` when implementation begins.
 
+## Git Workflow
+
+- Branch workflow is documented in `docs/codex/GIT_WORKFLOW.md`.
+- `main` is the public/stable branch and GitHub Pages source.
+- `develop` is the integration branch for API-backed local validation.
+- Feature work should branch from `develop` unless the user explicitly requests another base.
+- Before starting a new task, confirm `pwd`, current branch, PR base, `git status --short`, task scope, forbidden areas, and validation commands.
+- GitHub Pages is static UI only. Store Learning runtime behavior must be validated with local `poc-server` APIs and SQLite.
+
 ## Browser And API Rules
 
 - Browser pages must call `poc-server` APIs only.
@@ -40,4 +49,3 @@ Do not treat `README_POC.md` or `web/event_operation_poc.html` as the product so
 - Put real Naver collection behind provider adapters.
 - Account for Naver API limits: official APIs are limited, and full blog body plus Place reviews require separate provider/fallback design.
 - Validate all LLM outputs with Zod schemas and structured validation before saving.
-
