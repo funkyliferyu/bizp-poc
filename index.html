@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="1; url=web/index.html">
+<title>BizPlanet Store Learning PoC</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F7F8FA;color:#1A1A2E;font-family:Arial,'Noto Sans KR',sans-serif}
+main{width:min(560px,calc(100vw - 32px));background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:28px;box-shadow:0 16px 40px rgba(15,20,32,.08)}
+h1{margin:0 0 10px;font-size:22px;line-height:1.35}
+p{margin:0 0 14px;font-size:14px;line-height:1.7;color:#4A5568}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border-radius:6px;font-size:14px;font-weight:700;text-decoration:none}
+.primary{background:#3B5BDB;color:#fff}
+.secondary{border:1px solid #D8E0EC;color:#3B5BDB;background:#fff}
+</style>
+</head>
+<body>
+<main>
+  <h1>BizPlanet Store Learning PoC</h1>
+  <p>GitHub Pages 루트에서 Store Learning 정적 화면으로 이동합니다.</p>
+  <p>잠시 후 <strong>web/index.html</strong>로 자동 이동합니다. 정적 Pages에서는 API 연동 기능이 동작하지 않는 것이 정상이며, 런타임 검증은 로컬 <strong>poc-server</strong>로 진행합니다.</p>
+  <div class="links">
+    <a class="primary" href="web/index.html">정적 화면 열기</a>
+    <a class="secondary" href="web/soho_store_register.html">매장 등록 화면 열기</a>
+  </div>
+</main>
+<script>
+window.setTimeout(function(){
+  window.location.replace('web/index.html');
+}, 1000);
+</script>
+</body>
+</html>
