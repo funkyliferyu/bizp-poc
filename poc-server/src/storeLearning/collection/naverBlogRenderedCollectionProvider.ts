@@ -27,6 +27,13 @@ export type RenderedBlogPost = {
   imageUrls: string[];
 };
 
+type BlogPostDiscovery = 'explicit_env' | 'direct_post' | 'post_list' | 'rss';
+
+type BlogPostUrlCandidate = {
+  url: string;
+  discovery: BlogPostDiscovery;
+};
+
 const RESTRICTED_MARKERS = [
   '서비스 이용이 제한되었습니다',
   '과도한 접근 요청으로 서비스 이용이 제한되었습니다',
@@ -131,6 +138,16 @@ export function toNaverBlogListUrl(value: string | null) {
   const listUrl = new URL('https://m.blog.naver.com/PostList.naver');
   listUrl.searchParams.set('blogId', blogId);
   return listUrl.toString();
+}
+
+export function toNaverBlogRssUrl(value: string | null) {
+  const url = naverBlogUrl(value);
+  if (!url) return null;
+
+  const params = postParamsFrom(value);
+  const blogId = params?.blogId ?? cleanText(url.searchParams.get('blogId')) ?? firstPathSegment(url);
+  if (!blogId) return null;
+  return `https://rss.blog.naver.com/${encodeURIComponent(blogId)}.xml`;
 }
 
 function imageUrlsFrom(html: string) {
@@ -251,6 +268,17 @@ export function extractRenderedBlogPostLinks(input: { html: string; finalUrl: st
   return Array.from(urls);
 }
 
+export function extractRenderedBlogRssPostLinks(input: { html: string; finalUrl: string }) {
+  const urls = new Set<string>();
+  for (const match of input.html.matchAll(/<(?:link|guid)\b[^>]*>([\s\S]*?)<\/(?:link|guid)>/gi)) {
+    const rawLink = stripTags(match[1]);
+    if (!rawLink) continue;
+    const postUrl = toNaverBlogPostUrl(rawLink);
+    if (postUrl) urls.add(postUrl);
+  }
+  return Array.from(urls);
+}
+
 async function renderWithEndpoint(url: string, env: ProviderEnv): Promise<RenderedBlogSnapshot | null> {
   const endpointValue = env.NAVER_BLOG_RENDERER_ENDPOINT;
   if (!endpointValue) return null;
@@ -345,23 +373,55 @@ async function postUrlsForSource(
   sourceUrl: string,
   limit: number,
   renderer: NaverBlogRenderer
-) {
+): Promise<BlogPostUrlCandidate[]> {
   const explicitUrls = explicitPostUrls(env);
-  if (explicitUrls.length > 0) return explicitUrls.slice(0, limit);
+  if (explicitUrls.length > 0) {
+    return explicitUrls.slice(0, limit).map((url) => ({ url, discovery: 'explicit_env' }));
+  }
 
   const directPostUrl = toNaverBlogPostUrl(sourceUrl);
-  if (directPostUrl) return [directPostUrl];
+  if (directPostUrl) return [{ url: directPostUrl, discovery: 'direct_post' }];
 
   const listUrl = toNaverBlogListUrl(sourceUrl);
-  if (!listUrl) return [];
-  const snapshot = await renderer(listUrl, env);
-  if (isRestrictedSnapshot(snapshot)) {
-    throw new Error('Naver Blog rendered request was restricted by Naver.');
+  const rssUrl = toNaverBlogRssUrl(sourceUrl);
+  const listPostUrls: string[] = [];
+  let listRestricted = false;
+
+  if (listUrl) {
+    try {
+      const snapshot = await renderer(listUrl, env);
+      if (isRestrictedSnapshot(snapshot)) {
+        listRestricted = true;
+      } else {
+        listPostUrls.push(
+          ...extractRenderedBlogPostLinks({
+            html: snapshot.html,
+            finalUrl: snapshot.finalUrl || listUrl
+          })
+        );
+      }
+    } catch (error) {
+      if (!rssUrl) throw error;
+    }
   }
-  return extractRenderedBlogPostLinks({
-    html: snapshot.html,
-    finalUrl: snapshot.finalUrl || listUrl
-  }).slice(0, limit);
+  if (listPostUrls.length > 0) {
+    return listPostUrls.slice(0, limit).map((url) => ({ url, discovery: 'post_list' }));
+  }
+
+  if (!rssUrl) {
+    if (listRestricted) throw new Error('Naver Blog rendered request was restricted by Naver.');
+    return [];
+  }
+  const rssSnapshot = await renderer(rssUrl, env);
+  if (isRestrictedSnapshot(rssSnapshot)) {
+    throw new Error('Naver Blog RSS request was restricted by Naver.');
+  }
+  return extractRenderedBlogRssPostLinks({
+    html: rssSnapshot.html,
+    finalUrl: rssSnapshot.finalUrl || rssUrl
+  })
+    .slice(0, limit)
+    .map((url) => ({ url, discovery: 'rss' }));
 }
 
 export async function collectRenderedBlogItems(context: {
@@ -377,13 +437,14 @@ export async function collectRenderedBlogItems(context: {
   const sourceUrl = configuredBlogSourceUrl(env, store, storeChannels);
   if (!sourceUrl) return failedBlogItems(plan, null, 'store_missing_naver_blog_url');
 
-  const postUrls = await postUrlsForSource(env, sourceUrl, plan.blogPostLimit, renderer);
-  if (postUrls.length === 0) {
+  const postCandidates = await postUrlsForSource(env, sourceUrl, plan.blogPostLimit, renderer);
+  if (postCandidates.length === 0) {
     return failedBlogItems(plan, sourceUrl, 'rendered_blog_post_links_not_found');
   }
 
   const items: CollectionProviderItemDraft[] = [];
-  for (const [index, postUrl] of postUrls.entries()) {
+  for (const [index, candidate] of postCandidates.entries()) {
+    const postUrl = candidate.url;
     const snapshot = await renderer(postUrl, env);
     if (isRestrictedSnapshot(snapshot)) {
       throw new Error('Naver Blog rendered request was restricted by Naver.');
@@ -415,7 +476,8 @@ export async function collectRenderedBlogItems(context: {
         tags: post.tags,
         imageUrls: post.imageUrls,
         ordinal: index + 1,
-        blogSourceUrl: sourceUrl
+        blogSourceUrl: sourceUrl,
+        blogSourceDiscovery: candidate.discovery
       }
     });
   }

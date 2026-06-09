@@ -10,6 +10,7 @@ import { seedDemoStore } from '../src/seedStoreLearning.js';
 import { createCollectionRunRoutes } from '../src/storeLearning/routes/collectionRuns.js';
 import { createStoreRoutes } from '../src/storeLearning/routes/stores.js';
 import {
+  collectRenderedBlogItems,
   extractRenderedBlogPost,
   extractRenderedBlogPostLinks,
   toNaverBlogListUrl,
@@ -17,13 +18,16 @@ import {
 } from '../src/storeLearning/collection/naverBlogRenderedCollectionProvider.js';
 
 const listFixturePath = fileURLToPath(new URL('./fixtures/naver-blog-rendered-list.html', import.meta.url));
+const rssFixturePath = fileURLToPath(new URL('./fixtures/naver-blog-rss.xml', import.meta.url));
 const postOneFixturePath = fileURLToPath(new URL('./fixtures/naver-blog-rendered-post-1.html', import.meta.url));
 const postTwoFixturePath = fileURLToPath(new URL('./fixtures/naver-blog-rendered-post-2.html', import.meta.url));
 const listFixtureHtml = readFileSync(listFixturePath, 'utf8');
+const rssFixtureXml = readFileSync(rssFixturePath, 'utf8');
 const postOneFixtureHtml = readFileSync(postOneFixturePath, 'utf8');
 const postTwoFixtureHtml = readFileSync(postTwoFixturePath, 'utf8');
 const blogRootUrl = 'https://blog.naver.com/demo-cake';
 const blogListUrl = 'https://m.blog.naver.com/PostList.naver?blogId=demo-cake';
+const blogRssUrl = 'https://rss.blog.naver.com/demo-cake.xml';
 const blogPostOneUrl = 'https://m.blog.naver.com/PostView.naver?blogId=demo-cake&logNo=223500000001';
 const blogPostTwoUrl = 'https://m.blog.naver.com/PostView.naver?blogId=demo-cake&logNo=223500000002';
 
@@ -91,6 +95,126 @@ describe('Naver Blog rendered collection provider', () => {
         imageUrls: ['https://postfiles.pstatic.net/demo-cake-1.jpg']
       })
     );
+  });
+
+  it('falls back to Naver Blog RSS when PostList has no post links', async () => {
+    const requestedUrls: string[] = [];
+    const items = await collectRenderedBlogItems({
+      env: {
+        NAVER_OWNER_AUTHORIZED: 'true',
+        NAVER_BLOG_PROVIDER: 'rendered',
+        NAVER_PLACE_PROVIDER: 'mock'
+      },
+      plan: {
+        blogPostLimit: 2,
+        includePlaceProfile: false,
+        placeReviewLimit: 0
+      },
+      store: {
+        id: 'store_rss_blog',
+        name: 'RSS Blog Store',
+        naverPlaceUrl: null,
+        naverPlaceId: null,
+        category: null,
+        address: null,
+        phone: null,
+        description: null,
+        metadata: null,
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString()
+      },
+      storeChannels: [
+        {
+          id: 'channel_rss_blog',
+          storeId: 'store_rss_blog',
+          channel: 'blog',
+          sourceUrl: blogRootUrl,
+          status: 'connected',
+          providerMode: 'real',
+          settings: null,
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString()
+        }
+      ],
+      renderer: async (url) => {
+        requestedUrls.push(url);
+        if (url === blogListUrl) return { finalUrl: blogListUrl, html: '<html><body>no posts</body></html>', bodyText: null };
+        if (url === blogRssUrl) return { finalUrl: blogRssUrl, html: rssFixtureXml, bodyText: null };
+        if (url === blogPostOneUrl) return { finalUrl: blogPostOneUrl, html: postOneFixtureHtml, bodyText: null };
+        if (url === blogPostTwoUrl) return { finalUrl: blogPostTwoUrl, html: postTwoFixtureHtml, bodyText: null };
+        throw new Error(`unexpected rendered URL: ${url}`);
+      }
+    });
+
+    expect(requestedUrls).toContain(blogListUrl);
+    expect(requestedUrls).toContain(blogRssUrl);
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.status ?? 'pending')).toEqual(['pending', 'pending']);
+    expect(items.map((item) => item.sourceUrl)).toEqual([blogPostOneUrl, blogPostTwoUrl]);
+    expect(items[0].metadata).toEqual(expect.objectContaining({ blogSourceDiscovery: 'rss' }));
+  });
+
+  it('falls back to Naver Blog RSS when PostList is restricted', async () => {
+    const items = await collectRenderedBlogItems({
+      env: {
+        NAVER_OWNER_AUTHORIZED: 'true',
+        NAVER_BLOG_PROVIDER: 'rendered',
+        NAVER_PLACE_PROVIDER: 'mock'
+      },
+      plan: {
+        blogPostLimit: 1,
+        includePlaceProfile: false,
+        placeReviewLimit: 0
+      },
+      store: {
+        id: 'store_restricted_blog',
+        name: 'Restricted Blog Store',
+        naverPlaceUrl: null,
+        naverPlaceId: null,
+        category: null,
+        address: null,
+        phone: null,
+        description: null,
+        metadata: null,
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString()
+      },
+      storeChannels: [
+        {
+          id: 'channel_restricted_blog',
+          storeId: 'store_restricted_blog',
+          channel: 'blog',
+          sourceUrl: blogRootUrl,
+          status: 'connected',
+          providerMode: 'real',
+          settings: null,
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString()
+        }
+      ],
+      renderer: async (url) => {
+        if (url === blogListUrl) {
+          return {
+            finalUrl: blogListUrl,
+            html: '<html><body>서비스 이용이 제한되었습니다</body></html>',
+            bodyText: '서비스 이용이 제한되었습니다'
+          };
+        }
+        if (url === blogRssUrl) return { finalUrl: blogRssUrl, html: rssFixtureXml, bodyText: null };
+        if (url === blogPostOneUrl) return { finalUrl: blogPostOneUrl, html: postOneFixtureHtml, bodyText: null };
+        throw new Error(`unexpected rendered URL: ${url}`);
+      }
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        sourceUrl: blogPostOneUrl,
+        title: '레터링 케이크 예약 안내',
+        bodyText: expect.stringContaining('최소 하루 전 예약을 권장합니다.')
+      })
+    );
+    expect(items[0].metadata).toEqual(expect.objectContaining({ blogSourceDiscovery: 'rss' }));
   });
 
   it('persists rendered Blog full bodies as collection items through the collection run API', async () => {
