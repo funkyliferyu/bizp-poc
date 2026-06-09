@@ -86,11 +86,66 @@
     }
   }
 
+  function completionStepState(status) {
+    if (status === 'complete') return '완료';
+    if (status === 'failed') return '확인 필요';
+    return '대기';
+  }
+
+  function completionStepClass(status) {
+    if (status === 'complete') return 'complete';
+    if (status === 'failed') return 'failed';
+    return 'waiting';
+  }
+
+  function completionCount(criterion) {
+    if (!criterion) return '';
+    if (typeof criterion.version === 'number') return `v${criterion.version}`;
+    if (criterion.analysisRunId) return criterion.completedAt ? shortDate(criterion.completedAt) : '실행됨';
+    if (typeof criterion.collectedCount === 'number') {
+      const selected = typeof criterion.selectedCount === 'number' ? ` · 선택 ${criterion.selectedCount}` : '';
+      return `${criterion.collectedCount}개${selected}`;
+    }
+    return '';
+  }
+
+  function renderCompletion(completion) {
+    const summary = field('learning-completion-summary');
+    const checklist = field('learning-completion-checklist');
+    if (!summary || !checklist) return;
+    summary.dataset.status = completion?.status || 'unknown';
+    field('learning-completion-label').textContent = completion?.label || '학습 상태 확인 중';
+    field('learning-completion-message').textContent =
+      completion?.message || '수집, 분석, 룰셋 생성 결과를 확인하고 있습니다.';
+
+    const criteria = completion?.criteria || {};
+    const rows = [
+      criteria.blogCollection,
+      criteria.placeProfile,
+      criteria.aiAnalysis,
+      criteria.marketingRuleset
+    ].filter(Boolean);
+
+    checklist.innerHTML = rows
+      .map((criterion) => {
+        const state = completionStepState(criterion.status);
+        const count = completionCount(criterion);
+        return `<div class="learning-completion-step ${completionStepClass(criterion.status)}">
+          <div class="learning-completion-step-label">${escapeHtml(criterion.label || '-')}</div>
+          <div class="learning-completion-step-state">${escapeHtml(state)}${count ? ` · ${escapeHtml(count)}` : ''}</div>
+        </div>`;
+      })
+      .join('');
+  }
+
   function renderOverview(status, storeId) {
     field('learning-last-analyzed').textContent = formatDate(status.lastAnalyzedAt);
+    field('learning-next-collection').textContent = formatDate(status.nextCollectionAt);
+    field('learning-collection-cycle').textContent = status.collectionCycle || '-';
     field('learning-ruleset-status').innerHTML = status.ruleset
       ? `✓ ${escapeHtml(status.ruleset.statusLabel || status.ruleset.status)}`
       : '미생성';
+    renderCompletion(status.completion);
     renderRulesetEntry(status, storeId);
     field('learning-blog-count').textContent = status.channels.blog.collectedCount;
     field('learning-place-count').textContent = status.channels.place.collectedCount;

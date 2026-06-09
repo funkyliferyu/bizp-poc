@@ -1,5 +1,50 @@
 # Validation
 
+## MILESTONE-08-LEARNING-STATUS-RESULTS Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- learningStatusApi.test.ts -t "completion criteria"
+npm test -- learningStatusPage.test.ts -t "completion result"
+npm test -- learningStatusApi.test.ts learningStatusPage.test.ts
+npm test -- staticWebConnectivity.test.ts
+npm run typecheck
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5177/06_AI%ED%95%99%EC%8A%B5_%ED%98%84%ED%99%A9.html?storeId=store_demo_cake"
+git status --short --branch
+```
+
+## MILESTONE-08-LEARNING-STATUS-RESULTS TDD Evidence
+
+- RED `npm test -- learningStatusApi.test.ts -t "completion criteria"`: failed because `body.completion` was `undefined`.
+- GREEN `npm test -- learningStatusApi.test.ts -t "completion criteria"`: passed after adding completion criteria derived from Blog collection, Place profile collection, latest analysis artifacts, and marketing ruleset fields.
+- RED `npm test -- learningStatusPage.test.ts -t "completion result"`: failed because `web/06_AI학습_현황.html` had no `learning-completion-*` hooks and `web/learning_status.js` had no `renderCompletion`.
+- GREEN `npm test -- learningStatusPage.test.ts -t "completion result"`: passed after adding the completion summary hooks and API-backed completion renderer.
+
+## MILESTONE-08-LEARNING-STATUS-RESULTS Final Validation
+
+- `npm test -- learningStatusApi.test.ts learningStatusPage.test.ts`: passed, 6 tests.
+- `npm test -- staticWebConnectivity.test.ts`: passed, 28 tests.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed.
+- `curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5177/06_AI%ED%95%99%EC%8A%B5_%ED%98%84%ED%99%A9.html?storeId=store_demo_cake"`: returned `200`.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_08_LEARNING_STATUS_RESULTS_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/storeLearning/learning/learningStatusService.ts`
+  - `poc-server/test/learningStatusApi.test.ts`
+  - `poc-server/test/learningStatusPage.test.ts`
+  - `web/06_AI학습_현황.html`
+  - `web/learning_status.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-07-RULESET-UI-SOURCE-MATRIX Commands
 
 Run from `poc-server/`:
