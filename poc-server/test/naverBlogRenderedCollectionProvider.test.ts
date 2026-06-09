@@ -126,27 +126,42 @@ describe('Naver Blog rendered collection provider', () => {
     providerEnv.NAVER_BLOG_RENDERER_ENDPOINT = `${baseUrl}/fake-blog-renderer`;
 
     const repos = createStoreLearningRepositories(connection);
-    repos.storeChannels.update('channel_demo_blog', {
-      sourceUrl: blogRootUrl,
-      providerMode: 'real',
-      settings: {
-        providerName: 'naverBlogRenderedCollectionProvider',
-        configuredBlogProvider: 'rendered'
-      }
+    repos.stores.create({
+      id: 'store_blog_url_from_training',
+      name: '블로그 URL 학습 매장',
+      naverPlaceUrl: null,
+      naverPlaceId: null,
+      category: '디저트',
+      address: '서울시 테스트구',
+      phone: null,
+      description: null,
+      metadata: {}
     });
 
-    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+    await fetch(`${baseUrl}/api/stores/store_blog_url_from_training/training-settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         channels: {
-          naverBlog: { enabled: true, blogPostLimit: 2 },
+          naverBlog: { enabled: true, blogPostLimit: 2, sourceUrl: blogRootUrl },
           naverPlace: { enabled: false, placeReviewLimit: 0 },
-          instagram: { enabled: false, instagramPostLimit: 0 }
+          instagram: { enabled: false, instagramPostLimit: 0 },
+          daangn: { enabled: false, daangnPostLimit: 0 }
         }
       })
     });
-    const createRunResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+    const blogChannel = repos.storeChannels
+      .listByStoreId('store_blog_url_from_training')
+      .find((channel) => channel.channel === 'blog');
+    expect(blogChannel).toEqual(
+      expect.objectContaining({
+        sourceUrl: blogRootUrl,
+        status: 'connected',
+        providerMode: 'real'
+      })
+    );
+
+    const createRunResponse = await fetch(`${baseUrl}/api/stores/store_blog_url_from_training/collection-runs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})

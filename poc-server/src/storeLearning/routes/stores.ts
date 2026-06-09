@@ -8,7 +8,7 @@ import type { Store } from '../../repositories/stores.js';
 import { importNaverPlaceUrl } from '../providers/placeImportService.js';
 import type { JsonRecord, PlaceImportProvider, ProviderEnv } from '../providers/placeImportTypes.js';
 import { parseNaverPlaceUrl } from '../providers/naverPlaceUrlParser.js';
-import { configuredPlaceProvider, ownerSourcePolicy, sourceMetadata } from '../providers/ownerSourcePolicy.js';
+import { configuredBlogProvider, configuredPlaceProvider, ownerSourcePolicy, sourceMetadata } from '../providers/ownerSourcePolicy.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
 import {
   buildBlogLearningStatus,
@@ -60,16 +60,19 @@ const ImportPlaceBodySchema = z.object({
 
 const ChannelSettingsSchema = z.object({
   enabled: z.boolean(),
+  sourceUrl: OptionalTextSchema,
   blogPostLimit: z.number().int().min(0).max(1000).optional(),
   placeReviewLimit: z.number().int().min(0).max(1000).optional(),
-  instagramPostLimit: z.number().int().min(0).max(1000).optional()
+  instagramPostLimit: z.number().int().min(0).max(1000).optional(),
+  daangnPostLimit: z.number().int().min(0).max(1000).optional()
 });
 
 const TrainingSettingsBodySchema = z.object({
   channels: z.object({
     naverBlog: ChannelSettingsSchema,
     naverPlace: ChannelSettingsSchema,
-    instagram: ChannelSettingsSchema
+    instagram: ChannelSettingsSchema,
+    daangn: ChannelSettingsSchema.optional()
   })
 });
 
@@ -125,9 +128,10 @@ function latestByUpdatedAt<T extends { updatedAt: string }>(records: T[]) {
 function defaultTrainingSettings() {
   return {
     channels: {
-      naverBlog: { enabled: true, blogPostLimit: 50 },
-      naverPlace: { enabled: true, placeReviewLimit: 50 },
-      instagram: { enabled: false, instagramPostLimit: 0 }
+      naverBlog: { enabled: true, blogPostLimit: 50, sourceUrl: null },
+      naverPlace: { enabled: true, placeReviewLimit: 50, sourceUrl: null },
+      instagram: { enabled: false, instagramPostLimit: 0, sourceUrl: null },
+      daangn: { enabled: false, daangnPostLimit: 0, sourceUrl: null }
     }
   };
 }
@@ -140,12 +144,17 @@ function booleanFromLegacy(value: unknown, fallback: boolean) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function textFromLegacy(value: unknown, fallback: string | null = null) {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
 function normalizeTrainingSettings(value: unknown) {
   const settings = toJsonRecord(value);
   const channels = toJsonRecord(settings.channels);
   const naverBlog = toJsonRecord(channels.naverBlog);
   const naverPlace = toJsonRecord(channels.naverPlace);
   const instagram = toJsonRecord(channels.instagram);
+  const daangn = toJsonRecord(channels.daangn);
   const legacyBlog = toJsonRecord(channels.blog);
   const legacyPlace = toJsonRecord(channels.place);
 
@@ -153,18 +162,26 @@ function normalizeTrainingSettings(value: unknown) {
     channels: {
       naverBlog: {
         enabled: booleanFromLegacy(naverBlog.enabled, booleanFromLegacy(legacyBlog.enabled, true)),
-        blogPostLimit: numberFromLegacy(naverBlog.blogPostLimit, numberFromLegacy(legacyBlog.postLimit, 50))
+        blogPostLimit: numberFromLegacy(naverBlog.blogPostLimit, numberFromLegacy(legacyBlog.postLimit, 50)),
+        sourceUrl: textFromLegacy(naverBlog.sourceUrl, textFromLegacy(legacyBlog.sourceUrl))
       },
       naverPlace: {
         enabled: booleanFromLegacy(naverPlace.enabled, booleanFromLegacy(legacyPlace.enabled, true)),
         placeReviewLimit: numberFromLegacy(
           naverPlace.placeReviewLimit,
           booleanFromLegacy(legacyPlace.includeReviews, true) ? 50 : 0
-        )
+        ),
+        sourceUrl: textFromLegacy(naverPlace.sourceUrl, textFromLegacy(legacyPlace.sourceUrl))
       },
       instagram: {
         enabled: booleanFromLegacy(instagram.enabled, false),
-        instagramPostLimit: numberFromLegacy(instagram.instagramPostLimit, 0)
+        instagramPostLimit: numberFromLegacy(instagram.instagramPostLimit, 0),
+        sourceUrl: textFromLegacy(instagram.sourceUrl)
+      },
+      daangn: {
+        enabled: booleanFromLegacy(daangn.enabled, false),
+        daangnPostLimit: numberFromLegacy(daangn.daangnPostLimit, 0),
+        sourceUrl: textFromLegacy(daangn.sourceUrl)
       }
     }
   });
@@ -176,7 +193,8 @@ function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainin
     requestedLimits: {
       blogPostLimit: channels.naverBlog.blogPostLimit ?? 0,
       placeReviewLimit: channels.naverPlace.placeReviewLimit ?? 0,
-      instagramPostLimit: channels.instagram.instagramPostLimit ?? 0
+      instagramPostLimit: channels.instagram.instagramPostLimit ?? 0,
+      daangnPostLimit: channels.daangn?.daangnPostLimit ?? 0
     },
     channelPlan: {
       naverBlog: {
@@ -190,6 +208,10 @@ function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainin
       instagram: {
         enabled: channels.instagram.enabled,
         limit: channels.instagram.instagramPostLimit ?? 0
+      },
+      daangn: {
+        enabled: channels.daangn?.enabled ?? false,
+        limit: channels.daangn?.daangnPostLimit ?? 0
       }
     },
     sourcePolicy: ownerSourcePolicy(env)
@@ -216,6 +238,119 @@ function upsertPlaceChannel(
       naverPlaceId: store.naverPlaceId,
       configuredPlaceProvider: configuredPlaceProvider(env),
       ...sourceMetadata('place_profile', env)
+    }
+  });
+}
+
+function providerModeFromConfig(provider: string) {
+  return provider === 'mock' ? 'mock' : 'real';
+}
+
+function upsertTrainingSourceChannel(
+  repos: ReturnType<typeof createStoreLearningRepositories>,
+  input: {
+    store: Store;
+    channel: string;
+    sourceUrl: string | null | undefined;
+    enabled: boolean;
+    limit: number;
+    providerName: string;
+    providerMode: string;
+    settings: JsonRecord;
+  }
+) {
+  const existing =
+    repos.storeChannels.listByStoreId(input.store.id).find((channel) => channel.channel === input.channel) ??
+    repos.storeChannels.findById(channelId(input.store.id, input.channel));
+  const id = existing?.id ?? channelId(input.store.id, input.channel);
+  if (!existing && input.sourceUrl === undefined) return null;
+  const sourceUrl = input.sourceUrl === undefined ? existing?.sourceUrl ?? null : input.sourceUrl;
+  const existingSettings = toJsonRecord(existing?.settings);
+
+  return repos.storeChannels.upsert({
+    id,
+    storeId: input.store.id,
+    channel: input.channel,
+    sourceUrl,
+    status: sourceUrl ? 'connected' : input.enabled ? 'missing_url' : 'not_connected',
+    providerMode: input.providerMode,
+    settings: {
+      ...existingSettings,
+      ...input.settings,
+      providerName: input.providerName,
+      enabled: input.enabled,
+      limit: input.limit
+    }
+  });
+}
+
+function syncTrainingSourceChannels(
+  repos: ReturnType<typeof createStoreLearningRepositories>,
+  store: Store,
+  settings: ReturnType<typeof normalizeTrainingSettings>,
+  env: ProviderEnv
+) {
+  const blogProvider = configuredBlogProvider(env);
+  const placeProvider = configuredPlaceProvider(env);
+
+  upsertTrainingSourceChannel(repos, {
+    store,
+    channel: 'blog',
+    sourceUrl: settings.channels.naverBlog.sourceUrl,
+    enabled: settings.channels.naverBlog.enabled,
+    limit: settings.channels.naverBlog.blogPostLimit ?? 0,
+    providerName: 'trainingSettings',
+    providerMode: providerModeFromConfig(blogProvider),
+    settings: {
+      configuredBlogProvider: blogProvider,
+      ...sourceMetadata('owner_blog_post', env)
+    }
+  });
+
+  const placeSourceUrl = settings.channels.naverPlace.sourceUrl;
+  if (placeSourceUrl && placeSourceUrl !== store.naverPlaceUrl) {
+    repos.stores.update(store.id, {
+      naverPlaceUrl: placeSourceUrl,
+      naverPlaceId: store.naverPlaceId ?? parseNaverPlaceUrl(placeSourceUrl)?.candidateId ?? null
+    });
+  }
+  upsertTrainingSourceChannel(repos, {
+    store,
+    channel: 'place',
+    sourceUrl: placeSourceUrl,
+    enabled: settings.channels.naverPlace.enabled,
+    limit: settings.channels.naverPlace.placeReviewLimit ?? 0,
+    providerName: 'trainingSettings',
+    providerMode: providerModeFromConfig(placeProvider),
+    settings: {
+      configuredPlaceProvider: placeProvider,
+      ...sourceMetadata('place_profile', env)
+    }
+  });
+
+  upsertTrainingSourceChannel(repos, {
+    store,
+    channel: 'instagram',
+    sourceUrl: settings.channels.instagram.sourceUrl,
+    enabled: settings.channels.instagram.enabled,
+    limit: settings.channels.instagram.instagramPostLimit ?? 0,
+    providerName: 'trainingSettings',
+    providerMode: 'manual',
+    settings: {
+      providerScope: 'not_implemented'
+    }
+  });
+
+  upsertTrainingSourceChannel(repos, {
+    store,
+    channel: 'daangn',
+    sourceUrl: settings.channels.daangn?.sourceUrl,
+    enabled: settings.channels.daangn?.enabled ?? false,
+    limit: settings.channels.daangn?.daangnPostLimit ?? 0,
+    providerName: 'trainingSettings',
+    providerMode: 'manual',
+    settings: {
+      providerScope: 'not_implemented'
     }
   });
 }
@@ -476,7 +611,7 @@ export function createStoreRoutes({
         return;
       }
 
-      const body = TrainingSettingsBodySchema.parse(req.body);
+      const body = normalizeTrainingSettings(req.body);
       const existing = latestByUpdatedAt(repos.trainingSettings.listByStoreId(store.id));
       const settings = repos.trainingSettings.upsert({
         id: existing?.id ?? trainingSettingsId(store.id),
@@ -484,6 +619,7 @@ export function createStoreRoutes({
         status: 'ready',
         settings: body
       });
+      syncTrainingSourceChannels(repos, store, body, env);
       res.json({ settings });
     } catch (error) {
       next(error);

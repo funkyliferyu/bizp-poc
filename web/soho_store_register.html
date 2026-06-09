@@ -81,6 +81,14 @@
 .upload-file-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:#EEF2FF;border-radius:20px;font-size:11px;color:#3B5BDB}
 .upload-file-tag .del{cursor:pointer;color:#9AA0B4;line-height:1}
 .upload-file-tag .del:hover{color:#C92A2A}
+.upload-source-panel{margin:8px 0 10px;padding:10px;border:1px solid #E8EEF7;border-radius:6px;background:#FAFBFC}
+.upload-source-title{font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px}
+.upload-source-images{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.upload-source-image{aspect-ratio:1/1;border:1px solid #E8EEF7;border-radius:6px;background:#fff;overflow:hidden;padding:0;cursor:pointer}
+.upload-source-image:hover{border-color:#748FFC}
+.upload-source-image img{width:100%;height:100%;object-fit:cover;display:block}
+.upload-source-empty{font-size:11px;color:#9AA0B4;line-height:1.5}
+.upload-source-docs{display:flex;gap:8px;flex-wrap:wrap}
 
 /* 구분선 */
 .upload-divider{border:none;border-top:1px solid #EDF2F7;margin:0}
@@ -88,8 +96,77 @@
 /* 하단 버튼 */
 .form-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;padding-top:8px}
 
+/* 플레이스 수집 정보 */
+.section-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #EDF2F7}
+.section-header-actions{display:flex;align-items:center;gap:8px}
+.metadata-empty{font-size:12px;color:#9AA0B4;padding:12px 14px;background:#FAFBFC;border:1px dashed #D8E0EC;border-radius:6px}
+.metadata-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.metadata-panel{border:1px solid #E8EEF7;border-radius:6px;padding:12px;background:#fff}
+.metadata-panel.full{grid-column:1/-1}
+.metadata-label{font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px}
+.metadata-value{font-size:12px;color:#1A1A2E;line-height:1.6}
+.metadata-link{color:#3B5BDB;text-decoration:none;word-break:break-all}
+.metadata-link:hover{text-decoration:underline}
+.chip-list{display:flex;flex-wrap:wrap;gap:6px}
+.metadata-chip{display:inline-flex;align-items:center;min-height:22px;padding:3px 9px;border-radius:999px;background:#F1F5FF;color:#3B5BDB;font-size:11px;font-weight:600}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat-card{border:1px solid #E8EEF7;border-radius:6px;background:#FAFBFC;padding:9px}
+.stat-label{font-size:10px;color:#9AA0B4;margin-bottom:4px}
+.stat-value{font-size:14px;font-weight:800;color:#1A1A2E}
+.broadcast-list,.menu-list{display:flex;flex-direction:column;gap:8px}
+.broadcast-item,.menu-item{border:1px solid #E8EEF7;border-radius:6px;padding:10px;background:#fff}
+.broadcast-title,.menu-title{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:4px}
+.broadcast-meta,.menu-meta{font-size:11px;color:#6B7280;line-height:1.5}
+.hospital-info{display:flex;flex-direction:column;gap:10px}
+.hospital-info-title{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:6px}
+.hospital-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #E8EEF7;border-radius:6px;overflow:hidden;font-size:12px}
+.hospital-table th,.hospital-table td{padding:8px 10px;border-bottom:1px solid #E8EEF7;text-align:left;vertical-align:top}
+.hospital-table th{background:#FAFBFC;color:#6B7280;font-size:11px;font-weight:700}
+.hospital-table tr:last-child td{border-bottom:none}
+.hospital-source{font-size:11px;color:#6B7280;line-height:1.5}
+.menu-summary{font-size:11px;color:#9AA0B4}
+.menu-image-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.menu-image{aspect-ratio:1/1;border:1px solid #E8EEF7;border-radius:6px;background:#F8FAFC;overflow:hidden;padding:0;cursor:pointer}
+.menu-image:hover{border-color:#748FFC}
+.menu-image img{width:100%;height:100%;object-fit:cover;display:block}
+.menu-image-viewer-modal{width:min(860px,calc(100vw - 48px));max-height:calc(100vh - 48px);display:flex;flex-direction:column;gap:14px}
+.menu-image-viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.menu-image-viewer-counter{font-size:11px;color:#6B7280;margin-top:2px}
+.menu-image-viewer-close{width:30px;height:30px;border:none;background:#F7F8FA;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6B7280}
+.menu-image-viewer-close:hover{background:#E2E8F0}
+.menu-image-viewer-body{position:relative;display:flex;align-items:center;justify-content:center;min-height:360px;background:#0F172A;border-radius:8px;overflow:hidden}
+.menu-image-viewer-body img{max-width:100%;max-height:min(68vh,620px);object-fit:contain;display:block}
+.menu-image-viewer-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.9);color:#1A1A2E;font-size:24px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.menu-image-viewer-nav:hover{background:#fff}
+.menu-image-viewer-nav:disabled{opacity:.35;cursor:default}
+#menu-image-viewer-prev{left:12px}
+#menu-image-viewer-next{right:12px}
+.business-hours-modal{width:min(720px,calc(100vw - 48px));max-height:calc(100vh - 48px);display:flex;flex-direction:column;gap:14px}
+.business-hours-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.business-hours-close{width:30px;height:30px;border:none;background:#F7F8FA;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6B7280}
+.business-hours-close:hover{background:#E2E8F0}
+.business-hours-rows{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:min(58vh,520px);padding-right:2px}
+.business-hours-row{display:grid;grid-template-columns:44px 70px repeat(4,minmax(76px,1fr));gap:8px;align-items:center;padding:10px;border:1px solid #E8EEF7;border-radius:6px;background:#FAFBFC}
+.business-hours-day{font-size:12px;font-weight:800;color:#1A1A2E}
+.business-hours-closed{display:flex;align-items:center;gap:5px;font-size:11px;color:#4A5568;white-space:nowrap}
+.business-hours-row input[type=text]{height:32px;padding:0 8px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;font-family:'Noto Sans KR',sans-serif}
+.business-hours-row input[type=text]:disabled{background:#F1F3F5;color:#9AA0B4}
+.business-hours-row input[type=checkbox]{width:14px;height:14px;accent-color:#3B5BDB}
+.business-hours-sync-message{font-size:11px;font-weight:700;color:#C92A2A;text-align:right;margin-top:-2px}
+.section-inline-action{height:26px;padding:0 10px;border:1px solid #D8E0EC;border-radius:5px;background:#fff;color:#3B5BDB;font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer}
+.section-inline-action:hover{background:#EEF2FF;border-color:#A7B7FF}
+.section-inline-action:disabled{cursor:not-allowed;opacity:.55;background:#F7F8FA;color:#9AA0B4}
+.rag-doc-panel{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:10px 12px;border:1px solid #E8EEF7;border-radius:6px;background:#FAFBFC}
+.rag-doc-status{font-size:11px;color:#6B7280;line-height:1.5}
+.rag-download-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rag-download-link{font-size:11px;font-weight:700;color:#3B5BDB;text-decoration:none;border:1px solid #D8E0EC;border-radius:5px;background:#fff;padding:5px 9px}
+.rag-download-link:hover{background:#EEF2FF;border-color:#A7B7FF}
+.rag-download-link[hidden]{display:none}
+
 /* 자동입력 강조 */
-.field input.autofilled{border-color:#2F9E44;background:#F8FFF9}
+.field input.autofilled,.field select.autofilled,.field textarea.autofilled,.day-checks.autofilled,.radio-row.autofilled{border-color:#2F9E44;background:#F8FFF9}
+.field select.autofilled,.field textarea.autofilled{border-color:#2F9E44;background-color:#F8FFF9}
+.day-checks.autofilled,.radio-row.autofilled{border:1px solid #2F9E44;border-radius:6px;padding:6px 8px}
 </style>
 </head>
 <body>
@@ -123,7 +200,7 @@
       <div class="form-section-body">
         <div class="place-fetch-row">
           <input type="text" id="place-url" placeholder="네이버 플레이스 URL을 입력하세요 (예: naver.me/xxxxx)">
-          <button class="btn btn-primary" onclick="fetchPlace()" style="flex-shrink:0;height:34px">
+          <button type="button" id="place-fetch-btn" class="btn btn-primary" onclick="fetchPlace()" style="flex-shrink:0;height:34px">
             <span data-icon="search" data-size="13" data-color="#fff"></span>
             불러오기
           </button>
@@ -192,8 +269,9 @@
           <div class="field">
             <div class="field-label-row">
               <label>운영시간 <span class="req">*</span></label>
-              <button type="button" class="field-inline-action">요일별 운영시간 설정</button>
+              <button type="button" id="business-hours-config-btn" class="field-inline-action" onclick="openBusinessHoursModal()">요일별 운영시간 설정</button>
             </div>
+            <div id="business-hours-sync-message" class="business-hours-sync-message" hidden>*요일별 운영시간 설정 필요</div>
             <div class="time-row">
               <input type="text" id="f-open" placeholder="09:00">
               <span class="time-sep">~</span>
@@ -212,7 +290,7 @@
 
           <div class="field fg-full">
             <label>휴무일</label>
-            <div class="day-checks">
+            <div class="day-checks" data-autofill-group="closed-days">
               <label class="day-check"><input type="checkbox" value="mon"> 월</label>
               <label class="day-check"><input type="checkbox" value="tue"> 화</label>
               <label class="day-check"><input type="checkbox" value="wed"> 수</label>
@@ -226,7 +304,7 @@
 
           <div class="field fg-full">
             <label>주차 가능 여부</label>
-            <div class="radio-row">
+            <div class="radio-row" data-autofill-group="parking">
               <label class="radio-item"><input type="radio" name="parking" value="y"> 가능</label>
               <label class="radio-item"><input type="radio" name="parking" value="n"> 불가</label>
               <label class="radio-item"><input type="radio" name="parking" value="near"> 인근 유료 주차 가능</label>
@@ -245,12 +323,135 @@
     </div>
     <!-- /기본 정보 -->
 
-    <!-- 기존 자료 업로드 -->
+    <!-- 네이버 플레이스 수집 정보 -->
+    <div class="form-section" id="place-metadata-section" hidden>
+      <div class="form-section-header">
+        <div class="form-section-title">
+          <span data-icon="info" data-size="14" data-color="#3B5BDB"></span>
+          네이버 플레이스 수집 정보
+        </div>
+        <div class="section-header-actions">
+          <button type="button" id="rag-generate-button" class="section-inline-action" onclick="generateRagDocuments()" disabled>
+            RAG 문서 생성
+          </button>
+          <button type="button" id="raw-data-button" class="section-inline-action" onclick="openRawData()" disabled data-raw-url-template="store_raw_data.html?storeId=">
+            RAW data 보기
+          </button>
+        </div>
+      </div>
+      <div class="form-section-body">
+        <div class="rag-doc-panel">
+          <div id="rag-doc-status" class="rag-doc-status">매장을 불러오면 RAG 문서를 생성할 수 있습니다.</div>
+          <div class="rag-download-links">
+            <a id="rag-info-download" class="rag-download-link" href="#" hidden>업체 정보 DOCX</a>
+            <a id="rag-reviews-download" class="rag-download-link" href="#" hidden>리뷰 DOCX</a>
+          </div>
+        </div>
+        <div id="place-metadata-empty" class="metadata-empty" hidden>불러온 네이버 플레이스 부가 정보가 없습니다.</div>
+        <div class="metadata-grid" id="place-metadata-grid">
+          <div class="metadata-panel">
+            <div class="metadata-label">외부채널 링크</div>
+            <div id="place-links-list" class="metadata-value"></div>
+          </div>
+          <div class="metadata-panel">
+            <div class="metadata-label">예약정보</div>
+            <div id="place-booking" class="metadata-value"></div>
+          </div>
+          <div class="metadata-panel full">
+            <div class="metadata-label">편의시설 및 서비스</div>
+            <div id="place-facilities" class="chip-list"></div>
+          </div>
+          <div class="metadata-panel full">
+            <div class="metadata-label">리뷰 지표</div>
+            <div id="place-review-stats" class="stat-grid"></div>
+          </div>
+          <div class="metadata-panel full">
+            <div class="metadata-label">방송 정보</div>
+            <div id="place-broadcasts" class="broadcast-list"></div>
+          </div>
+          <div class="metadata-panel full">
+            <div class="metadata-label">키워드</div>
+            <div id="place-keywords" class="chip-list"></div>
+          </div>
+          <div class="metadata-panel full" id="place-hospital-panel" hidden>
+            <div class="metadata-label">진료정보</div>
+            <div id="place-hospital-info" class="hospital-info"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /네이버 플레이스 수집 정보 -->
+
+    <!-- 메뉴 정보 -->
+    <div class="form-section" id="place-menu-section" hidden>
+      <div class="form-section-header">
+        <div class="form-section-title">
+          <span data-icon="file-text" data-size="14" data-color="#3B5BDB"></span>
+          메뉴 정보
+        </div>
+        <span id="place-menu-count" class="badge b-blue" style="font-size:10px;padding:1px 7px">0개</span>
+      </div>
+      <div class="form-section-body">
+        <div class="metadata-panel full" id="place-menu-images-panel">
+          <div class="metadata-label">업체제공 메뉴 사진</div>
+          <div id="place-menu-images" class="menu-image-grid"></div>
+        </div>
+        <div id="place-menu-list" class="menu-list"></div>
+        <div class="section-tools">
+          <button type="button" id="place-menu-toggle" class="section-inline-action" onclick="toggleMenuList()" hidden>메뉴 전체보기</button>
+        </div>
+      </div>
+    </div>
+    <!-- /메뉴 정보 -->
+
+    <div id="menu-image-viewer" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeMenuImageViewer()">
+      <div class="modal menu-image-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="menu-image-viewer-title">
+        <div class="menu-image-viewer-head">
+          <div>
+            <div class="modal-title" id="menu-image-viewer-title">업체제공 메뉴 사진</div>
+            <div class="menu-image-viewer-counter" id="menu-image-viewer-counter">1 / 1</div>
+          </div>
+          <button type="button" class="menu-image-viewer-close" onclick="closeMenuImageViewer()" aria-label="닫기">
+            <span data-icon="x" data-size="14"></span>
+          </button>
+        </div>
+        <div class="menu-image-viewer-body">
+          <button type="button" id="menu-image-viewer-prev" class="menu-image-viewer-nav" onclick="stepMenuImageViewer(-1)" aria-label="이전 이미지">‹</button>
+          <img id="menu-image-viewer-img" alt="업체제공 메뉴 사진 확대">
+          <button type="button" id="menu-image-viewer-next" class="menu-image-viewer-nav" onclick="stepMenuImageViewer(1)" aria-label="다음 이미지">›</button>
+        </div>
+        <div class="modal-actions">
+          <a id="menu-image-viewer-original" class="btn btn-ghost" href="#" target="_blank" rel="noopener noreferrer">원본 열기</a>
+          <button type="button" class="btn btn-primary" onclick="closeMenuImageViewer()">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="business-hours-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeBusinessHoursModal()">
+      <div class="modal business-hours-modal" role="dialog" aria-modal="true" aria-labelledby="business-hours-modal-title">
+        <div class="business-hours-head">
+          <div>
+            <div class="modal-title" id="business-hours-modal-title">요일별 운영시간 설정</div>
+            <p class="modal-desc">요일별 운영시간과 브레이크타임을 확인하고 수정할 수 있습니다.</p>
+          </div>
+          <button type="button" class="business-hours-close" onclick="closeBusinessHoursModal()" aria-label="닫기">
+            <span data-icon="x" data-size="14"></span>
+          </button>
+        </div>
+        <div id="business-hours-rows" class="business-hours-rows"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeBusinessHoursModal()">취소</button>
+          <button type="button" class="btn btn-primary" onclick="saveBusinessHoursModal()">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 자료 업로드 -->
     <div class="form-section">
       <div class="form-section-header">
         <div class="form-section-title">
           <span data-icon="image" data-size="14" data-color="#3B5BDB"></span>
-          기존 자료 업로드
+          자료 업로드
         </div>
         <span class="badge b-gray" style="font-size:10px;padding:1px 7px">선택</span>
       </div>
@@ -267,6 +468,10 @@
             <div class="upload-label">
               매장 사진
               <span class="opt">선택</span>
+            </div>
+            <div id="place-photo-source-panel" class="upload-source-panel" hidden>
+              <div class="upload-source-title">네이버 플레이스에서 가져온 매장 사진</div>
+              <div id="place-photo-source-images" class="upload-source-images"></div>
             </div>
             <div class="upload-zone" onclick="triggerUpload('photo')">
               <div class="upload-zone-icon">
@@ -289,6 +494,10 @@
               메뉴판
               <span class="opt">선택</span>
             </div>
+            <div id="place-menu-source-panel" class="upload-source-panel" hidden>
+              <div class="upload-source-title">네이버 플레이스에서 가져온 메뉴판 이미지</div>
+              <div id="place-menu-source-images" class="upload-source-images"></div>
+            </div>
             <div class="upload-zone" onclick="triggerUpload('menu')">
               <div class="upload-zone-icon">
                 <span data-icon="file-text" data-size="16" data-color="#3B5BDB"></span>
@@ -309,6 +518,14 @@
             <div class="upload-label">
               매장 소개 문서
               <span class="opt">선택</span>
+            </div>
+            <div id="rag-doc-source-panel" class="upload-source-panel">
+              <div class="upload-source-title">RAG용 생성 문서</div>
+              <div id="rag-doc-source-empty" class="upload-source-empty">아직 생성된 RAG 문서가 없습니다. 상단의 RAG 문서 생성 후 표시됩니다.</div>
+              <div class="upload-source-docs">
+                <a id="rag-doc-source-info" class="rag-download-link" href="#" hidden>업체 정보 DOCX</a>
+                <a id="rag-doc-source-reviews" class="rag-download-link" href="#" hidden>리뷰 DOCX</a>
+              </div>
             </div>
             <div class="upload-zone" onclick="triggerUpload('doc')">
               <div class="upload-zone-icon">
@@ -351,12 +568,23 @@
     <!-- 하단 버튼 -->
     <div class="form-footer">
       <button class="btn btn-ghost" onclick="history.back()">취소</button>
-      <button class="btn btn-primary" onclick="submitForm()">
+      <button type="button" id="store-submit-btn" class="btn btn-primary" onclick="submitForm()">
         <span data-icon="check" data-size="13" data-color="#fff"></span>
         등록 완료
       </button>
     </div>
 
+  </div>
+</div>
+
+<div id="store-save-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeStoreSaveModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="store-save-modal-title">
+    <div class="modal-title" id="store-save-modal-title">매장 정보 등록 완료</div>
+    <p class="modal-desc">매장 정보가 저장되었습니다. 이어서 AI 학습 설정을 진행할 수 있습니다.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeStoreSaveModal()">닫기</button>
+      <button type="button" id="go-training-settings-btn" class="btn btn-primary" onclick="goToTrainingSettings()">AI 학습 설정으로 바로가기</button>
+    </div>
   </div>
 </div>
 

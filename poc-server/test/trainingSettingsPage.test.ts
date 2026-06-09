@@ -13,6 +13,20 @@ describe('AI training onboarding page API wiring', () => {
     expect(html).toContain('id="training-blog-limit"');
     expect(html).toContain('id="training-place-review-limit"');
     expect(html).toContain('id="training-instagram-limit"');
+    expect(html).toContain('id="training-daangn-url"');
+    expect(html).toContain('id="training-daangn-limit"');
+    expect(html).toContain('id="training-blog-status"');
+    expect(html).toContain('id="training-place-status"');
+    expect(html).toContain('id="training-instagram-status"');
+    expect(html).toContain('id="training-daangn-status"');
+    expect(html).toContain('id="training-material-list"');
+    expect(html).toContain('id="training-keyword-list"');
+    expect(html.match(/value="1">최근 1개/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(html.match(/value="10">최근 10개/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(html).not.toContain('mybakery2024');
+    expect(html).not.toContain('https://naver.me/xxxxxx');
+    expect(html).not.toContain('브랜드소개서.pdf');
+    expect(html).not.toContain('분당 케이크');
     expect(html).toContain('training_settings.js');
   });
 
@@ -22,6 +36,13 @@ describe('AI training onboarding page API wiring', () => {
     expect(js).toContain('fetch(`/api/stores/${storeId}/training-settings`');
     expect(js).toContain('fetch(`/api/stores/${storeId}/collection-runs`');
     expect(js).toContain('04_AI학습_수집중.html?');
+    expect(js).toContain("sourceUrl: textValue('training-blog-url')");
+    expect(js).toContain("daangnPostLimit: numericValue('training-daangn-limit')");
+    expect(js).toContain('function deriveStoreChannelSources');
+    expect(js).toContain('function applyStoreSnapshot');
+    expect(js).toContain('function setChannelStatus');
+    expect(js).toContain('function renderTrainingMaterials');
+    expect(js).toContain('function renderTrainingKeywords');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');

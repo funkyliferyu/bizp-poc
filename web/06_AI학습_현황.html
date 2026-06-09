@@ -19,6 +19,14 @@
 .insta-info{padding:6px 8px}
 .sec-title{font-size:13px;font-weight:700;color:#1A1A2E;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .learning-empty{font-size:12px;color:#9AA0B4;line-height:1.6;padding:12px 0}
+.ruleset-alert{display:none;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:11px 12px;border:1px solid #B2F2BB;background:#EBFBEE;border-radius:6px}
+.ruleset-alert-title{font-size:13px;font-weight:700;color:#2F9E44;margin-bottom:2px}
+.ruleset-alert-desc{font-size:12px;color:#4A5568}
+.ruleset-alert-link{flex-shrink:0;height:30px;padding:0 10px;border:1px solid #2F9E44;border-radius:6px;background:#fff;color:#2F9E44;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;cursor:pointer}
+.ruleset-alert-link:hover{background:#D3F9D8}
+.ruleset-kpi{width:100%;text-align:left;font-family:'Noto Sans KR',sans-serif;cursor:pointer}
+.ruleset-kpi:hover{border-color:#2F9E44;background:#F4FFF6}
+.ruleset-kpi:focus-visible{outline:2px solid #2F9E44;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -47,11 +55,18 @@
       <span>학습 상태</span>
     </div>
     <div class="card-body">
+      <div class="ruleset-alert" id="learning-ruleset-alert">
+        <div>
+          <div class="ruleset-alert-title">룰셋 생성이 완료되었습니다.</div>
+          <div class="ruleset-alert-desc">마케팅 전략 룰셋에서 AI가 정리한 포지셔닝, 키워드, 톤앤매너를 확인하고 수정할 수 있습니다.</div>
+        </div>
+        <button type="button" class="ruleset-alert-link" id="learning-ruleset-alert-link">룰셋 보러가기</button>
+      </div>
       <div class="grid-4" style="margin-bottom:14px">
         <div class="kpi-card"><div class="kpi-label">마지막 학습일</div><div class="kpi-val" id="learning-last-analyzed" style="font-size:16px">-</div></div>
         <div class="kpi-card"><div class="kpi-label">다음 수집 예정일</div><div class="kpi-val" style="font-size:16px">2026.05.30</div></div>
         <div class="kpi-card"><div class="kpi-label">수집 주기</div><div class="kpi-val" style="font-size:16px">2주마다</div></div>
-        <div class="kpi-card"><div class="kpi-label">룰셋 상태</div><div class="kpi-val" id="learning-ruleset-status" style="font-size:16px;color:#2F9E44">-</div></div>
+        <button type="button" class="kpi-card ruleset-kpi" id="learning-ruleset-card"><div class="kpi-label">룰셋 상태</div><div class="kpi-val" id="learning-ruleset-status" style="font-size:16px;color:#2F9E44">-</div></button>
       </div>
       <div id="ch-status">
         <div class="prog-ch-row"><span class="prog-ch-name"><span class="icon-rss" data-icon="rss" data-size="13" data-color="#03C75A"></span> 네이버 블로그</span><span class="badge b-green">정상</span></div>

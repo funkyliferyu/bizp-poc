@@ -9,6 +9,7 @@
     "demo:store-learning": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/demoStoreLearning.ts",
     "db:migrate": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/db/migrate.ts",
     "db:seed": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/seedStoreLearning.ts",
+    "rag:export": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/exportStoreRagDocuments.ts",
     "naver:verify": "RUN_NAVER_LIVE=1 NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run test/naverPlaceLiveIntegration.test.ts test/naverBlogLiveIntegration.test.ts",
     "openai:verify": "RUN_OPENAI_INTEGRATION=1 NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run test/openaiLiveIntegration.test.ts",
     "test": "NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run",
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "docx": "^9.7.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "openai": "^4.77.0",

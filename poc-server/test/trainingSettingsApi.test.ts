@@ -51,9 +51,10 @@ describe('Training settings API', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         channels: {
-          naverBlog: { enabled: true, blogPostLimit: 75 },
-          naverPlace: { enabled: true, placeReviewLimit: 42 },
-          instagram: { enabled: false, instagramPostLimit: 0 }
+          naverBlog: { enabled: true, blogPostLimit: 75, sourceUrl: 'https://blog.naver.com/demo-cake' },
+          naverPlace: { enabled: true, placeReviewLimit: 42, sourceUrl: 'https://naver.me/demo-cake' },
+          instagram: { enabled: false, instagramPostLimit: 0, sourceUrl: null },
+          daangn: { enabled: true, daangnPostLimit: 10, sourceUrl: 'https://www.daangn.com/kr/local-profile/demo' }
         }
       })
     });
@@ -67,14 +68,22 @@ describe('Training settings API', () => {
       })
     );
     expect(saved.settings.settings.channels).toEqual({
-      naverBlog: { enabled: true, blogPostLimit: 75 },
-      naverPlace: { enabled: true, placeReviewLimit: 42 },
-      instagram: { enabled: false, instagramPostLimit: 0 }
+      naverBlog: { enabled: true, blogPostLimit: 75, sourceUrl: 'https://blog.naver.com/demo-cake' },
+      naverPlace: { enabled: true, placeReviewLimit: 42, sourceUrl: 'https://naver.me/demo-cake' },
+      instagram: { enabled: false, instagramPostLimit: 0, sourceUrl: null },
+      daangn: { enabled: true, daangnPostLimit: 10, sourceUrl: 'https://www.daangn.com/kr/local-profile/demo' }
     });
 
     const repos = createStoreLearningRepositories(connection);
     const persisted = repos.trainingSettings.listByStoreId('store_demo_cake').at(-1);
     expect(persisted?.settings).toEqual(saved.settings.settings);
+    expect(repos.storeChannels.listByStoreId('store_demo_cake')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ channel: 'blog', sourceUrl: 'https://blog.naver.com/demo-cake' }),
+        expect.objectContaining({ channel: 'place', sourceUrl: 'https://naver.me/demo-cake' }),
+        expect.objectContaining({ channel: 'daangn', sourceUrl: 'https://www.daangn.com/kr/local-profile/demo' })
+      ])
+    );
   });
 
   it('creates a queued collection run from saved training settings', async () => {
@@ -83,9 +92,10 @@ describe('Training settings API', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         channels: {
-          naverBlog: { enabled: true, blogPostLimit: 30 },
-          naverPlace: { enabled: true, placeReviewLimit: 20 },
-          instagram: { enabled: true, instagramPostLimit: 10 }
+          naverBlog: { enabled: true, blogPostLimit: 30, sourceUrl: 'https://blog.naver.com/demo-cake' },
+          naverPlace: { enabled: true, placeReviewLimit: 20, sourceUrl: 'https://naver.me/demo-cake' },
+          instagram: { enabled: true, instagramPostLimit: 10, sourceUrl: 'https://instagram.com/demo-cake' },
+          daangn: { enabled: true, daangnPostLimit: 1, sourceUrl: 'https://www.daangn.com/kr/local-profile/demo' }
         }
       })
     });
@@ -111,12 +121,14 @@ describe('Training settings API', () => {
       requestedLimits: {
         blogPostLimit: 30,
         placeReviewLimit: 20,
-        instagramPostLimit: 10
+        instagramPostLimit: 10,
+        daangnPostLimit: 1
       },
       channelPlan: {
         naverBlog: { enabled: true, limit: 30 },
         naverPlace: { enabled: true, limit: 20 },
-        instagram: { enabled: true, limit: 10 }
+        instagram: { enabled: true, limit: 10 },
+        daangn: { enabled: true, limit: 1 }
       },
       sourcePolicy: {
         ownerAuthorized: false,
