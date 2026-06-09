@@ -2,6 +2,28 @@
 
 ## Current Scope
 
+MILESTONE-05-BLOG-RAW-VIEWER-EVIDENCE adds collection-run RAW data inspection and Blog evidence badges before analysis selection.
+
+The new RAW viewer is:
+
+- `web/collection_raw_data.html`
+- `web/collection_raw_data.js`
+
+It fetches only `poc-server` APIs:
+
+- `GET /api/collection-runs/:runId`
+- `GET /api/collection-runs/:runId/items`
+
+The viewer has tabs for Blog items, collected Blog items, failed Blog items, all items, and collection run summary. Blog item rows normalize evidence fields such as `metadata.bodyAvailability`, `metadata.blogSourceDiscovery`, `metadata.sourceKind`, `metadata.sourceOwnership`, source URL, body length, body text, and full metadata.
+
+The collection progress page and content selection page now expose `RAW data 보기` buttons that open `collection_raw_data.html?runId=<runId>&section=blogItems`. The content selection table also shows compact evidence badges for body availability, source discovery, and source URL presence.
+
+This milestone does not add backend routes, change Blog collection providers, modify analyzer/ruleset or learning status behavior, call external providers from browser pages, or modify `admin/`, `pc-web/`, or old Event-to-Operation files.
+
+The branch is stacked on `codex/blog-collection-reliability` while PR #29 is open. After PR #29 merges, this work can be retargeted to `develop`.
+
+## Previous Scope
+
 MILESTONE-04-BLOG-COLLECTION-RELIABILITY adds RSS post-link discovery as a fallback inside the rendered/page Naver Blog collection provider.
 
 The fallback order is now:
