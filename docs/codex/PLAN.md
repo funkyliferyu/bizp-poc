@@ -1,160 +1,211 @@
-# Store Learning & Blog Content Automation PoC Implementation Plan
+# Store Learning Sequential Plan Ledger
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** This is the develop-based source of truth for
+> "next todo" selection. Before creating a milestone-specific plan, branch, or
+> PR, read this ledger and update it as the work moves through plan, PR,
+> develop merge, and develop validation.
 
-**Goal:** Build the Store Learning & Blog Content Automation PoC from static screens into an API-backed local demo without changing the current HTML design.
+**Goal:** Keep Store Learning work sequential, reviewable, and recoverable
+across Codex sessions.
 
-**Architecture:** Browser pages call `poc-server` APIs only. `poc-server` owns state, mock mode, provider adapters, server-side credentials, SQLite persistence through repositories, and Zod-validated LLM outputs.
+**Architecture:** Milestone-specific plans and PRs are subordinate to this
+ledger. A milestone is not complete just because a branch or draft PR exists;
+it is complete only after it is merged to `develop` and validated on
+`develop`.
 
-**Tech Stack:** Static HTML/CSS/JS in `web/`, Express/TypeScript in `poc-server`, Zod schemas, SQLite local PoC database, repository interfaces, provider adapters, OpenAI server-side calls when real mode is enabled.
+**Tech Stack:** Static HTML/CSS/JS in `web/`, Express/TypeScript in
+`poc-server`, SQLite local PoC persistence, GitHub PRs, and local validation
+commands under `poc-server/`.
 
 ---
 
-## Guardrails
+## Operating Rules
 
-- Do not use `README_POC.md` or `web/event_operation_poc.html` as product source of truth.
-- Keep old Event-to-Operation files untouched.
-- Do not modify `admin/` or `pc-web/`.
-- Do not redesign existing HTML screens.
-- Keep Naver/OpenAI credentials server-side.
-- Mock mode must work without external keys.
-- Real Naver collection must sit behind provider adapters.
-- LLM outputs must be Zod-validated before save.
+- Work sequentially from the first milestone whose develop gate is not done.
+- Do not start a later milestone from `develop` until earlier milestones are
+  merged and validated, unless the user explicitly chooses a stacked PR flow.
+- If a stacked PR flow is used, record the stack order here and still treat
+  `develop` merge plus validation as the completion gate.
+- Create `docs/codex/MILESTONE_*` plans only for the current next todo.
+- Update this ledger whenever a milestone moves from planned to PR open,
+  merged to `develop`, validated on `develop`, or promoted to `main`.
+- Keep `admin/`, `pc-web/`, and old Event-to-Operation files untouched unless
+  the user explicitly changes scope.
+- Browser pages must call only `poc-server` APIs. Naver/OpenAI credentials stay
+  server-side.
 
-## Task 1: Establish New Server Domain Boundaries
+## Status Vocabulary
 
-**Files:**
+- `Not started`: no active branch or milestone plan.
+- `Planned`: the milestone plan exists, but implementation is not ready for
+  review.
+- `Implementation PR open`: a branch/PR exists, but it is not merged to
+  `develop`.
+- `Merged to develop`: the PR contents are on `develop`, but full develop
+  validation is not yet recorded.
+- `Validated on develop`: local validation passed on `develop`.
+- `Promoted to main`: the validated develop work has been merged to `main` for
+  GitHub Pages/static publication.
 
-- Create: `poc-server/src/store-learning/schemas/*.ts`
-- Create: `poc-server/src/store-learning/repositories/*.ts`
-- Create: `poc-server/src/store-learning/workflows/*.ts`
-- Modify: `poc-server/src/index.ts`
+## Next Todo Rule
 
-- [ ] Add Store Learning route namespace under `/api`.
-- [ ] Keep existing legacy routes available but separate from new Store Learning modules until retirement is approved.
-- [ ] Add Zod schemas for store profile, learning settings, collection run, collected item, strategy ruleset, blog post, provider result, and LLM output envelope.
-- [ ] Add repository interfaces before adding route handlers.
+The next todo is the first milestone below that is not `Validated on develop`.
+If its PR is open, the todo is to review, merge or retarget that PR, then
+validate on `develop`; it is not to skip ahead.
 
-## Task 2: Add SQLite PoC Persistence
+Current next todo as of 2026-06-09:
 
-**Files:**
+1. Review and integrate PR #26 into `develop`.
+2. After #26 is merged and validated, continue with #27, then #28, and so on.
+3. Run milestone 10 only after milestones 1-9 are merged to `develop`.
 
-- Create: `poc-server/src/store-learning/db/sqlite.ts`
-- Create: `poc-server/src/store-learning/db/migrations.ts`
-- Create: `poc-server/src/store-learning/repositories/sqlite*.ts`
-- Test: `poc-server/test/storeLearningRepositories.test.ts`
+## Milestone Ledger
 
-- [ ] Create SQLite schema matching `docs/architecture/data-model-v0.md`.
-- [ ] Implement repositories behind interfaces.
-- [ ] Add tests that create a temp SQLite DB, save records, read them back, and assert repository contract behavior.
-- [ ] Keep route handlers free of SQL details.
+| # | Milestone | Current state | Tracking | Develop gate |
+|---|---|---|---|---|
+| 1 | 현황 감사와 데이터 매핑 | Implementation PR open | [#26](https://github.com/funkyliferyu/bizp-poc/pull/26) | Not merged |
+| 2 | 매장정보등록 정리 | Implementation PR open | [#27](https://github.com/funkyliferyu/bizp-poc/pull/27) | Not merged |
+| 3 | AI 학습 설정 데이터 정리 | Implementation PR open | [#28](https://github.com/funkyliferyu/bizp-poc/pull/28) | Not merged |
+| 4 | 수집 실행 안정화 | Implementation PR open | [#29](https://github.com/funkyliferyu/bizp-poc/pull/29) | Not merged |
+| 5 | 수집 데이터 선택/RAW 조회 확장 | Implementation PR open | [#30](https://github.com/funkyliferyu/bizp-poc/pull/30) | Not merged |
+| 6 | 분석 실행과 룰셋 생성 계약 정리 | Implementation PR open | [#31](https://github.com/funkyliferyu/bizp-poc/pull/31) | Not merged |
+| 7 | 마케팅 전략 룰셋 화면 적용 | Implementation PR open | [#32](https://github.com/funkyliferyu/bizp-poc/pull/32) | Not merged |
+| 8 | AI 학습 현황 화면 적용 | Implementation PR open | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Not merged |
+| 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Implementation PR open | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Not merged |
+| 10 | 최종 문서/검증 정리 | Not started | - | Wait for 1-9 |
 
-## Task 3: Implement Mock Providers
+## Sequential Checklist
 
-**Files:**
+### 1. 현황 감사와 데이터 매핑
 
-- Create: `poc-server/src/store-learning/providers/providerTypes.ts`
-- Create: `poc-server/src/store-learning/providers/mockNaverProvider.ts`
-- Create: `poc-server/src/store-learning/providers/providerRegistry.ts`
-- Test: `poc-server/test/storeLearningMockProviders.test.ts`
+- [x] Milestone plan/branch/PR exists: PR #26.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-- [ ] Implement mock Place URL resolution.
-- [ ] Implement mock Blog metadata/full-body collection.
-- [ ] Implement mock Place profile and review summaries.
-- [ ] Return capability status for unavailable provider features.
-- [ ] Make mock mode run with no external keys.
+### 2. 매장정보등록 정리
 
-## Task 4: Implement Store Registration And Learning Settings APIs
+- [x] Milestone plan/branch/PR exists: PR #27.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-**Files:**
+### 3. AI 학습 설정 데이터 정리
 
-- Create: `poc-server/src/store-learning/routes/stores.ts`
-- Create: `poc-server/src/store-learning/routes/learningSettings.ts`
-- Modify: `poc-server/src/index.ts`
-- Test: `poc-server/test/storeLearningApi.test.ts`
+- [x] Milestone plan/branch/PR exists: PR #28.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-- [ ] Add `POST /api/stores/from-place-url`.
-- [ ] Add `GET /api/stores/:storeId`.
-- [ ] Add `PUT /api/stores/:storeId`.
-- [ ] Add `GET /api/stores/:storeId/learning-settings`.
-- [ ] Add `PUT /api/stores/:storeId/learning-settings`.
-- [ ] Validate every request/response with Zod.
+### 4. 수집 실행 안정화
 
-## Task 5: Implement Collection And Selection APIs
+- [x] Milestone plan/branch/PR exists: PR #29.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-**Files:**
+### 5. 수집 데이터 선택/RAW 조회 확장
 
-- Create: `poc-server/src/store-learning/routes/collectionRuns.ts`
-- Create: `poc-server/src/store-learning/workflows/runCollection.ts`
-- Test: `poc-server/test/storeLearningCollection.test.ts`
+- [x] Milestone plan/branch/PR exists: PR #30.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-- [ ] Add `POST /api/stores/:storeId/collection-runs`.
-- [ ] Add `GET /api/collection-runs/:runId`.
-- [ ] Add `POST /api/collection-runs/:runId/retry`.
-- [ ] Add `GET /api/collection-runs/:runId/items`.
-- [ ] Add `PUT /api/collection-runs/:runId/selections`.
-- [ ] Add `POST /api/collection-runs/:runId/analyze`.
-- [ ] Preserve body availability and provider capability states.
+### 6. 분석 실행과 룰셋 생성 계약 정리
 
-## Task 6: Implement Learning Status And Ruleset APIs
+- [x] Milestone plan/branch/PR exists: PR #31.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-**Files:**
+### 7. 마케팅 전략 룰셋 화면 적용
 
-- Create: `poc-server/src/store-learning/routes/learningStatus.ts`
-- Create: `poc-server/src/store-learning/routes/strategyRuleset.ts`
-- Create: `poc-server/src/store-learning/workflows/analyzeSelectedContent.ts`
-- Test: `poc-server/test/storeLearningRuleset.test.ts`
+- [x] Milestone plan/branch/PR exists: PR #32.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-- [ ] Add `GET /api/stores/:storeId/learning-status`.
-- [ ] Add `GET /api/stores/:storeId/learning-sources`.
-- [ ] Add `GET /api/analysis-jobs/:jobId`.
-- [ ] Add `POST /api/analysis-jobs/:jobId/retry`.
-- [ ] Add `GET /api/stores/:storeId/strategy-ruleset`.
-- [ ] Add `PUT /api/stores/:storeId/strategy-ruleset`.
-- [ ] Add preview regeneration and benchmark evidence endpoints.
-- [ ] Validate generated rulesets with Zod before save.
+### 8. AI 학습 현황 화면 적용
 
-## Task 7: Implement Blog Post And Content Detail APIs
+- [x] Milestone plan/branch/PR exists: PR #33.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-**Files:**
+### 9. 블로그 관리/콘텐츠 상세 후속 정리
 
-- Create: `poc-server/src/store-learning/routes/blogPosts.ts`
-- Create: `poc-server/src/store-learning/workflows/generateBlogPost.ts`
-- Test: `poc-server/test/storeLearningBlogPosts.test.ts`
+- [x] Milestone plan/branch/PR exists: PR #34.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] Ledger is updated with final status.
 
-- [ ] Add `GET /api/stores/:storeId/blog-posts`.
-- [ ] Add `GET /api/blog-posts/:postId`.
-- [ ] Add `PUT /api/blog-posts/:postId/draft`.
-- [ ] Add approval and publish request actions.
-- [ ] Add article/image/SEO regeneration actions.
-- [ ] Validate generated article, image prompts, and SEO score with Zod before save.
+### 10. 최종 문서/검증 정리
 
-## Task 8: Wire Existing Static Screens To APIs
-
-**Files:**
-
-- Modify only relevant `web/*.html` files from the Store Learning flow.
-- Do not redesign pages.
-- Do not modify `admin/` or `pc-web/`.
-
-- [ ] `web/soho_store_register.html` calls store registration APIs.
-- [ ] `web/03_AI학습_온보딩.html` calls learning settings APIs.
-- [ ] `web/04_AI학습_수집중.html` polls collection run APIs.
-- [ ] `web/05_AI학습_콘텐츠선택.html` calls item selection APIs.
-- [ ] `web/06_AI학습_현황*.html` calls learning status APIs.
-- [ ] `web/07_마케팅전략룰셋.html` calls ruleset APIs instead of local fixture data.
-- [ ] `web/02_블로그관리.html` calls blog post list APIs.
-- [ ] `web/09_AI콘텐츠생성_상세.html`, `web/10_블로그_발행대기_상세.html`, and `web/11_블로그_발행완료_상세.html` call blog post detail APIs.
-
-## Task 9: Validation
-
-**Files:**
-
-- Modify: `docs/codex/VALIDATION.md`
-
-- [ ] Run `cd poc-server && npm test`.
+- [ ] Confirm milestones 1-9 are merged to `develop`.
 - [ ] Run `cd poc-server && npm run typecheck`.
-- [ ] Run local mock-mode server and manually traverse the eight-step flow.
-- [ ] Confirm browser requests hit `/api/*` on `poc-server` only.
-- [ ] Confirm no Naver/OpenAI credentials appear in browser-visible code or responses.
+- [ ] Run `cd poc-server && npm test`.
+- [ ] Run `cd poc-server && npm run demo:store-learning`.
+- [ ] If live credentials are available and the user requests it, run
+      `cd poc-server && npm run naver:verify`.
+- [ ] Update `docs/codex/HANDOFF.md`.
+- [ ] Update `docs/codex/VALIDATION.md`.
+- [ ] Open or prepare the `develop` -> `main` promotion PR if GitHub Pages
+      should receive the static UI snapshot.
 
+## Session Startup Procedure
+
+1. Read `AGENTS.md`, `poc-server/AGENTS.md`,
+   `docs/codex/GIT_WORKFLOW.md`, `docs/codex/CURRENT_TASK.md`,
+   this file, `docs/codex/HANDOFF.md`, and `docs/codex/VALIDATION.md`.
+2. Confirm:
+   - `pwd`
+   - current branch
+   - `git status --short --branch`
+   - intended milestone number
+   - PR base
+   - allowed files
+   - forbidden areas
+   - validation commands
+3. Use the Next Todo Rule above to choose work.
+4. If implementation is needed, branch from `develop` unless the user
+   explicitly requests another base.
+5. If the chosen milestone already has a PR, inspect that PR before making new
+   changes.
+6. Update this ledger after each meaningful state change.
+
+## Current PR Stack Order
+
+The current implementation stack should be integrated in this order:
+
+```text
+#26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34
+```
+
+When a parent PR merges, retarget or update the next PR as needed before
+reviewing it. Do not treat child PRs as develop-ready until their base includes
+the parent work.
+
+## Validation Commands
+
+For documentation-only ledger updates:
+
+```bash
+git diff --check
+```
+
+For implementation milestones:
+
+```bash
+cd poc-server
+npm run typecheck
+npm test
+npm run demo:store-learning
+```
+
+Optional live-provider validation when explicitly requested and credentials are
+available:
+
+```bash
+cd poc-server
+npm run naver:verify
+```

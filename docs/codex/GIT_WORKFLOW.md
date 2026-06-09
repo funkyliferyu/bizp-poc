@@ -29,6 +29,27 @@ When a group of feature PRs is stable on `develop`, open a promotion PR:
 develop -> main
 ```
 
+## Sequential Plan Ledger
+
+`docs/codex/PLAN.md` is the develop-based sequential plan ledger for Store
+Learning work.
+
+Before creating a milestone-specific `docs/codex/MILESTONE_*` plan, branch, or
+PR:
+
+- Read `docs/codex/PLAN.md`.
+- Confirm the first milestone that is not merged and validated on `develop`.
+- Use that item as the next todo.
+- Update the ledger when a milestone is planned, opened as a PR, merged to
+  `develop`, validated on `develop`, or promoted to `main`.
+
+An open branch or draft PR is progress, but it is not completion. Completion
+means the work is on `develop` and the relevant validation has been recorded.
+
+Stacked PRs are allowed only when the user explicitly chooses that flow. If a
+stack is used, record the stack order in `docs/codex/PLAN.md`, merge parents
+first, and retarget child PRs as needed.
+
 ## Runtime Validation
 
 GitHub Pages can show static pages, but it cannot validate Store Learning runtime behavior.
@@ -78,7 +99,10 @@ For a new Codex session, ask the agent to read:
 - `poc-server/AGENTS.md`
 - `docs/codex/GIT_WORKFLOW.md`
 - `docs/codex/CURRENT_TASK.md`
+- `docs/codex/PLAN.md`
 - `docs/codex/HANDOFF.md`
 - `docs/codex/VALIDATION.md`
 
-The agent should confirm `pwd`, current branch, `git status --short`, task scope, forbidden areas, and validation commands before editing files.
+The agent should confirm `pwd`, current branch, `git status --short`, task
+scope, the next ledger todo, forbidden areas, and validation commands before
+editing files.

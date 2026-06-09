@@ -4,6 +4,8 @@
 
 `poc-server/` is the future backend for the Store Learning & Blog Content Automation PoC. The current code still contains older Event-to-Operation endpoints and fixtures; do not treat those as the product model for the new PoC.
 
+Before changing server code, read `../docs/codex/PLAN.md` and confirm the next sequential milestone. Server changes should belong to that milestone unless the user explicitly changes scope.
+
 ## Required Runtime Shape
 
 - Serve all product data through `/api/*` endpoints.
@@ -31,4 +33,3 @@
 - All LLM outputs must be parsed with Zod schemas.
 - Save only validated structured outputs.
 - Store validation errors and raw provider run metadata for debugging, but do not expose secrets to browser responses.
-

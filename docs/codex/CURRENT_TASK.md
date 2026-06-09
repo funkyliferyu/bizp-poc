@@ -2,14 +2,15 @@
 
 ## Current Phase
 
-Project workflow stabilization before the next Store Learning feature task.
+Sequential plan ledger control for Store Learning work.
 
 ## Repository State
 
-- Latest Store Learning work through PR #23 has been merged into `codex/api-backed-poc-flow`.
 - `main` is the intended public/stable branch.
 - `develop` is the intended integration branch.
-- Future implementation work should branch from `develop` unless explicitly redirected.
+- `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
+- Milestone PRs #26-#34 exist, but they are not complete until merged and
+  validated on `develop`.
 
 ## Branch Policy
 
@@ -55,15 +56,28 @@ http://localhost:5177/soho_store_register.html
 
 ## Next Exact Step
 
-Start the next feature from `develop` in a new session only after confirming:
+Start every session by reading `docs/codex/PLAN.md` and choosing the first
+milestone that is not merged and validated on `develop`.
+
+Current next todo:
+
+1. Review/integrate PR #26 into `develop`.
+2. Validate PR #26 on `develop` and update `docs/codex/PLAN.md`,
+   `docs/codex/HANDOFF.md`, and `docs/codex/VALIDATION.md` as needed.
+3. Continue sequentially with PR #27 through PR #34.
+4. Run the final document/validation milestone only after PRs #26-#34 are
+   merged to `develop`.
+
+Before editing files, confirm:
 
 1. `pwd`
 2. current branch
 3. `git status --short`
-4. intended task id and scope
-5. files allowed to change
-6. files forbidden to change
-7. validation commands
+4. next ledger todo
+5. intended task id and scope
+6. files allowed to change
+7. files forbidden to change
+8. validation commands
 
 ## Forbidden Areas By Default
 
