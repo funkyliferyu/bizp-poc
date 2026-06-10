@@ -5,6 +5,7 @@ import type { MediaAsset } from '../../repositories/media_assets.js';
 import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { Store } from '../../repositories/stores.js';
+import type { BlogPromptBudgetMetadata } from './blogPromptBudget.js';
 
 export const BlogDraftSectionSchema = z.object({
   heading: z.string().min(1),
@@ -70,6 +71,7 @@ export type BlogContentProvider = {
   name: string;
   mode: 'openai';
   model?: string | null;
+  getLastRunMetadata?: () => BlogPromptBudgetMetadata | null;
   generateDraft(input: BlogDraftProviderInput): Promise<unknown>;
   scoreSeo(input: BlogSeoProviderInput): Promise<unknown>;
 };

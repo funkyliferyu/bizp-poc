@@ -229,7 +229,21 @@ describe('content detail API', () => {
     expect(generation?.prompt).toMatchObject({
       mode: 'openai',
       provider: 'openAIBlogProvider',
-      action: 'regenerate_text'
+      action: 'regenerate_text',
+      inputBudget: expect.objectContaining({
+        action: 'regenerate_text',
+        promptCharacterCount: expect.any(Number),
+        promptCharacterBudget: expect.any(Number)
+      })
+    });
+    expect(body.contentProvenance).toMatchObject({
+      mode: 'openai',
+      provider: 'openAIBlogProvider',
+      action: 'regenerate_text',
+      inputBudget: expect.objectContaining({
+        action: 'regenerate_text',
+        promptCharacterCount: expect.any(Number)
+      })
     });
     expect(scores.at(-1)).toMatchObject({
       totalScore: 94,
@@ -388,6 +402,16 @@ describe('content detail API', () => {
     expect(JSON.stringify(parseCalls[0])).toContain('test-seo-model');
     expect(body.seoScore).toMatchObject({
       totalScore: 88,
+      provenance: expect.objectContaining({
+        mode: 'openai',
+        provider: 'openAIBlogProvider',
+        action: 'seo_rescore',
+        inputBudget: expect.objectContaining({
+          action: 'seo_rescore',
+          promptCharacterCount: expect.any(Number),
+          promptCharacterBudget: expect.any(Number)
+        })
+      }),
       rubric: expect.objectContaining({
         titleKeyword: expect.objectContaining({ score: 18 })
       })
@@ -398,5 +422,54 @@ describe('content detail API', () => {
         cta: expect.any(Object)
       })
     });
+  });
+
+  it('sanitizes OpenAI context length errors during SEO rescoring', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    seedDemoStore(connection);
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/blog-posts',
+      createBlogPostRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-seo-model' },
+        blogProviderClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async () => {
+                  throw new Error(
+                    "This model's maximum context length is 128000 tokens. However, your messages resulted in 179181 tokens."
+                  );
+                }
+              }
+            }
+          }
+        }
+      })
+    );
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/api/blog-posts/blog_post_demo_pending_approval/seo-score`, {
+      method: 'POST'
+    });
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('블로그 생성 입력이 커서 AI 처리 한도를 초과했습니다. 룰셋 또는 기존 글 내용을 줄인 뒤 다시 시도해주세요.');
+    expect(JSON.stringify(body)).not.toContain('179181');
+    expect(JSON.stringify(body)).not.toContain('maximum context length');
   });
 });

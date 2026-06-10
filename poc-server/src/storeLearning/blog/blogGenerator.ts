@@ -8,6 +8,7 @@ import type { SeoScore } from '../../repositories/seo_scores.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import type { Store } from '../../repositories/stores.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
+import type { BlogPromptBudgetMetadata } from './blogPromptBudget.js';
 import {
   BlogDraftSectionSchema,
   BlogProviderDraftOutputSchema,
@@ -55,6 +56,7 @@ type GenerationProvenance = {
   model: string | null;
   action: string;
   providerSeoScoreReturned?: boolean;
+  inputBudget?: BlogPromptBudgetMetadata | null;
 };
 
 function nowIso() {
@@ -398,13 +400,15 @@ function contentGenerationProvenance(contentGeneration: { prompt: JsonValue } | 
   const mode = asString(prompt.mode) || null;
   const provider = asString(prompt.provider) || asString(prompt.generator) || null;
   const action = asString(prompt.action) || null;
+  const inputBudget = asRecord(prompt.inputBudget);
   if (!mode && !provider && !action) return null;
   return {
     mode: mode || 'unknown',
     provider,
     model: asString(prompt.model) || null,
     action: action || 'generate_blog_post',
-    providerSeoScoreReturned: prompt.providerSeoScoreReturned === true
+    providerSeoScoreReturned: prompt.providerSeoScoreReturned === true,
+    inputBudget: Object.keys(inputBudget).length > 0 ? (inputBudget as BlogPromptBudgetMetadata) : null
   };
 }
 
@@ -441,6 +445,7 @@ export async function generateApprovalPendingBlogPost(
   const ruleset = latestRuleset(repos, store.id);
   if (!ruleset) throw new Error(`Marketing ruleset not found for store: ${store.id}`);
   const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
+  let providerInputBudget: BlogPromptBudgetMetadata | null = null;
   const providerDraft = provider
     ? providerDraftFromOutput(
         await provider.generateDraft({
@@ -452,6 +457,9 @@ export async function generateApprovalPendingBlogPost(
         ruleset.id
       )
     : null;
+  if (provider) {
+    providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+  }
   const draft = providerDraft?.draft ?? buildDraft(store, ruleset, fields);
   const providerSeoScore = providerDraft?.seoScore ?? null;
   const timestamp = nowIso();
@@ -473,6 +481,7 @@ export async function generateApprovalPendingBlogPost(
       model: provider?.model ?? null,
       action: 'generate_blog_post',
       providerSeoScoreReturned: Boolean(providerSeoScore),
+      inputBudget: providerInputBudget,
       generator: draft.generator,
       rulesetId: ruleset.id,
       fieldKeys: fields.map((field) => field.fieldKey)
@@ -528,7 +537,8 @@ export async function generateApprovalPendingBlogPost(
         provider: provider?.name ?? 'localSeoScorer',
         model: provider?.model ?? null,
         action: 'generate_blog_post',
-        providerSeoScoreReturned: Boolean(providerSeoScore)
+        providerSeoScoreReturned: Boolean(providerSeoScore),
+        inputBudget: providerInputBudget
       },
       ...rubric
     },
@@ -656,6 +666,7 @@ export async function regenerateBlogPostText(
   if (!ruleset) throw new Error(`Marketing ruleset not found for store: ${post.storeId}`);
   const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
   const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  let providerInputBudget: BlogPromptBudgetMetadata | null = null;
   const providerDraft = provider
     ? providerDraftFromOutput(
         await provider.generateDraft({
@@ -670,6 +681,9 @@ export async function regenerateBlogPostText(
         ruleset.id
       )
     : null;
+  if (provider) {
+    providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+  }
   const draft = providerDraft?.draft ?? buildDraft(store, ruleset, fields);
   const providerSeoScore = providerDraft?.seoScore ?? null;
   const timestamp = nowIso();
@@ -706,6 +720,7 @@ export async function regenerateBlogPostText(
       model: provider?.model ?? null,
       action: 'regenerate_text',
       providerSeoScoreReturned: Boolean(providerSeoScore),
+      inputBudget: providerInputBudget,
       previousContentGenerationId: post.contentGenerationId,
       revision: revisionNumber
     },
@@ -731,7 +746,8 @@ export async function regenerateBlogPostText(
     provider: provider?.name ?? 'localSeoScorer',
     model: provider?.model ?? null,
     action: 'regenerate_text',
-    providerSeoScoreReturned: Boolean(providerSeoScore)
+    providerSeoScoreReturned: Boolean(providerSeoScore),
+    inputBudget: providerInputBudget
   });
   return {
     ...getBlogPostDetail(repos, updated.id),
@@ -823,6 +839,7 @@ export async function rescoreBlogPostSeo(repos: Repositories, postId: string, pr
   const ruleset = rulesetForPost(repos, post);
   const fields = ruleset ? repos.rulesetFields.listByRulesetId(ruleset.id) : [];
   const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  let providerInputBudget: BlogPromptBudgetMetadata | null = null;
   const providerSeoScore = provider
     ? SeoScoreOutputSchema.parse(
         await provider.scoreSeo({
@@ -835,12 +852,16 @@ export async function rescoreBlogPostSeo(repos: Repositories, postId: string, pr
         })
       )
     : null;
+  if (provider) {
+    providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+  }
   const seoScore = createSeoScore(repos, post, mediaAssets, providerSeoScore, {
     mode: provider?.mode ?? 'mock',
     provider: provider?.name ?? 'localSeoScorer',
     model: provider?.model ?? null,
     action: 'seo_rescore',
-    providerSeoScoreReturned: Boolean(providerSeoScore)
+    providerSeoScoreReturned: Boolean(providerSeoScore),
+    inputBudget: providerInputBudget
   });
   return {
     blogPost: serializeBlogPost(repos, post.id),
