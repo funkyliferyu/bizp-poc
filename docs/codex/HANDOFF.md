@@ -7,14 +7,8 @@ PR #38 is open and ready for review against `develop`:
 https://github.com/funkyliferyu/bizp-poc/pull/38
 
 Non-admin merge attempts are currently blocked by the `develop` base branch
-policy, and repository auto-merge is disabled. The PR has no reported comments,
-reviews, or status checks and is reported as `MERGEABLE`.
-
-New CR added after the PR was marked ready: milestone 12 Task 12 should be
-implemented before PR #38 is merged. The ruleset store-info parking row must
-show `수동입력 필요` when parking is missing, not `주차 정보 수집 중`, and must
-provide a right-aligned `매장정보에서 입력하기` action that opens
-`soho_store_register.html?storeId=<currentStoreId>&focus=parking`.
+policy, and repository auto-merge is disabled. The PR has no reported comments
+or reviews and was reported as `MERGEABLE` before the latest Task 12 update.
 
 The branch now includes:
 
@@ -38,25 +32,31 @@ The branch now includes:
   `비율·포맷` plus `텍스트 오버레이` into the top common image-style controls.
 - Similar-comparison UI now labels the block `(공통예시) 유사업체비교` in red
   while keeping the existing comparison mock data and interactions intact.
+- Missing parking in the ruleset store-info tab now renders as `수동입력 필요`
+  with a right-aligned `매장정보에서 입력하기` action that opens the current
+  store registration edit screen focused on parking input.
 
 Latest feature-branch validation recorded:
 
-- `npm test -- rulesetPage.test.ts`: passed, 13 tests.
-- `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts`:
-  passed, 52 tests.
+- `npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`: passed,
+  31 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts`:
+  passed, 45 tests.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 202 tests and 6 skipped live-provider tests across 38 files.
+- `npm test`: passed, 204 tests and 6 skipped live-provider tests across 38 files.
 - `npm run demo:store-learning`: passed and seeded
   `poc-server/data/store-learning.sqlite`.
 - `git diff --check`: passed.
 - In-app browser smoke passed on
   `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html`:
-  image and comparison titles render red `rgb(224, 49, 49)`, image field order
-  is correct, and the image matrix/source notes are absent.
+  the parking row renders `수동입력 필요`, the `매장정보에서 입력하기` action is
+  visible, and clicking it navigates to
+  `soho_store_register.html?storeId=store_12841526&focus=parking`.
+- In-app browser smoke passed on the store registration target:
+  `focus=parking` loads the existing store and focuses `#f-parking-note`.
 
-Next step: execute milestone 12 Task 12 on `codex/collection-delta-plan`, rerun
-feature-branch validation, then proceed with PR #38 merge to `develop` and
-develop validation.
+Next step: have an authorized reviewer/admin merge PR #38 to `develop`, then
+run final develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
@@ -1088,16 +1088,10 @@ Additional validation:
   matrix, no writing-style source notes, current/suggestion layout, conservative
   `현행유지`/`개선 제안` states, first-class Blog style fields, and medical
   required-copy controls.
-- New planned follow-up, not yet implemented: Task 10 in
-  `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` should clean up
-  the image-style tab by relabeling it `(공통예시) 이미지 스타일` in red,
-  removing visible `AI 처리`/`개선 제안`/`자동 입력 기준`, and promoting
-  `비율·포맷` plus `텍스트 오버레이` into the top image-style controls after
-  `피할 스타일`.
-- New planned follow-up, not yet implemented: Task 11 in the same milestone
-  plan should relabel the similar-comparison block as
-  `(공통예시) 유사업체비교` in red while preserving the existing comparison
-  mock data/interactions and browser API boundaries.
+- Task 10 image-style common-example cleanup and Task 11 similar-comparison
+  common-example labeling have since been implemented and validated on
+  `codex/collection-delta-plan`; the latest validation summary is recorded at
+  the top of this handoff.
 
 ## Milestone 11 Real Store E2E Handoff
 

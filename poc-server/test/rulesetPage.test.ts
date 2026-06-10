@@ -192,6 +192,26 @@ describe('marketing ruleset static page API wiring', () => {
     expect(storeSection).not.toContain('자동 입력 기준');
   });
 
+  it('shows missing parking as manual input with a store registration action', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
+    const storeSection = html.match(/<!-- 매장 정보 -->[\s\S]*?<!-- 우리 매장 분석 -->/)?.[0] ?? '';
+
+    expect(storeSection).not.toContain('주차 정보 수집 중');
+    expect(storeSection).toContain('data-manual-required-field="parking"');
+    expect(storeSection).toContain('수동입력 필요');
+    expect(storeSection).toContain('data-store-registration-action="parking"');
+    expect(storeSection).toContain('매장정보에서 입력하기');
+    expect(js).toContain("const PARKING_MANUAL_REQUIRED_TEXT = '수동입력 필요';");
+    expect(js).toContain('function normalizeParkingRulesetValue');
+    expect(js).toContain('function updateParkingManualAction');
+    expect(js).toContain('function storeRegistrationParkingHref');
+    expect(js).toContain("url.searchParams.set('storeId', currentStoreId())");
+    expect(js).toContain("url.searchParams.set('focus', 'parking')");
+    expect(js).toContain('window.goToStoreRegistrationParking = goToStoreRegistrationParking');
+    expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
+  });
+
   it('documents the only store-info improvement suggestions that are applied', () => {
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
 

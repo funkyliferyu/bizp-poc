@@ -1,6 +1,6 @@
 (function () {
   const STORAGE_KEY = 'bizplanet.storeRegistration.storeId';
-  let currentStoreId = window.localStorage.getItem(STORAGE_KEY);
+  let currentStoreId = initialStoreId();
   let currentStore = null;
   let menuExpanded = false;
   let currentMenuImageUrls = [];
@@ -19,6 +19,16 @@
     { day: 'sat', label: '토' },
     { day: 'sun', label: '일' }
   ];
+
+  function params() {
+    return new URLSearchParams(window.location.search);
+  }
+
+  function initialStoreId() {
+    const storeId = params().get('storeId') || window.localStorage.getItem(STORAGE_KEY);
+    if (storeId) window.localStorage.setItem(STORAGE_KEY, storeId);
+    return storeId;
+  }
 
   function field(id) {
     return document.getElementById(id);
@@ -1185,7 +1195,7 @@
   }
 
   async function loadSavedStore() {
-    const storeId = window.localStorage.getItem(STORAGE_KEY);
+    const storeId = initialStoreId();
     if (!storeId) return;
 
     try {
@@ -1193,9 +1203,18 @@
       if (response.status === 404) return;
       const payload = await readResponse(response);
       await populateStore(payload.store);
+      if (params().get('focus') === 'parking') focusStoreRegistrationSection('parking');
     } catch (error) {
       console.warn(error);
     }
+  }
+
+  function focusStoreRegistrationSection(section) {
+    if (section !== 'parking') return;
+    const target = document.querySelector('[data-autofill-group="parking"]') || field('f-parking-note');
+    if (target) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const parkingNote = field('f-parking-note');
+    if (parkingNote) parkingNote.focus({ preventScroll: true });
   }
 
   function bindBusinessHoursSyncEvents() {

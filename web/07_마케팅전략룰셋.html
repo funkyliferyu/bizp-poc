@@ -136,6 +136,10 @@
 .ruleset-lock-badge{background:#EEF2FF;color:#3B5BDB;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;border:1px solid #3B5BDB}
 .ruleset-source-note{margin-top:7px;border-left:2px solid #BAC8FF;background:#F8FAFF;padding:7px 9px;font-size:11px;line-height:1.55;color:#4A5568}
 .ruleset-source-note strong{color:#1A1A2E;font-weight:700}
+.ruleset-store-field-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:5px}
+.manual-input-action{height:26px;padding:0 9px;border:1px solid #BAC8FF;border-radius:6px;background:#fff;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.manual-input-action:hover{background:#EEF2FF}
+.manual-required-text{color:#E8590C;font-weight:700}
 .ruleset-source-matrix{margin-top:14px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;overflow:hidden}
 .ruleset-source-matrix-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border-bottom:1px solid #EDF2F7;background:#FAFBFC}
 .ruleset-source-matrix-title{font-size:12px;font-weight:700;color:#1A1A2E}
@@ -200,7 +204,13 @@
         </div>
         <div class="ruleset-field" data-ruleset-field="closedDays"><div class="ruleset-label">휴무일 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>매주 월요일</div></div>
         <div class="ruleset-field" data-ruleset-field="phone"><div class="ruleset-label">연락처 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>031-000-0000</div></div>
-        <div class="ruleset-field" data-ruleset-field="parking"><div class="ruleset-label">주차 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>주차 정보 수집 중</div></div>
+        <div class="ruleset-field" data-ruleset-field="parking" data-manual-required-field="parking">
+          <div class="ruleset-store-field-head">
+            <div class="ruleset-label">주차 <span class="src-place">Place 수집</span></div>
+            <button type="button" class="manual-input-action" data-store-registration-action="parking" onclick="goToStoreRegistrationParking()">매장정보에서 입력하기</button>
+          </div>
+          <div class="ruleset-val manual-required-text" data-ruleset-value>수동입력 필요</div>
+        </div>
         <div class="ruleset-field" data-ruleset-field="storeIntro"><div class="ruleset-label">매장 소개 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>매장 소개를 불러오는 중입니다.</div></div>
       </div>
     </div>

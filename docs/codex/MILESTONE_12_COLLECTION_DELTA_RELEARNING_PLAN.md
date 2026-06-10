@@ -450,47 +450,53 @@ Excluded:
 - Modify only if the store registration page needs a visible focus target:
   `web/soho_store_register.html`
 
-- [ ] Add RED tests in `poc-server/test/rulesetPage.test.ts` proving the
+- [x] Add RED tests in `poc-server/test/rulesetPage.test.ts` proving the
       marketing ruleset store-info tab no longer contains the fallback text
       `주차 정보 수집 중`.
-- [ ] Add RED tests proving the parking row has a stable hook for a missing
+- [x] Add RED tests proving the parking row has a stable hook for a missing
       parking state, for example `data-manual-required-field="parking"`, and
       can render the exact text `수동입력 필요`.
-- [ ] Add RED tests proving the parking row has a right-aligned
+- [x] Add RED tests proving the parking row has a right-aligned
       `매장정보에서 입력하기` action with a stable hook such as
       `data-store-registration-action="parking"`.
-- [ ] Add RED tests proving the parking action builds an internal browser URL
+- [x] Add RED tests proving the parking action builds an internal browser URL
       only, preserving API boundaries:
       `soho_store_register.html?storeId=<currentStoreId>&focus=parking`.
       The browser must not call Naver/OpenAI/external providers for this
       action.
-- [ ] Add RED tests in `poc-server/test/storeRegistrationPage.test.ts` proving
+- [x] Add RED tests in `poc-server/test/storeRegistrationPage.test.ts` proving
       `soho_store_register.js` reads a `storeId` query parameter before
       falling back to `bizplanet.storeRegistration.storeId` in local storage.
-- [ ] Add RED tests proving `soho_store_register.js` handles `focus=parking`
+- [x] Add RED tests proving `soho_store_register.js` handles `focus=parking`
       by focusing or scrolling to the existing parking controls, using the
       current store's edit screen rather than creating a new store.
-- [ ] Update `web/07_마케팅전략룰셋.html` so the static parking fallback is
+- [x] Update `web/07_마케팅전략룰셋.html` so the static parking fallback is
       `수동입력 필요`, not `주차 정보 수집 중`.
-- [ ] Update `web/07_마케팅전략룰셋.html` so the parking row can display the
+- [x] Update `web/07_마케팅전략룰셋.html` so the parking row can display the
       right-aligned `매장정보에서 입력하기` button without disturbing the
       existing store-info row layout.
-- [ ] Update `web/ruleset_editor.js` with a small parking value normalizer:
+- [x] Update `web/ruleset_editor.js` with a small parking value normalizer:
       empty, null, `-`, `수집/결과 대기`, or old `주차 정보 수집 중` values
       should render as `수동입력 필요`.
-- [ ] Update `web/ruleset_editor.js` so the manual parking action is visible
+- [x] Update `web/ruleset_editor.js` so the manual parking action is visible
       only for the missing parking state and navigates to
       `soho_store_register.html?storeId=${currentStoreId()}&focus=parking`.
-- [ ] Update `web/soho_store_register.js` so `currentStoreId` initializes from
+- [x] Update `web/soho_store_register.js` so `currentStoreId` initializes from
       the `storeId` query parameter when present, stores it in local storage,
       and loads that existing store via `GET /api/stores/:storeId`.
-- [ ] Update `web/soho_store_register.js` so `focus=parking` scrolls to the
+- [x] Update `web/soho_store_register.js` so `focus=parking` scrolls to the
       existing parking radio group or parking note input after saved store data
       has populated. Keep the interaction local to the browser page.
-- [ ] Preserve existing save behavior: after the user edits parking and saves,
+- [x] Preserve existing save behavior: after the user edits parking and saves,
       the existing `PUT /api/stores/:storeId` path should update the same
       store, not create a duplicate.
-- [ ] Run `cd poc-server && npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`.
-- [ ] Run `cd poc-server && npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts`.
-- [ ] Run `cd poc-server && npm run typecheck`.
-- [ ] Run `git diff --check`.
+- [x] Run `cd poc-server && npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`.
+- [x] Run `cd poc-server && npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts`.
+- [x] Run `cd poc-server && npm run typecheck`.
+- [x] Run `cd poc-server && npm test`.
+- [x] Run `cd poc-server && npm run demo:store-learning`.
+- [x] Run `git diff --check`.
+- [x] Smoke test the in-app browser ruleset parking action and
+      `soho_store_register.html?storeId=<currentStoreId>&focus=parking`
+      focus behavior.
+- [x] Record validation and handoff notes.

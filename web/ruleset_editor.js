@@ -19,6 +19,15 @@
     '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
     '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
   ].join('\n');
+  const PARKING_MANUAL_REQUIRED_TEXT = '수동입력 필요';
+  const MISSING_PARKING_TEXTS = new Set([
+    '',
+    '-',
+    PARKING_MANUAL_REQUIRED_TEXT,
+    '주차 정보 수집 중',
+    '수집/결과 대기',
+    '수집/AI 결과 대기'
+  ]);
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -242,11 +251,40 @@
     return storeFacts[fieldKey] ?? null;
   }
 
+  function normalizeParkingRulesetValue(value) {
+    const text = String(value ?? '').trim();
+    return MISSING_PARKING_TEXTS.has(text) ? PARKING_MANUAL_REQUIRED_TEXT : text;
+  }
+
+  function isMissingParkingValue(value) {
+    return normalizeParkingRulesetValue(value) === PARKING_MANUAL_REQUIRED_TEXT;
+  }
+
+  function storeRegistrationParkingHref() {
+    const url = new URL('soho_store_register.html', window.location.href);
+    url.searchParams.set('storeId', currentStoreId());
+    url.searchParams.set('focus', 'parking');
+    return `${url.pathname}${url.search}`;
+  }
+
+  function goToStoreRegistrationParking() {
+    window.location.href = storeRegistrationParkingHref();
+  }
+
+  function updateParkingManualAction(element, valueText) {
+    const isMissing = isMissingParkingValue(valueText);
+    const action = element.querySelector('[data-store-registration-action="parking"]');
+    const value = element.querySelector('[data-ruleset-value]');
+    if (action) action.hidden = !isMissing;
+    if (value) value.classList.toggle('manual-required-text', isMissing);
+  }
+
   function preferredCurrentValue(payload, fieldKey, existingValue) {
     const matrix = matrixForFieldKey(fieldKey);
     const matrixCurrentValue = matrix ? matrix.currentValue : null;
     if (APPLIED_STORE_INFO_FIELDS.has(fieldKey)) {
-      return directFactValue(payload.storeFacts, fieldKey) ?? matrixCurrentValue ?? existingValue;
+      const nextValue = directFactValue(payload.storeFacts, fieldKey) ?? matrixCurrentValue ?? existingValue;
+      return fieldKey === 'parking' ? normalizeParkingRulesetValue(nextValue) : nextValue;
     }
     const rulesetField = findFieldForMatrixRow({ fieldKey });
     if (rulesetField) return rulesetField.finalValue || rulesetField.aiValue || existingValue;
@@ -260,6 +298,7 @@
     const nextValue = preferredCurrentValue(payload, fieldKey, value.textContent);
     value.textContent = nextValue || '-';
     value.dataset.originalValue = value.textContent;
+    if (fieldKey === 'parking') updateParkingManualAction(element, value.textContent);
     renderKeywordTags(element, value.textContent);
     renderRulesetSourceNote(element, matrixForFieldKey(fieldKey));
   }
@@ -512,6 +551,8 @@
       }
     });
   }
+
+  window.goToStoreRegistrationParking = goToStoreRegistrationParking;
 
   document.addEventListener('DOMContentLoaded', async () => {
     const storeId = currentStoreId();

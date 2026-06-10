@@ -55,15 +55,12 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. Execute milestone 12 Task 12 from
-   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` on
-   `codex/collection-delta-plan`.
-2. Re-run feature-branch validation after Task 12 is complete.
-3. Hold PR #38 until Task 12 is implemented and validated.
-4. Merge PR #38 to `develop` once the base branch policy requirement is
+1. PR #38 now includes milestone 12 Task 12 parking manual-input CTA work and
+   feature-branch validation is recorded on `codex/collection-delta-plan`.
+2. Merge PR #38 to `develop` once the base branch policy requirement is
    satisfied by an authorized reviewer/admin.
-5. Run final develop validation after the CR follow-up work is merged.
-6. Prepare the `develop` -> `main` promotion path only after validation passes
+3. Run final develop validation after the CR follow-up work is merged.
+4. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 ## Milestone Ledger
@@ -81,7 +78,7 @@ Current next todo as of 2026-06-10:
 | 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
 | 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
 | 11 | 실등록 Store E2E 하드닝 | Merged to develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Awaiting post-CR final validation |
-| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | New Task 12 planned; execute before merge |
+| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Task 12 feature-branch validation recorded; authorized merge pending |
 | 13 | 최종 문서/검증 정리 | Not started | - | Run after CR follow-up merges |
 
 ## Sequential Checklist
@@ -178,6 +175,8 @@ Status:
       `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`.
 - [x] Implementation branch exists: `codex/collection-delta-plan`.
 - [x] Feature-branch validation is recorded in `docs/codex/VALIDATION.md`.
+- [x] Task 12 parking manual-input CTA is implemented and feature-branch
+      validated.
 - [ ] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
 
@@ -384,6 +383,21 @@ CR-Ruleset-SimilarComparison-008:
 - Add static/page tests proving the label, red common-example treatment, and
   absence of new external browser calls.
 
+CR-Ruleset-ParkingManualInput-009:
+
+- Marketing strategy ruleset > store info must treat missing parking as a
+  manual input state, not an in-progress collection state.
+- If parking is missing, render `수동입력 필요` instead of
+  `주차 정보 수집 중`.
+- Provide a right-aligned `매장정보에서 입력하기` action on the parking row.
+- The action must navigate to the current store registration edit screen using
+  `soho_store_register.html?storeId=<currentStoreId>&focus=parking`.
+- Store registration should prefer the `storeId` query parameter over local
+  storage, load the existing store, and focus or scroll to parking controls
+  when `focus=parking` is present.
+- Do not re-run Place collection or infer parking availability for missing
+  parking. The state is explicitly manual input required.
+
 ### 13. 최종 문서/검증 정리
 
 - [ ] Confirm milestones 1-12 are merged to `develop`.
@@ -427,9 +441,9 @@ The current implementation stack should be integrated in this order:
 ```
 
 PRs #26-#34, #36, and #37 have been merged to `develop`. Milestone 12 has new
-image-style and similar-comparison CRs planned on `codex/collection-delta-plan`;
-the next todo is Task 10 then Task 11 execution, feature-branch validation, PR
-review/merge to `develop`, and final develop validation.
+CR follow-up work through Task 12 implemented and feature-branch validated on
+`codex/collection-delta-plan`; the next todo is authorized PR #38 merge to
+`develop` and final develop validation.
 
 ## Validation Commands
 

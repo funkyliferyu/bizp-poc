@@ -1,5 +1,80 @@
 # Validation
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 12 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts
+npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+```
+
+In-app browser smoke targets:
+
+```text
+http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html
+http://localhost:5177/soho_store_register.html?storeId=store_12841526&focus=parking
+```
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 12 TDD Evidence
+
+- RED `npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`: failed
+  because the ruleset page still contained `주차 정보 수집 중`, had no
+  parking manual-input action, and the store registration page did not read the
+  `storeId` query parameter or handle `focus=parking`.
+- GREEN `npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`:
+  passed, 31 tests, after adding the missing-parking normalizer, the
+  `수동입력 필요` parking state, the `매장정보에서 입력하기` action, query
+  parameter store loading, and parking focus behavior.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 12 Final Validation
+
+Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/38
+PR #38 now includes the Task 12 parking manual-input CTA follow-up. Non-admin
+merge remains blocked by the `develop` base branch policy, and repository
+auto-merge is disabled.
+
+- `npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`: passed,
+  31 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts`:
+  passed, 45 tests.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 204 tests and 6 skipped live-provider tests across 38 files.
+- `npm run demo:store-learning`: passed and seeded Store Learning demo data at
+  `poc-server/data/store-learning.sqlite`.
+- `git diff --check`: passed.
+- In-app browser smoke passed:
+  - Ruleset parking row exists with `data-manual-required-field="parking"`.
+  - Parking text is `수동입력 필요`; `주차 정보 수집 중` is absent.
+  - `매장정보에서 입력하기` action is visible with
+    `data-store-registration-action="parking"`.
+  - Clicking the action navigates to
+    `http://localhost:5177/soho_store_register.html?storeId=store_12841526&focus=parking`.
+  - Store registration loads with `focus=parking`, the parking group exists,
+    and `#f-parking-note` is focused.
+- Expected milestone files:
+  - `docs/codex/CURRENT_TASK.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`
+  - `docs/codex/PLAN.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/test/rulesetPage.test.ts`
+  - `poc-server/test/storeRegistrationPage.test.ts`
+  - `web/07_마케팅전략룰셋.html`
+  - `web/ruleset_editor.js`
+  - `web/soho_store_register.js`
+- Existing unrelated `.DS_Store` local modification remains unstaged and
+  outside the milestone commit.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 Commands
 
 Run from `poc-server/`:
@@ -43,8 +118,8 @@ PR #38 was marked ready for review. Non-admin `gh pr merge --merge`,
 `gh pr merge --squash`, and `gh pr merge --merge --auto` attempts did not
 merge it: the `develop` base branch policy blocks non-admin merge, and
 repository auto-merge is disabled.
-New parking manual-input CR has been added as milestone 12 Task 12 after this
-validation. Task 12 has not been implemented or validated yet.
+Later Task 12 parking manual-input CR validation supersedes this section for
+the latest PR #38 state.
 
 - `npm test -- rulesetPage.test.ts`: passed, 13 tests.
 - `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts`:
