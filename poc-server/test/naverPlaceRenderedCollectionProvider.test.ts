@@ -525,6 +525,49 @@ describe('Naver Place rendered collection provider', () => {
     }
   });
 
+  it('does not create failed placeholders when GraphQL cannot confirm additional rendered reviews', async () => {
+    const fetchMock = vi.fn(async () => new Response('temporarily unavailable', { status: 503 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const provider = createNaverPlaceRenderedCollectionProvider(async () => ({
+        finalUrl: reviewUrl,
+        bodyText: null,
+        html: apolloReviewHtmlWithItems(10)
+      }));
+
+      const items = await provider.collect({
+        env: {},
+        plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 50 },
+        store: {
+          id: 'store_graphql_unconfirmed_total',
+          name: '그래프큐엘 미확인 테스트 매장',
+          naverPlaceUrl: placeUrl,
+          naverPlaceId: '1824807602',
+          category: null,
+          address: null,
+          phone: null,
+          description: null,
+          metadata: {},
+          createdAt: '2026-06-09T00:00:00.000Z',
+          updatedAt: '2026-06-09T00:00:00.000Z'
+        }
+      });
+
+      const reviews = items.filter((item) => item.sourceType === 'review');
+      expect(reviews).toHaveLength(10);
+      expect(reviews.every((item) => item.status !== 'failed')).toBe(true);
+      expect(reviews.at(-1)?.metadata).toEqual(
+        expect.objectContaining({
+          availableReviewTotal: 10,
+          requestedReviewLimit: 50
+        })
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('persists rendered Place visitor reviews as collection items through the collection run API', async () => {
     const providerEnv = {
       NAVER_OWNER_AUTHORIZED: 'true',
@@ -639,6 +682,79 @@ describe('Naver Place rendered collection provider', () => {
         replyStatus: 'not_replied',
         hasOwnerReply: false,
         reviewKeywords: ['선물하기 좋아요', '매장이 청결해요']
+      })
+    );
+  });
+
+  it('completes rendered collection when Place profile metadata contains non-string values', async () => {
+    const providerEnv = {
+      NAVER_OWNER_AUTHORIZED: 'true',
+      NAVER_PLACE_PROVIDER: 'rendered',
+      NAVER_BLOG_PROVIDER: 'mock',
+      NAVER_PLACE_RENDERER_ENDPOINT: ''
+    };
+    const app = express();
+    app.use(express.json());
+    app.get('/fake-renderer', (_req, res) => {
+      res.json({
+        finalUrl: reviewUrl,
+        html: fixtureHtml,
+        bodyText: null
+      });
+    });
+    app.use('/api/stores', createStoreRoutes({ connection, env: providerEnv }));
+    app.use('/api/collection-runs', createCollectionRunRoutes({ connection, stepDelayMs: 0, env: providerEnv }));
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+    providerEnv.NAVER_PLACE_RENDERER_ENDPOINT = `${baseUrl}/fake-renderer`;
+
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.update('store_demo_cake', {
+      naverPlaceUrl: placeUrl,
+      naverPlaceId: '1838952735',
+      metadata: {
+        category: ['의료/건강', '정형외과'],
+        closedDays: ['매주 월요일'],
+        parking: { available: false, note: null },
+        reviewStats: { visitor: 61 },
+        hospitalInfo: {
+          subjects: ['정형외과', '내과']
+        }
+      }
+    });
+
+    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channels: {
+          naverBlog: { enabled: false, blogPostLimit: 0 },
+          naverPlace: { enabled: true, placeReviewLimit: 1 },
+          instagram: { enabled: false, instagramPostLimit: 0 }
+        }
+      })
+    });
+    const createRunResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const created = await readJson(createRunResponse);
+
+    const startResponse = await fetch(`${baseUrl}/api/collection-runs/${created.collectionRunId}/start`, {
+      method: 'POST'
+    });
+    const started = await readJson(startResponse);
+    const terminal = await waitForTerminalRun(baseUrl, created.collectionRunId);
+
+    expect(startResponse.status).toBe(200);
+    expect(started.collectionRun.status).not.toBe('failed');
+    expect(terminal.status).toBe('completed');
+    expect(terminal.summary.error).toBeUndefined();
+    expect(terminal.summary.collectionDelta).toEqual(
+      expect.objectContaining({
+        counts: expect.objectContaining({ new: 2 })
       })
     );
   });

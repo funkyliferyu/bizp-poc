@@ -1,5 +1,467 @@
 # Validation
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 16 Final Validation
+
+Task 16 fixes the 우리 매장 분석 `리뷰 약점` legacy fallback issue:
+older rulesets that do not have a persisted `reviewWeakness` field now receive
+a server-side backfilled field derived from collected review/blog evidence, not
+the static browser fallback. Because it is returned as a normal ruleset field,
+the row also gets `저장`, `초기화`, and `근거 보기`.
+
+TDD evidence:
+
+- RED
+  `npm test -- --run test/rulesetApi.test.ts -t "review weakness|field source matrix"`:
+  failed because `reviewWeakness` was absent from a legacy ruleset payload and
+  the source-matrix text still described it as a static UI sample.
+- GREEN same command: passed, 2 focused tests.
+
+Commands:
+
+```bash
+cd poc-server
+npm test -- --run test/rulesetApi.test.ts -t "review weakness|field source matrix"
+npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/ruleset_editor.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused Task 16 suite: 2 tests.
+- PASS, ruleset API/page regression suite: 2 files and 30 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 36 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 214 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, `git diff --check`.
+
+Browser/API smoke:
+
+- Localhost API check:
+  `GET /api/stores/store_1020864025/strategy-ruleset`
+  returned `reviewWeakness` as `analysis_backfill` with value
+  `통증 걱정 완화 안내 필요, 사후관리/재발 기대치 안내 필요, 대기/혼잡 경험 관리 필요`.
+- The same API response no longer used the static fallback
+  `주차 공간 협소, 현금 결제 불가 언급`.
+- `GET /api/stores/store_1020864025/strategy-ruleset/fields/reviewWeakness/evidence`
+  returned collected review excerpts.
+- Playwright smoke target:
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_1020864025`
+- The `리뷰 약점` row showed the backfilled collected-review-derived value.
+- The row rendered `저장`, `초기화`, and `근거 보기`.
+- Clicking `근거 보기` opened `리뷰 약점 근거 보기` with collected review
+  excerpts.
+
+Boundaries:
+
+- `.DS_Store` remains an existing local out-of-scope modification and was not
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser code continues to call only `poc-server` APIs for this flow.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 15 Final Validation
+
+Task 15 fixes the no-new-content collection state:
+when existing Blog/Place content is already current and the Place profile is
+unchanged, the progress screen says `새로 가져올 항목이 존재하지 않습니다.`
+and the analysis selection CTA is disabled.
+
+TDD evidence:
+
+- RED
+  `npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts`:
+  failed because review counters changed Place profile fingerprints, rendered
+  Place review fallback created failed placeholders, no-change selectable items
+  still returned a profile item, and the progress page did not expose the new
+  no-new/disabled CTA contract.
+- GREEN same command: passed, 24 tests.
+
+Commands:
+
+```bash
+cd poc-server
+npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/collection_progress.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused Task 15 suite: 4 files and 24 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 36 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 213 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `node --check web/collection_progress.js`.
+- PASS, `git diff --check`.
+
+Browser/API smoke:
+
+- Existing local server check: `http://localhost:5177/` returned HTTP 200.
+- Server process check: `npm run dev` is running with
+  `tsx watch src/index.ts`.
+- Playwright smoke target:
+  `http://localhost:5177/04_AI%ED%95%99%EC%8A%B5_%EC%88%98%EC%A7%91%EC%A4%91.html?storeId=store_demo_cake&runId=collection_run_smoke_no_new`
+- The progress status showed `수집 완료` and `신규 수집 0개`.
+- The guidance and ready-count text included
+  `새로 가져올 항목이 존재하지 않습니다.`
+- The analysis selection button was disabled and its title was
+  `새로 분석할 콘텐츠가 없습니다.`
+- `GET /api/collection-runs/collection_run_smoke_no_new/selectable-items`
+  returned `items: []`.
+
+Boundaries:
+
+- `.DS_Store` remains an existing local out-of-scope modification and was not
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser code continues to call only `poc-server` APIs for this flow.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 14 Final Validation
+
+Task 14 implements the writing-style CR for marketing strategy rulesets:
+server-derived `writingStyleInsights`, API-backed right-side AI suggestions,
+save/reset on writing-style editable rows, no writing-tab `근거 보기` action,
+and placeholder-style empty guidance that is not saved unless edited.
+
+TDD evidence:
+
+- RED `npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts`:
+  failed because `writingStyleInsights` was absent and the browser script did
+  not have writing-specific action/placeholder rendering.
+- GREEN
+  `npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts test/analysisExecutionApi.test.ts`:
+  passed, 35 tests.
+- Browser smoke initially caught a real `ruleset_editor.js` syntax regression.
+  `node --check web/ruleset_editor.js` and a parseability assertion in
+  `rulesetPage.test.ts` were added before final validation.
+
+Commands:
+
+```bash
+cd poc-server
+npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts test/analysisExecutionApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/ruleset_editor.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused Task 14 suite: 3 files and 35 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 36 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 210 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, `git diff --check`.
+
+Browser smoke:
+
+- URL:
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_12841526`
+- `localhost:5177` was already running and served the ruleset HTML with HTTP
+  200.
+- Writing-style tab check:
+  - visible rows had `저장` and `초기화` action buttons;
+  - writing-tab `근거 보기` button count was `0`;
+  - API-backed suggestion states included both `개선 제안` and `현행유지`;
+  - placeholder/empty rows exposed `data-placeholder-value="true"`.
+- Browser console contained older syntax errors from the failed pre-fix load,
+  but after the fix the page rendered the updated action/suggestion DOM.
+
+Boundaries:
+
+- `.DS_Store` remains an existing local out-of-scope modification and was not
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or `web/event_operation_poc.html`
+  changes.
+- Browser code continues to call only `poc-server` APIs for this flow.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Collection Fingerprint Hotfix
+
+Bug report: a no-new-content collection run could appear as `수집 실패` because
+Place profile fingerprinting called `trim()` on non-string metadata and raised
+`value?.trim is not a function`.
+
+- RED `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts -t "non-string|fingerprints Place profiles"`:
+  failed with `value?.trim is not a function` and a rendered collection run
+  status of `failed`.
+- GREEN `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts -t "non-string|fingerprints Place profiles"`:
+  passed after making profile identity text normalization safe for strings,
+  numbers, booleans, arrays, and objects.
+- Focused regression
+  `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts`:
+  passed, 27 tests.
+- Final regression:
+  `npm run typecheck`, `npm test`, `npm run demo:store-learning`, and
+  `git diff --check` passed. Full test count: 209 passed and 6 skipped
+  live-provider tests across 39 files.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 13 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts
+npm test -- rulesetApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+```
+
+Playwright smoke target:
+
+```text
+http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_12841526
+```
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 13 TDD Evidence
+
+- RED `npm test -- rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts`:
+  failed because the brand tab still had the visible source-matrix/diagnostic
+  path, `AI 원값` copy, no `storeFacts.representativeTreatmentSubjects`, and
+  analysis evidence metadata had no field-specific `fieldEvidence`.
+- GREEN `npm test -- rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts`:
+  passed, 34 tests, after removing the brand diagnostic UI path, renaming reset
+  copy to `초기화`, adding real healthcare treatment-subject facts, persisting
+  field-specific evidence metadata, and adding a legacy evidence fallback.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 13 Final Validation
+
+Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/38
+PR #38 now includes the Task 13 our-store-analysis follow-up. Non-admin merge
+remains blocked by the `develop` base branch policy, and repository auto-merge
+is disabled.
+
+- `npm test -- rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts`:
+  passed, 34 tests.
+- `npm test -- rulesetApi.test.ts`: passed, 13 tests after legacy evidence
+  fallback polish.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 207 tests and 6 skipped live-provider tests across
+  38 files.
+- `npm run demo:store-learning`: passed and seeded Store Learning demo data at
+  `poc-server/data/store-learning.sqlite`.
+- `git diff --check`: passed.
+- Playwright localhost smoke passed:
+  - Ruleset brand tab has no visible brand source matrix.
+  - Brand tab text does not include `자동 입력 기준`, `AI 처리`, `AI 판단`,
+    `개선 제안`, or `AI 원값`.
+  - Reset copy includes `초기화`.
+  - Healthcare representative offering renders as `대표 진료과목` with real
+    treatment subjects from the current store.
+  - Positioning `근거 보기` opens with title `포지셔닝 근거 보기`, product copy,
+    and field-specific evidence text.
+- Expected milestone files:
+  - `docs/codex/CURRENT_TASK.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`
+  - `docs/codex/PLAN.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/seedStoreLearning.ts`
+  - `poc-server/src/storeLearning/analysis/analysisExecutionService.ts`
+  - `poc-server/src/storeLearning/rulesets/rulesetService.ts`
+  - `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`
+  - `poc-server/test/analysisExecutionApi.test.ts`
+  - `poc-server/test/rulesetApi.test.ts`
+  - `poc-server/test/rulesetPage.test.ts`
+  - `web/07_마케팅전략룰셋.html`
+  - `web/ruleset_editor.js`
+- Existing unrelated `.DS_Store` local modification remains unstaged and
+  outside the milestone commit.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 12 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts
+npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+```
+
+In-app browser smoke targets:
+
+```text
+http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html
+http://localhost:5177/soho_store_register.html?storeId=store_12841526&focus=parking
+```
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 12 TDD Evidence
+
+- RED `npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`: failed
+  because the ruleset page still contained `주차 정보 수집 중`, had no
+  parking manual-input action, and the store registration page did not read the
+  `storeId` query parameter or handle `focus=parking`.
+- GREEN `npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`:
+  passed, 31 tests, after adding the missing-parking normalizer, the
+  `수동입력 필요` parking state, the `매장정보에서 입력하기` action, query
+  parameter store loading, and parking focus behavior.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 12 Final Validation
+
+Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/38
+PR #38 now includes the Task 12 parking manual-input CTA follow-up. Non-admin
+merge remains blocked by the `develop` base branch policy, and repository
+auto-merge is disabled.
+
+- `npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`: passed,
+  31 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts`:
+  passed, 45 tests.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 204 tests and 6 skipped live-provider tests across 38 files.
+- `npm run demo:store-learning`: passed and seeded Store Learning demo data at
+  `poc-server/data/store-learning.sqlite`.
+- `git diff --check`: passed.
+- In-app browser smoke passed:
+  - Ruleset parking row exists with `data-manual-required-field="parking"`.
+  - Parking text is `수동입력 필요`; `주차 정보 수집 중` is absent.
+  - `매장정보에서 입력하기` action is visible with
+    `data-store-registration-action="parking"`.
+  - Clicking the action navigates to
+    `http://localhost:5177/soho_store_register.html?storeId=store_12841526&focus=parking`.
+  - Store registration loads with `focus=parking`, the parking group exists,
+    and `#f-parking-note` is focused.
+- Expected milestone files:
+  - `docs/codex/CURRENT_TASK.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`
+  - `docs/codex/PLAN.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/test/rulesetPage.test.ts`
+  - `poc-server/test/storeRegistrationPage.test.ts`
+  - `web/07_마케팅전략룰셋.html`
+  - `web/ruleset_editor.js`
+  - `web/soho_store_register.js`
+- Existing unrelated `.DS_Store` local modification remains unstaged and
+  outside the milestone commit.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetPage.test.ts
+npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+```
+
+In-app browser smoke target:
+
+```text
+http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html
+```
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 TDD Evidence
+
+- RED `npm test -- rulesetPage.test.ts`: failed because the image-style tab
+  still rendered `이미지 스타일`, still exposed
+  `data-source-matrix-section="image_common,image_instagram,image_blog"`, and
+  the similar-comparison tab still rendered `유사업체비교`.
+- GREEN `npm test -- rulesetPage.test.ts`: passed, 13 tests, after labeling
+  image style as `(공통예시) 이미지 스타일`, moving `비율·포맷` and
+  `텍스트 오버레이` into the top image common controls, removing the image
+  source matrix container, suppressing image-style source notes, and labeling
+  similar comparison as `(공통예시) 유사업체비교`.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 Final Validation
+
+Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/38
+PR #38 was marked ready for review. Non-admin `gh pr merge --merge`,
+`gh pr merge --squash`, and `gh pr merge --merge --auto` attempts did not
+merge it: the `develop` base branch policy blocks non-admin merge, and
+repository auto-merge is disabled.
+Later Task 12 parking manual-input CR validation supersedes this section for
+the latest PR #38 state.
+
+- `npm test -- rulesetPage.test.ts`: passed, 13 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts`:
+  passed, 52 tests.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 202 tests and 6 skipped live-provider tests across 38 files.
+- `npm run demo:store-learning`: passed and seeded Store Learning demo data at
+  `poc-server/data/store-learning.sqlite`.
+- `git diff --check`: passed.
+- In-app browser smoke passed:
+  - Image tab visible title: `(공통예시) 이미지 스타일`.
+  - Image title color: `rgb(224, 49, 49)`.
+  - Image common field order: `primaryColors`, `accentColors`,
+    `imageDirection`, `imageStyle`, `imageAvoidStyle`, `blogImageFormat`,
+    `blogOverlayPolicy`.
+  - Image matrix absent and `.ruleset-source-note` count is `0`.
+  - Similar-comparison visible title: `(공통예시) 유사업체비교`.
+  - Similar-comparison title color: `rgb(224, 49, 49)`.
+  - Existing comparison controls remained populated with 5 type buttons and 3
+    company buttons.
+- Expected milestone files:
+  - `docs/codex/CURRENT_TASK.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`
+  - `docs/codex/PLAN.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/test/rulesetPage.test.ts`
+  - `web/07_마케팅전략룰셋.html`
+  - `web/ruleset_editor.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and
+  outside the milestone commit.
+
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT Commands
 
 Run from `poc-server/`:
@@ -1400,3 +1862,125 @@ Result:
   default; 185 tests passed, 6 skipped.
 - PASS, TypeScript typecheck.
 - PASS, `git diff --check`.
+
+## Milestone 12 Collection Delta And Relearning Skip Validation
+
+Date: 2026-06-10
+
+Branch:
+
+- `codex/collection-delta-plan`
+
+Focused validation:
+
+```bash
+cd poc-server
+npm test -- collectionProgressApi.test.ts -t "collection delta"
+npm test -- analysisExecutionApi.test.ts -t "no meaningful changes"
+npm test -- collectionProgressPage.test.ts selectionPage.test.ts -t "no-change|reuse"
+npm test -- learningStatusApi.test.ts learningStatusPage.test.ts selectionPage.test.ts -t "publication date|publication dates|Place dynamic"
+npm test -- collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts collectionProgressPage.test.ts selectionPage.test.ts learningStatusApi.test.ts learningStatusPage.test.ts
+npm run typecheck
+```
+
+Result:
+
+- PASS, collection delta RED/GREEN: repeated identical collection records
+  duplicate Blog/review items, unchanged Place profile, no new current-run
+  items, and a saved profile fingerprint.
+- PASS, no-op analysis RED/GREEN: empty selected items are accepted only for
+  no-meaningful-change collection runs, and latest completed
+  analysis/snapshot/ruleset artifacts are reused.
+- PASS, browser contract tests for no-change collection messages, no-change
+  selection/reuse behavior, Blog publication-date metadata, and 5 collapsed
+  Place reviews.
+- PASS, focused related suite: 7 files / 39 tests.
+- PASS, TypeScript typecheck.
+
+Full validation:
+
+```bash
+cd poc-server
+npm test
+npm run demo:store-learning
+```
+
+Result:
+
+- PASS, full test suite: 35 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 194 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+
+Boundary checks:
+
+- `.DS_Store` remained an existing local out-of-scope modification and was not
+  staged.
+- No `admin/` changes.
+- No `pc-web/` changes.
+- No `README_POC.md` or `web/event_operation_poc.html` changes.
+- Browser code continues to call only `poc-server` APIs, except user-clicked
+  external source/photo links that open in a new tab.
+
+Ruleset UI CR addendum validation:
+
+```bash
+cd poc-server
+npm test -- rulesetPage.test.ts
+npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts blogGenerationApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+git diff --check
+```
+
+Result:
+
+- PASS, ruleset page RED/GREEN coverage: 11 tests, including the writing-style
+  medical required-copy controls and current-style plus AI-suggestion layout.
+- PASS, related static/API/generation regression coverage: 60 tests across
+  `staticWebConnectivity.test.ts`, `rulesetPage.test.ts`, `rulesetApi.test.ts`,
+  `analysisExecutionApi.test.ts`, and `blogGenerationApi.test.ts`.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 35 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 200 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `git diff --check`.
+
+Browser UI validation:
+
+- URL:
+  `http://localhost:5177/07_마케팅전략룰셋.html`
+- Page identity loaded with title:
+  `localhost:5177/07_마케팅전략룰셋.html`
+- Store tab check:
+  - `#sec-store [data-source-matrix-section]` count: 0
+  - store tab text did not include `자동 입력 기준`
+- Our-store-analysis tab check after clicking the tab:
+  - reference title: `(공통예시) 포지셔닝 참고`
+  - reference title color: `rgb(224, 49, 49)`
+  - current healthcare-category context label: `대표 진료과목`
+  - current reference key: `treatmentSubject`
+- Writing-style tab check after clicking the tab:
+  - `#sec-write [data-source-matrix-section="write_common,write_instagram,write_blog"]`
+    count: 0
+  - `#sec-write .ruleset-source-note` count: 0
+  - current/suggestion layout count: 1
+  - AI suggestion panel count: 13
+  - visible text includes `현행유지`, `개선 제안`, and the medical-law footer
+    reference text when the current healthcare store context is active.
+- Browser console note:
+  - The browser log buffer included one older `MutationObserver` error from
+    `http://localhost:5177/` before the direct ruleset-page check. The direct
+    DOM state for the ruleset page was verified after reload.

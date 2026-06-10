@@ -64,6 +64,25 @@ describe('store registration static page API wiring', () => {
     expect(js).not.toContain('NAVER_CLIENT');
   });
 
+  it('opens an existing store from query params and can focus the parking controls', () => {
+    const html = readFileSync(path.join(webRoot, 'soho_store_register.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
+
+    expect(html).toContain('data-autofill-group="parking"');
+    expect(html).toContain('id="f-parking-note"');
+    expect(js).toContain('function params');
+    expect(js).toContain('function initialStoreId');
+    expect(js).toContain("params().get('storeId')");
+    expect(js).toContain("window.localStorage.getItem(STORAGE_KEY)");
+    expect(js).toContain("window.localStorage.setItem(STORAGE_KEY, storeId)");
+    expect(js).toContain('function focusStoreRegistrationSection');
+    expect(js).toContain("params().get('focus') === 'parking'");
+    expect(js).toContain("focusStoreRegistrationSection('parking')");
+    expect(js).toContain('scrollIntoView');
+    expect(js).toContain("field('f-parking-note')");
+    expect(js).toContain('fetch(`/api/stores/${storeId}`');
+  });
+
   it('shows button-level loading state for slower store registration actions', () => {
     const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
 

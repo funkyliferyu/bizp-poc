@@ -33,6 +33,11 @@ function defaultIncluded(item: CollectionItem) {
   return item.status === 'collected';
 }
 
+function hasNoMeaningfulChanges(summary: unknown) {
+  const delta = asRecord(asRecord(summary).collectionDelta);
+  return delta.hasMeaningfulChanges === false;
+}
+
 function serializeSelectableItem(item: CollectionItem) {
   const includeByDefault = defaultIncluded(item);
   const hasExplicitSelection = item.selectedAt !== null || item.selectedForAnalysis === 1;
@@ -63,6 +68,15 @@ export function createCollectionRunRoutes({ connection, env = process.env, stepD
     const collectionRun = repos.collectionRuns.findById(req.params.runId);
     if (!collectionRun) {
       res.status(404).json({ error: `Collection run not found: ${req.params.runId}` });
+      return;
+    }
+    if (hasNoMeaningfulChanges(collectionRun.summary)) {
+      res.json({
+        collectionRunId: collectionRun.id,
+        storeId: collectionRun.storeId,
+        collectionRun,
+        items: []
+      });
       return;
     }
     const items = repos.collectionItems

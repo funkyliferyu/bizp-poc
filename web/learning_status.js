@@ -1,6 +1,6 @@
 (function () {
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
-  const PLACE_REVIEW_COLLAPSED_LIMIT = 2;
+  const PLACE_REVIEW_COLLAPSED_LIMIT = 5;
   const PLACE_REVIEW_EXPANDED_LIMIT = 20;
   let latestPlaceReviews = [];
   let placeReviewsExpanded = false;
@@ -56,7 +56,7 @@
   }
 
   function blogPublishedDate(item) {
-    return item.publishedAt || item.collectedAt;
+    return item.publishedAt || null;
   }
 
   function firstText(...values) {

@@ -2,14 +2,33 @@
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
   const fieldMap = new Map();
   const sourceMatrixMap = new Map();
+  const writingStyleInsightMap = new Map();
   const FIELD_ALIASES = {
     positioning: ['storePositioning'],
     storePositioning: ['positioning'],
     contentKeywords: ['seoKeywords'],
     seoKeywords: ['contentKeywords'],
     reviewStrength: ['keyStrengths'],
-    keyStrengths: ['reviewStrength']
+    keyStrengths: ['reviewStrength'],
+    representativeTreatmentSubjects: ['representativeMenu'],
+    representativeMenu: ['representativeTreatmentSubjects']
   };
+  const APPLIED_STORE_INFO_FIELDS = new Set(['operatingHours', 'closedDays', 'parking']);
+  const HEALTHCARE_CATEGORY_KEYWORDS = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'];
+  const MEDICAL_INDUSTRY_COMMON_RULE = '블로그 하단에 반드시 의료법 관련 내용 포함';
+  const MEDICAL_BLOG_FOOTER_COPY = [
+    '*본 포스팅은 해당 병원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+    '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
+  ].join('\n');
+  const PARKING_MANUAL_REQUIRED_TEXT = '수동입력 필요';
+  const MISSING_PARKING_TEXTS = new Set([
+    '',
+    '-',
+    PARKING_MANUAL_REQUIRED_TEXT,
+    '주차 정보 수집 중',
+    '수집/결과 대기',
+    '수집/AI 결과 대기'
+  ]);
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -138,6 +157,7 @@
     const label = element.querySelector('.ruleset-label');
     if (!label) return;
     label.querySelectorAll('.src-ai,.src-edited,.ruleset-lock-badge').forEach((badge) => badge.remove());
+    if (isBrandAnalysisRulesetField(element)) return;
     const source = sourceLabel(rulesetField.source, rulesetField.locked);
     const sourceBadge = document.createElement('span');
     sourceBadge.className = source.className;
@@ -151,19 +171,144 @@
     }
   }
 
-  function ensureActionRow(element) {
+  function renderActionRow(element) {
     let row = element.querySelector('.ruleset-action-row');
-    if (row) return row;
-    row = document.createElement('div');
-    row.className = 'ruleset-action-row';
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'ruleset-action-row';
+      element.appendChild(row);
+    }
+    const includeEvidence = !isWritingStyleRulesetField(element);
     row.innerHTML = [
       '<button type="button" class="ruleset-action-btn" data-ruleset-action="save">저장</button>',
-      '<button type="button" class="ruleset-action-btn" data-ruleset-action="reset">AI 원값</button>',
-      '<button type="button" class="ruleset-action-btn" data-ruleset-action="evidence">근거 보기</button>',
-      '<span class="ruleset-field-state" data-ruleset-state>수정 가능</span>'
-    ].join('');
-    element.appendChild(row);
+      '<button type="button" class="ruleset-action-btn" data-ruleset-action="reset">초기화</button>',
+      includeEvidence
+        ? '<button type="button" class="ruleset-action-btn" data-ruleset-action="evidence">근거 보기</button>'
+        : '',
+      '<span class="ruleset-field-state" data-ruleset-state></span>'
+    ].filter(Boolean).join('');
     return row;
+  }
+
+  function ensureActionRow(element) {
+    return renderActionRow(element);
+  }
+
+  function writingStyleInsightForElement(element) {
+    const fieldKey = element?.dataset?.rulesetField;
+    if (!fieldKey) return null;
+    for (const key of fieldCandidatesForKey(fieldKey)) {
+      const found = writingStyleInsightMap.get(key);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function isPlaceholderWritingInsight(insight) {
+    return insight?.currentValueStatus === 'placeholder' || insight?.currentValueStatus === 'empty';
+  }
+
+  function writingStyleDisplayValue(insight, fallbackValue) {
+    if (!insight) return fallbackValue || '-';
+    if (isPlaceholderWritingInsight(insight)) return insight.placeholderText || fallbackValue || '';
+    return insight.currentValue || fallbackValue || '-';
+  }
+
+  function applyWritingValueState(valueElement, insight, fallbackValue) {
+    const isPlaceholder = isPlaceholderWritingInsight(insight);
+    const displayValue = writingStyleDisplayValue(insight, fallbackValue);
+    valueElement.textContent = displayValue;
+    valueElement.dataset.originalValue = isPlaceholder ? '' : displayValue;
+    valueElement.classList.toggle('placeholder-value', isPlaceholder);
+    if (isPlaceholder) {
+      valueElement.dataset.placeholderValue = 'true';
+      valueElement.setAttribute('data-placeholder-value', 'true');
+      valueElement.dataset.placeholderText = displayValue;
+      return;
+    }
+    delete valueElement.dataset.placeholderValue;
+    valueElement.removeAttribute('data-placeholder-value');
+    delete valueElement.dataset.placeholderText;
+  }
+
+  function renderWritingStyleSuggestion(element, insight) {
+    const suggestion = insight?.aiSuggestion;
+    const container = element.querySelector('[data-writing-suggestion]');
+    if (!container || !suggestion) return;
+    const judgment = suggestion.judgment === 'improve' ? '개선 제안' : '현행유지';
+    const judgmentBadge = container.querySelector('.writing-ai-judgment');
+    const copy = container.querySelector('[data-ai-suggestion-text]');
+    const evidence = container.querySelector('[data-ai-suggestion-evidence]');
+    container.dataset.aiJudgment = suggestion.judgment === 'improve' ? 'improve' : 'keep';
+    if (judgmentBadge) {
+      judgmentBadge.textContent = judgment;
+      judgmentBadge.classList.toggle('improve', suggestion.judgment === 'improve');
+    }
+    if (copy) copy.textContent = suggestion.value || '-';
+    if (evidence) {
+      const signals = (suggestion.inputSignals || []).slice(0, 3).join(', ');
+      evidence.innerHTML = [
+        `<strong>근거</strong> ${escapeHtml(suggestion.evidence || '-')}`,
+        signals ? `<br><strong>입력값</strong> ${escapeHtml(signals)}` : ''
+      ].join('');
+    }
+  }
+
+  function renderWritingStyleValue(element, valueElement, insight, fallbackValue) {
+    if (!isWritingStyleRulesetField(element)) return false;
+    applyWritingValueState(valueElement, insight, fallbackValue);
+    renderWritingStyleSuggestion(element, insight);
+    return true;
+  }
+
+  function updateWritingInsightFromField(rulesetField) {
+    const existing = writingStyleInsightMap.get(rulesetField.fieldKey);
+    if (!existing) return;
+    const value = rulesetField.finalValue || rulesetField.aiValue || '';
+    const isUserEdited = rulesetField.locked || rulesetField.source === 'user_edited';
+    const isPlaceholder = !isUserEdited && existing.placeholderText && value === existing.placeholderText;
+    writingStyleInsightMap.set(rulesetField.fieldKey, {
+      ...existing,
+      currentValue: isPlaceholder ? null : value,
+      currentValueStatus: isUserEdited ? 'user_edited' : (isPlaceholder ? 'placeholder' : (value ? 'inferred' : 'empty'))
+    });
+  }
+
+  function clearPlaceholderForEditing(valueElement) {
+    if (valueElement.dataset.placeholderValue !== 'true') return;
+    if (valueElement.textContent.trim() !== (valueElement.dataset.placeholderText || '').trim()) return;
+    valueElement.textContent = '';
+    valueElement.dataset.placeholderValue = 'editing';
+    valueElement.removeAttribute('data-placeholder-value');
+    valueElement.classList.remove('placeholder-value');
+  }
+
+  function restorePlaceholderIfEmpty(valueElement) {
+    if (valueElement.dataset.placeholderValue !== 'editing') return;
+    if (valueElement.textContent.trim()) return;
+    const placeholderText = valueElement.dataset.placeholderText || '';
+    valueElement.textContent = placeholderText;
+    valueElement.dataset.placeholderValue = 'true';
+    valueElement.setAttribute('data-placeholder-value', 'true');
+    valueElement.classList.add('placeholder-value');
+  }
+
+  function wirePlaceholderEditing() {
+    document.addEventListener('focusin', (event) => {
+      const valueElement = event.target.closest?.('[data-ruleset-value]');
+      if (valueElement) clearPlaceholderForEditing(valueElement);
+    });
+    document.addEventListener('focusout', (event) => {
+      const valueElement = event.target.closest?.('[data-ruleset-value]');
+      if (valueElement) restorePlaceholderIfEmpty(valueElement);
+    });
+  }
+
+  function renderWritingStyleInsights(payload) {
+    writingStyleInsightMap.clear();
+    (payload.writingStyleInsights || []).forEach((insight) => {
+      writingStyleInsightMap.set(insight.fieldKey, insight);
+    });
   }
 
   function renderKeywordTags(element, value) {
@@ -182,8 +327,16 @@
     const value = element.querySelector('[data-ruleset-value]');
     if (!value) return;
     element.dataset.loadedFieldKey = rulesetField.fieldKey;
-    value.textContent = rulesetField.finalValue || rulesetField.aiValue || '-';
-    value.dataset.originalValue = value.textContent;
+    const fallbackValue = rulesetField.finalValue || rulesetField.aiValue || '-';
+    const insight = writingStyleInsightForElement(element);
+    if (!renderWritingStyleValue(element, value, insight, fallbackValue)) {
+      value.textContent = fallbackValue;
+      value.dataset.originalValue = value.textContent;
+      value.classList.remove('placeholder-value');
+      delete value.dataset.placeholderValue;
+      value.removeAttribute('data-placeholder-value');
+      delete value.dataset.placeholderText;
+    }
     value.contentEditable = 'true';
     value.setAttribute('role', 'textbox');
     value.setAttribute('tabindex', '0');
@@ -191,15 +344,13 @@
     renderKeywordTags(element, value.textContent);
     updateSourceBadge(element, rulesetField);
 
-    const row = ensureActionRow(element);
-    const state = row.querySelector('[data-ruleset-state]');
-    if (state) state.textContent = rulesetField.locked ? '수정값 고정' : 'AI 원값';
+    renderActionRow(element);
     renderRulesetSourceNote(element, rulesetField.sourceMatrix || matrixForFieldKey(rulesetField.fieldKey));
   }
 
   function renderRulesetSourceNote(element, matrix) {
     element.querySelectorAll('.ruleset-source-note').forEach((note) => note.remove());
-    if (!matrix) return;
+    if (!matrix || !shouldRenderRulesetSourceNote(element)) return;
     const note = document.createElement('div');
     note.className = 'ruleset-source-note';
     note.innerHTML = [
@@ -210,16 +361,77 @@
     element.appendChild(note);
   }
 
+  function isStoreInfoRulesetField(element) {
+    return Boolean(element?.closest('#sec-store') && element.dataset.rulesetField);
+  }
+
+  function isWritingStyleRulesetField(element) {
+    return Boolean(element?.closest('#sec-write') && element.dataset.rulesetField);
+  }
+
+  function isBrandAnalysisRulesetField(element) {
+    return Boolean(element?.closest('#sec-brand') && element.dataset.rulesetField);
+  }
+
+  function isImageStyleRulesetField(element) {
+    return Boolean(element?.closest('#sec-img') && element.dataset.rulesetField);
+  }
+
+  function shouldRenderRulesetSourceNote(element) {
+    const fieldKey = element?.dataset.rulesetField;
+    if (isStoreInfoRulesetField(element) && APPLIED_STORE_INFO_FIELDS.has(fieldKey)) return false;
+    return !isStoreInfoRulesetField(element) && !isBrandAnalysisRulesetField(element) && !isWritingStyleRulesetField(element) && !isImageStyleRulesetField(element);
+  }
+
   function directFactValue(storeFacts, fieldKey) {
     if (!storeFacts || !fieldKey) return null;
     return storeFacts[fieldKey] ?? null;
   }
 
+  function representativeTreatmentSubjectsValue(storeFacts) {
+    return storeFacts.representativeTreatmentSubjects ?? null;
+  }
+
+  function normalizeParkingRulesetValue(value) {
+    const text = String(value ?? '').trim();
+    return MISSING_PARKING_TEXTS.has(text) ? PARKING_MANUAL_REQUIRED_TEXT : text;
+  }
+
+  function isMissingParkingValue(value) {
+    return normalizeParkingRulesetValue(value) === PARKING_MANUAL_REQUIRED_TEXT;
+  }
+
+  function storeRegistrationParkingHref() {
+    const url = new URL('soho_store_register.html', window.location.href);
+    url.searchParams.set('storeId', currentStoreId());
+    url.searchParams.set('focus', 'parking');
+    return `${url.pathname}${url.search}`;
+  }
+
+  function goToStoreRegistrationParking() {
+    window.location.href = storeRegistrationParkingHref();
+  }
+
+  function updateParkingManualAction(element, valueText) {
+    const isMissing = isMissingParkingValue(valueText);
+    const action = element.querySelector('[data-store-registration-action="parking"]');
+    const value = element.querySelector('[data-ruleset-value]');
+    if (action) action.hidden = !isMissing;
+    if (value) value.classList.toggle('manual-required-text', isMissing);
+  }
+
   function preferredCurrentValue(payload, fieldKey, existingValue) {
-    const rulesetField = findFieldForMatrixRow({ fieldKey });
-    if (rulesetField) return rulesetField.finalValue || rulesetField.aiValue || existingValue;
     const matrix = matrixForFieldKey(fieldKey);
     const matrixCurrentValue = matrix ? matrix.currentValue : null;
+    if (fieldKey === 'representativeTreatmentSubjects') {
+      return representativeTreatmentSubjectsValue(payload.storeFacts || {}) ?? matrixCurrentValue ?? existingValue;
+    }
+    if (APPLIED_STORE_INFO_FIELDS.has(fieldKey)) {
+      const nextValue = directFactValue(payload.storeFacts, fieldKey) ?? matrixCurrentValue ?? existingValue;
+      return fieldKey === 'parking' ? normalizeParkingRulesetValue(nextValue) : nextValue;
+    }
+    const rulesetField = findFieldForMatrixRow({ fieldKey });
+    if (rulesetField) return rulesetField.finalValue || rulesetField.aiValue || existingValue;
     return matrixCurrentValue ?? directFactValue(payload.storeFacts, fieldKey) ?? existingValue;
   }
 
@@ -227,9 +439,24 @@
     const value = element.querySelector('[data-ruleset-value]');
     const fieldKey = element.dataset.rulesetField;
     if (!value || !fieldKey) return;
+    const insight = writingStyleInsightForElement(element);
     const nextValue = preferredCurrentValue(payload, fieldKey, value.textContent);
-    value.textContent = nextValue || '-';
-    value.dataset.originalValue = value.textContent;
+    if (!renderWritingStyleValue(element, value, insight, nextValue || '-')) {
+      value.textContent = nextValue || '-';
+      value.dataset.originalValue = value.textContent;
+      value.classList.remove('placeholder-value');
+      delete value.dataset.placeholderValue;
+      value.removeAttribute('data-placeholder-value');
+      delete value.dataset.placeholderText;
+    }
+    if (isWritingStyleRulesetField(element)) {
+      element.dataset.loadedFieldKey = fieldKey;
+      value.contentEditable = 'true';
+      value.setAttribute('role', 'textbox');
+      value.setAttribute('tabindex', '0');
+      renderActionRow(element);
+    }
+    if (fieldKey === 'parking') updateParkingManualAction(element, value.textContent);
     renderKeywordTags(element, value.textContent);
     renderRulesetSourceNote(element, matrixForFieldKey(fieldKey));
   }
@@ -241,6 +468,53 @@
       const key = element.dataset.storeField;
       const nextValue = key ? storeFacts[key] : null;
       if (value && nextValue) value.textContent = nextValue;
+    });
+  }
+
+  function categoryText(payload) {
+    return [payload.storeFacts?.category, payload.store?.category]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  function isHealthcareStore(payload) {
+    const category = categoryText(payload);
+    return HEALTHCARE_CATEGORY_KEYWORDS.some((keyword) => category.includes(keyword));
+  }
+
+  function configureIndustryFields(payload) {
+    const isHealthcare = isHealthcareStore(payload);
+    document.querySelectorAll('[data-industry-field="representativeOffering"]').forEach((field) => {
+      const label = field.querySelector('[data-industry-label]');
+      const button = field.querySelector('[data-reference-key]');
+      field.dataset.rulesetField = isHealthcare ? 'representativeTreatmentSubjects' : 'representativeMenu';
+      field.dataset.rulesetAliases = '';
+      if (label) label.textContent = isHealthcare ? '대표 진료과목' : '대표 메뉴';
+      if (button) {
+        button.dataset.referenceKey = isHealthcare ? 'treatmentSubject' : 'menu';
+        button.setAttribute('onclick', 'showReferenceLayer(this.dataset.referenceKey)');
+      }
+    });
+  }
+
+  function setWritingDefaultValue(fieldKey, value) {
+    document.querySelectorAll(`[data-ruleset-field="${fieldKey}"]`).forEach((element) => {
+      const rulesetField = findFieldForElement(element);
+      if (rulesetField?.locked || rulesetField?.source === 'user_edited') return;
+      const valueElement = element.querySelector('[data-ruleset-value]');
+      if (!valueElement) return;
+      valueElement.textContent = value;
+      valueElement.dataset.originalValue = value;
+      renderKeywordTags(element, value);
+    });
+  }
+
+  function configureWritingStyleFields(payload) {
+    const isHealthcare = isHealthcareStore(payload);
+    document.querySelectorAll('[data-healthcare-only]').forEach((element) => {
+      element.style.display = isHealthcare ? '' : 'none';
+      element.setAttribute('aria-hidden', isHealthcare ? 'false' : 'true');
     });
   }
 
@@ -346,9 +620,11 @@
     sourceMatrixMap.clear();
     (payload.fields || []).forEach((rulesetField) => fieldMap.set(rulesetField.fieldKey, rulesetField));
     (payload.sourceMatrix || []).forEach((row) => sourceMatrixMap.set(row.fieldKey, row));
+    renderWritingStyleInsights(payload);
     renderStatus(payload);
     renderEmptyRulesetGuidance(payload);
     renderStoreFields(payload);
+    configureIndustryFields(payload);
 
     document.querySelectorAll('[data-ruleset-field]').forEach((element) => {
       const rulesetField = findFieldForElement(element);
@@ -358,16 +634,23 @@
         renderDirectRulesetRow(element, payload);
       }
     });
+    configureWritingStyleFields(payload);
     renderSourceMatrix(payload);
   }
 
   function fieldValue(element) {
-    return element.querySelector('[data-ruleset-value]')?.textContent?.trim() || '';
+    const valueElement = element.querySelector('[data-ruleset-value]');
+    const text = valueElement?.textContent?.trim() || '';
+    const placeholderText = valueElement?.dataset?.placeholderText?.trim() || '';
+    if (valueElement?.dataset?.placeholderValue === 'true' && text === placeholderText) return '';
+    return text;
   }
 
   function setState(element, message) {
     const state = element.querySelector('[data-ruleset-state]');
-    if (state) state.textContent = message;
+    if (!state) return;
+    state.textContent = message;
+    state.hidden = !message;
   }
 
   function updateFieldInMemory(rulesetField) {
@@ -381,6 +664,7 @@
     setState(element, '저장 중');
     const payload = await saveRulesetField(storeId, fieldKey, userValue);
     updateFieldInMemory(payload.field);
+    updateWritingInsightFromField(payload.field);
     renderRulesetField(element, payload.field);
     setState(element, '저장됨');
   }
@@ -391,13 +675,15 @@
     setState(element, '복원 중');
     const payload = await resetRulesetField(storeId, fieldKey);
     updateFieldInMemory(payload.field);
+    updateWritingInsightFromField(payload.field);
     renderRulesetField(element, payload.field);
-    setState(element, 'AI 원값');
+    setState(element, '');
   }
 
   function showEvidenceModal(payload) {
-    field('benchmarkEvidenceTitle').textContent = `${payload.field.fieldKey} 근거 보기`;
-    field('benchmarkEvidenceDesc').textContent = '룰셋 필드와 연결된 수집 콘텐츠 근거입니다.';
+    const label = payload.field.sourceMatrix?.label || payload.field.fieldKey;
+    field('benchmarkEvidenceTitle').textContent = `${label} 근거 보기`;
+    field('benchmarkEvidenceDesc').textContent = '이 항목을 산출할 때 연결된 수집 콘텐츠 근거입니다.';
     field('benchmarkEvidenceList').innerHTML = (payload.evidence || [])
       .map((item) => {
         const summary = item.analysisSummary || item.excerpt || '-';
@@ -431,10 +717,13 @@
     });
   }
 
+  window.goToStoreRegistrationParking = goToStoreRegistrationParking;
+
   document.addEventListener('DOMContentLoaded', async () => {
     const storeId = currentStoreId();
     window.localStorage.setItem(STORE_ID_KEY, storeId);
     wireActions(storeId);
+    wirePlaceholderEditing();
     try {
       renderRuleset(await loadRuleset(storeId));
     } catch (error) {

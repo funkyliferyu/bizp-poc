@@ -82,6 +82,52 @@ describe('selection API', () => {
     });
   });
 
+  it('returns no selectable items when the collection run has no meaningful changes', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.upsert({
+      id: 'collection_run_no_meaningful_changes',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: false,
+          counts: { new: 0, duplicate: 60, unchanged: 1, changed: 0 }
+        },
+        collectedCounts: { blogPosts: 0, placeProfiles: 1, placeReviews: 0 }
+      }
+    });
+    repos.collectionItems.upsert({
+      id: 'collection_item_no_meaningful_profile',
+      runId: 'collection_run_no_meaningful_changes',
+      storeId: 'store_demo_cake',
+      channel: 'place',
+      sourceType: 'profile',
+      status: 'collected',
+      sourceUrl: 'https://m.place.naver.com/place/1020864025/home',
+      title: '테라스의원',
+      bodyText: '기존과 동일한 플레이스 기본정보입니다.',
+      selectedForAnalysis: 0,
+      selectionReason: null,
+      selectedAt: null,
+      metadata: {
+        collectionDelta: 'unchanged',
+        provider: 'naverPlaceRenderedCollectionProvider'
+      },
+      createdAt: '2026-06-10T00:00:00.000Z',
+      updatedAt: '2026-06-10T00:00:00.000Z'
+    });
+
+    const response = await fetch(`${baseUrl}/api/collection-runs/collection_run_no_meaningful_changes/selectable-items`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.collectionRun.summary.collectionDelta.hasMeaningfulChanges).toBe(false);
+    expect(body.items).toEqual([]);
+  });
+
   it('persists item selection and creates a queued analysis run', async () => {
     const patchResponse = await fetch(`${baseUrl}/api/collection-items/collection_item_demo_blog/selection`, {
       method: 'PATCH',

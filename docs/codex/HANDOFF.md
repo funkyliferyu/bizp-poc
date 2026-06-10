@@ -1,5 +1,260 @@
 # Codex Handoff
 
+## NEXT-SESSION-LLM-CALL-AUDIT
+
+Temporary LLM-call verification table was added at `web/llm호출.html`.
+Open it locally at:
+
+```text
+http://localhost:5177/llm%ED%98%B8%EC%B6%9C.html
+```
+
+Next-session implementation plan was added at
+`docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
+
+Key finding: Store Learning analysis/blog/SEO paths do call OpenAI when
+`OPENAI_API_KEY` is configured, but several UI surfaces that look like AI are
+currently local/mock/static. The current analysis provider also sends full
+metadata into the OpenAI prompt, which caused the observed 128k context
+overflow for `store_1020864025` with 40 selected Blog posts. The next session
+should add LLM provenance metadata and an analysis prompt budget before more
+live analysis runs.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
+
+Milestone 12 follow-up is implemented through Task 18 on
+`codex/collection-delta-plan`.
+PR #38 is open and ready for review against `develop`:
+https://github.com/funkyliferyu/bizp-poc/pull/38
+
+Non-admin merge attempts are currently blocked by the `develop` base branch
+policy, and repository auto-merge is disabled.
+
+Task 17 completed for the 글쓰기 스타일 required footer/action row cleanup:
+required medical Blog footer copy replaces example-only `테라스의원` with the
+current store/hospital name, and action rows keep the `초기화` button while
+removing the redundant trailing `초기화` state text.
+
+Task 18 completed for channel-level cached collection guidance:
+when a mixed run has newly collected Blog items but Place has only duplicate or
+unchanged prior content, the Place card now says `신규 항목 없음`, shows
+`신규 0개`, and explains `새로 가져올 항목이 존재하지 않습니다. 기존 플레이스
+리뷰와 기본정보를 재사용합니다.` instead of looking like `대기`.
+
+Task 14 completed for the marketing strategy ruleset > 글쓰기 스타일 tab:
+save/reset actions are rendered for editable rows, `근거 보기` is omitted from
+the writing-style tab, `writingStyleInsights` supplies server-derived
+current-value status/calculation logic/right-side AI suggestion values and
+evidence, and placeholder-style guidance text is not sent as a saved user
+value unless the user edits it.
+
+Task 15 completed for the no-new-content collection state bug:
+when Blog/Place content has already been collected and the Place profile is
+unchanged, collection progress now shows `새로 가져올 항목이 존재하지 않습니다.`
+and disables the analysis selection CTA. Rendered Place review slots that
+cannot be confirmed by GraphQL are no longer persisted as failed placeholders,
+and Place profile review counters no longer make the profile fingerprint look
+changed.
+
+Task 16 completed for the our-store-analysis `리뷰 약점` bug:
+legacy rulesets that predate the `reviewWeakness` analyzer field no longer fall
+back to the static browser copy `주차 공간 협소, 현금 결제 불가 언급`. The server
+now lazily backfills `reviewWeakness` from collected Place review/Blog evidence,
+persists it as `analysis_backfill`, and the browser receives it as a normal
+editable ruleset field with `저장`, `초기화`, and `근거 보기`.
+
+Task 14 code-path check:
+
+- `poc-server/src/storeLearning/rulesets/rulesetService.ts` now builds
+  `writingStyleInsights` from existing ruleset fields, source-matrix rows,
+  store category, analysis evidence summaries, and healthcare defaults.
+- `web/ruleset_editor.js` hydrates writing-style values and right-side
+  suggestions from `payload.writingStyleInsights`, renders save/reset without
+  writing-tab evidence buttons, and uses `data-placeholder-value="true"` for
+  placeholder/empty-style values.
+- `web/07_마케팅전략룰셋.html` adds placeholder input styling for those rows.
+- `poc-server/test/rulesetApi.test.ts` covers the `writingStyleInsights`
+  payload contract and status values.
+- `poc-server/test/rulesetPage.test.ts` covers writing-style action hooks,
+  removal of writing-tab evidence actions, placeholder hooks, API-backed
+  suggestion hooks, and browser-script parseability.
+
+Task 15 code-path check:
+
+- `poc-server/src/storeLearning/collection/collectionItemIdentity.ts` now
+  excludes review-count metadata from Place profile fingerprinting.
+- `poc-server/src/storeLearning/collection/naverPlaceRenderedCollectionProvider.ts`
+  returns only collected rendered reviews when additional review availability
+  cannot be confirmed, instead of filling the remainder with failed
+  placeholders.
+- `poc-server/src/storeLearning/routes/collectionRuns.ts` returns no selectable
+  analysis items for runs whose `summary.collectionDelta.hasMeaningfulChanges`
+  is `false`.
+- `web/collection_progress.js` renders the no-new-content message and disables
+  the analysis selection button with `새로 분석할 콘텐츠가 없습니다.` title text.
+
+Task 16 code-path check:
+
+- `poc-server/src/storeLearning/rulesets/rulesetService.ts` now checks the
+  latest ruleset for a missing `reviewWeakness` field and creates a conservative
+  backfill from collected review/blog text only.
+- The backfill ignores failed collection placeholders and uses evidence item
+  IDs from collected content, so the evidence modal can show real excerpts.
+- `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts` no longer
+  describes `reviewWeakness` as a static UI sample.
+- `web/ruleset_editor.js` did not need a special case: once the API returns a
+  normal `reviewWeakness` field, existing field hydration attaches save/reset/
+  evidence actions.
+
+Task 13 code-path check:
+
+- `web/07_마케팅전략룰셋.html` owns static 우리 매장 분석 markup, visible labels,
+  action buttons, reference buttons/panel markup, and the remaining
+  `data-source-matrix-section="brand"` block.
+- `web/ruleset_editor.js` owns API hydration, field aliases, healthcare
+  `대표 진료과목` label switching, source badges/notes, reset/evidence action
+  rendering, reference panel updates, and source matrix rendering.
+- `poc-server/src/storeLearning/rulesets/rulesetService.ts` owns the
+  `/strategy-ruleset` payload, `storeFacts`, source-matrix current values,
+  field save/reset, and field evidence API.
+- `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts` owns canonical
+  ruleset field definitions and source/automation/future-suggestion metadata.
+- `poc-server/src/storeLearning/analysis/analyzer.ts` owns mock deterministic
+  ruleset field values and `rulesetFields[].evidenceItemIds`.
+- `poc-server/src/storeLearning/analysis/openAIAnalysisProvider.ts` owns the
+  live analyzer prompt and structured output contract.
+- `poc-server/src/storeLearning/analysis/analysisExecutionService.ts` owns
+  persistence of `analysis_evidence` and `ruleset_fields`.
+
+Task 13 evidence result: ruleset fields still persist `evidenceItemIds`, but
+new analysis runs derive per-field summaries from `rulesetFields[]` and store
+them under `analysis_evidence.metadata.fieldEvidence`. The evidence API now
+prefers that field-specific metadata and synthesizes field-specific fallback
+copy for legacy evidence rows that only have per-item summaries.
+
+The branch now includes:
+
+- Collection delta tracking for new/duplicate/unchanged/changed content and
+  unchanged Place profile fingerprints.
+- Analysis no-op reuse when there are no new Blog posts, no new Place reviews,
+  and the Place profile is unchanged.
+- Collection/selection UI messaging for cache reuse and no-change analysis
+  skip paths.
+- Learning status display fixes: real Blog publication date handling and 5
+  collapsed Place review rows.
+- Ruleset store-info cleanup: apply improvement suggestions only to 운영시간,
+  휴무일, and 주차, and remove the lower automatic-input block.
+- Our-store-analysis reference boxes are clearly red-labeled common examples,
+  and healthcare stores show 대표 진료과목 instead of 대표 메뉴.
+- Writing-style UI now separates current AI-inferred style from conservative
+  AI suggestions and includes healthcare industry-common rules plus mandatory
+  Blog intro/footer copy controls.
+- Image-style UI now labels the block `(공통예시) 이미지 스타일` in red,
+  removes the visible automatic-input matrix/source note path, and promotes
+  `비율·포맷` plus `텍스트 오버레이` into the top common image-style controls.
+- Similar-comparison UI now labels the block `(공통예시) 유사업체비교` in red
+  while keeping the existing comparison mock data and interactions intact.
+- Missing parking in the ruleset store-info tab now renders as `수동입력 필요`
+  with a right-aligned `매장정보에서 입력하기` action that opens the current
+  store registration edit screen focused on parking input.
+- Our-store-analysis cleanup now removes the visible brand automatic-input
+  block and technical diagnostics, renames `AI 원값` to `초기화`, shows real
+  healthcare `대표 진료과목` from Place/store metadata before mock menu fields,
+  and shows field-specific `근거 보기` copy.
+- Task 14 writing-style cleanup is implemented: the API exposes
+  `writingStyleInsights`, the tab uses API-backed AI suggestions, all visible
+  rows get save/reset affordances, writing-tab evidence buttons are removed,
+  and placeholder/empty guidance is styled as input guidance instead of saved
+  text.
+- Collection profile fingerprint hardening is implemented after a reported
+  real-run failure: non-string Place/store metadata such as arrays, objects,
+  numbers, and booleans no longer throws `value?.trim is not a function`, so
+  no-new-content collection runs can complete and expose collection-delta state
+  instead of appearing as provider failures.
+- No-new-content collection state hardening is implemented: rendered Place
+  unconfirmed review slots are not shown as failed items, review-count-only
+  Place profile changes are ignored for fingerprinting, no-meaningful-change
+  runs return no selectable analysis items, and the progress CTA is dimmed.
+- Review weakness legacy backfill is implemented: old rulesets missing
+  `reviewWeakness` receive a collected-review-derived strategy-only field
+  instead of the static browser fallback, with save/reset/evidence actions.
+
+Latest feature-branch validation recorded:
+
+- `npm test -- --run test/rulesetApi.test.ts -t "review weakness|field source matrix"`:
+  passed, 2 focused tests after Task 16.
+- `npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts`:
+  passed, 30 tests after Task 16.
+- `npm run typecheck`: passed after Task 16.
+- `npm test`: passed after Task 16, 214 tests and 6 skipped live-provider
+  tests across 39 files.
+- `npm run demo:store-learning`: passed after Task 16.
+- `node --check web/ruleset_editor.js`: passed after Task 16.
+- `git diff --check`: passed after Task 16.
+- Localhost API smoke passed for `store_1020864025`: `reviewWeakness` returned
+  `통증 걱정 완화 안내 필요, 사후관리/재발 기대치 안내 필요, 대기/혼잡 경험 관리 필요`
+  with collected review evidence item IDs.
+- Playwright localhost smoke passed on
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_1020864025`:
+  the `리뷰 약점` row showed the collected-review-derived value, rendered
+  `저장`, `초기화`, and `근거 보기`, and the evidence modal opened with
+  collected review excerpts.
+- `npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts`:
+  passed, 24 tests after Task 15.
+- `npm run typecheck`: passed after Task 15.
+- `npm test`: passed after Task 15, 213 tests and 6 skipped live-provider
+  tests across 39 files.
+- `npm run demo:store-learning`: passed after Task 15 and seeded
+  `poc-server/data/store-learning.sqlite`.
+- `node --check web/collection_progress.js`: passed after Task 15.
+- `git diff --check`: passed after Task 15.
+- Playwright localhost smoke passed on
+  `http://localhost:5177/04_AI%ED%95%99%EC%8A%B5_%EC%88%98%EC%A7%91%EC%A4%91.html?storeId=store_demo_cake&runId=collection_run_smoke_no_new`:
+  status showed `수집 완료 / 신규 수집 0개`, guidance included
+  `새로 가져올 항목이 존재하지 않습니다.`, and the analysis selection button
+  was disabled with title `새로 분석할 콘텐츠가 없습니다.`.
+- `GET /api/collection-runs/collection_run_smoke_no_new/selectable-items`
+  returned `items: []`.
+- `npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts test/analysisExecutionApi.test.ts`:
+  passed, 35 tests.
+- `npm test -- rulesetApi.test.ts`: passed, 13 tests after legacy evidence
+  fallback polish.
+- `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts`:
+  passed, 27 tests after collection fingerprint metadata type hardening.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 210 tests and 6 skipped live-provider tests across
+  39 files.
+- `npm run demo:store-learning`: passed and seeded
+  `poc-server/data/store-learning.sqlite`.
+- `git diff --check`: passed.
+- Playwright localhost smoke passed on
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_12841526`:
+  the brand tab has no brand source matrix, no `자동 입력 기준`, no
+  `AI 처리`/`AI 판단`/`개선 제안`, reset copy is `초기화`, representative
+  offering is `대표 진료과목` with real treatment subjects, and positioning
+  evidence shows field-specific Korean copy.
+- In-app browser smoke passed on
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html`:
+  the parking row renders `수동입력 필요`, the `매장정보에서 입력하기` action is
+  visible, and clicking it navigates to
+  `soho_store_register.html?storeId=store_12841526&focus=parking`.
+- In-app browser smoke passed on the store registration target:
+  `focus=parking` loads the existing store and focuses `#f-parking-note`.
+- In-app browser smoke passed on
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_12841526`:
+  the writing-style tab had save/reset actions for visible rows, zero
+  writing-tab evidence buttons, API-backed `개선 제안`/`현행유지` suggestion
+  states, and placeholder rows marked with `data-placeholder-value="true"`.
+- In-app browser smoke passed on
+  `http://localhost:5177/04_AI%ED%95%99%EC%8A%B5_%EC%88%98%EC%A7%91%EC%A4%91.html?storeId=store_1020864025&runId=collection_run_store_1020864025_1781088116794`:
+  the Place card renders `신규 항목 없음`, `신규 0개`, and
+  `새로 가져올 항목이 존재하지 않습니다. 기존 플레이스 리뷰와 기본정보를
+  재사용합니다.` for a run whose Place delta is `new: 0`, `duplicate: 50`,
+  `unchanged: 1`.
+
+Next step: have an authorized reviewer/admin satisfy the PR #38 `develop` base
+branch policy and merge it to `develop`; after merge, run develop validation.
+
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
 Canonical ruleset API is now `/api/stores/:storeId/strategy-ruleset`.
@@ -924,6 +1179,116 @@ Before any production-like pilot, decide approved fallback providers and operati
 - image generation
 - Naver Blog publishing
 - provider failure/error UX in the existing static pages
+
+## Milestone 12 Collection Delta And Relearning Skip Handoff
+
+Branch:
+
+- `codex/collection-delta-plan`
+
+Scope completed:
+
+- Repeated collection runs now record collection delta state after provider
+  collection and before saving current-run items.
+- Blog posts and Place reviews still use identity-based duplicate detection.
+- Place profiles now have URL/title identity plus a stable profile fingerprint
+  based on source URL, title/body text, and stable Place metadata fields.
+- Unchanged Place profiles are not saved as new current-run items. Changed
+  Place profiles remain meaningful and analyzable.
+- Collection run summaries include `collectionDelta` counts for `new`,
+  `duplicate`, `unchanged`, and `changed`, plus `hasMeaningfulChanges`.
+- Saved collection item metadata includes `collectionDelta`, and saved Place
+  profiles include `profileFingerprint`.
+- No-change collection runs can create a completed skipped analysis run with no
+  selected items when a previous completed learning result exists.
+- Skipped analysis runs reuse the latest completed analysis/snapshot/ruleset
+  artifacts and expose progress messaging equivalent to
+  `이전과 동일해 학습을 종료합니다`.
+- Collection progress shows `신규 수집 0개`, `기존 캐시 재사용`, and
+  `플레이스 정보 변경 없음` for no-change runs.
+- Content selection enables analysis/reuse for no-change runs even when there
+  are 0 selected current-run items.
+- Learning status Blog rows no longer use collection time as a fallback for
+  `발행일`; unknown publication dates render as `-`.
+- Content selection Blog `발행일` also reads provider publication metadata.
+- Learning status Place reviews now show 5 reviews in the collapsed default
+  state; expanded paging remains 20 reviews per page.
+
+Validation:
+
+- `npm test -- collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts collectionProgressPage.test.ts selectionPage.test.ts learningStatusApi.test.ts learningStatusPage.test.ts`: PASS, 39 tests.
+- `npm run typecheck`: PASS.
+- `npm test`: PASS, 35 files passed, 3 live-provider files skipped by default;
+  194 tests passed, 6 skipped.
+- `npm run demo:store-learning`: PASS.
+
+Notes:
+
+- Provider pre-filter optimization remains deferred. Current behavior still
+  calls providers first, then compares collected drafts safely before saving or
+  running analysis.
+- If no previous completed learning result exists, a no-change analysis create
+  request returns a 400 instead of inventing artifacts.
+- Runtime SQLite data under `poc-server/data/` is generated/ignored and not part
+  of the change.
+- `.DS_Store` remains an out-of-scope local modification and must not be staged.
+
+Ruleset UI CR addendum:
+
+- Marketing strategy ruleset > store info tab no longer shows the lower
+  `자동 입력 기준` source matrix block.
+- Store info source suggestion notes are hidden for store-info rows. The
+  applied direct Place/store follow-up scope is limited to 운영시간, 휴무일,
+  and 주차; unmentioned store-info rows do not keep visible improvement
+  suggestion blocks.
+- Our-store-analysis reference panel titles are now explicitly marked as common
+  examples, e.g. `(공통예시) 포지셔닝 참고`, and the title treatment is red.
+- Reference panels remain illustrative in this pass. They still use the
+  existing `poc-server` benchmark-evidence API/mock payload path and are not
+  wired to live external providers.
+- Our-store-analysis representative offering now changes by category. Healthcare
+  categories such as 병원, 의원, 클리닉, 정형외과, 피부과, or 치과 show
+  `대표 진료과목`; generic/non-healthcare categories continue to show
+  `대표 메뉴`.
+- Writing style now has first-class current-style controls and a right-side AI
+  suggestion panel for each row. The common surface exposes `글의 목적`,
+  `문장 스타일`, `선호 길이`, `해시태그`, `이모지 사용`, `SEO 키워드`,
+  and `CTA`.
+- The writing-style source matrix and per-field source-note technical metadata
+  are hidden from the visible writing-style UI.
+- Healthcare categories show medical-specific writing controls:
+  `업종공통규칙`, `필수 인트로 문구`, and `필수 푸터 문구`. The default
+  medical footer text uses the user-provided medical-law copy, while
+  non-healthcare seed/default fields do not receive that footer by default.
+- New persisted ruleset field keys were added for
+  `industryCommonRules`, `blogRequiredIntroCopy`, `blogRequiredFooterCopy`, and
+  `blogHashtags`, with source-matrix metadata and mock analyzer/seed support.
+- Blog generation consumption of required intro/footer copy and random
+  multi-purpose selection is intentionally deferred. The next implementation
+  step should wire these persisted fields into `blogGenerator.ts` so approved
+  required intro/footer copy is prepended/appended deterministically and
+  multiple Blog purposes can be selected per generated post.
+
+Additional validation:
+
+- `npm test -- rulesetPage.test.ts`: PASS, 11 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts blogGenerationApi.test.ts`:
+  PASS, 60 tests.
+- `npm run typecheck`: PASS.
+- `npm test`: PASS, 35 files passed, 3 live-provider files skipped by default;
+  200 tests passed, 6 skipped.
+- `npm run demo:store-learning`: PASS.
+- Browser UI check on `http://localhost:5177/07_마케팅전략룰셋.html`: PASS for
+  store source-matrix removal, red `(공통예시)` reference title, and healthcare
+  `대표 진료과목` label.
+- Browser UI check on the writing-style tab: PASS for no writing-style source
+  matrix, no writing-style source notes, current/suggestion layout, conservative
+  `현행유지`/`개선 제안` states, first-class Blog style fields, and medical
+  required-copy controls.
+- Task 10 image-style common-example cleanup and Task 11 similar-comparison
+  common-example labeling have since been implemented and validated on
+  `codex/collection-delta-plan`; the latest validation summary is recorded at
+  the top of this handoff.
 
 ## Milestone 11 Real Store E2E Handoff
 

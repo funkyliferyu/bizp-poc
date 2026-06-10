@@ -80,4 +80,24 @@ describe('content selection static page API wiring', () => {
     expect(js).toContain("setAnalysisStep('started', 'AI 분석 중')");
     expect(js).toContain('setAnalysisOverlayVisible(false)');
   });
+
+  it('allows no-change collection runs to reuse the previous learning result', () => {
+    const js = readFileSync(path.join(webRoot, 'content_selection.js'), 'utf8');
+
+    expect(js).toContain('let latestCollectionRun = null');
+    expect(js).toContain('function hasNoMeaningfulChanges');
+    expect(js).toContain('const canReusePreviousLearning = hasNoMeaningfulChanges()');
+    expect(js).toContain('field(\'selection-analysis-btn\').disabled = analysisInFlight || (selectedCount === 0 && !canReusePreviousLearning)');
+    expect(js).toContain('이전과 동일해 학습을 종료합니다');
+    expect(js).toContain('기존 학습 결과 재사용');
+  });
+
+  it('renders Blog publication dates from provider metadata instead of collection time', () => {
+    const js = readFileSync(path.join(webRoot, 'content_selection.js'), 'utf8');
+
+    expect(js).toContain('function blogPublishedDate');
+    expect(js).toContain('metadata.publishedAt || metadata.postDate || metadata.postdate');
+    expect(js).toContain('<td>${dateLabel(blogPublishedDate(item))}</td>');
+    expect(js).not.toContain('<td>${dateLabel(item.createdAt)}</td>');
+  });
 });

@@ -192,7 +192,26 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     evidenceType: 'review_strength',
     summary: '친절한 상담과 사진 유사도가 리뷰에서 반복됩니다.',
     score: 0.92,
-    metadata: { channel: 'place' },
+    metadata: {
+      channel: 'place',
+      fieldEvidence: {
+        positioning: {
+          summary: '포지셔닝 산출 근거: 분당 당일 제작 커스텀 케이크 전문점. 수집 근거: 리뷰에서 상담 친절도와 완성도 언급이 반복됩니다.'
+        },
+        storePositioning: {
+          summary: '포지셔닝 산출 근거: 분당 당일 제작 커스텀 케이크 전문점. 수집 근거: 리뷰에서 상담 친절도와 완성도 언급이 반복됩니다.'
+        },
+        keyStrengths: {
+          summary: '업체 주장 강점 산출 근거: 친절한 상담과 사진 유사도가 리뷰에서 반복됩니다.'
+        },
+        reviewStrength: {
+          summary: '리뷰 강점 산출 근거: 친절한 디자인 상담, 사진과 비슷한 완성도, 빠른 제작 안내가 반복됩니다.'
+        },
+        reviewWeakness: {
+          summary: '리뷰 약점 산출 근거: 픽업 전 주차와 이동 동선 안내가 필요합니다.'
+        }
+      }
+    },
     createdAt: timestamp(14),
     updatedAt: timestamp(14)
   });
@@ -203,7 +222,26 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     evidenceType: 'keyword',
     summary: '분당 케이크와 당일 제작 키워드가 콘텐츠에 적합합니다.',
     score: 0.87,
-    metadata: { channel: 'blog' },
+    metadata: {
+      channel: 'blog',
+      fieldEvidence: {
+        positioning: {
+          summary: '포지셔닝 산출 근거: 분당 당일 제작 커스텀 케이크 전문점. 수집 근거: 블로그 제목과 본문에 지역, 당일 제작, 레터링 케이크 키워드가 함께 나타납니다.'
+        },
+        storePositioning: {
+          summary: '포지셔닝 산출 근거: 분당 당일 제작 커스텀 케이크 전문점. 수집 근거: 블로그 제목과 본문에 지역, 당일 제작, 레터링 케이크 키워드가 함께 나타납니다.'
+        },
+        contentKeywords: {
+          summary: '콘텐츠 소재 키워드 산출 근거: 분당 케이크, 당일 제작, 레터링 케이크 표현이 콘텐츠에 적합합니다.'
+        },
+        seoKeywords: {
+          summary: 'SEO 키워드 산출 근거: 분당 케이크와 당일 제작 키워드가 블로그 검색 의도와 맞습니다.'
+        },
+        representativeMenu: {
+          summary: '대표 메뉴 산출 근거: 블로그 본문에서 레터링 케이크와 딸기 생크림 케이크가 함께 언급됩니다.'
+        }
+      }
+    },
     createdAt: timestamp(15),
     updatedAt: timestamp(15)
   });
@@ -308,6 +346,24 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
       confidence: 0.76
     },
     {
+      fieldKey: 'industryCommonRules',
+      value: '업종 공통 필수 고지 없음',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.62
+    },
+    {
+      fieldKey: 'blogRequiredIntroCopy',
+      value: '브랜드 소개나 반복 인트로가 있을 때만 직접 입력',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.7
+    },
+    {
+      fieldKey: 'blogRequiredFooterCopy',
+      value: '예약, 문의, 운영 안내 등 반복 푸터가 있을 때만 직접 입력',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.62
+    },
+    {
       fieldKey: 'negativeExpressions',
       value: '전국 최고, 무조건 가능, 효능 보장, 과장된 원조 표현',
       evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
@@ -357,7 +413,7 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     },
     {
       fieldKey: 'blogPurpose',
-      value: '검색 유입과 예약 전 상세 정보 안내',
+      value: '검색 유입, 예약 상담 유도, 신뢰 형성',
       evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
       confidence: 0.85
     },
@@ -372,6 +428,12 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
       value: '본문 700-1,000자와 사진 8장 이상 권장',
       evidenceItemIds: ['collection_item_demo_blog'],
       confidence: 0.77
+    },
+    {
+      fieldKey: 'blogHashtags',
+      value: '#분당케이크 #레터링케이크 #커스텀케이크 #당일제작케이크',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
+      confidence: 0.78
     },
     {
       fieldKey: 'blogEmojiPolicy',

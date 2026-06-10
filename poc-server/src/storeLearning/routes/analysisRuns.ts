@@ -1,9 +1,10 @@
 import express from 'express';
 import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
+import type { JsonValue } from '../../repositories/base.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
-import { getAnalysisArtifacts, startAnalysisRun } from '../analysis/analysisExecutionService.js';
+import { getAnalysisArtifacts, getLatestAnalysisArtifacts, startAnalysisRun } from '../analysis/analysisExecutionService.js';
 import type { AnalysisProvider } from '../analysis/analyzer.js';
 import { createAnalysisProvider } from '../analysis/openAIAnalysisProvider.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
@@ -17,7 +18,7 @@ type AnalysisRunRoutesOptions = {
 const AnalysisRunCreateSchema = z.object({
   storeId: z.string().trim().min(1),
   collectionRunId: z.string().trim().min(1),
-  selectedItemIds: z.array(z.string().trim().min(1)).min(1)
+  selectedItemIds: z.array(z.string().trim().min(1)).default([])
 });
 
 function nowIso() {
@@ -34,6 +35,35 @@ function selectedCounts(items: CollectionItem[]) {
     placeProfiles: items.filter((item) => item.channel === 'place' && item.sourceType === 'profile').length,
     placeReviews: items.filter((item) => item.channel === 'place' && item.sourceType === 'review').length,
     total: items.length
+  };
+}
+
+function emptySelectedCounts() {
+  return { blogPosts: 0, placeProfiles: 0, placeReviews: 0, total: 0 };
+}
+
+function asRecord(value: JsonValue | unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function isNoMeaningfulChangeRun(summary: JsonValue) {
+  const collectionDelta = asRecord(asRecord(summary).collectionDelta);
+  return collectionDelta.hasMeaningfulChanges === false;
+}
+
+function skippedAnalysisProgress(now: string) {
+  const entry = {
+    step: 'completed',
+    label: '분석 완료',
+    state: 'done',
+    message: '이전 수집 결과와 동일해 기존 학습 결과를 재사용했습니다.',
+    updatedAt: now
+  };
+  return {
+    ...entry,
+    startedAt: now,
+    timeline: [entry]
   };
 }
 
@@ -80,6 +110,36 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
       const collectedById = new Map(collectedItems.map((item) => [item.id, item]));
       const selectedIdSet = new Set(body.selectedItemIds);
 
+      if (selectedIdSet.size === 0 && isNoMeaningfulChangeRun(collectionRun.summary)) {
+        const latestArtifacts = getLatestAnalysisArtifacts(repos, store.id);
+        if (!latestArtifacts?.learningSnapshot || !latestArtifacts.marketingRuleset) {
+          res.status(400).json({ error: 'No previous completed learning result is available to reuse.' });
+          return;
+        }
+        const completedAt = nowIso();
+        const analysisRun = repos.analysisRuns.create({
+          id: analysisRunId(store.id),
+          storeId: store.id,
+          collectionRunId: collectionRun.id,
+          status: 'completed',
+          startedAt: completedAt,
+          completedAt,
+          result: {
+            selectedItemIds: [],
+            selectedCounts: emptySelectedCounts(),
+            skippedReason: 'no_meaningful_collection_changes',
+            reusedAnalysisRunId: latestArtifacts.analysisRun.id,
+            learningSnapshotId: latestArtifacts.learningSnapshot.id,
+            marketingRulesetId: latestArtifacts.marketingRuleset.id,
+            analysisProgress: skippedAnalysisProgress(completedAt)
+          },
+          error: null
+        });
+
+        res.json({ analysisRunId: analysisRun.id, analysisRun });
+        return;
+      }
+
       for (const item of collectedItems) {
         if (item.sourceType === 'profile') selectedIdSet.add(item.id);
       }
@@ -91,6 +151,10 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
       }
 
       const selectedItems = Array.from(selectedIdSet).map((itemId) => collectedById.get(itemId) as CollectionItem);
+      if (selectedItems.length === 0) {
+        res.status(400).json({ error: 'Select at least one collected item for analysis.' });
+        return;
+      }
       const selectedAt = nowIso();
       for (const item of collectedItems) {
         const selected = selectedIdSet.has(item.id);

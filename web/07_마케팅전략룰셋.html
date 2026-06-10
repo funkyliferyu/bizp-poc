@@ -57,6 +57,8 @@
 .reference-panel{border:1px solid #D8E0EC;border-radius:8px;background:#FAFBFC;overflow:hidden;position:sticky;top:12px}
 .reference-panel-head{padding:13px 14px;border-bottom:1px solid #E2E8F0;background:#fff}
 .reference-panel-title{font-size:13px;font-weight:700;color:#1A1A2E;margin-bottom:5px}
+.reference-panel-title.common-example{color:#E03131}
+.common-example-title{color:#E03131;font-weight:700}
 .reference-panel-meta{font-size:11px;line-height:1.45;color:#6B7280}
 .reference-panel-body{padding:14px}
 .reference-kicker{font-size:10px;font-weight:700;color:#9AA0B4;margin-bottom:4px}
@@ -89,6 +91,21 @@
 .full-comparison-label{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:6px}
 .full-comparison-copy{font-size:11px;line-height:1.6;color:#4A5568;margin-bottom:6px}
 .writing-preview-card{margin-top:16px}
+.writing-style-grid{display:flex;flex-direction:column;gap:12px}
+.writing-style-row{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:stretch;border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:12px;margin-bottom:0}
+.writing-style-row .ruleset-val{white-space:pre-line}
+.writing-style-current{min-width:0}
+.writing-style-field-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.writing-style-title{font-size:12px;font-weight:700;color:#1A1A2E}
+.writing-style-hint{font-size:11px;line-height:1.5;color:#6B7280;margin-top:6px}
+.writing-style-required{border-color:#BAC8FF;background:#F8FAFF}
+.writing-ai-suggestion{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:10px;display:flex;flex-direction:column;gap:7px}
+.writing-ai-suggestion-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:#1A1A2E}
+.writing-ai-judgment{border-radius:999px;padding:2px 7px;font-size:10px;font-weight:700;color:#2F9E44;background:#EBFBEE;white-space:nowrap}
+.writing-ai-judgment.improve{color:#E8590C;background:#FFF4E6}
+.writing-ai-copy{font-size:12px;line-height:1.55;color:#1A1A2E}
+.writing-ai-evidence{font-size:11px;line-height:1.5;color:#6B7280}
+.writing-ai-evidence strong{color:#1A1A2E}
 .writing-preview{padding:0}
 .writing-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .writing-preview-title{font-size:13px;font-weight:700;color:#1A1A2E}
@@ -112,6 +129,8 @@
 .src-place{background:#EBFBEE;color:#2F9E44;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600}
 .ruleset-val[contenteditable="true"]{outline:none}
 .ruleset-val[contenteditable="true"]:focus{border-color:#3B5BDB;background:#fff}
+.ruleset-val.placeholder-value{color:#9AA0B4;background:#FAFBFC;border-style:dashed;font-weight:500}
+.ruleset-val.placeholder-value:focus{color:#1A1A2E;border-style:solid}
 .ruleset-action-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
 .ruleset-action-btn{height:26px;padding:0 8px;border:1px solid #D8E0EC;border-radius:6px;background:#fff;color:#4A5568;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
 .ruleset-action-btn:hover{border-color:#3B5BDB;color:#3B5BDB;background:#EEF2FF}
@@ -119,6 +138,10 @@
 .ruleset-lock-badge{background:#EEF2FF;color:#3B5BDB;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;border:1px solid #3B5BDB}
 .ruleset-source-note{margin-top:7px;border-left:2px solid #BAC8FF;background:#F8FAFF;padding:7px 9px;font-size:11px;line-height:1.55;color:#4A5568}
 .ruleset-source-note strong{color:#1A1A2E;font-weight:700}
+.ruleset-store-field-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:5px}
+.manual-input-action{height:26px;padding:0 9px;border:1px solid #BAC8FF;border-radius:6px;background:#fff;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.manual-input-action:hover{background:#EEF2FF}
+.manual-required-text{color:#E8590C;font-weight:700}
 .ruleset-source-matrix{margin-top:14px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;overflow:hidden}
 .ruleset-source-matrix-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border-bottom:1px solid #EDF2F7;background:#FAFBFC}
 .ruleset-source-matrix-title{font-size:12px;font-weight:700;color:#1A1A2E}
@@ -144,6 +167,7 @@
   .comparison-scroll{overflow-x:auto}
   .analysis-focus-layout,.similar-compare-layout,.full-comparison-grid{grid-template-columns:1fr}
   .reference-panel{position:static}
+  .writing-style-row{grid-template-columns:1fr}
   .writing-preview-layout{grid-template-columns:1fr}
 }
 </style>
@@ -182,9 +206,14 @@
         </div>
         <div class="ruleset-field" data-ruleset-field="closedDays"><div class="ruleset-label">휴무일 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>매주 월요일</div></div>
         <div class="ruleset-field" data-ruleset-field="phone"><div class="ruleset-label">연락처 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>031-000-0000</div></div>
-        <div class="ruleset-field" data-ruleset-field="parking"><div class="ruleset-label">주차 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>주차 정보 수집 중</div></div>
+        <div class="ruleset-field" data-ruleset-field="parking" data-manual-required-field="parking">
+          <div class="ruleset-store-field-head">
+            <div class="ruleset-label">주차 <span class="src-place">Place 수집</span></div>
+            <button type="button" class="manual-input-action" data-store-registration-action="parking" onclick="goToStoreRegistrationParking()">매장정보에서 입력하기</button>
+          </div>
+          <div class="ruleset-val manual-required-text" data-ruleset-value>수동입력 필요</div>
+        </div>
         <div class="ruleset-field" data-ruleset-field="storeIntro"><div class="ruleset-label">매장 소개 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>매장 소개를 불러오는 중입니다.</div></div>
-        <div class="ruleset-source-matrix" data-source-matrix-section="store"></div>
       </div>
     </div>
   </div>
@@ -194,14 +223,14 @@
     <div class="card">
       <div class="card-header">
         우리 매장 분석
-        <span class="benchmark-source-badge" id="storeAnalysisBadge">AI 분석 · 우리 매장 기준</span>
+        <span class="benchmark-source-badge" id="storeAnalysisBadge">우리 매장 기준</span>
       </div>
       <div class="card-body">
         <div class="analysis-focus-layout">
           <div class="analysis-list">
             <div class="ruleset-field" data-ruleset-field="positioning" data-ruleset-aliases="storePositioning">
               <div class="analysis-field-head">
-                <div class="ruleset-label">포지셔닝 <span class="src-ai">AI 분석</span></div>
+                <div class="ruleset-label">포지셔닝</div>
                 <button type="button" class="reference-btn active" data-reference-key="positioning" onclick="showReferenceLayer('positioning')">참고</button>
               </div>
               <div class="ruleset-val" data-ruleset-value>분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div>
@@ -209,28 +238,28 @@
             </div>
             <div class="ruleset-field" data-ruleset-field="keyStrengths" data-ruleset-aliases="reviewStrength">
               <div class="analysis-field-head">
-                <div class="ruleset-label">업체 주장 강점 <span class="src-ai">AI 분석</span></div>
+                <div class="ruleset-label">업체 주장 강점</div>
                 <button type="button" class="reference-btn" data-reference-key="strength" onclick="showReferenceLayer('strength')">참고</button>
               </div>
               <div class="ruleset-val" data-ruleset-value>당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div>
             </div>
-            <div class="ruleset-field" data-ruleset-field="representativeMenu">
+            <div class="ruleset-field" data-ruleset-field="representativeMenu" data-industry-field="representativeOffering" data-default-label="대표 메뉴" data-healthcare-label="대표 진료과목" data-default-reference-key="menu" data-healthcare-reference-key="treatmentSubject">
               <div class="analysis-field-head">
-                <div class="ruleset-label">대표 메뉴 <span class="src-ai">AI 분석</span></div>
-                <button type="button" class="reference-btn" data-reference-key="menu" onclick="showReferenceLayer('menu')">참고</button>
+                <div class="ruleset-label"><span data-industry-label>대표 메뉴</span></div>
+                <button type="button" class="reference-btn" data-reference-key="menu" onclick="showReferenceLayer(this.dataset.referenceKey)">참고</button>
               </div>
               <div class="ruleset-val" data-ruleset-value>커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div>
             </div>
             <div class="ruleset-field" data-ruleset-field="targetCustomers">
               <div class="analysis-field-head">
-                <div class="ruleset-label">주 타겟층 <span class="src-ai">AI 분석</span></div>
+                <div class="ruleset-label">주 타겟층</div>
                 <button type="button" class="reference-btn" data-reference-key="target" onclick="showReferenceLayer('target')">참고</button>
               </div>
               <div class="ruleset-val" data-ruleset-value>20~40대 분당·수지 지역 여성 / 생일·기념일 케이크 구매 고객</div>
             </div>
             <div class="ruleset-field" data-ruleset-field="contentKeywords" data-ruleset-aliases="seoKeywords">
               <div class="analysis-field-head">
-                <div class="ruleset-label">콘텐츠 소재 키워드 <span class="src-ai">AI 분석</span></div>
+                <div class="ruleset-label">콘텐츠 소재 키워드</div>
                 <button type="button" class="reference-btn" data-reference-key="contentKeywords" onclick="showReferenceLayer('contentKeywords')">참고</button>
               </div>
               <div class="benchmark-tags">
@@ -245,14 +274,14 @@
             </div>
             <div class="ruleset-field" data-ruleset-field="reviewStrength" data-ruleset-aliases="keyStrengths">
               <div class="analysis-field-head">
-                <div class="ruleset-label">리뷰 강점 <span class="src-ai">AI 분석</span></div>
+                <div class="ruleset-label">리뷰 강점</div>
                 <button type="button" class="reference-btn" data-reference-key="reviewStrength" onclick="showReferenceLayer('reviewStrength')">참고</button>
               </div>
               <div class="ruleset-val" data-ruleset-value>예쁜 케이크 디자인, 친절한 사장님, 빠른 제작</div>
             </div>
             <div class="ruleset-field" data-ruleset-field="reviewWeakness">
               <div class="analysis-field-head">
-                <div class="ruleset-label">리뷰 약점 <span class="src-ai">AI 분석</span></div>
+                <div class="ruleset-label">리뷰 약점</div>
                 <button type="button" class="reference-btn" data-reference-key="reviewWeakness" onclick="showReferenceLayer('reviewWeakness')">참고</button>
               </div>
               <div class="ruleset-val" data-ruleset-value>주차 공간 협소, 현금 결제 불가 언급</div>
@@ -261,7 +290,7 @@
           </div>
           <aside class="reference-panel" id="storeAnalysisReferencePanel">
             <div class="reference-panel-head">
-              <div class="reference-panel-title" id="referenceLayerTitle">항목 참고</div>
+              <div class="reference-panel-title common-example" id="referenceLayerTitle">(공통예시) 항목 참고</div>
               <div class="reference-panel-meta" id="referenceLayerMeta">유사 기준 데이터를 불러오는 중입니다.</div>
             </div>
             <div class="reference-panel-body">
@@ -272,7 +301,6 @@
             </div>
           </aside>
         </div>
-        <div class="ruleset-source-matrix" data-source-matrix-section="brand"></div>
       </div>
     </div>
   </div>
@@ -288,11 +316,175 @@
           <div class="sub-tab" onclick="showSub('write','blog',this)">블로그</div>
         </div>
         <div id="write-common">
-          <div class="ruleset-field" data-ruleset-field="toneAndManner"><div class="ruleset-label">톤 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>친근하고 감성적인 구어체 / 과장 없는 사실 기반</div></div>
-          <div class="ruleset-field" data-ruleset-field="catchphrase"><div class="ruleset-label">캐치프레이즈 <span class="src-edited">수정됨</span></div><div class="ruleset-val edited" data-ruleset-value>특별한 날을 더 특별하게 / 분당에서 제일 예쁜 케이크</div><div class="ruleset-hint">재학습 시 자동 업데이트되지 않습니다.</div></div>
-          <div class="ruleset-field" data-ruleset-field="negativeExpressions"><div class="ruleset-label">피할 문구 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>강추드려요, 완전 맛있어요 반복, 최고의 케이크</div></div>
-          <div class="ruleset-field" data-ruleset-field="humorLevel"><div class="ruleset-label">개그 레벨 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>낮음 — 가벼운 언어 유희만</div></div>
-          <div class="ruleset-field" data-ruleset-field="trendSensitivity"><div class="ruleset-label">트렌드 민감도 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>중간 — 시즌 트렌드 반영</div></div>
+          <div class="writing-style-grid" data-writing-style-layout="current-plus-suggestion">
+            <div class="ruleset-field writing-style-row" data-ruleset-field="blogPurpose" data-writing-style-field="blogPurpose">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">글의 목적 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>검색 유입, 예약 상담 유도, 신뢰 형성</div>
+                <div class="writing-style-hint">최소 3개 목적 유형을 입력합니다. 포스팅 생성 시마다 복수의 목표를 랜덤 선택해 반영합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="improve">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment improve">개선 제안</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>검색 유입, 예약/전화 문의, 의료진 신뢰 형성을 분리해 주제별 CTA를 다르게 적용합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 기존 블로그 제목과 본문이 정보 탐색형, 상담 전환형, 신뢰 보강형으로 나뉩니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="blogWritingStyle" data-writing-style-field="blogWritingStyle">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">문장 스타일 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>정보 전달을 중심으로 하며, 환자의 이해를 돕는 쉬운 풀이와 요약형 문장.</div>
+                <div class="writing-style-hint">AI가 기존 블로그 문장스타일을 파악해 포스팅 생성 시마다 동일한 문장스타일로 반영합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="keep">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment">현행유지</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>현재처럼 쉬운 설명과 단정한 안내 문체를 유지합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 의료 정보성 글에서는 과도한 감탄보다 명확한 설명이 CTA 신뢰도를 높입니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="blogPreferredLength" data-writing-style-field="blogPreferredLength">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">선호 길이 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>본문 900-1,300자, 핵심 소제목 3-5개, 마무리 안내 포함</div>
+                <div class="writing-style-hint">AI가 기존 블로그의 평균 길이와 구성 밀도를 파악해 반영합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="keep">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment">현행유지</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>검색 유입형 블로그는 현재 길이 범위를 유지하고 상담 CTA를 마지막에 배치합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 짧은 글보다 시술/진료 정보와 주의사항을 함께 설명하는 구조가 안전합니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="blogHashtags" data-ruleset-aliases="instagramHashtags" data-writing-style-field="blogHashtags">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">해시태그 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>#인천정형외과 #서구정형외과 #가정동정형외과 #물리치료 #정형외과진료</div>
+                <div class="writing-style-hint">AI가 지역, 업종, 주요 진료/메뉴 키워드를 분석해 기존 스타일로 반영합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="improve">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment improve">개선 제안</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>지역+진료과목 태그와 콘텐츠 주제 태그를 분리해 반복 노출을 줄입니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 동일 태그 반복보다 주제별 보조 태그를 섞는 편이 탐색 흐름에 맞습니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="blogEmojiPolicy" data-writing-style-field="blogEmojiPolicy">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">이모지 사용 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>본문에서는 사용 안 함, 정보 구분용 기호도 최소화</div>
+                <div class="writing-style-hint">AI가 기존 블로그의 이모지 사용량을 파악해 같은 스타일로 반영합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="keep">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment">현행유지</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>의료 정보성 블로그는 이모지를 쓰지 않는 현재 정책을 유지합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 신뢰와 정보 전달이 중요한 업종에서는 장식적 표현을 보수적으로 제한합니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="seoKeywords" data-ruleset-aliases="contentKeywords" data-writing-style-field="seoKeywords">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">SEO 키워드 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>서구정형외과, 가정동정형외과, 인천정형외과, 물리치료, 정형외과 진료</div>
+                <div class="writing-style-hint">AI가 기존 블로그와 Place 정보를 바탕으로 제목, 소제목, 본문에 넣을 키워드를 입력합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="improve">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment improve">개선 제안</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>대표 지역 키워드 2개와 주제 키워드 2-3개를 나눠 제목/본문 반복을 제어합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 현재 키워드는 지역명이 반복되어 문장 자연스러움이 떨어질 수 있습니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="ctaStyle" data-writing-style-field="ctaStyle">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">CTA <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>증상 확인 후 내원/전화 상담을 부드럽게 안내</div>
+                <div class="writing-style-hint">AI가 기존 블로그의 전환 유도 방식을 파악해 포스팅마다 동일한 CTA 톤으로 반영합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="improve">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment improve">개선 제안</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>운영시간과 전화번호가 있는 글에서는 마지막 문단에 상담 가능 시간 안내를 함께 넣습니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> CTA가 추상적이면 사용자가 다음 행동을 고르기 어렵습니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="toneAndManner" data-writing-style-field="toneAndManner">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">톤 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>친절하고 따뜻하며 안전한 의료환경을 강조하는 조심스러운 대화톤.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="keep">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment">현행유지</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>현재의 신뢰 중심 톤을 유지합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 의료 블로그는 확신형 광고 문구보다 안정감 있는 설명이 적합합니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="catchphrase" data-writing-style-field="catchphrase">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">공통 캐치프레이즈 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>우리 병원의 진료 철학을 짧게 설명하는 반복 문구 후보</div>
+                <div class="writing-style-hint">단일 슬로건만 관리하지 않고, 아래 필수 인트로/푸터 문구와 함께 블로그 반복 문구를 설정합니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="improve">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment improve">개선 제안</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>캐치프레이즈는 짧게 두고, 반복되어야 할 원장/자격/시간 정보는 필수 문구 영역으로 분리합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 사용자가 제공한 예시처럼 인트로와 푸터에 반복되는 고정 정보가 별도로 존재합니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row writing-style-required" data-ruleset-field="blogRequiredIntroCopy" data-writing-required-copy="intro" data-healthcare-only>
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">필수 인트로 문구 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>대표원장 소개, 전문의 이력, 진료 철학처럼 모든 블로그 인트로에 반복 포함할 문구</div>
+                <div class="writing-style-hint">병원/의원은 대표원장 프로필, 전문성, 진료 철학 등 반복 소개 문구를 둘 수 있습니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="improve">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment improve">개선 제안</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>모든 글 첫 문단에 원장/진료 철학을 짧게 고정하고, 본문 주제와 충돌하지 않게 2문장 이내로 제한합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 첨부 예시처럼 병원 블로그는 반복 인트로가 신뢰 형성에 사용될 수 있습니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row writing-style-required" data-ruleset-field="industryCommonRules" data-writing-style-panel="industry-common-rules" data-healthcare-only>
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">업종공통규칙 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>블로그 하단에 반드시 의료법 관련 내용 포함</div>
+                <div class="writing-style-hint">의료/병원 업종에만 기본 표시하며, 일반 업종에는 의료법 푸터를 기본 적용하지 않습니다.</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="keep">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment">현행유지</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>의료 정보 제공 및 병원 광고 목적의 글은 하단 고지를 필수 문구로 분리해 관리합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 첨부 문구를 사용자 편집 가능한 필수 푸터로 반영합니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row writing-style-required" data-ruleset-field="blogRequiredFooterCopy" data-writing-required-copy="footer" data-medical-default-footer data-healthcare-only>
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">필수 푸터 문구 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>*본 포스팅은 해당 병원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, &lt;의료법 제 56조 제 1항&gt;을 준수합니다.
+*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.</div>
+                <div class="writing-style-hint">자격·진료시간·연락처·의료법 고지처럼 모든 블로그 푸터에 반복 포함할 문구</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="keep">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment">현행유지</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>제공된 의료법 고지 문구를 푸터 필수 문구로 유지하고, 병원별 시간/전화 정보는 별도 문구로 추가합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 사용자가 제공한 하단 고지 예시를 텍스트로 변환했습니다.</div>
+              </div>
+            </div>
+
+            <div class="ruleset-field writing-style-row" data-ruleset-field="negativeExpressions" data-writing-style-field="negativeExpressions">
+              <div class="writing-style-current" data-writing-current>
+                <div class="writing-style-field-head"><div class="ruleset-label writing-style-title">피할 문구 <span class="src-ai">AI 분석</span></div></div>
+                <div class="ruleset-val" data-ruleset-value>의사 진료 없음, 불편한 상황, 치료 중 고통</div>
+              </div>
+              <div class="writing-ai-suggestion" data-writing-suggestion data-ai-judgment="improve">
+                <div class="writing-ai-suggestion-title">AI 제안 <span class="writing-ai-judgment improve">개선 제안</span></div>
+                <div class="writing-ai-copy" data-ai-suggestion-text>법/정책상 금지 표현과 브랜드 톤상 피할 표현을 나눠 관리합니다.</div>
+                <div class="writing-ai-evidence" data-ai-suggestion-evidence><strong>근거</strong> 피해야 할 문구의 성격이 섞이면 생성 프롬프트가 과하게 보수적으로 작동할 수 있습니다.</div>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="write-insta" style="display:none">
           <div class="ruleset-field" data-ruleset-field="instagramPurpose"><div class="ruleset-label">글의 목적 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>비주얼 중심 브랜딩·신규 고객 유입</div></div>
@@ -309,7 +501,6 @@
           <div class="ruleset-field" data-ruleset-field="ctaStyle"><div class="ruleset-label">CTA <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>예약·방문 유도</div></div>
           <div class="ruleset-field" data-ruleset-field="blogEmojiPolicy"><div class="ruleset-label">이모지 사용 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>사용 안 함</div></div>
         </div>
-        <div class="ruleset-source-matrix" data-source-matrix-section="write_common,write_instagram,write_blog"></div>
       </div>
     </div>
 
@@ -360,7 +551,7 @@
   <!-- 이미지 스타일 -->
   <div id="sec-img" style="display:none">
     <div class="card">
-      <div class="card-header">이미지 스타일</div>
+      <div class="card-header"><span class="common-example-title">(공통예시) 이미지 스타일</span></div>
       <div class="card-body" style="padding-bottom:0">
         <div class="sub-tab-row">
           <div class="sub-tab active" onclick="showSub('img','common',this)">공통</div>
@@ -384,6 +575,8 @@
           <div class="ruleset-field" data-ruleset-field="imageDirection"><div class="ruleset-label">이미지 무드 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>밝고 감성적인 자연광, 따뜻한 톤, 케이크 디테일 강조</div></div>
           <div class="ruleset-field" data-ruleset-field="imageStyle"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>감성적 미니멀, 케이크 클로즈업 중심</div></div>
           <div class="ruleset-field" data-ruleset-field="imageAvoidStyle"><div class="ruleset-label">피할 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>어두운 톤, 과도한 필터, 복잡한 배경</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogImageFormat"><div class="ruleset-label">비율·포맷 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>가로 3:2 권장, 최소 8장 / 1200×800px 이상</div></div>
+          <div class="ruleset-field" data-ruleset-field="blogOverlayPolicy"><div class="ruleset-label">텍스트 오버레이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>이미지 내 텍스트 최소화</div><div class="ruleset-hint">이미지 내 과도한 텍스트는 SEO 불이익</div></div>
         </div>
         <div id="img-insta" style="display:none">
           <div class="ruleset-field" data-ruleset-field="instagramImageFormat"><div class="ruleset-label">비율·포맷 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>정방형 1:1 또는 세로 4:5 / 1080×1080px</div></div>
@@ -391,11 +584,8 @@
           <div class="ruleset-field" data-ruleset-field="instagramOverlayPolicy"><div class="ruleset-label">텍스트 오버레이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>카드뉴스형 가능, 로고 워터마크 삽입</div></div>
         </div>
         <div id="img-blog" style="display:none">
-          <div class="ruleset-field" data-ruleset-field="blogImageFormat"><div class="ruleset-label">비율·포맷 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>가로 3:2 권장, 최소 8장 / 1200×800px 이상</div></div>
           <div class="ruleset-field" data-ruleset-field="blogImageStyle"><div class="ruleset-label">주 사용 스타일 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>전체샷·디테일샷·공간샷 혼합</div></div>
-          <div class="ruleset-field" data-ruleset-field="blogOverlayPolicy"><div class="ruleset-label">텍스트 오버레이 <span class="src-ai">AI 분석</span></div><div class="ruleset-val" data-ruleset-value>이미지 내 텍스트 최소화</div><div class="ruleset-hint">이미지 내 과도한 텍스트는 SEO 불이익</div></div>
         </div>
-        <div class="ruleset-source-matrix" data-source-matrix-section="image_common,image_instagram,image_blog"></div>
       </div>
     </div>
   </div>
@@ -404,7 +594,7 @@
   <div id="sec-compare" style="display:none">
     <div class="card">
       <div class="card-header">
-        유사업체비교
+        <span class="common-example-title">(공통예시) 유사업체비교</span>
         <button type="button" class="btn btn-ghost btn-sm" onclick="openFullComparison()">모두 비교</button>
       </div>
       <div class="card-body" data-benchmark-panel>
@@ -497,10 +687,12 @@ let selectedCompanyIndex = 0;
 let activeReferenceKey = 'positioning';
 let activeWritingChannel = 'common';
 let writingPreviewIndexes = { common: 0, insta: 0, blog: 0 };
+const COMMON_REFERENCE_TITLE_PREFIX = '(공통예시)';
 const REFERENCE_TYPE_BY_ROW_KEY = {
   positioning: 'recommended',
   strength: 'sameIndustry',
   menu: 'sameIndustry',
+  treatmentSubject: 'sameIndustry',
   target: 'nearby',
   contentKeywords: 'keywordTop',
   reviewStrength: 'sameIndustry',
@@ -529,7 +721,9 @@ function currentBenchmark(){
 }
 
 function normalizedReferenceKey(rowKey){
-  return rowKey === 'strength' ? 'reviewStrength' : rowKey;
+  return rowKey === 'strength'
+    ? 'reviewStrength'
+    : rowKey === 'treatmentSubject' ? 'menu' : rowKey;
 }
 
 function benchmarkById(typeId){
@@ -579,8 +773,8 @@ function showReferenceLayer(rowKey){
   document.querySelectorAll('[data-reference-key]').forEach((button) => {
     button.classList.toggle('active', button.dataset.referenceKey === rowKey);
   });
-  document.getElementById('referenceLayerTitle').textContent = `${row.label} 참고`;
-  document.getElementById('referenceLayerMeta').textContent = `${type.label} · ${type.candidates.length}개 업체 사례`;
+  document.getElementById('referenceLayerTitle').textContent = `${COMMON_REFERENCE_TITLE_PREFIX} ${row.label} 참고`;
+  document.getElementById('referenceLayerMeta').textContent = `공통 예시 · ${type.label} · ${type.candidates.length}개 업체 사례`;
   document.getElementById('referenceLayerKicker').textContent = `${row.label}: ${row.ourStore}`;
   document.getElementById('referenceLayerBody').textContent = `${row.benchmark} ${row.recommendation}`;
   document.getElementById('referenceLayerEvidence').innerHTML = (row.evidence || [])

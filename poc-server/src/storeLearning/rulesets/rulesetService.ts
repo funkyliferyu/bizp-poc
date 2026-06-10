@@ -1,4 +1,5 @@
 import type { JsonValue } from '../../repositories/base.js';
+import type { AnalysisEvidence } from '../../repositories/analysis_evidence.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
@@ -11,6 +12,118 @@ import {
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
 type StoreRecord = NonNullable<ReturnType<Repositories['stores']['findById']>>;
+type SerializedRulesetField = ReturnType<typeof serializeField>;
+type WritingStyleCurrentValueStatus = 'inferred' | 'user_edited' | 'placeholder' | 'empty';
+type WritingStyleSuggestionJudgment = 'maintain' | 'improve';
+
+const HEALTHCARE_CATEGORY_KEYWORDS = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'];
+const MEDICAL_INDUSTRY_COMMON_RULE = '블로그 하단에 반드시 의료법 관련 내용 포함';
+const MEDICAL_BLOG_FOOTER_EXAMPLE_STORE_NAME = '테라스의원';
+const MEDICAL_BLOG_FOOTER_LINES = [
+  '*본 포스팅은 {storeName}에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+  '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
+];
+
+const WRITING_STYLE_INSIGHT_FIELD_KEYS = [
+  'blogPurpose',
+  'blogWritingStyle',
+  'blogPreferredLength',
+  'blogHashtags',
+  'blogEmojiPolicy',
+  'seoKeywords',
+  'ctaStyle',
+  'industryCommonRules',
+  'blogRequiredIntroCopy',
+  'blogRequiredFooterCopy'
+] as const;
+
+const WRITING_PLACEHOLDER_VALUES: Record<string, string> = {
+  blogRequiredIntroCopy: '브랜드 소개나 반복 인트로가 있을 때만 직접 입력',
+  blogRequiredFooterCopy: '예약, 문의, 운영 안내 등 반복 푸터가 있을 때만 직접 입력'
+};
+
+const WRITING_STYLE_SUGGESTIONS: Record<
+  string,
+  {
+    judgment: WritingStyleSuggestionJudgment;
+    value: string;
+    evidence: string;
+  }
+> = {
+  blogPurpose: {
+    judgment: 'improve',
+    value: '검색 유입, 예약/전화 문의, 신뢰 형성 목적을 분리하고 포스팅 주제마다 복수 목표를 선택합니다.',
+    evidence: '블로그 목적은 검색 유입과 상담 전환 신호가 함께 쓰이므로 목적을 분리하면 CTA가 더 명확해집니다.'
+  },
+  blogWritingStyle: {
+    judgment: 'maintain',
+    value: '현재처럼 정보 전달을 중심으로 쉬운 설명과 단정한 안내 문체를 유지합니다.',
+    evidence: '기존 블로그 문체가 설명형으로 안정적이며, 과장보다 명확한 안내가 업종 신뢰도에 더 적합합니다.'
+  },
+  blogPreferredLength: {
+    judgment: 'maintain',
+    value: '현재 길이 범위를 유지하고, 마무리 문단에 상담/예약 안내를 일관되게 배치합니다.',
+    evidence: '검색형 블로그는 너무 짧은 글보다 핵심 정보와 안내 문단을 함께 담는 구조가 안정적입니다.'
+  },
+  blogHashtags: {
+    judgment: 'improve',
+    value: '지역+업종 태그와 포스팅 주제 태그를 분리해 반복 태그를 줄입니다.',
+    evidence: '동일한 지역 태그만 반복하면 탐색 범위가 좁아지므로 주제별 보조 태그를 함께 쓰는 편이 좋습니다.'
+  },
+  blogEmojiPolicy: {
+    judgment: 'maintain',
+    value: '본문에서는 이모지를 쓰지 않고, 정보 구분용 기호도 최소화합니다.',
+    evidence: '정보성 블로그는 장식 표현보다 문장 구조와 소제목으로 가독성을 확보하는 편이 안전합니다.'
+  },
+  seoKeywords: {
+    judgment: 'improve',
+    value: '대표 지역 키워드 1-2개와 주제 키워드 2-3개를 나눠 제목/본문 반복을 제어합니다.',
+    evidence: '현재 키워드는 지역과 업종 표현이 함께 묶여 있어 포스팅별 자연스러운 반복 횟수 제어가 필요합니다.'
+  },
+  ctaStyle: {
+    judgment: 'improve',
+    value: '운영시간, 전화번호, 예약 가능 여부가 있는 글에서는 마지막 문단에 다음 행동을 구체적으로 안내합니다.',
+    evidence: 'CTA가 추상적이면 사용자가 문의, 예약, 방문 중 어떤 행동을 해야 하는지 판단하기 어렵습니다.'
+  },
+  industryCommonRules: {
+    judgment: 'maintain',
+    value: '업종 필수 고지는 브랜드 톤과 분리해 별도 규칙으로 유지합니다.',
+    evidence: '정책성 문구는 글쓰기 톤과 섞지 않고 생성 단계에서 별도 검증하는 편이 안전합니다.'
+  },
+  blogRequiredIntroCopy: {
+    judgment: 'maintain',
+    value: '반복 인트로는 실제로 모든 글에 들어갈 확정 문구가 있을 때만 사용합니다.',
+    evidence: '반복 문구가 없는 상태에서 예시 문장을 저장하면 포스팅마다 불필요한 고정 문장이 삽입될 수 있습니다.'
+  },
+  blogRequiredFooterCopy: {
+    judgment: 'maintain',
+    value: '반복 푸터는 업종 필수 고지나 매장별 안내가 확인된 경우에만 사용합니다.',
+    evidence: '푸터 문구는 모든 글에 반복 적용되므로 실제 정책 문구와 연락/운영 정보가 확인된 뒤 고정해야 합니다.'
+  }
+};
+
+const REVIEW_WEAKNESS_SIGNALS = [
+  {
+    label: '통증 걱정 완화 안내 필요',
+    keywords: ['아파', '통증', '겁', '마취', '무섭', '위험']
+  },
+  {
+    label: '사후관리/재발 기대치 안내 필요',
+    keywords: ['재발', '붉은기', '관리', '기다리', '남은']
+  },
+  {
+    label: '대기/혼잡 경험 관리 필요',
+    keywords: ['사람이 많', '대기', '예약', '기다림', '붐']
+  },
+  {
+    label: '방문/주차 동선 안내 보완 필요',
+    keywords: ['주차', '찾기', '동선', '픽업', '위치']
+  },
+  {
+    label: '가격/결제 안내 선명화 필요',
+    keywords: ['가격', '비싸', '결제', '현금', '카드']
+  }
+] as const;
 
 function latestByUpdatedAt<T extends { updatedAt: string }>(records: T[]) {
   return records.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).at(-1) ?? null;
@@ -72,6 +185,25 @@ function parkingValue(...values: Array<JsonValue | null | undefined>) {
   return value;
 }
 
+function representativeTreatmentSubjectsValue(metadata: Record<string, JsonValue>, parsed: Record<string, JsonValue>) {
+  const metadataHospital = asRecord(metadata.hospitalInfo);
+  const parsedHospital = asRecord(parsed.hospitalInfo);
+  return firstDisplayValue(
+    metadata.representativeTreatmentSubjects,
+    parsed.representativeTreatmentSubjects,
+    metadata.treatmentSubjects,
+    parsed.treatmentSubjects,
+    metadata.medicalSubjects,
+    parsed.medicalSubjects,
+    metadataHospital.subjects,
+    parsedHospital.subjects,
+    metadataHospital.sortedSubjects,
+    parsedHospital.sortedSubjects,
+    metadataHospital.processedSubjects,
+    parsedHospital.processedSubjects
+  );
+}
+
 function excerpt(value: string | null | undefined, maxLength = 160) {
   const trimmed = value?.replace(/\s+/g, ' ').trim();
   if (!trimmed) return null;
@@ -91,6 +223,49 @@ function serializeField(field: RulesetField, fieldKeyOverride?: string) {
     confidence: field.confidence,
     sourceMatrix: sourceMatrixForFieldKey(fieldKeyOverride ?? field.fieldKey),
     updatedAt: field.updatedAt
+  };
+}
+
+function medicalBlogFooterCopy(storeName: string | null | undefined) {
+  const normalizedStoreName = storeName?.trim() || '해당 병원';
+  return MEDICAL_BLOG_FOOTER_LINES
+    .map((line) => line.replace('{storeName}', normalizedStoreName))
+    .join('\n');
+}
+
+function storeNameFromFacts(storeFacts: Record<string, unknown>) {
+  const name = storeFacts.name;
+  if (typeof name === 'string' && name.trim()) return name.trim();
+  if (typeof name === 'number' && Number.isFinite(name)) return String(name);
+  return '해당 병원';
+}
+
+function normalizeMedicalBlogFooterCopy(
+  value: string | null | undefined,
+  storeFacts: Record<string, unknown>,
+  isUserEdited: boolean
+) {
+  const storeName = storeNameFromFacts(storeFacts);
+  if (!value) return medicalBlogFooterCopy(storeName);
+  if (isUserEdited) return value;
+  return value.replaceAll(MEDICAL_BLOG_FOOTER_EXAMPLE_STORE_NAME, storeName);
+}
+
+function serializeFieldForStore(
+  field: RulesetField,
+  storeFacts: Record<string, unknown>,
+  fieldKeyOverride?: string
+): SerializedRulesetField {
+  const serialized = serializeField(field, fieldKeyOverride);
+  if (!isHealthcareStoreFacts(storeFacts) || serialized.fieldKey !== 'blogRequiredFooterCopy') return serialized;
+  const isUserEdited = serialized.locked || serialized.source === 'user_edited';
+  const aiValue = normalizeMedicalBlogFooterCopy(serialized.aiValue, storeFacts, false);
+  const finalValue = normalizeMedicalBlogFooterCopy(serialized.finalValue || serialized.aiValue, storeFacts, isUserEdited);
+  return {
+    ...serialized,
+    aiValue,
+    finalValue,
+    userValue: isUserEdited ? serialized.userValue : serialized.userValue?.replaceAll(MEDICAL_BLOG_FOOTER_EXAMPLE_STORE_NAME, storeNameFromFacts(storeFacts)) ?? null
   };
 }
 
@@ -124,8 +299,89 @@ function serializeStoreFacts(store: StoreRecord) {
       parsed.hours
     ),
     closedDays: firstDisplayValue(metadata.closedDays, parsed.closedDays),
-    parking: parkingValue(metadata.parkingNote, parsed.parkingNote, metadata.parking, parsed.parking)
+    parking: parkingValue(metadata.parkingNote, parsed.parkingNote, metadata.parking, parsed.parking),
+    representativeTreatmentSubjects: representativeTreatmentSubjectsValue(metadata, parsed)
   };
+}
+
+function rulesetFieldId(rulesetId: string, fieldKey: string) {
+  return `ruleset_field_${rulesetId}_${fieldKey.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+}
+
+function collectionItemSearchText(item: CollectionItem) {
+  return [item.title, item.bodyText].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function collectedReviewWeaknessEvidenceItems(repos: Repositories, storeId: string) {
+  return repos.collectionItems
+    .listByStoreId(storeId)
+    .filter((item) => {
+      if (item.status !== 'collected') return false;
+      if (item.sourceType !== 'review' && item.sourceType !== 'post') return false;
+      return Boolean(collectionItemSearchText(item));
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+function deriveReviewWeaknessFromCollectedItems(items: CollectionItem[]) {
+  const matchedLabels: string[] = [];
+  const matchedItemIds: string[] = [];
+
+  for (const signal of REVIEW_WEAKNESS_SIGNALS) {
+    const matchedItem = items.find((item) => {
+      const text = collectionItemSearchText(item);
+      return signal.keywords.some((keyword) => text.includes(keyword));
+    });
+    if (!matchedItem) continue;
+    matchedLabels.push(signal.label);
+    matchedItemIds.push(matchedItem.id);
+  }
+
+  if (matchedLabels.length > 0) {
+    return {
+      value: unique(matchedLabels).slice(0, 3).join(', '),
+      evidenceItemIds: unique(matchedItemIds).slice(0, 5),
+      confidence: 0.62
+    };
+  }
+
+  const fallbackEvidenceItemIds = items.slice(0, 3).map((item) => item.id);
+  if (fallbackEvidenceItemIds.length > 0) {
+    return {
+      value: '반복적으로 확인되는 리뷰 약점 없음',
+      evidenceItemIds: fallbackEvidenceItemIds,
+      confidence: 0.45
+    };
+  }
+
+  return {
+    value: '리뷰 약점을 판단할 수집 근거가 아직 없습니다',
+    evidenceItemIds: [],
+    confidence: 0.3
+  };
+}
+
+function ensureReviewWeaknessBackfill(
+  repos: Repositories,
+  store: StoreRecord,
+  rulesetId: string,
+  fields: RulesetField[]
+) {
+  if (fields.some((field) => canonicalRulesetFieldKey(field.fieldKey) === 'reviewWeakness')) return null;
+  const derived = deriveReviewWeaknessFromCollectedItems(collectedReviewWeaknessEvidenceItems(repos, store.id));
+  return repos.rulesetFields.upsert({
+    id: rulesetFieldId(rulesetId, 'reviewWeakness'),
+    rulesetId,
+    fieldKey: 'reviewWeakness',
+    fieldValue: derived.value,
+    aiValue: derived.value,
+    userValue: null,
+    finalValue: derived.value,
+    source: 'analysis_backfill',
+    locked: 0,
+    evidenceItemIds: derived.evidenceItemIds,
+    confidence: derived.confidence
+  });
 }
 
 function sourceMatrixWithCurrentValues(storeFacts: Record<string, unknown>, fields: ReturnType<typeof serializeField>[]) {
@@ -147,6 +403,114 @@ function sourceMatrixWithCurrentValues(storeFacts: Record<string, unknown>, fiel
   });
 }
 
+function isHealthcareStoreFacts(storeFacts: Record<string, unknown>) {
+  const category = String(storeFacts.category ?? '').trim();
+  return HEALTHCARE_CATEGORY_KEYWORDS.some((keyword) => category.includes(keyword));
+}
+
+function fieldForInsight(fieldKey: string, fields: SerializedRulesetField[]) {
+  const canonicalFieldKey = canonicalRulesetFieldKey(fieldKey);
+  return fields.find(
+    (field) => field.fieldKey === fieldKey || canonicalRulesetFieldKey(field.fieldKey) === canonicalFieldKey
+  ) ?? null;
+}
+
+function writingFieldValue(fieldKey: string, field: SerializedRulesetField | null, storeFacts: Record<string, unknown>) {
+  const isHealthcare = isHealthcareStoreFacts(storeFacts);
+  const fieldValue = field?.finalValue || field?.aiValue || null;
+  if (fieldValue) return fieldValue;
+  if (isHealthcare && fieldKey === 'industryCommonRules') return MEDICAL_INDUSTRY_COMMON_RULE;
+  if (isHealthcare && fieldKey === 'blogRequiredFooterCopy') {
+    return medicalBlogFooterCopy(storeNameFromFacts(storeFacts));
+  }
+  return null;
+}
+
+function writingPlaceholderText(fieldKey: string, value: string | null, storeFacts: Record<string, unknown>) {
+  const isHealthcare = isHealthcareStoreFacts(storeFacts);
+  if (fieldKey === 'blogRequiredIntroCopy') {
+    if (value && value.includes('반복 인트로')) return value;
+    return WRITING_PLACEHOLDER_VALUES.blogRequiredIntroCopy;
+  }
+  if (fieldKey === 'blogRequiredFooterCopy' && !isHealthcare) {
+    if (value && value.includes('반복 푸터')) return value;
+    return WRITING_PLACEHOLDER_VALUES.blogRequiredFooterCopy;
+  }
+  return null;
+}
+
+function writingCurrentValueStatus(
+  field: SerializedRulesetField | null,
+  value: string | null,
+  placeholderText: string | null
+): WritingStyleCurrentValueStatus {
+  if (field?.locked || field?.source === 'user_edited') return 'user_edited';
+  if (placeholderText && (!value || value === placeholderText)) return 'placeholder';
+  if (value) return 'inferred';
+  return 'empty';
+}
+
+function writingCalculationLogic(fieldKey: string) {
+  const matrix = sourceMatrixForFieldKey(fieldKey);
+  const label = matrix?.label ?? fieldKey;
+  const inputSources = matrix?.inputSources?.join(', ') || '룰셋 필드와 수집 콘텐츠';
+  return `${label}은 ${inputSources}를 기준으로 기존 룰셋 값, 매장 업종, 선택된 블로그/플레이스 근거를 함께 검토해 산출합니다.`;
+}
+
+function analysisEvidenceSignals(evidenceRows: AnalysisEvidence[], fieldKey: string) {
+  const canonicalFieldKey = canonicalRulesetFieldKey(fieldKey);
+  return unique(
+    evidenceRows.flatMap((row) => {
+      const summary =
+        fieldSpecificAnalysisSummary(row.metadata, [fieldKey, canonicalFieldKey])
+        ?? row.summary
+        ?? null;
+      return [excerpt(summary, 120)];
+    })
+  ).slice(0, 3);
+}
+
+function writingSuggestion(
+  fieldKey: string,
+  evidenceRows: AnalysisEvidence[]
+) {
+  const suggestion = WRITING_STYLE_SUGGESTIONS[fieldKey] ?? {
+    judgment: 'maintain' as WritingStyleSuggestionJudgment,
+    value: '현재 값을 유지하고 충분한 근거가 쌓이면 개선안을 다시 판단합니다.',
+    evidence: '해당 항목은 보수적으로 변경 여부를 판단해야 하므로 명확한 개선 근거가 없으면 현행 유지가 우선입니다.'
+  };
+  const matrix = sourceMatrixForFieldKey(fieldKey);
+  const inputSignals = unique([
+    ...(matrix?.inputSources ?? []),
+    ...analysisEvidenceSignals(evidenceRows, fieldKey)
+  ]).slice(0, 5);
+  return {
+    ...suggestion,
+    inputSignals: inputSignals.length > 0 ? inputSignals : ['ruleset field value']
+  };
+}
+
+function buildWritingStyleFieldInsights(
+  storeFacts: Record<string, unknown>,
+  fields: SerializedRulesetField[],
+  evidenceRows: AnalysisEvidence[]
+) {
+  return WRITING_STYLE_INSIGHT_FIELD_KEYS.map((fieldKey) => {
+    const field = fieldForInsight(fieldKey, fields);
+    const value = writingFieldValue(fieldKey, field, storeFacts);
+    const placeholderText = writingPlaceholderText(fieldKey, value, storeFacts);
+    const currentValueStatus = writingCurrentValueStatus(field, value, placeholderText);
+    return {
+      fieldKey,
+      currentValue: currentValueStatus === 'placeholder' ? null : value,
+      currentValueStatus,
+      placeholderText,
+      calculationLogic: writingCalculationLogic(fieldKey),
+      aiSuggestion: writingSuggestion(fieldKey, evidenceRows)
+    };
+  });
+}
+
 function latestRulesetContext(repos: Repositories, storeId: string) {
   const store = repos.stores.findById(storeId);
   if (!store) return null;
@@ -160,9 +524,13 @@ function latestRulesetContext(repos: Repositories, storeId: string) {
     ? repos.learningSnapshots.findById(marketingRuleset.learningSnapshotId)
     : null;
   const analysisRun = learningSnapshot ? repos.analysisRuns.findById(learningSnapshot.analysisRunId) : null;
-  const fields = repos.rulesetFields
+  let fields = repos.rulesetFields
     .listByRulesetId(marketingRuleset.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const backfilledReviewWeakness = ensureReviewWeaknessBackfill(repos, store, marketingRuleset.id, fields);
+  if (backfilledReviewWeakness) {
+    fields = [...fields, backfilledReviewWeakness].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
 
   return {
     store,
@@ -202,12 +570,14 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
       learningSnapshot: null,
       analysis: null,
       fields: [],
-      sourceMatrix: sourceMatrixWithCurrentValues(storeFacts, [])
+      sourceMatrix: sourceMatrixWithCurrentValues(storeFacts, []),
+      writingStyleInsights: buildWritingStyleFieldInsights(storeFacts, [], [])
     };
   }
 
   const storeFacts = serializeStoreFacts(store);
-  const serializedFields = fields.map((field) => serializeField(field));
+  const serializedFields = fields.map((field) => serializeFieldForStore(field, storeFacts));
+  const evidenceRows = analysisRun ? repos.analysisEvidence.listByAnalysisRunId(analysisRun.id) : [];
 
   return {
     store: {
@@ -239,7 +609,8 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
         }
       : null,
     fields: serializedFields,
-    sourceMatrix: sourceMatrixWithCurrentValues(storeFacts, serializedFields)
+    sourceMatrix: sourceMatrixWithCurrentValues(storeFacts, serializedFields),
+    writingStyleInsights: buildWritingStyleFieldInsights(storeFacts, serializedFields, evidenceRows)
   };
 }
 
@@ -262,7 +633,7 @@ export function updateRulesetFieldValue(
   });
 
   return {
-    field: serializeField(updated, fieldKey)
+    field: serializeFieldForStore(updated, serializeStoreFacts(context.store), fieldKey)
   };
 }
 
@@ -270,17 +641,22 @@ export function resetRulesetFieldValue(repos: Repositories, storeId: string, fie
   const context = rulesetFieldContext(repos, storeId, fieldKey);
   if (!context) return null;
   if (!context.field) return { field: null };
+  const storeFacts = serializeStoreFacts(context.store);
+  const aiValue =
+    fieldKey === 'blogRequiredFooterCopy' && isHealthcareStoreFacts(storeFacts)
+      ? normalizeMedicalBlogFooterCopy(context.field.aiValue, storeFacts, false)
+      : context.field.aiValue;
 
   const updated = repos.rulesetFields.update(context.field.id, {
     userValue: null,
-    finalValue: context.field.aiValue,
-    fieldValue: context.field.aiValue,
+    finalValue: aiValue,
+    fieldValue: aiValue,
     source: 'ai_generated',
     locked: 0
   });
 
   return {
-    field: serializeField(updated, fieldKey)
+    field: serializeFieldForStore(updated, storeFacts, fieldKey)
   };
 }
 
@@ -297,6 +673,33 @@ function itemPayload(item: CollectionItem, analysisSummary: string | null, score
   };
 }
 
+function unique(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+function fieldSpecificAnalysisSummary(metadata: JsonValue, candidateFieldKeys: string[]) {
+  const metadataRecord = asRecord(metadata);
+  const fieldEvidence = asRecord(metadataRecord.fieldEvidence);
+  for (const fieldKey of candidateFieldKeys) {
+    const evidence = asRecord(fieldEvidence[fieldKey]);
+    const summary = asString(evidence.summary);
+    if (summary) return summary;
+  }
+  return null;
+}
+
+function fallbackFieldSpecificSummary(field: RulesetField, requestedFieldKey: string, baseSummary: string | null | undefined) {
+  if (!baseSummary) return null;
+  const label = sourceMatrixForFieldKey(requestedFieldKey)?.label
+    ?? sourceMatrixForFieldKey(field.fieldKey)?.label
+    ?? requestedFieldKey;
+  const fieldValue = excerpt(field.finalValue || field.aiValue || field.fieldValue, 120);
+  const separator = fieldValue && /[.!?。？！.]$/.test(fieldValue) ? ' ' : '. ';
+  return fieldValue
+    ? `${label} 산출 근거: ${fieldValue}${separator}수집 근거: ${baseSummary}`
+    : `${label} 산출 근거: ${baseSummary}`;
+}
+
 export function buildRulesetFieldEvidence(repos: Repositories, storeId: string, fieldKey: string) {
   const context = rulesetFieldContext(repos, storeId, fieldKey);
   if (!context) return null;
@@ -309,13 +712,23 @@ export function buildRulesetFieldEvidence(repos: Repositories, storeId: string, 
       .filter((item) => item.collectionItemId)
       .map((item) => [item.collectionItemId as string, item])
   );
+  const candidateFieldKeys = unique([
+    fieldKey,
+    context.field.fieldKey,
+    canonicalRulesetFieldKey(fieldKey),
+    canonicalRulesetFieldKey(context.field.fieldKey)
+  ]);
 
   const evidence = evidenceItemIds
     .map((itemId) => {
       const item = repos.collectionItems.findById(itemId);
       if (!item) return null;
       const analysisEvidence = evidenceByItemId.get(item.id);
-      return itemPayload(item, analysisEvidence?.summary ?? null, analysisEvidence?.score ?? null);
+      const analysisSummary = analysisEvidence
+        ? fieldSpecificAnalysisSummary(analysisEvidence.metadata, candidateFieldKeys)
+          ?? fallbackFieldSpecificSummary(context.field, fieldKey, analysisEvidence.summary)
+        : null;
+      return itemPayload(item, analysisSummary, analysisEvidence?.score ?? null);
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 

@@ -9,11 +9,37 @@ Sequential plan ledger control for Store Learning work.
 - `main` is the intended public/stable branch.
 - `develop` is the intended integration branch.
 - `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
-- Milestone PRs #26-#34 and #36 are merged to `develop`.
-- They are not fully complete until post-hardening final validation is run and
-  recorded on `develop`.
-- `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md` is the current
-  implementation plan before final validation/promotion.
+- Milestone PRs #26-#34, #36, and #37 are merged to `develop`.
+- Milestone 12 CR follow-up is implemented and validated through Task 16 on
+  `codex/collection-delta-plan`, including the additional ruleset store-info,
+  common-reference, industry-field, writing-style, image-style,
+  similar-comparison, parking, our-store-analysis, no-new-content collection,
+  and review-weakness backfill CR items.
+- Image-style and similar-comparison UI CRs are implemented and validated on
+  the milestone 12 branch as Task 10 and Task 11.
+- PR #38 is open and ready for review from `codex/collection-delta-plan` to
+  `develop`.
+- Non-admin merge attempts for PR #38 are blocked by the `develop` base branch
+  policy; repository auto-merge is disabled.
+- The parking manual-input CR is implemented and validated as milestone 12
+  Task 12. PR #38 has been updated with the follow-up.
+- The our-store-analysis CR is implemented and validated as milestone 12
+  Task 13. PR #38 has been updated with the follow-up.
+- The writing-style action/suggestion/placeholder CR is implemented and
+  validated as milestone 12 Task 14. PR #38 has been updated with the
+  follow-up.
+- The no-new-content collection state bugfix is implemented and validated as
+  milestone 12 Task 15 on the PR #38 branch.
+- The review-weakness legacy backfill/action bugfix is implemented and
+  validated as milestone 12 Task 16 on the PR #38 branch.
+- The required-footer store-name/action-state cleanup CR is implemented and
+  validated as milestone 12 Task 17 on the PR #38 branch.
+- The channel-level cached collection guidance CR is implemented and validated
+  as milestone 12 Task 18 on the PR #38 branch.
+- Milestones are not fully complete until the work is merged to `develop` and
+  develop validation is recorded.
+- `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
+  implementation plan; PR #38 merge is the next item after Task 18 validation.
 
 ## Branch Policy
 
@@ -64,11 +90,9 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Open/review the milestone 11 real-store E2E hardening PR from:
-   - `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md`
-   - branch: `codex/real-store-e2e-hardening`
-2. Keep `develop` as the PR base and merge target.
-3. After the hardening work merges to `develop`, run final validation:
+1. Have an authorized reviewer/admin satisfy the PR #38 base branch policy
+   and merge it to `develop` after Task 17 is complete.
+2. After the CR follow-up work merges to `develop`, run final validation:
    - `cd poc-server && npm run typecheck`
    - `cd poc-server && npm test`
    - `cd poc-server && npm run demo:store-learning`

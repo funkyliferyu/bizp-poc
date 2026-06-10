@@ -99,6 +99,21 @@ export function createMockAnalysisProvider(): AnalysisProvider {
       const ctaStyle = '예약 가능 여부와 픽업 시간을 확인하도록 부드럽게 유도';
       const imageDirection = '케이크 디테일, 레터링 문구, 포장 상태, 픽업 동선을 함께 보여주는 이미지 구성';
       const negativeExpressions = ['전국 최고', '무조건 가능', '효능 보장', '과장된 원조 표현'];
+      const isHealthcareCategory = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'].some((keyword) =>
+        String(store.category || '').includes(keyword)
+      );
+      const industryCommonRules = isHealthcareCategory
+        ? '블로그 하단에 반드시 의료법 관련 내용 포함'
+        : '업종 공통 필수 고지 없음';
+      const blogRequiredIntroCopy = isHealthcareCategory
+        ? '대표원장 소개, 전문의 이력, 진료 철학처럼 모든 블로그 인트로에 반복 포함할 문구'
+        : '브랜드 소개나 반복 인트로가 있을 때만 직접 입력';
+      const blogRequiredFooterCopy = isHealthcareCategory
+        ? [
+            `*본 포스팅은 ${store.name}에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.`,
+            '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
+          ].join('\n')
+        : '예약, 문의, 운영 안내 등 반복 푸터가 있을 때만 직접 입력';
       const fieldValues: Record<string, { aiValue: string; evidenceItemIds: string[]; confidence: number }> = {
         storePositioning: { aiValue: storePositioning, evidenceItemIds: [profileItemId, reviewItemId], confidence: 0.91 },
         keyStrengths: { aiValue: csv(keyStrengths), evidenceItemIds: [reviewItemId, blogItemId], confidence: 0.88 },
@@ -128,6 +143,21 @@ export function createMockAnalysisProvider(): AnalysisProvider {
           aiValue: '특별한 날을 더 특별하게, 분당에서 차분하게 준비하는 레터링 케이크',
           evidenceItemIds: [blogItemId, profileItemId],
           confidence: 0.76
+        },
+        industryCommonRules: {
+          aiValue: industryCommonRules,
+          evidenceItemIds: [profileItemId],
+          confidence: isHealthcareCategory ? 0.84 : 0.62
+        },
+        blogRequiredIntroCopy: {
+          aiValue: blogRequiredIntroCopy,
+          evidenceItemIds: [profileItemId, blogItemId],
+          confidence: 0.7
+        },
+        blogRequiredFooterCopy: {
+          aiValue: blogRequiredFooterCopy,
+          evidenceItemIds: [profileItemId],
+          confidence: isHealthcareCategory ? 0.84 : 0.62
         },
         negativeExpressions: { aiValue: csv(negativeExpressions), evidenceItemIds: allItemIds, confidence: 0.9 },
         humorLevel: {
@@ -166,7 +196,7 @@ export function createMockAnalysisProvider(): AnalysisProvider {
           confidence: 0.7
         },
         blogPurpose: {
-          aiValue: '검색 유입과 예약 전 상세 정보 안내',
+          aiValue: '검색 유입, 예약 상담 유도, 신뢰 형성',
           evidenceItemIds: [blogItemId, profileItemId],
           confidence: 0.85
         },
@@ -175,6 +205,11 @@ export function createMockAnalysisProvider(): AnalysisProvider {
           aiValue: '본문 700-1,000자와 사진 8장 이상 권장',
           evidenceItemIds: [blogItemId],
           confidence: 0.77
+        },
+        blogHashtags: {
+          aiValue: '#분당케이크 #레터링케이크 #커스텀케이크 #당일제작케이크',
+          evidenceItemIds: allItemIds,
+          confidence: 0.78
         },
         blogEmojiPolicy: {
           aiValue: '검색형 본문에서는 이모지 사용 안 함',

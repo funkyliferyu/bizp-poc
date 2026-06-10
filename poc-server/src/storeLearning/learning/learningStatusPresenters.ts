@@ -54,7 +54,7 @@ function itemBase(item: CollectionItem) {
   };
 }
 
-function publicationDate(metadata: JsonRecord, item: CollectionItem) {
+function publicationDate(metadata: JsonRecord) {
   return firstText(
     metadata.publishedAt,
     metadata.publishedDate,
@@ -62,7 +62,7 @@ function publicationDate(metadata: JsonRecord, item: CollectionItem) {
     metadata.postdate,
     metadata.datePublished,
     metadata.pubDate
-  ) ?? item.createdAt;
+  );
 }
 
 function viewCount(metadata: JsonRecord) {
@@ -74,7 +74,7 @@ export function presentBlogItem(item: CollectionItem) {
   const views = viewCount(metadata);
   return {
     ...itemBase(item),
-    publishedAt: publicationDate(metadata, item),
+    publishedAt: publicationDate(metadata),
     ...(views === null ? {} : { viewCount: views })
   };
 }

@@ -190,11 +190,31 @@ describe('learning status API', () => {
       createdAt: '2026-06-06T02:00:00.000Z',
       updatedAt: '2026-06-06T02:00:00.000Z'
     });
+    repos.collectionItems.upsert({
+      id: 'collection_item_real_blog_without_published_date',
+      runId: 'collection_run_demo_store_learning',
+      storeId: 'store_demo_cake',
+      channel: 'blog',
+      sourceType: 'post',
+      status: 'collected',
+      sourceUrl: 'https://blog.naver.com/demo-cake/no-published-date',
+      title: '발행일이 제공되지 않는 블로그',
+      bodyText: '발행일 metadata가 없는 블로그입니다.',
+      selectedForAnalysis: 0,
+      selectionReason: null,
+      selectedAt: null,
+      metadata: {
+        provider: 'naverBlogRenderedCollectionProvider'
+      },
+      createdAt: '2026-06-06T03:00:00.000Z',
+      updatedAt: '2026-06-06T03:00:00.000Z'
+    });
 
     const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/learning-status/blog`);
     const body = await readJson(response);
     const withViews = body.items.find((item: { id: string }) => item.id === 'collection_item_real_blog_with_views');
     const withoutViews = body.items.find((item: { id: string }) => item.id === 'collection_item_real_blog_without_views');
+    const withoutPublishedDate = body.items.find((item: { id: string }) => item.id === 'collection_item_real_blog_without_published_date');
 
     expect(response.status).toBe(200);
     expect(withViews).toEqual(
@@ -214,6 +234,12 @@ describe('learning status API', () => {
       })
     );
     expect(withoutViews).not.toHaveProperty('viewCount');
+    expect(withoutPublishedDate).toEqual(
+      expect.objectContaining({
+        publishedAt: null,
+        collectedAt: '2026-06-06T03:00:00.000Z'
+      })
+    );
   });
 
   it('deduplicates repeated Blog collection items and keeps the latest real metadata', async () => {
