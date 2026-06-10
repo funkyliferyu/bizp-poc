@@ -93,8 +93,7 @@ function profileMetadata(input: CollectionIdentityInput) {
     introduction: cleanText(storeMetadata.introduction as string | null | undefined),
     description: cleanText(storeMetadata.description as string | null | undefined),
     hospitalInfo: stableValue(storeMetadata.hospitalInfo),
-    menuItems: stableValue(storeMetadata.menuItems),
-    reviewStats: stableValue(storeMetadata.reviewStats)
+    menuItems: stableValue(storeMetadata.menuItems)
   };
 }
 

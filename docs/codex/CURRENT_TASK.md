@@ -27,6 +27,8 @@ Sequential plan ledger control for Store Learning work.
 - The writing-style action/suggestion/placeholder CR is implemented and
   validated as milestone 12 Task 14. PR #38 has been updated with the
   follow-up.
+- The no-new-content collection state bugfix is implemented and validated as
+  milestone 12 Task 15 on the PR #38 branch.
 - Milestones are not fully complete until the work is merged to `develop` and
   develop validation is recorded.
 - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current

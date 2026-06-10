@@ -89,8 +89,8 @@ describe('collection progress static page API wiring', () => {
     expect(js).toContain('function collectionDelta');
     expect(js).toContain('function hasNoMeaningfulChanges');
     expect(js).toContain('신규 수집 0개');
-    expect(js).toContain('기존 캐시 재사용');
-    expect(js).toContain('플레이스 정보 변경 없음');
-    expect(js).toContain('counts.collected === 0 && !hasNoMeaningfulChanges(run)');
+    expect(js).toContain('새로 가져올 항목이 존재하지 않습니다.');
+    expect(js).toContain('새로 분석할 콘텐츠가 없습니다.');
+    expect(js).toContain("field('collection-next-btn').disabled = !terminal || noMeaningfulChanges");
   });
 });

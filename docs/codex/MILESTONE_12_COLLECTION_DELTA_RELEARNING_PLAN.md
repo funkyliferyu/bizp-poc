@@ -53,6 +53,11 @@ Included:
   server-derived current-value logic, server-derived right-side AI suggestion
   text/evidence, and placeholder-style rendering when no real value has been
   inferred or entered.
+- Treat source-exhausted or already-collected runs as a no-new-content state:
+  do not show rendered Place review placeholders as failures, do not mark
+  Place profile review-count changes as meaningful profile changes, and dim the
+  collection progress screen's analysis selection button when there is nothing
+  new to analyze.
 
 Excluded:
 
@@ -702,3 +707,44 @@ Excluded:
       on the 글쓰기 스타일 tab: every field has save/reset, no evidence
       button, AI suggestion cards are API-backed, and placeholder rows look
       empty rather than saved.
+
+### Task 15: No-New-Content Collection State Hardening
+
+**Files:**
+
+- Modify: `poc-server/src/storeLearning/collection/collectionItemIdentity.ts`
+- Modify: `poc-server/src/storeLearning/collection/naverPlaceRenderedCollectionProvider.ts`
+- Modify: `poc-server/src/storeLearning/routes/collectionRuns.ts`
+- Modify: `web/collection_progress.js`
+- Modify: `poc-server/test/collectionItemIdentity.test.ts`
+- Modify: `poc-server/test/naverPlaceRenderedCollectionProvider.test.ts`
+- Modify: `poc-server/test/selectionApi.test.ts`
+- Modify: `poc-server/test/collectionProgressPage.test.ts`
+
+- [x] Add RED tests proving Place profile fingerprints stay stable when only
+      review counters change.
+- [x] Add RED tests proving the rendered Place provider does not create failed
+      review placeholders when GraphQL cannot confirm additional reviews.
+- [x] Add RED tests proving no-meaningful-change collection runs expose no
+      selectable analysis items.
+- [x] Add RED static tests proving the collection progress page shows
+      `새로 가져올 항목이 존재하지 않습니다.` and disables the analysis
+      selection button.
+- [x] Remove review-count statistics from Place profile fingerprinting so
+      counts alone do not trigger `changed`.
+- [x] Stop creating rendered Place `rendered_place_review_not_found` failed
+      placeholders for unconfirmed remaining review slots.
+- [x] Return an empty selectable item list for collection runs whose
+      `summary.collectionDelta.hasMeaningfulChanges` is `false`.
+- [x] Update collection progress UI no-change messaging and disable the
+      analysis selection CTA with `새로 분석할 콘텐츠가 없습니다.` tooltip.
+- [x] Run
+      `cd poc-server && npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts`.
+- [x] Run `cd poc-server && npm run typecheck`.
+- [x] Run `cd poc-server && npm test`.
+- [x] Run `cd poc-server && npm run demo:store-learning`.
+- [x] Run `node --check web/collection_progress.js`.
+- [x] Run `git diff --check`.
+- [x] Smoke test the collection progress page on `localhost:5177` with a
+      no-meaningful-change run: the no-new text is visible and the analysis
+      selection button is disabled.

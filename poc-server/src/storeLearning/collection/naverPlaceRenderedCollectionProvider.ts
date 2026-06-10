@@ -811,12 +811,6 @@ async function collectReviewItems(env: ProviderEnv, plan: CollectionPlan, store:
     };
   });
 
-  if (items.length < plan.placeReviewLimit && (availableReviewTotal === null || items.length < availableReviewTotal)) {
-    return [
-      ...items,
-      ...failedReviewItems(plan, rendered.reviewUrl, 'rendered_place_review_not_found', items.length + 1)
-    ];
-  }
   return items;
 }
 

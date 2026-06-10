@@ -525,6 +525,49 @@ describe('Naver Place rendered collection provider', () => {
     }
   });
 
+  it('does not create failed placeholders when GraphQL cannot confirm additional rendered reviews', async () => {
+    const fetchMock = vi.fn(async () => new Response('temporarily unavailable', { status: 503 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const provider = createNaverPlaceRenderedCollectionProvider(async () => ({
+        finalUrl: reviewUrl,
+        bodyText: null,
+        html: apolloReviewHtmlWithItems(10)
+      }));
+
+      const items = await provider.collect({
+        env: {},
+        plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 50 },
+        store: {
+          id: 'store_graphql_unconfirmed_total',
+          name: '그래프큐엘 미확인 테스트 매장',
+          naverPlaceUrl: placeUrl,
+          naverPlaceId: '1824807602',
+          category: null,
+          address: null,
+          phone: null,
+          description: null,
+          metadata: {},
+          createdAt: '2026-06-09T00:00:00.000Z',
+          updatedAt: '2026-06-09T00:00:00.000Z'
+        }
+      });
+
+      const reviews = items.filter((item) => item.sourceType === 'review');
+      expect(reviews).toHaveLength(10);
+      expect(reviews.every((item) => item.status !== 'failed')).toBe(true);
+      expect(reviews.at(-1)?.metadata).toEqual(
+        expect.objectContaining({
+          availableReviewTotal: 10,
+          requestedReviewLimit: 50
+        })
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('persists rendered Place visitor reviews as collection items through the collection run API', async () => {
     const providerEnv = {
       NAVER_OWNER_AUTHORIZED: 'true',

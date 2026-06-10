@@ -1,5 +1,74 @@
 # Validation
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 15 Final Validation
+
+Task 15 fixes the no-new-content collection state:
+when existing Blog/Place content is already current and the Place profile is
+unchanged, the progress screen says `새로 가져올 항목이 존재하지 않습니다.`
+and the analysis selection CTA is disabled.
+
+TDD evidence:
+
+- RED
+  `npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts`:
+  failed because review counters changed Place profile fingerprints, rendered
+  Place review fallback created failed placeholders, no-change selectable items
+  still returned a profile item, and the progress page did not expose the new
+  no-new/disabled CTA contract.
+- GREEN same command: passed, 24 tests.
+
+Commands:
+
+```bash
+cd poc-server
+npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/collection_progress.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused Task 15 suite: 4 files and 24 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 36 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 213 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `node --check web/collection_progress.js`.
+- PASS, `git diff --check`.
+
+Browser/API smoke:
+
+- Existing local server check: `http://localhost:5177/` returned HTTP 200.
+- Server process check: `npm run dev` is running with
+  `tsx watch src/index.ts`.
+- Playwright smoke target:
+  `http://localhost:5177/04_AI%ED%95%99%EC%8A%B5_%EC%88%98%EC%A7%91%EC%A4%91.html?storeId=store_demo_cake&runId=collection_run_smoke_no_new`
+- The progress status showed `수집 완료` and `신규 수집 0개`.
+- The guidance and ready-count text included
+  `새로 가져올 항목이 존재하지 않습니다.`
+- The analysis selection button was disabled and its title was
+  `새로 분석할 콘텐츠가 없습니다.`
+- `GET /api/collection-runs/collection_run_smoke_no_new/selectable-items`
+  returned `items: []`.
+
+Boundaries:
+
+- `.DS_Store` remains an existing local out-of-scope modification and was not
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser code continues to call only `poc-server` APIs for this flow.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 14 Final Validation
 
 Task 14 implements the writing-style CR for marketing strategy rulesets:

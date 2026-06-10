@@ -2,7 +2,7 @@
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
-Milestone 12 follow-up is implemented through Task 14 on
+Milestone 12 follow-up is implemented through Task 15 on
 `codex/collection-delta-plan`.
 PR #38 is open and ready for review against `develop`:
 https://github.com/funkyliferyu/bizp-poc/pull/38
@@ -16,6 +16,14 @@ the writing-style tab, `writingStyleInsights` supplies server-derived
 current-value status/calculation logic/right-side AI suggestion values and
 evidence, and placeholder-style guidance text is not sent as a saved user
 value unless the user edits it.
+
+Task 15 completed for the no-new-content collection state bug:
+when Blog/Place content has already been collected and the Place profile is
+unchanged, collection progress now shows `새로 가져올 항목이 존재하지 않습니다.`
+and disables the analysis selection CTA. Rendered Place review slots that
+cannot be confirmed by GraphQL are no longer persisted as failed placeholders,
+and Place profile review counters no longer make the profile fingerprint look
+changed.
 
 Task 14 code-path check:
 
@@ -32,6 +40,20 @@ Task 14 code-path check:
 - `poc-server/test/rulesetPage.test.ts` covers writing-style action hooks,
   removal of writing-tab evidence actions, placeholder hooks, API-backed
   suggestion hooks, and browser-script parseability.
+
+Task 15 code-path check:
+
+- `poc-server/src/storeLearning/collection/collectionItemIdentity.ts` now
+  excludes review-count metadata from Place profile fingerprinting.
+- `poc-server/src/storeLearning/collection/naverPlaceRenderedCollectionProvider.ts`
+  returns only collected rendered reviews when additional review availability
+  cannot be confirmed, instead of filling the remainder with failed
+  placeholders.
+- `poc-server/src/storeLearning/routes/collectionRuns.ts` returns no selectable
+  analysis items for runs whose `summary.collectionDelta.hasMeaningfulChanges`
+  is `false`.
+- `web/collection_progress.js` renders the no-new-content message and disables
+  the analysis selection button with `새로 분석할 콘텐츠가 없습니다.` title text.
 
 Task 13 code-path check:
 
@@ -98,9 +120,29 @@ The branch now includes:
   numbers, and booleans no longer throws `value?.trim is not a function`, so
   no-new-content collection runs can complete and expose collection-delta state
   instead of appearing as provider failures.
+- No-new-content collection state hardening is implemented: rendered Place
+  unconfirmed review slots are not shown as failed items, review-count-only
+  Place profile changes are ignored for fingerprinting, no-meaningful-change
+  runs return no selectable analysis items, and the progress CTA is dimmed.
 
 Latest feature-branch validation recorded:
 
+- `npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts`:
+  passed, 24 tests after Task 15.
+- `npm run typecheck`: passed after Task 15.
+- `npm test`: passed after Task 15, 213 tests and 6 skipped live-provider
+  tests across 39 files.
+- `npm run demo:store-learning`: passed after Task 15 and seeded
+  `poc-server/data/store-learning.sqlite`.
+- `node --check web/collection_progress.js`: passed after Task 15.
+- `git diff --check`: passed after Task 15.
+- Playwright localhost smoke passed on
+  `http://localhost:5177/04_AI%ED%95%99%EC%8A%B5_%EC%88%98%EC%A7%91%EC%A4%91.html?storeId=store_demo_cake&runId=collection_run_smoke_no_new`:
+  status showed `수집 완료 / 신규 수집 0개`, guidance included
+  `새로 가져올 항목이 존재하지 않습니다.`, and the analysis selection button
+  was disabled with title `새로 분석할 콘텐츠가 없습니다.`.
+- `GET /api/collection-runs/collection_run_smoke_no_new/selectable-items`
+  returned `items: []`.
 - `npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts test/analysisExecutionApi.test.ts`:
   passed, 35 tests.
 - `npm test -- rulesetApi.test.ts`: passed, 13 tests after legacy evidence
@@ -133,7 +175,7 @@ Latest feature-branch validation recorded:
   states, and placeholder rows marked with `data-placeholder-value="true"`.
 
 Next step: have an authorized reviewer/admin satisfy the PR #38 `develop` base
-branch policy and merge it to `develop`, then run develop validation.
+branch policy and merge it to `develop`; after merge, run develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
