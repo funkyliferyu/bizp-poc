@@ -150,6 +150,133 @@ describe('marketing ruleset API', () => {
     );
   });
 
+  it('serves the same ruleset payload from canonical strategy-ruleset and legacy ruleset routes', async () => {
+    const canonicalResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset`);
+    const legacyResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset`);
+    const canonical = await readJson(canonicalResponse);
+    const legacy = await readJson(legacyResponse);
+
+    expect(canonicalResponse.status).toBe(200);
+    expect(legacyResponse.status).toBe(200);
+    expect(canonical.store).toEqual(legacy.store);
+    expect(canonical.ruleset).toEqual(legacy.ruleset);
+    expect(canonical.fields).toEqual(legacy.fields);
+    expect(canonical.sourceMatrix).toEqual(legacy.sourceMatrix);
+  });
+
+  it('edits, resets, and reads evidence through canonical strategy-ruleset field routes', async () => {
+    const editedValue = '분당 기념일 케이크 전략 포지셔닝';
+    const editResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/fields/storePositioning`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userValue: editedValue })
+    });
+    const edited = await readJson(editResponse);
+
+    expect(editResponse.status).toBe(200);
+    expect(edited.field).toMatchObject({
+      fieldKey: 'storePositioning',
+      finalValue: editedValue,
+      source: 'user_edited',
+      locked: true
+    });
+
+    const evidenceResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/fields/storePositioning/evidence`);
+    const evidence = await readJson(evidenceResponse);
+
+    expect(evidenceResponse.status).toBe(200);
+    expect(evidence.field).toMatchObject({ fieldKey: 'storePositioning' });
+    expect(evidence.evidence.length).toBeGreaterThan(0);
+
+    const resetResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/fields/storePositioning/reset`, {
+      method: 'POST'
+    });
+    const reset = await readJson(resetResponse);
+
+    expect(resetResponse.status).toBe(200);
+    expect(reset.field).toMatchObject({
+      fieldKey: 'storePositioning',
+      userValue: null,
+      source: 'ai_generated',
+      locked: false
+    });
+  });
+
+  it('returns benchmark evidence through the canonical strategy-ruleset API', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/benchmark-evidence`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.storeId).toBe('store_demo_cake');
+    expect(body.defaultType).toBe('recommended');
+    expect(body.benchmarkTypes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'recommended',
+          label: expect.any(String),
+          candidates: expect.any(Array),
+          comparison: expect.any(Array)
+        })
+      ])
+    );
+    expect(body.provider).toMatchObject({
+      mode: 'mock',
+      name: 'mockRulesetBenchmarkProvider'
+    });
+  });
+
+  it('regenerates a writing preview without changing saved ruleset fields', async () => {
+    const beforeResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset`);
+    const before = await readJson(beforeResponse);
+    const beforeFields = before.fields;
+
+    const previewResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/regenerate-preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: 'blog', topic: '딸기 생크림 케이크 예약 안내', variantIndex: 1 })
+    });
+    const preview = await readJson(previewResponse);
+
+    const afterResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset`);
+    const after = await readJson(afterResponse);
+
+    expect(previewResponse.status).toBe(200);
+    expect(preview).toMatchObject({
+      channel: 'blog',
+      topic: '딸기 생크림 케이크 예약 안내',
+      provider: { mode: 'mock', name: 'mockRulesetPreviewProvider' },
+      preview: {
+        meta: expect.any(String),
+        body: expect.stringContaining('딸기 생크림 케이크'),
+        tags: expect.any(Array)
+      }
+    });
+    expect(after.fields).toEqual(beforeFields);
+  });
+
+  it('returns direct store facts for ruleset rows that do not require AI', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.storeFacts).toMatchObject({
+      name: '분당 케이크하우스',
+      category: 'bakery',
+      address: '경기도 성남시 분당구 정자동',
+      phone: '031-000-0000',
+      storeIntro: expect.stringContaining('당일 제작'),
+      operatingHours: '월-금 10:00-20:00, 토 11:00-19:00',
+      closedDays: '매주 일요일',
+      parking: '건물 지하 주차장 1시간 지원'
+    });
+    expect(body.sourceMatrix.find((row: { fieldKey: string }) => row.fieldKey === 'phone')).toMatchObject({
+      currentValue: '031-000-0000'
+    });
+    expect(body.sourceMatrix.find((row: { fieldKey: string }) => row.fieldKey === 'storeIntro')).toMatchObject({
+      currentValue: expect.stringContaining('당일 제작')
+    });
+  });
+
   it('persists user edits, locks the field, and can reset to the AI value', async () => {
     const editedValue = '분당 기념일 레터링 케이크 예약 전문점';
     const editResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/positioning`, {

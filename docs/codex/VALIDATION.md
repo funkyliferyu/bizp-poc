@@ -1,5 +1,65 @@
 # Validation
 
+## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetApi.test.ts -t "canonical"
+npm test -- rulesetPage.test.ts
+npm test -- rulesetApi.test.ts -t "benchmark evidence"
+npm test -- rulesetApi.test.ts -t "regenerates a writing preview"
+npm test -- rulesetApi.test.ts -t "direct store facts"
+npm test -- rulesetApi.test.ts rulesetPage.test.ts staticWebConnectivity.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+git status --short --branch
+```
+
+## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT TDD Evidence
+
+- RED `npm test -- rulesetApi.test.ts -t "canonical"`: failed because `/strategy-ruleset` returned HTML instead of the ruleset JSON payload.
+- GREEN `npm test -- rulesetApi.test.ts -t "canonical"`: passed after adding canonical `/strategy-ruleset` routes and keeping legacy `/ruleset` aliases.
+- RED `npm test -- rulesetPage.test.ts`: failed because browser code still fetched `/ruleset`.
+- GREEN `npm test -- rulesetPage.test.ts`: passed after switching browser code to canonical `/strategy-ruleset` endpoints.
+- RED `npm test -- rulesetApi.test.ts -t "benchmark evidence"`: failed because `/strategy-ruleset/benchmark-evidence` did not exist.
+- GREEN `npm test -- rulesetApi.test.ts -t "benchmark evidence"`: passed after moving benchmark fixture access behind a server API.
+- RED `npm test -- rulesetApi.test.ts -t "regenerates a writing preview"`: failed because `/strategy-ruleset/regenerate-preview` did not exist.
+- GREEN `npm test -- rulesetApi.test.ts -t "regenerates a writing preview"`: passed after adding the deterministic server preview service and route.
+- RED `npm test -- rulesetApi.test.ts -t "direct store facts"`: failed because `storeFacts` was missing from the ruleset payload.
+- GREEN `npm test -- rulesetApi.test.ts -t "direct store facts"`: passed after adding `storeFacts` and `sourceMatrix[].currentValue`.
+- RED `npm test -- rulesetPage.test.ts -t "direct store facts"`: failed because direct store fact rows still displayed `AI 수집`.
+- GREEN `npm test -- rulesetPage.test.ts -t "direct store facts"`: passed after labeling direct store fact rows as `Place 수집`.
+
+## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT Final Validation
+
+- `npm test -- rulesetApi.test.ts rulesetPage.test.ts staticWebConnectivity.test.ts`: passed, 41 tests.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 164 tests and 6 skipped live-provider tests across 38 files.
+- `npm run demo:store-learning`: passed and seeded Store Learning demo data at `poc-server/data/store-learning.sqlite`.
+- Expected milestone files:
+  - `docs/codex/MILESTONE_07_RULESET_FOLLOWUP_PLAN.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/src/seedStoreLearning.ts`
+  - `poc-server/src/storeLearning/routes/stores.ts`
+  - `poc-server/src/storeLearning/rulesets/rulesetBenchmarkService.ts`
+  - `poc-server/src/storeLearning/rulesets/rulesetPreviewService.ts`
+  - `poc-server/src/storeLearning/rulesets/rulesetService.ts`
+  - `poc-server/test/rulesetApi.test.ts`
+  - `poc-server/test/rulesetPage.test.ts`
+  - `poc-server/test/staticWebConnectivity.test.ts`
+  - `web/07_마케팅전략룰셋.html`
+  - `web/ruleset_editor.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and outside the milestone commit.
+
 ## MILESTONE-09-BLOG-MANAGEMENT-RESULTS Commands
 
 Run from `poc-server/`:

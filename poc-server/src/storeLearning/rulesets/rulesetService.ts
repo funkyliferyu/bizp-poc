@@ -3,12 +3,22 @@ import type { CollectionItem } from '../../repositories/collection_items.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
-import { serializeRulesetSourceMatrix, sourceMatrixForFieldKey } from './rulesetSourceMatrix.js';
+import {
+  canonicalRulesetFieldKey,
+  serializeRulesetSourceMatrix,
+  sourceMatrixForFieldKey
+} from './rulesetSourceMatrix.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
+type StoreRecord = NonNullable<ReturnType<Repositories['stores']['findById']>>;
 
 function latestByUpdatedAt<T extends { updatedAt: string }>(records: T[]) {
   return records.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).at(-1) ?? null;
+}
+
+function asRecord(value: JsonValue | null | undefined): Record<string, JsonValue> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value;
 }
 
 function asStringArray(value: JsonValue) {
@@ -21,10 +31,10 @@ function excerpt(value: string | null | undefined, maxLength = 160) {
   return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength)}...` : trimmed;
 }
 
-function serializeField(field: RulesetField) {
+function serializeField(field: RulesetField, fieldKeyOverride?: string) {
   return {
     id: field.id,
-    fieldKey: field.fieldKey,
+    fieldKey: fieldKeyOverride ?? field.fieldKey,
     aiValue: field.aiValue,
     userValue: field.userValue,
     finalValue: field.finalValue,
@@ -32,9 +42,42 @@ function serializeField(field: RulesetField) {
     locked: field.locked === 1,
     evidenceItemIds: asStringArray(field.evidenceItemIds),
     confidence: field.confidence,
-    sourceMatrix: sourceMatrixForFieldKey(field.fieldKey),
+    sourceMatrix: sourceMatrixForFieldKey(fieldKeyOverride ?? field.fieldKey),
     updatedAt: field.updatedAt
   };
+}
+
+function serializeStoreFacts(store: StoreRecord) {
+  const metadata = asRecord(store.metadata);
+  return {
+    name: store.name,
+    category: store.category,
+    address: store.address,
+    phone: store.phone,
+    storeIntro: store.description,
+    operatingHours: metadata.operatingHours ?? null,
+    closedDays: metadata.closedDays ?? null,
+    parking: metadata.parking ?? null
+  };
+}
+
+function sourceMatrixWithCurrentValues(storeFacts: Record<string, unknown>, fields: ReturnType<typeof serializeField>[]) {
+  const fieldValues = new Map<string, string | null>(
+    fields.map((field) => [field.fieldKey, field.finalValue || field.aiValue])
+  );
+  return serializeRulesetSourceMatrix().map((row) => {
+    const canonicalFieldKey = canonicalRulesetFieldKey(row.fieldKey);
+    const aliasedField = fields.find((field) => canonicalRulesetFieldKey(field.fieldKey) === canonicalFieldKey);
+    const currentValue =
+      fieldValues.get(row.fieldKey)
+      ?? (aliasedField ? aliasedField.finalValue || aliasedField.aiValue : null)
+      ?? storeFacts[row.fieldKey]
+      ?? null;
+    return {
+      ...row,
+      currentValue
+    };
+  });
 }
 
 function latestRulesetContext(repos: Repositories, storeId: string) {
@@ -66,7 +109,10 @@ function latestRulesetContext(repos: Repositories, storeId: string) {
 function rulesetFieldContext(repos: Repositories, storeId: string, fieldKey: string) {
   const context = latestRulesetContext(repos, storeId);
   if (!context?.marketingRuleset) return null;
-  const field = context.fields.find((item) => item.fieldKey === fieldKey);
+  const canonicalFieldKey = canonicalRulesetFieldKey(fieldKey);
+  const field = context.fields.find(
+    (item) => item.fieldKey === fieldKey || canonicalRulesetFieldKey(item.fieldKey) === canonicalFieldKey
+  );
   if (!field) return { ...context, field: null };
   return { ...context, field };
 }
@@ -76,6 +122,7 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
   if (!context) return null;
   const { store, marketingRuleset, learningSnapshot, analysisRun, fields } = context;
   if (!marketingRuleset) {
+    const storeFacts = serializeStoreFacts(store);
     return {
       store: {
         id: store.id,
@@ -83,13 +130,17 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
         category: store.category,
         address: store.address
       },
+      storeFacts,
       ruleset: null,
       learningSnapshot: null,
       analysis: null,
       fields: [],
-      sourceMatrix: serializeRulesetSourceMatrix()
+      sourceMatrix: sourceMatrixWithCurrentValues(storeFacts, [])
     };
   }
+
+  const storeFacts = serializeStoreFacts(store);
+  const serializedFields = fields.map((field) => serializeField(field));
 
   return {
     store: {
@@ -98,6 +149,7 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
       category: store.category,
       address: store.address
     },
+    storeFacts,
     ruleset: {
       id: marketingRuleset.id,
       status: marketingRuleset.status,
@@ -119,8 +171,8 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
           updatedAt: analysisRun.updatedAt
         }
       : null,
-    fields: fields.map((field) => serializeField(field)),
-    sourceMatrix: serializeRulesetSourceMatrix()
+    fields: serializedFields,
+    sourceMatrix: sourceMatrixWithCurrentValues(storeFacts, serializedFields)
   };
 }
 
@@ -143,7 +195,7 @@ export function updateRulesetFieldValue(
   });
 
   return {
-    field: serializeField(updated)
+    field: serializeField(updated, fieldKey)
   };
 }
 
@@ -161,7 +213,7 @@ export function resetRulesetFieldValue(repos: Repositories, storeId: string, fie
   });
 
   return {
-    field: serializeField(updated)
+    field: serializeField(updated, fieldKey)
   };
 }
 
@@ -201,7 +253,7 @@ export function buildRulesetFieldEvidence(repos: Repositories, storeId: string, 
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return {
-    field: serializeField(context.field),
+    field: serializeField(context.field, fieldKey),
     evidence
   };
 }

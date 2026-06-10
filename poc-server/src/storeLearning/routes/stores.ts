@@ -22,6 +22,8 @@ import {
   resetRulesetFieldValue,
   updateRulesetFieldValue
 } from '../rulesets/rulesetService.js';
+import { buildRulesetBenchmarkPayload } from '../rulesets/rulesetBenchmarkService.js';
+import { buildRulesetPreviewPayload } from '../rulesets/rulesetPreviewService.js';
 import { generateApprovalPendingBlogPost, listBlogPostsForStore } from '../blog/blogGenerator.js';
 import type { BlogContentProvider } from '../blog/blogProvider.js';
 import { createBlogContentProvider, type OpenAIBlogParseClient } from '../blog/openAIBlogProvider.js';
@@ -78,6 +80,12 @@ const TrainingSettingsBodySchema = z.object({
 
 const RulesetFieldPatchSchema = z.object({
   userValue: z.string().trim().min(1).max(4000)
+});
+
+const RulesetPreviewRequestSchema = z.object({
+  channel: z.enum(['common', 'instagram', 'blog']),
+  topic: z.string().trim().min(1).max(120).default('딸기 생크림 케이크 예약 안내'),
+  variantIndex: z.number().int().min(0).max(20).default(0)
 });
 
 function sanitizeStoreId(seed: string) {
@@ -388,6 +396,71 @@ export function createStoreRoutes({
             : { model: env.OPENAI_MODEL }
         );
 
+  function routeParam(req: express.Request, name: string) {
+    const value = req.params[name];
+    return Array.isArray(value) ? value[0] ?? '' : value ?? '';
+  }
+
+  function sendRuleset(req: express.Request, res: express.Response) {
+    const storeId = routeParam(req, 'storeId');
+    const payload = buildMarketingRulesetPayload(repos, storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${storeId}` });
+      return;
+    }
+    res.json(payload);
+  }
+
+  function patchRulesetField(req: express.Request, res: express.Response, next: express.NextFunction) {
+    try {
+      const storeId = routeParam(req, 'storeId');
+      const fieldKey = routeParam(req, 'fieldKey');
+      const body = RulesetFieldPatchSchema.parse(req.body);
+      const payload = updateRulesetFieldValue(repos, storeId, fieldKey, body.userValue);
+      if (!payload) {
+        res.status(404).json({ error: `Store or ruleset not found: ${storeId}` });
+        return;
+      }
+      if (!payload.field) {
+        res.status(404).json({ error: `Ruleset field not found: ${fieldKey}` });
+        return;
+      }
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  function resetRulesetField(req: express.Request, res: express.Response) {
+    const storeId = routeParam(req, 'storeId');
+    const fieldKey = routeParam(req, 'fieldKey');
+    const payload = resetRulesetFieldValue(repos, storeId, fieldKey);
+    if (!payload) {
+      res.status(404).json({ error: `Store or ruleset not found: ${storeId}` });
+      return;
+    }
+    if (!payload.field) {
+      res.status(404).json({ error: `Ruleset field not found: ${fieldKey}` });
+      return;
+    }
+    res.json(payload);
+  }
+
+  function sendRulesetFieldEvidence(req: express.Request, res: express.Response) {
+    const storeId = routeParam(req, 'storeId');
+    const fieldKey = routeParam(req, 'fieldKey');
+    const payload = buildRulesetFieldEvidence(repos, storeId, fieldKey);
+    if (!payload) {
+      res.status(404).json({ error: `Store or ruleset not found: ${storeId}` });
+      return;
+    }
+    if (!payload.field) {
+      res.status(404).json({ error: `Ruleset field not found: ${fieldKey}` });
+      return;
+    }
+    res.json(payload);
+  }
+
   router.post('/import-place', async (req, res, next) => {
     try {
       const body = ImportPlaceBodySchema.parse(req.body);
@@ -485,57 +558,48 @@ export function createStoreRoutes({
     res.json(payload);
   });
 
-  router.get('/:storeId/ruleset', (req, res) => {
-    const payload = buildMarketingRulesetPayload(repos, req.params.storeId);
-    if (!payload) {
-      res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
+  router.get('/:storeId/strategy-ruleset', sendRuleset);
+  router.get('/:storeId/ruleset', sendRuleset);
+
+  router.patch('/:storeId/strategy-ruleset/fields/:fieldKey', patchRulesetField);
+  router.patch('/:storeId/ruleset/fields/:fieldKey', patchRulesetField);
+
+  router.post('/:storeId/strategy-ruleset/fields/:fieldKey/reset', resetRulesetField);
+  router.post('/:storeId/ruleset/fields/:fieldKey/reset', resetRulesetField);
+
+  router.get('/:storeId/strategy-ruleset/fields/:fieldKey/evidence', sendRulesetFieldEvidence);
+  router.get('/:storeId/ruleset/fields/:fieldKey/evidence', sendRulesetFieldEvidence);
+
+  router.get('/:storeId/strategy-ruleset/benchmark-evidence', (req, res) => {
+    const storeId = routeParam(req, 'storeId');
+    const store = repos.stores.findById(storeId);
+    if (!store) {
+      res.status(404).json({ error: `Store not found: ${storeId}` });
       return;
     }
-    res.json(payload);
+    res.json(buildRulesetBenchmarkPayload(storeId));
   });
 
-  router.patch('/:storeId/ruleset/fields/:fieldKey', (req, res, next) => {
+  router.post('/:storeId/strategy-ruleset/regenerate-preview', (req, res, next) => {
     try {
-      const body = RulesetFieldPatchSchema.parse(req.body);
-      const payload = updateRulesetFieldValue(repos, req.params.storeId, req.params.fieldKey, body.userValue);
-      if (!payload) {
-        res.status(404).json({ error: `Store or ruleset not found: ${req.params.storeId}` });
+      const storeId = routeParam(req, 'storeId');
+      const store = repos.stores.findById(storeId);
+      if (!store) {
+        res.status(404).json({ error: `Store not found: ${storeId}` });
         return;
       }
-      if (!payload.field) {
-        res.status(404).json({ error: `Ruleset field not found: ${req.params.fieldKey}` });
-        return;
-      }
-      res.json(payload);
+      const body = RulesetPreviewRequestSchema.parse(req.body);
+      res.json(
+        buildRulesetPreviewPayload({
+          storeName: store.name,
+          channel: body.channel,
+          topic: body.topic,
+          variantIndex: body.variantIndex
+        })
+      );
     } catch (error) {
       next(error);
     }
-  });
-
-  router.post('/:storeId/ruleset/fields/:fieldKey/reset', (req, res) => {
-    const payload = resetRulesetFieldValue(repos, req.params.storeId, req.params.fieldKey);
-    if (!payload) {
-      res.status(404).json({ error: `Store or ruleset not found: ${req.params.storeId}` });
-      return;
-    }
-    if (!payload.field) {
-      res.status(404).json({ error: `Ruleset field not found: ${req.params.fieldKey}` });
-      return;
-    }
-    res.json(payload);
-  });
-
-  router.get('/:storeId/ruleset/fields/:fieldKey/evidence', (req, res) => {
-    const payload = buildRulesetFieldEvidence(repos, req.params.storeId, req.params.fieldKey);
-    if (!payload) {
-      res.status(404).json({ error: `Store or ruleset not found: ${req.params.storeId}` });
-      return;
-    }
-    if (!payload.field) {
-      res.status(404).json({ error: `Ruleset field not found: ${req.params.fieldKey}` });
-      return;
-    }
-    res.json(payload);
   });
 
   router.post('/:storeId/blog-posts/generate', async (req, res, next) => {

@@ -109,6 +109,7 @@
 .writing-preview-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .writing-preview-tag{font-size:11px;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;font-weight:700}
 .ruleset-status-badge{font-size:11px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;margin-left:8px;vertical-align:middle}
+.src-place{background:#EBFBEE;color:#2F9E44;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600}
 .ruleset-val[contenteditable="true"]{outline:none}
 .ruleset-val[contenteditable="true"]:focus{border-color:#3B5BDB;background:#fff}
 .ruleset-action-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
@@ -172,15 +173,17 @@
     <div class="card">
       <div class="card-header">매장 정보</div>
       <div class="card-body">
-        <div class="ruleset-field" data-store-field="name"><div class="ruleset-label">상호명 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">분당 베이커리</div></div>
-        <div class="ruleset-field" data-store-field="category"><div class="ruleset-label">카테고리 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">베이커리·케이크</div></div>
-        <div class="ruleset-field" data-store-field="address"><div class="ruleset-label">주소 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">경기 성남시 분당구 정자일로 95</div></div>
-        <div class="ruleset-field">
-          <div class="ruleset-label">운영시간 <span class="src-edited">수정됨</span></div>
-          <div class="ruleset-val edited">월~금 10:00–20:00, 토 11:00–19:00</div>
-          <div class="ruleset-hint">재학습 시 자동 업데이트되지 않습니다.</div>
+        <div class="ruleset-field" data-store-field="name"><div class="ruleset-label">상호명 <span class="src-place">Place 수집</span></div><div class="ruleset-val">분당 베이커리</div></div>
+        <div class="ruleset-field" data-store-field="category"><div class="ruleset-label">카테고리 <span class="src-place">Place 수집</span></div><div class="ruleset-val">베이커리·케이크</div></div>
+        <div class="ruleset-field" data-store-field="address"><div class="ruleset-label">주소 <span class="src-place">Place 수집</span></div><div class="ruleset-val">경기 성남시 분당구 정자일로 95</div></div>
+        <div class="ruleset-field" data-ruleset-field="operatingHours">
+          <div class="ruleset-label">운영시간 <span class="src-place">Place 수집</span></div>
+          <div class="ruleset-val" data-ruleset-value>월~금 10:00–20:00, 토 11:00–19:00</div>
         </div>
-        <div class="ruleset-field"><div class="ruleset-label">휴무일 <span class="src-ai">AI 수집</span></div><div class="ruleset-val">매주 월요일</div></div>
+        <div class="ruleset-field" data-ruleset-field="closedDays"><div class="ruleset-label">휴무일 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>매주 월요일</div></div>
+        <div class="ruleset-field" data-ruleset-field="phone"><div class="ruleset-label">연락처 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>031-000-0000</div></div>
+        <div class="ruleset-field" data-ruleset-field="parking"><div class="ruleset-label">주차 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>주차 정보 수집 중</div></div>
+        <div class="ruleset-field" data-ruleset-field="storeIntro"><div class="ruleset-label">매장 소개 <span class="src-place">Place 수집</span></div><div class="ruleset-val" data-ruleset-value>매장 소개를 불러오는 중입니다.</div></div>
         <div class="ruleset-source-matrix" data-source-matrix-section="store"></div>
       </div>
     </div>
@@ -486,6 +489,7 @@
 </div>
 
 <script>
+const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
 let benchmarkFixture = null;
 let selectedBenchmarkType = 'recommended';
 let selectedComparisonType = 'recommended';
@@ -502,71 +506,6 @@ const REFERENCE_TYPE_BY_ROW_KEY = {
   reviewStrength: 'sameIndustry',
   reviewWeakness: 'nearby'
 };
-const WRITING_PREVIEWS = {
-  common: {
-    channel: '공통 스타일',
-    rules: '친근한 구어체 · 과장 없는 사실 기반 · 낮은 개그 레벨',
-    variants: [
-      {
-        meta: '공통 미리보기 A · 캐치프레이즈 반영',
-        body: '특별한 날을 더 특별하게.\n분당 베이커리의 딸기 생크림 케이크는 부드러운 생크림과 산뜻한 딸기를 중심으로 준비합니다.\n예약 시 원하는 문구와 픽업 시간을 함께 남겨주시면 기념일 일정에 맞춰 안내드릴게요.',
-        tags: ['특별한 날을 더 특별하게', '과장 없는 안내', '예약 유도']
-      },
-      {
-        meta: '공통 미리보기 B · 상담 과정 강조',
-        body: '기념일 케이크는 디자인만큼 픽업 시간과 문구 확인도 중요합니다.\n분당 베이커리는 레터링 문구, 케이크 크기, 픽업 일정을 상담 후 정리해 제작합니다.\n딸기 생크림 케이크 예약을 원하시면 필요한 날짜와 원하는 문구를 먼저 알려주세요.',
-        tags: ['상담형 제작', '픽업 안내', '기념일 케이크']
-      },
-      {
-        meta: '공통 미리보기 C · 메뉴 조건 강조',
-        body: '분당·수지에서 당일 제작 가능한 케이크를 찾는 분들을 위해 딸기 생크림 케이크 예약을 안내드립니다.\n가격과 픽업 가능 시간은 주문 조건에 따라 달라질 수 있어 상담 시 함께 확인합니다.\n완성 사진과 문구를 기준으로 차분하게 제작해드립니다.',
-        tags: ['당일 제작', '메뉴 조건', '차분한 안내']
-      }
-    ]
-  },
-  insta: {
-    channel: '인스타그램',
-    rules: '짧은 감탄 · 단정 서술 · 해시태그 마무리',
-    variants: [
-      {
-        meta: '인스타그램 미리보기 A · 비주얼 중심',
-        body: '오늘의 예약 케이크는 딸기 생크림 케이크입니다.\n부드러운 크림, 산뜻한 딸기, 깔끔한 레터링으로 기념일 분위기를 차분하게 살렸어요.\n픽업 시간은 예약 시 함께 확인해드립니다.',
-        tags: ['#분당케이크', '#수지케이크', '#레터링케이크', '#생일케이크']
-      },
-      {
-        meta: '인스타그램 미리보기 B · 당일 픽업 강조',
-        body: '분당에서 기념일 케이크를 준비 중이라면 픽업 시간부터 확인해보세요.\n딸기 생크림 케이크는 문구와 크기를 상담 후 제작합니다.\n당일 제작 가능 여부는 예약 상황에 따라 안내드려요.',
-        tags: ['#분당케이크', '#당일제작케이크', '#딸기생크림케이크', '#커스텀케이크']
-      },
-      {
-        meta: '인스타그램 미리보기 C · 상담형 제작 강조',
-        body: '문구 하나까지 기념일에 맞게.\n레터링 문구, 케이크 크기, 픽업 시간을 함께 확인한 뒤 딸기 생크림 케이크를 준비합니다.\n예약 전 원하는 날짜를 먼저 알려주세요.',
-        tags: ['#레터링케이크', '#분당생일케이크', '#수지케이크', '#예약케이크']
-      }
-    ]
-  },
-  blog: {
-    channel: '블로그',
-    rules: '방문기 형식 · 검색 유입 · 지역+메뉴 키워드',
-    variants: [
-      {
-        meta: '분당 딸기 생크림 케이크 예약 안내 · 블로그 미리보기 A',
-        body: '분당 딸기 생크림 케이크를 찾고 있다면 예약 전에 디자인과 픽업 시간을 함께 확인하는 것이 좋습니다.\n분당 베이커리는 기념일 문구, 케이크 크기, 픽업 시간을 상담 후 정리해 제작합니다.\n딸기의 산뜻한 맛과 부드러운 생크림을 중심으로 준비해 생일이나 작은 축하 자리에도 부담 없이 어울립니다.\n예약을 원하시면 필요한 날짜와 문구를 먼저 알려주세요.',
-        tags: ['분당 케이크', '분당 생일케이크', '딸기 생크림 케이크', '예약 안내']
-      },
-      {
-        meta: '블로그 미리보기 B · 주문 조건형',
-        body: '분당 레터링케이크를 예약할 때는 원하는 문구, 픽업 시간, 케이크 크기를 먼저 정리해두면 상담이 훨씬 수월합니다.\n딸기 생크림 케이크는 산뜻한 과일감과 부드러운 크림을 중심으로 준비해 생일이나 작은 기념일에 잘 어울립니다.\n당일 제작 가능 여부와 가격 시작점은 예약 상황에 따라 안내드리므로 필요한 날짜를 먼저 확인해주세요.',
-        tags: ['분당 레터링케이크', '딸기 생크림 케이크', '당일 픽업', '주문 안내']
-      },
-      {
-        meta: '블로그 미리보기 C · 과정 설명형',
-        body: '수지와 분당 생활권에서 커스텀 케이크를 준비하는 고객은 디자인 상담과 픽업 동선을 함께 확인하는 경우가 많습니다.\n분당 베이커리는 문구 상담, 크기 선택, 제작 일정 확인 순서로 예약 내용을 정리합니다.\n완성 사진과 실제 케이크의 분위기가 자연스럽게 이어지도록 요청 내용을 차분하게 반영합니다.',
-        tags: ['수지 케이크', '커스텀 케이크', '상담 제작', '픽업 안내']
-      }
-    ]
-  }
-};
 
 function escapeHtml(value){
   return String(value ?? '')
@@ -575,6 +514,12 @@ function escapeHtml(value){
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function currentStoreId(){
+  return new URLSearchParams(window.location.search).get('storeId')
+    || window.localStorage.getItem(STORE_ID_KEY)
+    || 'store_demo_cake';
 }
 
 function currentBenchmark(){
@@ -607,7 +552,7 @@ function referenceComparisonRow(type, rowKey){
 
 async function loadBenchmarkFixture(){
   try {
-    const response = await fetch('strategy_benchmark_fixture.json');
+    const response = await fetch(`/api/stores/${currentStoreId()}/strategy-ruleset/benchmark-evidence`);
     benchmarkFixture = await response.json();
     selectedComparisonType = benchmarkFixture.defaultType || 'recommended';
     selectedBenchmarkType = selectedComparisonType;
@@ -806,27 +751,63 @@ function showSub(parent, id, el){
   if (parent === 'write') renderWritingPreview(id);
 }
 
-function renderWritingPreview(id){
-  activeWritingChannel = id;
-  const previewSet = WRITING_PREVIEWS[id] || WRITING_PREVIEWS.common;
-  const variants = previewSet.variants || [];
-  const index = variants.length ? writingPreviewIndexes[id] % variants.length : 0;
-  const preview = variants[index] || { meta: '콘텐츠 예시', body: '미리보기 글을 불러오는 중입니다.', tags: [] };
-  document.getElementById('writingPreviewChannel').textContent = previewSet.channel;
-  document.getElementById('writingPreviewRules').textContent = previewSet.rules;
-  document.getElementById('writingPreviewVariantLabel').textContent = `미리보기 ${index + 1}/${variants.length}`;
-  document.getElementById('writingPreviewMeta').textContent = preview.meta;
-  document.getElementById('writingPreviewBody').textContent = preview.body;
-  document.getElementById('writingPreviewTags').innerHTML = preview.tags
+function previewChannelForTab(id){
+  return id === 'insta' ? 'instagram' : id;
+}
+
+function writingPreviewChannelLabel(channel){
+  if (channel === 'instagram') return '인스타그램';
+  if (channel === 'blog') return '블로그';
+  return '공통 스타일';
+}
+
+function renderWritingPreviewPayload(payload){
+  const preview = payload?.preview || {};
+  const variantIndex = Number.isInteger(payload?.variantIndex) ? payload.variantIndex : 0;
+  const tags = Array.isArray(preview.tags) ? preview.tags : [];
+  document.getElementById('writingPreviewChannel').textContent = writingPreviewChannelLabel(payload?.channel);
+  document.getElementById('writingPreviewRules').textContent = '현재 룰셋과 매장 분석을 결합한 서버 생성 미리보기';
+  document.getElementById('writingPreviewVariantLabel').textContent = `미리보기 ${variantIndex + 1}`;
+  document.getElementById('writingPreviewMeta').textContent = preview.meta || '콘텐츠 예시';
+  document.getElementById('writingPreviewBody').textContent = preview.body || '미리보기 글을 불러오지 못했습니다.';
+  document.getElementById('writingPreviewTags').innerHTML = tags
     .map((tag) => `<span class="writing-preview-tag">${escapeHtml(tag)}</span>`)
     .join('');
 }
 
-function regenerateWritingPreview(){
-  const previewSet = WRITING_PREVIEWS[activeWritingChannel] || WRITING_PREVIEWS.common;
-  const total = previewSet.variants?.length || 1;
-  writingPreviewIndexes[activeWritingChannel] = (writingPreviewIndexes[activeWritingChannel] + 1) % total;
-  renderWritingPreview(activeWritingChannel);
+async function renderWritingPreview(id){
+  activeWritingChannel = id;
+  const variantIndex = writingPreviewIndexes[id] || 0;
+  document.getElementById('writingPreviewChannel').textContent = writingPreviewChannelLabel(previewChannelForTab(id));
+  document.getElementById('writingPreviewRules').textContent = '현재 룰셋과 매장 분석을 결합한 서버 생성 미리보기';
+  document.getElementById('writingPreviewVariantLabel').textContent = `미리보기 ${variantIndex + 1}`;
+  document.getElementById('writingPreviewMeta').textContent = '생성 중';
+  document.getElementById('writingPreviewBody').textContent = '미리보기를 생성하는 중입니다.';
+  document.getElementById('writingPreviewTags').innerHTML = '';
+  try {
+    const response = await fetch(`/api/stores/${currentStoreId()}/strategy-ruleset/regenerate-preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channel: previewChannelForTab(id),
+        topic: '분당 딸기 생크림 케이크 예약 안내',
+        variantIndex
+      })
+    });
+    if (!response.ok) throw new Error('Failed to generate writing preview');
+    const payload = await response.json();
+    renderWritingPreviewPayload(payload);
+  } catch {
+    document.getElementById('writingPreviewVariantLabel').textContent = '미리보기 실패';
+    document.getElementById('writingPreviewMeta').textContent = '서버 미리보기';
+    document.getElementById('writingPreviewBody').textContent = '미리보기를 생성하지 못했습니다.';
+    document.getElementById('writingPreviewTags').innerHTML = '';
+  }
+}
+
+async function regenerateWritingPreview(){
+  writingPreviewIndexes[activeWritingChannel] = ((writingPreviewIndexes[activeWritingChannel] || 0) + 1) % 21;
+  await renderWritingPreview(activeWritingChannel);
 }
 
 loadBenchmarkFixture();
