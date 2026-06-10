@@ -830,3 +830,35 @@ Excluded:
       `store_12841526`: the required footer uses `서구연세정형외과의원`, and
       action rows show the `초기화` button without a duplicate trailing
       `초기화` label.
+
+### Task 18: Channel-Level Cached Collection Guidance
+
+**Files:**
+
+- Modify: `web/collection_progress.js`
+- Modify: `poc-server/test/collectionProgressPage.test.ts`
+
+- [x] Confirm root cause from real Terrace clinic run
+      `collection_run_store_1020864025_1781088116794`: Blog had `new: 40`,
+      while Place had `new: 0`, `duplicate: 50`, `unchanged: 1`, so global
+      no-new guidance did not apply and the Place card incorrectly looked
+      like `대기`.
+- [x] Add RED static page test for channel-level no-new guidance when only one
+      provider/channel has cached duplicate or unchanged content.
+- [x] Add channel delta helpers in `collection_progress.js` so channel cards can
+      distinguish “not started” from “already collected/reused”.
+- [x] Show Place channel guidance as `신규 항목 없음`, `신규 0개`, and
+      `새로 가져올 항목이 존재하지 않습니다. 기존 플레이스 리뷰와 기본정보를
+      재사용합니다.` when Place has no new or changed items but has duplicate
+      or unchanged prior content.
+- [x] Keep the global no-new guidance for runs where every enabled source has
+      no meaningful changes, and keep mixed runs enabled for next-step analysis
+      when another channel has newly collected content.
+- [x] Run `cd poc-server && npm test -- collectionProgressPage collectionProgressApi selectionApi analysisExecutionApi`.
+- [x] Run `cd poc-server && npm run typecheck`.
+- [x] Run `node --check web/collection_progress.js`.
+- [x] Run `git diff --check`.
+- [x] Smoke test localhost for the Terrace clinic run: the Place card says
+      `신규 항목 없음`, includes the requested
+      `새로 가져올 항목이 존재하지 않습니다.` copy, and no longer displays
+      `0 / 101 대기`.

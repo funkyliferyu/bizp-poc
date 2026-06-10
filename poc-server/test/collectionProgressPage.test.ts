@@ -93,4 +93,16 @@ describe('collection progress static page API wiring', () => {
     expect(js).toContain('새로 분석할 콘텐츠가 없습니다.');
     expect(js).toContain("field('collection-next-btn').disabled = !terminal || noMeaningfulChanges");
   });
+
+  it('shows channel-level no-new guidance when only one provider has cached duplicate content', () => {
+    const js = readFileSync(path.join(webRoot, 'collection_progress.js'), 'utf8');
+
+    expect(js).toContain('function channelDelta');
+    expect(js).toContain('function channelHasNoNewItems');
+    expect(js).toContain('function channelNoNewDescription');
+    expect(js).toContain('기존 플레이스 리뷰와 기본정보를 재사용합니다.');
+    expect(js).toContain('기존 블로그 글을 재사용합니다.');
+    expect(js).toContain("channelHasNoNewItems(run, channel)");
+    expect(js).toContain("return '신규 0개'");
+  });
 });

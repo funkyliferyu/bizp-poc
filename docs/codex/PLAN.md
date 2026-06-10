@@ -186,6 +186,8 @@ Status:
       feature-branch validated.
 - [x] Task 17 required-footer store-name/action-state cleanup is implemented
       and feature-branch validated.
+- [x] Task 18 channel-level cached collection guidance is implemented and
+      feature-branch validated.
 - [ ] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
 

@@ -34,10 +34,12 @@ Sequential plan ledger control for Store Learning work.
   validated as milestone 12 Task 16 on the PR #38 branch.
 - The required-footer store-name/action-state cleanup CR is implemented and
   validated as milestone 12 Task 17 on the PR #38 branch.
+- The channel-level cached collection guidance CR is implemented and validated
+  as milestone 12 Task 18 on the PR #38 branch.
 - Milestones are not fully complete until the work is merged to `develop` and
   develop validation is recorded.
 - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
-  implementation plan; PR #38 merge is the next item after Task 17 validation.
+  implementation plan; PR #38 merge is the next item after Task 18 validation.
 
 ## Branch Policy
 

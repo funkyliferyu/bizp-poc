@@ -85,6 +85,35 @@
     return collectionDelta(run).hasMeaningfulChanges === false;
   }
 
+  function channelDelta(run, channel) {
+    const byChannel = asRecord(collectionDelta(run).byChannel);
+    return asRecord(byChannel[channel]);
+  }
+
+  function channelHasNoNewItems(run, channel) {
+    if (channel === 'overall') return false;
+    if (!['completed', 'partial_completed'].includes(run.status)) return false;
+    const delta = channelDelta(run, channel);
+    const newCount = asNumber(delta.new);
+    const changedCount = asNumber(delta.changed);
+    const reusableCount = asNumber(delta.duplicate) + asNumber(delta.unchanged);
+    return newCount === 0 && changedCount === 0 && reusableCount > 0;
+  }
+
+  function hasChannelNoNewItems(run) {
+    return ['blog', 'place', 'instagram'].some((channel) => channelHasNoNewItems(run, channel));
+  }
+
+  function channelNoNewDescription(channel) {
+    if (channel === 'blog') {
+      return '새로 가져올 항목이 존재하지 않습니다. 기존 블로그 글을 재사용합니다.';
+    }
+    if (channel === 'place') {
+      return '새로 가져올 항목이 존재하지 않습니다. 기존 플레이스 리뷰와 기본정보를 재사용합니다.';
+    }
+    return '새로 가져올 항목이 존재하지 않습니다. 기존 수집 콘텐츠를 재사용합니다.';
+  }
+
   function requestedTargetForChannel(run, channel) {
     const summary = readSummary(run);
     const requestedLimits = asRecord(summary.requestedLimits);
@@ -184,6 +213,7 @@
 
     if (target === 0 && hasSourceUrl) return { status: 'pending', label: '준비중' };
     if (target === 0) return { status: 'pending', label: '수집 안 함' };
+    if (channelHasNoNewItems(run, channel)) return { status: 'completed', label: '신규 항목 없음' };
     if (collected >= target && target > 0) return { status: 'completed', label: sourceExhausted ? exhaustedLabel : '완료' };
     if (run.status === 'completed' && collected > 0) return { status: 'completed', label: sourceExhausted ? exhaustedLabel : '완료' };
     if (run.status === 'failed') return { status: 'failed', label: '실패' };
@@ -196,6 +226,11 @@
     return `${collected} / ${target}`;
   }
 
+  function channelCountTextFor(run, channel, collected, target) {
+    if (channelHasNoNewItems(run, channel)) return '신규 0개';
+    return countTextFor(run, collected, target);
+  }
+
   function isAllAvailableCollected(run, items) {
     if (run.status === 'failed') return false;
     if (!['completed', 'partial_completed'].includes(run.status)) return false;
@@ -205,6 +240,7 @@
   }
 
   function sourceDescription(run, channel) {
+    if (channelHasNoNewItems(run, channel)) return channelNoNewDescription(channel);
     const url = sourceUrlForChannel(run, channel);
     if (!url) return '등록된 URL이 없습니다.';
     return url;
@@ -247,7 +283,7 @@
       icon: 'rss',
       color: '#03C75A',
       status: channelStatus(run, items, 'blog'),
-      countText: countTextFor(run, counts.blogCollected, blogTarget),
+      countText: channelCountTextFor(run, 'blog', counts.blogCollected, blogTarget),
       description: sourceDescription(run, 'blog')
     });
     renderSummaryCard('collection-summary-place', {
@@ -255,7 +291,7 @@
       icon: 'map-pin',
       color: '#03C75A',
       status: channelStatus(run, items, 'place'),
-      countText: countTextFor(run, counts.placeCollected, placeTarget),
+      countText: channelCountTextFor(run, 'place', counts.placeCollected, placeTarget),
       description: sourceDescription(run, 'place')
     });
     renderSummaryCard('collection-summary-instagram', {
@@ -263,7 +299,7 @@
       icon: 'instagram',
       color: '#E1306C',
       status: channelStatus(run, items, 'instagram'),
-      countText: countTextFor(run, counts.instagramCollected, instagramTarget),
+      countText: channelCountTextFor(run, 'instagram', counts.instagramCollected, instagramTarget),
       description: sourceDescription(run, 'instagram')
     });
 
@@ -298,7 +334,9 @@
       progressCard.style.background = '#EBFBEE';
       progressCard.style.borderColor = '#8CE99A';
       status.innerHTML = `수집 완료 <span class="progress-meta" id="collection-progress-meta">총 ${counts.collected}개 수집됨</span>`;
-      guidance.innerHTML = '<strong>가져올 수 있는 모든 항목이 수집되었습니다.</strong> 이 화면에서 결과를 확인한 뒤 다음 단계로 이동하세요.';
+      guidance.innerHTML = hasChannelNoNewItems(run)
+        ? '<strong>가져올 수 있는 모든 신규 항목이 수집되었습니다.</strong> 일부 채널은 새로 가져올 항목이 존재하지 않아 기존 수집 콘텐츠를 재사용합니다.'
+        : '<strong>가져올 수 있는 모든 항목이 수집되었습니다.</strong> 이 화면에서 결과를 확인한 뒤 다음 단계로 이동하세요.';
     } else if (run.status === 'partial_completed') {
       progressCard.style.background = '#FFF9DB';
       progressCard.style.borderColor = '#FFD43B';

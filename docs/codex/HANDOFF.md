@@ -2,7 +2,7 @@
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
-Milestone 12 follow-up is implemented through Task 17 on
+Milestone 12 follow-up is implemented through Task 18 on
 `codex/collection-delta-plan`.
 PR #38 is open and ready for review against `develop`:
 https://github.com/funkyliferyu/bizp-poc/pull/38
@@ -14,6 +14,12 @@ Task 17 completed for the 글쓰기 스타일 required footer/action row cleanup
 required medical Blog footer copy replaces example-only `테라스의원` with the
 current store/hospital name, and action rows keep the `초기화` button while
 removing the redundant trailing `초기화` state text.
+
+Task 18 completed for channel-level cached collection guidance:
+when a mixed run has newly collected Blog items but Place has only duplicate or
+unchanged prior content, the Place card now says `신규 항목 없음`, shows
+`신규 0개`, and explains `새로 가져올 항목이 존재하지 않습니다. 기존 플레이스
+리뷰와 기본정보를 재사용합니다.` instead of looking like `대기`.
 
 Task 14 completed for the marketing strategy ruleset > 글쓰기 스타일 tab:
 save/reset actions are rendered for editable rows, `근거 보기` is omitted from
@@ -219,6 +225,12 @@ Latest feature-branch validation recorded:
   the writing-style tab had save/reset actions for visible rows, zero
   writing-tab evidence buttons, API-backed `개선 제안`/`현행유지` suggestion
   states, and placeholder rows marked with `data-placeholder-value="true"`.
+- In-app browser smoke passed on
+  `http://localhost:5177/04_AI%ED%95%99%EC%8A%B5_%EC%88%98%EC%A7%91%EC%A4%91.html?storeId=store_1020864025&runId=collection_run_store_1020864025_1781088116794`:
+  the Place card renders `신규 항목 없음`, `신규 0개`, and
+  `새로 가져올 항목이 존재하지 않습니다. 기존 플레이스 리뷰와 기본정보를
+  재사용합니다.` for a run whose Place delta is `new: 0`, `duplicate: 50`,
+  `unchanged: 1`.
 
 Next step: have an authorized reviewer/admin satisfy the PR #38 `develop` base
 branch policy and merge it to `develop`; after merge, run develop validation.
