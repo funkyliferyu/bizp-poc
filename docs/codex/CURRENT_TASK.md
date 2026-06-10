@@ -15,10 +15,11 @@ Sequential plan ledger control for Store Learning work.
   common-reference, industry-field, and writing-style UI CR items.
 - Image-style and similar-comparison UI CRs are implemented and validated on
   the milestone 12 branch as Task 10 and Task 11.
+- Draft PR #38 is open from `codex/collection-delta-plan` to `develop`.
 - Milestones are not fully complete until the work is merged to `develop` and
   develop validation is recorded.
 - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
-  implementation plan before PR review/merge.
+  implementation plan for PR #38 review/merge.
 
 ## Branch Policy
 
@@ -69,14 +70,16 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Open/review the milestone 12 CR follow-up PR with `develop` as the base.
-2. After the CR follow-up work merges to `develop`, run final validation:
+1. Review draft PR #38 and resolve any feedback.
+2. Mark PR #38 ready when review feedback is resolved, then merge it to
+   `develop`.
+3. After the CR follow-up work merges to `develop`, run final validation:
    - `cd poc-server && npm run typecheck`
    - `cd poc-server && npm test`
    - `cd poc-server && npm run demo:store-learning`
-3. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+4. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
    validation result.
-4. Prepare the `develop` -> `main` promotion path only after validation passes
+5. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 Before editing files, confirm:

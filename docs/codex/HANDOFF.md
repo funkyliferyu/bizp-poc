@@ -2,8 +2,9 @@
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
-Milestone 12 follow-up is implemented on `codex/collection-delta-plan` and is
-ready for PR review/merge to `develop`.
+Milestone 12 follow-up is implemented on `codex/collection-delta-plan`.
+Draft PR #38 is open against `develop`:
+https://github.com/funkyliferyu/bizp-poc/pull/38
 
 The branch now includes:
 
@@ -43,9 +44,8 @@ Latest feature-branch validation recorded:
   image and comparison titles render red `rgb(224, 49, 49)`, image field order
   is correct, and the image matrix/source notes are absent.
 
-Next step: open/review the milestone 12 CR follow-up PR from
-`codex/collection-delta-plan` to `develop`, then merge and run develop
-validation.
+Next step: review draft PR #38, resolve any feedback, mark it ready, then merge
+to `develop` and run develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
