@@ -1,4 +1,8 @@
-import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
+import {
+  REQUIRED_ANALYZER_RULESET_FIELD_KEYS,
+  serializeAnalyzerRulesetFieldContract,
+  type AnalyzerRulesetFieldContract
+} from '../rulesets/rulesetSourceMatrix.js';
 import type { AnalyzerInput } from './analyzer.js';
 
 type AnalysisPromptBudgetOptions = {
@@ -49,6 +53,7 @@ export type AnalysisPromptInput = {
   selectedItemIds: string[];
   selectedItems: CompactAnalysisItem[];
   requiredRulesetFieldKeys: readonly string[];
+  requiredRulesetFields: AnalyzerRulesetFieldContract[];
 };
 
 const DEFAULT_PROMPT_CHARACTER_BUDGET = 60000;
@@ -262,7 +267,8 @@ function buildPrompt(input: AnalyzerInput, selectedItems: CompactAnalysisItem[])
     },
     selectedItemIds: selectedItems.map((item) => item.id),
     selectedItems,
-    requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS
+    requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS,
+    requiredRulesetFields: serializeAnalyzerRulesetFieldContract()
   };
 }
 

@@ -108,6 +108,50 @@ Current analysis context-overflow root cause:
 - The OpenAI error was:
   `This model's maximum context length is 128000 tokens... messages resulted in 179181 tokens`.
 
+## Request Change: Harden SL-A1 Ruleset Field Contract
+
+User clarification on 2026-06-10:
+
+- Among the marketing ruleset fields, direct Place/manual facts should stay
+  direct and should not be re-inferred by an LLM.
+- The remaining fields that require interpretation should be produced through
+  the Store Learning analysis route (`SL-A1`) unless a deliberately separate
+  provider route is designed.
+- `SL-A1` must explicitly ask for each required ruleset field, not only provide
+  a loose list of field keys.
+
+Current implementation direction:
+
+- Direct facts are declared in `DIRECT_SOURCE_MATRIX` in
+  `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`.
+  Examples: `name`, `category`, `address`, `phone`, `operatingHours`,
+  `closedDays`, `parking`, `representativeTreatmentSubjects`, and manual-only
+  `businessNumber`.
+- AI/interpreted fields are declared in `AI_SOURCE_MATRIX`, and
+  `REQUIRED_ANALYZER_RULESET_FIELD_KEYS` is derived from that list. Examples:
+  `storePositioning`, `keyStrengths`, `representativeMenu`,
+  `targetCustomers`, `contentKeywords`, `reviewStrength`, `reviewWeakness`,
+  writing-style fields, SEO/CTA fields, and image-guidance fields.
+- `SL-A1` prompt input should include structured `requiredRulesetFields`
+  guidance for each AI field: `fieldKey`, `label`, `section`, `valueKind`,
+  `sourceTier`, `inputSources`, `expectedOutput`, and `evidenceGuidance`.
+- `reviewWeakness` has a local `analysis_backfill` route for legacy/missing
+  fields, but that is a fallback and should not be treated as the primary
+  route for new analysis.
+
+Implementation status:
+
+1. Done: add the `requiredRulesetFields` prompt contract to the budgeted SL-A1
+   prompt builder.
+2. Done: add server-side validation after Zod parsing:
+   - every `REQUIRED_ANALYZER_RULESET_FIELD_KEYS` field is present exactly once;
+   - no unknown ruleset field keys are accepted from SL-A1;
+   - OpenAI provider outputs use `source=openai_analysis`;
+   - evidence item references continue to be validated against selected items.
+3. Done: update `docs/codex/LLM_CALL_STRUCTURES.md` and `web/llm호출.html` to
+   document that SL-A1 is the primary route for AI-derived ruleset fields and
+   that direct Place facts remain direct.
+
 ## Task 1: Add LLM Call Trace Contract
 
 **Files:**

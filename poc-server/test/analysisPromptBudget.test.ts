@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CollectionItem } from '../src/repositories/collection_items.js';
 import type { Store } from '../src/repositories/stores.js';
 import { buildAnalysisPromptInput } from '../src/storeLearning/analysis/analysisPromptBudget.js';
+import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../src/storeLearning/rulesets/rulesetSourceMatrix.js';
 
 function baseItem(overrides: Partial<CollectionItem>): CollectionItem {
   const timestamp = '2026-06-10T00:00:00.000Z';
@@ -102,15 +103,15 @@ describe('analysis prompt budget', () => {
 
     const { promptInput, metadata } = buildAnalysisPromptInput(
       { store, selectedItems },
-      { promptCharacterBudget: 6500, bodyCharacterBudget: 1800 }
+      { promptCharacterBudget: 26000, bodyCharacterBudget: 1800 }
     );
     const serialized = JSON.stringify(promptInput);
 
-    expect(metadata.promptCharacterCount).toBeLessThanOrEqual(6500);
+    expect(metadata.promptCharacterCount).toBeLessThanOrEqual(26000);
     expect(metadata.selectedItemCount).toBe(selectedItems.length);
     expect(metadata.promptItemCount).toBeLessThan(selectedItems.length);
     expect(metadata.omittedItemCount).toBeGreaterThan(0);
-    expect(metadata.promptBudgetReason).toBe('prompt_character_budget_exceeded');
+    expect(metadata.promptBudgetReason).toBe('blog_item_limit_exceeded');
     expect(serialized).toContain('건물 지하 주차 가능');
     expect(serialized).toContain('피부관리');
     expect(serialized).toContain('2026-06-01');
@@ -172,5 +173,69 @@ describe('analysis prompt budget', () => {
     expect(metadata.promptBlogItemCount).toBe(10);
     expect(metadata.omittedBlogItemCount).toBe(2);
     expect(metadata.promptBudgetReason).toBe('blog_item_limit_exceeded');
+  });
+
+  it('sends structured guidance for every SL-A1 ruleset field that requires AI interpretation', () => {
+    const { promptInput } = buildAnalysisPromptInput({
+      store: baseStore(),
+      selectedItems: [
+        baseItem({
+          id: 'profile_1',
+          channel: 'place',
+          sourceType: 'profile',
+          metadata: {
+            representativeMenu: ['피부관리', '여드름 관리'],
+            businessHours: '월-금 10:00-19:00'
+          }
+        }),
+        baseItem({
+          id: 'blog_1',
+          channel: 'blog',
+          sourceType: 'post',
+          title: '피부관리 안내 블로그',
+          bodyText: '피부관리 블로그 문체와 상담 안내 예시'
+        })
+      ]
+    });
+
+    expect(promptInput.requiredRulesetFields.map((field) => field.fieldKey)).toEqual(
+      REQUIRED_ANALYZER_RULESET_FIELD_KEYS
+    );
+    expect(promptInput.requiredRulesetFields).toHaveLength(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
+    expect(promptInput.requiredRulesetFields.map((field) => field.fieldKey)).not.toContain('operatingHours');
+    expect(promptInput.requiredRulesetFields.map((field) => field.fieldKey)).not.toContain('parking');
+    expect(promptInput.requiredRulesetFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'storePositioning',
+          label: '포지셔닝',
+          section: 'brand',
+          valueKind: 'text',
+          sourceTier: 'ai_processing',
+          inputSources: expect.arrayContaining(['Place profile item']),
+          expectedOutput: expect.stringContaining('포지셔닝'),
+          evidenceGuidance: expect.stringContaining('selected collection item IDs')
+        }),
+        expect.objectContaining({
+          fieldKey: 'representativeMenu',
+          label: '대표 메뉴',
+          sourceTier: 'place_then_ai',
+          expectedOutput: expect.stringContaining('대표 메뉴'),
+          evidenceGuidance: expect.stringContaining('direct Place facts')
+        }),
+        expect.objectContaining({
+          fieldKey: 'reviewWeakness',
+          label: '리뷰 약점',
+          expectedOutput: expect.stringContaining('리뷰 약점'),
+          evidenceGuidance: expect.stringContaining('strategy-only')
+        }),
+        expect.objectContaining({
+          fieldKey: 'blogImageFormat',
+          label: '비율·포맷',
+          section: 'image_blog',
+          expectedOutput: expect.stringContaining('비율·포맷')
+        })
+      ])
+    );
   });
 });
