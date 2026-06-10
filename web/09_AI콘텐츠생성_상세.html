@@ -30,6 +30,8 @@
 .content-body-box p:last-child{margin-bottom:0}
 .content-image-slot{margin:10px 0;padding:14px;border:1px dashed #BAC8FF;border-radius:8px;background:#EEF2FF;color:#3B5BDB;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .content-image-slot span{font-size:11px;font-weight:500;color:#4A5568}
+.content-provenance-line{display:none;margin:0 0 14px;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;background:#F8FAFC;font-size:12px;color:#4A5568;line-height:1.5}
+.content-provenance-line strong{color:#1A1A2E}
 .blog-preview-modal{width:calc(100vw - 48px);height:calc(100vh - 48px);max-width:none;padding:0;display:flex;flex-direction:column;overflow:hidden}
 .blog-preview-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #E2E8F0;background:#fff}
 .blog-preview-title{font-size:15px;font-weight:800;color:#1A1A2E;margin-bottom:4px}
@@ -78,6 +80,7 @@
       </div>
     </div>
     <div class="card-body">
+      <div class="content-provenance-line" id="content-provenance-line"></div>
 
       <!-- 본문 -->
       <div style="margin-bottom:16px">

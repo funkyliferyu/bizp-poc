@@ -69,6 +69,7 @@ export type BlogSeoProviderInput = {
 export type BlogContentProvider = {
   name: string;
   mode: 'openai';
+  model?: string | null;
   generateDraft(input: BlogDraftProviderInput): Promise<unknown>;
   scoreSeo(input: BlogSeoProviderInput): Promise<unknown>;
 };

@@ -178,7 +178,18 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     completedAt: timestamp(20),
     result: {
       positioning: '분당 당일 제작 커스텀 케이크',
-      strengths: ['레터링 디자인', '당일 제작', '친절한 상담']
+      strengths: ['레터링 디자인', '당일 제작', '친절한 상담'],
+      analyzerProvider: 'mockDeterministicAnalyzer',
+      analyzerMode: 'mock',
+      analyzerModel: null,
+      selectedItemCount: 3,
+      promptItemCount: 3,
+      omittedItemCount: 0,
+      blogItemLimit: 10,
+      selectedBlogItemCount: 1,
+      promptBlogItemCount: 1,
+      omittedBlogItemCount: 0,
+      promptBudgetReason: null
     },
     error: null,
     createdAt: timestamp(13),
@@ -547,7 +558,12 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     contentType: 'blog_post',
     prompt: {
       topic: '분당 케이크 맛집 추천',
-      rulesetId
+      rulesetId,
+      mode: 'mock',
+      provider: 'mock_ruleset_blog_generator',
+      model: null,
+      action: 'generate_blog_post',
+      providerSeoScoreReturned: false
     },
     output: {
       title: '분당 케이크 맛집 추천 - 당일 제작 레터링 케이크 안내',
@@ -600,6 +616,12 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     totalScore: 86,
     status: 'scored',
     rubric: {
+      _provenance: {
+        mode: 'mock',
+        provider: 'localSeoScorer',
+        model: null,
+        action: 'initial_score'
+      },
       keywordFit: 28,
       readability: 22,
       structure: 20,

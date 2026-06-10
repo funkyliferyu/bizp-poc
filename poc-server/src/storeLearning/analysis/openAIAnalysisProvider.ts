@@ -1,8 +1,8 @@
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { getOpenAIClient } from '../../ai/openaiClient.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
-import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
-import { AnalyzerOutputSchema, createMockAnalysisProvider, type AnalysisProvider, type AnalyzerInput } from './analyzer.js';
+import { buildAnalysisPromptInput, type AnalysisPromptBudgetMetadata } from './analysisPromptBudget.js';
+import { AnalyzerOutputSchema, createMockAnalysisProvider, type AnalysisProvider } from './analyzer.js';
 
 type ParseClient = {
   beta: {
@@ -21,55 +21,25 @@ type OpenAIAnalysisProviderOptions = {
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
 
-function compactItem(item: AnalyzerInput['selectedItems'][number]) {
-  return {
-    id: item.id,
-    channel: item.channel,
-    sourceType: item.sourceType,
-    title: item.title,
-    bodyText: item.bodyText?.slice(0, 1200) ?? null,
-    sourceUrl: item.sourceUrl,
-    metadata: item.metadata
-  };
-}
-
-function promptInput({ store, selectedItems }: AnalyzerInput) {
-  return {
-    task: 'Analyze selected collected content for Store Learning & Blog Content Automation PoC.',
-    constraints: [
-      'Return Korean marketing strategy analysis only.',
-      'Every evidence.collectionItemId must be one of the provided selected item IDs.',
-      'Every rulesetFields[].evidenceItemIds entry must be one of the provided selected item IDs.',
-      'Do not invent customer reviews or collection items.',
-      'Keep claims conservative and evidence-linked.',
-      'Use source=openai_analysis for generated ruleset fields.'
-    ],
-    store: {
-      id: store.id,
-      name: store.name,
-      category: store.category,
-      address: store.address,
-      description: store.description,
-      metadata: store.metadata
-    },
-    selectedItemIds: selectedItems.map((item) => item.id),
-    selectedItems: selectedItems.map((item) => compactItem(item)),
-    requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS
-  };
-}
-
 export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOptions = {}): AnalysisProvider {
+  const model = options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+  let lastRunMetadata: AnalysisPromptBudgetMetadata | null = null;
+
   return {
     name: 'openAIAnalysisProvider',
     mode: 'openai',
+    model,
+    getLastRunMetadata: () => lastRunMetadata,
     async analyze(input) {
       const client = 'client' in options ? options.client : getOpenAIClient();
       if (!client) {
         throw new Error('OpenAI client is unavailable');
       }
+      const prompt = buildAnalysisPromptInput(input);
+      lastRunMetadata = prompt.metadata;
 
       const completion = await client.beta.chat.completions.parse({
-        model: options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+        model,
         messages: [
           {
             role: 'system',
@@ -79,7 +49,7 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
           },
           {
             role: 'user',
-            content: JSON.stringify(promptInput(input), null, 2)
+            content: JSON.stringify(prompt.promptInput, null, 2)
           }
         ],
         response_format: zodResponseFormat(AnalyzerOutputSchema, 'store_learning_analysis')

@@ -45,6 +45,8 @@ export type AnalyzerInput = {
 export type AnalysisProvider = {
   name: string;
   mode: 'mock' | 'openai';
+  model?: string | null;
+  getLastRunMetadata?: () => Record<string, unknown> | null;
   analyze(input: AnalyzerInput): Promise<unknown>;
 };
 

@@ -229,6 +229,38 @@
     if (status) status.textContent = text || '분석 실행 중';
   }
 
+  function setOptionalText(id, text, display = 'inline-flex') {
+    const element = field(id);
+    if (!element) return;
+    element.textContent = text || '';
+    element.style.display = text ? display : 'none';
+  }
+
+  function applyAnalysisProvenance(analysisRun) {
+    const result = asRecord(analysisRun?.result);
+    const error = asRecord(analysisRun?.error);
+    const analyzerProvider = result.analyzerProvider || error.analyzerProvider;
+    const analyzerMode = result.analyzerMode || error.analyzerMode;
+    const analyzerModel = result.analyzerModel || error.analyzerModel;
+    const providerParts = [analyzerProvider || analyzerMode, analyzerModel].filter(Boolean);
+    setOptionalText('selection-analysis-provider', providerParts.length ? providerParts.join(' · ') : '');
+
+    const omittedItemCount = Number(result.omittedItemCount ?? error.omittedItemCount ?? 0);
+    const omittedBlogItemCount = Number(result.omittedBlogItemCount ?? error.omittedBlogItemCount ?? 0);
+    const blogItemLimit = Number(result.blogItemLimit ?? error.blogItemLimit ?? 0);
+    const promptBudgetReason = result.promptBudgetReason || error.promptBudgetReason;
+    const hasBudgetNote = omittedItemCount > 0 || promptBudgetReason === 'body_truncated_to_budget';
+    const budgetNote =
+      omittedBlogItemCount > 0 && blogItemLimit > 0
+        ? `개발 버전에서는 블로그 소스 최대 ${blogItemLimit}개만 분석 입력에 포함됩니다.`
+        : '분석 입력 예산에 맞춰 일부 본문은 요약/제외되었습니다.';
+    setOptionalText(
+      'selection-analysis-budget-note',
+      hasBudgetNote ? budgetNote : '',
+      'block'
+    );
+  }
+
   function formatElapsed(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const minutes = Math.floor(totalSeconds / 60);
@@ -323,6 +355,7 @@
         const artifacts = await readAnalysisRun(analysisRunId);
         const progress = artifacts.analysisRun?.result?.analysisProgress;
         applyAnalysisProgress(progress);
+        applyAnalysisProvenance(artifacts.analysisRun);
         const status = artifacts.analysisRun?.status;
         if (['completed', 'failed'].includes(status)) {
           stopped = true;
@@ -372,6 +405,7 @@
     analysisInFlight = true;
     renderCounts();
     setAnalysisError('');
+    applyAnalysisProvenance(null);
     setAnalysisOverlayVisible(true);
     startAnalysisElapsedTimer();
     setAnalysisStep('ready', hasNoMeaningfulChanges() ? '이전과 동일해 학습을 종료합니다' : '준비 중');
@@ -390,6 +424,7 @@
       const started = await startAnalysisRun(analysisRunId);
       stopProgressPolling?.();
       applyAnalysisProgress(started.analysisRun?.result?.analysisProgress);
+      applyAnalysisProvenance(started.analysisRun);
       setAnalysisStep('started', '분석 완료');
       setAnalysisStep('ruleset', started.marketingRuleset ? '생성 완료' : '확인 중');
       setAnalysisStep('navigate', '이동 중');

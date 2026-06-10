@@ -40,6 +40,8 @@ tr.unchecked td{color:#9AA0B4}
 .analysis-overlay-meta{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .analysis-overlay-status{font-size:12px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border:1px solid #DCE3F8;border-radius:999px;padding:7px 10px;display:inline-flex}
 .analysis-overlay-elapsed{font-size:12px;font-weight:700;color:#4A5568;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:999px;padding:7px 10px;display:inline-flex}
+.analysis-overlay-provider{display:none;font-size:12px;font-weight:700;color:#364152;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:999px;padding:7px 10px}
+.analysis-overlay-budget-note{display:none;font-size:12px;line-height:1.5;color:#6B7280;margin:-4px 0 14px}
 .analysis-overlay-flow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:left}
 .analysis-overlay-step{border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:9px 10px;min-width:0}
 .analysis-overlay-step-label{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -62,7 +64,9 @@ tr.unchecked td{color:#9AA0B4}
     <div class="analysis-overlay-meta">
       <div class="analysis-overlay-status" id="selection-analysis-overlay-status">분석 실행 준비 중</div>
       <div class="analysis-overlay-elapsed" id="selection-analysis-overlay-elapsed">경과 00:00</div>
+      <div class="analysis-overlay-provider" id="selection-analysis-provider"></div>
     </div>
+    <div class="analysis-overlay-budget-note" id="selection-analysis-budget-note"></div>
     <div class="analysis-overlay-flow" id="selection-analysis-overlay-flow">
       <div class="analysis-overlay-step" data-analysis-overlay-step="queued">
         <div class="analysis-overlay-step-label">콘텐츠 확정</div>

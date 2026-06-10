@@ -114,9 +114,12 @@ function seoPromptInput(input: BlogSeoProviderInput) {
 }
 
 export function createOpenAIBlogProvider(options: OpenAIBlogProviderOptions = {}): BlogContentProvider {
+  const model = options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+
   return {
     name: 'openAIBlogProvider',
     mode: 'openai',
+    model,
     async generateDraft(input) {
       const client = 'client' in options ? options.client : getOpenAIClient();
       if (!client) {
@@ -124,7 +127,7 @@ export function createOpenAIBlogProvider(options: OpenAIBlogProviderOptions = {}
       }
 
       const completion = await client.beta.chat.completions.parse({
-        model: options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+        model,
         messages: [
           {
             role: 'system',
@@ -149,7 +152,7 @@ export function createOpenAIBlogProvider(options: OpenAIBlogProviderOptions = {}
       }
 
       const completion = await client.beta.chat.completions.parse({
-        model: options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+        model,
         messages: [
           {
             role: 'system',

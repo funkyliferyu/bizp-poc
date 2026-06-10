@@ -54,8 +54,19 @@ describe('content detail API', () => {
       blogPostId: 'blog_post_demo_pending_approval',
       prompt: expect.any(String)
     });
+    expect(body.contentProvenance).toMatchObject({
+      mode: 'mock',
+      provider: 'mock_ruleset_blog_generator',
+      action: 'generate_blog_post',
+      providerSeoScoreReturned: false
+    });
     expect(body.seoScore).toMatchObject({
       totalScore: expect.any(Number),
+      provenance: {
+        mode: 'mock',
+        provider: 'localSeoScorer',
+        action: 'initial_score'
+      },
       rubric: expect.objectContaining({
         titleKeyword: expect.any(Object),
         bodyKeyword: expect.any(Object),

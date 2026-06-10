@@ -63,6 +63,8 @@ describe('content selection static page API wiring', () => {
     expect(html).toContain('id="selection-analysis-overlay"');
     expect(html).toContain('id="selection-analysis-overlay-status"');
     expect(html).toContain('id="selection-analysis-overlay-elapsed"');
+    expect(html).toContain('id="selection-analysis-provider"');
+    expect(html).toContain('id="selection-analysis-budget-note"');
     expect(html).toContain('id="selection-analysis-overlay-flow"');
     expect(html).toContain('결과 검증');
     expect(html).toContain('AI 분석을 실행하고 있습니다');
@@ -74,6 +76,16 @@ describe('content selection static page API wiring', () => {
     expect(js).toContain('function startAnalysisProgressPolling');
     expect(js).toContain('fetch(`/api/analysis-runs/${analysisRunId}`');
     expect(js).toContain('analysisProgress');
+    expect(js).toContain('function applyAnalysisProvenance');
+    expect(js).toContain('selection-analysis-provider');
+    expect(js).toContain('selection-analysis-budget-note');
+    expect(js).toContain('분석 입력 예산에 맞춰 일부 본문은 요약/제외되었습니다.');
+    expect(js).toContain('개발 버전에서는 블로그 소스 최대 ${blogItemLimit}개만 분석 입력에 포함됩니다.');
+    expect(js).toContain('analyzerProvider');
+    expect(js).toContain('analyzerModel');
+    expect(js).toContain('omittedItemCount');
+    expect(js).toContain('omittedBlogItemCount');
+    expect(js).toContain('blogItemLimit');
     expect(js).toContain('selection-analysis-overlay-elapsed');
     expect(js).toContain('setAnalysisOverlayVisible(true)');
     expect(js).toContain('setAnalysisOverlayStatus(stateText');

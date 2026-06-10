@@ -11,6 +11,7 @@ describe('AI content detail page API wiring', () => {
 
     expect(html).toContain('id="content-detail-title"');
     expect(html).toContain('id="content-detail-meta"');
+    expect(html).toContain('id="content-provenance-line"');
     expect(html).toContain('id="content-detail-status"');
     expect(html).toContain('id="draftContentBody"');
     expect(html).toContain('id="seo-total-score"');
@@ -32,6 +33,10 @@ describe('AI content detail page API wiring', () => {
     expect(js).toContain('fetch(`/api/blog-posts/${postId}/seo-score`');
     expect(js).toContain('fetch(`/api/blog-posts/${postId}/preview`)');
     expect(js).toContain('fetch(`/api/blog-posts/${postId}/request-publish`');
+    expect(js).toContain('function renderContentProvenance');
+    expect(js).toContain('content-provenance-line');
+    expect(js).toContain('payload.contentProvenance');
+    expect(js).toContain('payload.seoScore?.provenance');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
