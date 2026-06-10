@@ -69,7 +69,19 @@ describe('learning status API', () => {
       status: 'active'
     });
     expect(body.analysis).toMatchObject({
-      status: 'succeeded'
+      status: 'succeeded',
+      provenance: {
+        provider: 'mockDeterministicAnalyzer',
+        mode: 'mock',
+        model: null,
+        selectedItemCount: 3,
+        promptItemCount: 3,
+        omittedItemCount: 0,
+        blogItemLimit: 10,
+        selectedBlogItemCount: 1,
+        promptBlogItemCount: 1,
+        omittedBlogItemCount: 0
+      }
     });
   });
 

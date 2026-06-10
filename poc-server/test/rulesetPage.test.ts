@@ -184,7 +184,8 @@ describe('marketing ruleset static page API wiring', () => {
     expect(writeSection).toContain('data-writing-style-layout="current-plus-suggestion"');
     expect(writeSection).toContain('data-writing-current');
     expect(writeSection).toContain('data-writing-suggestion');
-    expect(writeSection).toContain('AI 제안');
+    expect(writeSection).toContain('서버 산출 제안');
+    expect(writeSection).not.toContain('AI 제안');
     expect(writeSection).toContain('개선 제안');
     expect(writeSection).toContain('현행유지');
     expect(writeSection).toContain('data-ai-suggestion-text');

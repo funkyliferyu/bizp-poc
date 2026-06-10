@@ -47,6 +47,52 @@ function asString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function asNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function providerRunMetadata(provider: AnalysisProvider, selectedItems: CollectionItem[]) {
+  const metadata = asRecord(provider.getLastRunMetadata?.());
+  return {
+    analyzerMode: provider.mode,
+    analyzerProvider: provider.name,
+    analyzerModel: provider.model ?? null,
+    selectedItemCount: asNumber(metadata.selectedItemCount) ?? selectedItems.length,
+    promptItemCount: asNumber(metadata.promptItemCount) ?? selectedItems.length,
+    omittedItemCount: asNumber(metadata.omittedItemCount) ?? 0,
+    blogItemLimit: asNumber(metadata.blogItemLimit),
+    selectedBlogItemCount: asNumber(metadata.selectedBlogItemCount),
+    promptBlogItemCount: asNumber(metadata.promptBlogItemCount),
+    omittedBlogItemCount: asNumber(metadata.omittedBlogItemCount),
+    promptCharacterCount: asNumber(metadata.promptCharacterCount),
+    promptCharacterBudget: asNumber(metadata.promptCharacterBudget),
+    bodyCharacterBudget: asNumber(metadata.bodyCharacterBudget),
+    promptBudgetReason: asString(metadata.promptBudgetReason)
+  };
+}
+
+const contextTooLargeMessage =
+  '선택한 콘텐츠가 많아 분석 입력 한도를 초과했습니다. 일부 콘텐츠를 제외하거나 다시 수집 후 실행해주세요.';
+
+function isContextLengthError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /maximum context length|context length|context_length|too many tokens|tokens/i.test(message);
+}
+
+function analysisErrorMetadata(error: unknown, provider: AnalysisProvider, selectedItems: CollectionItem[]) {
+  if (!isContextLengthError(error)) {
+    return {
+      message: error instanceof Error ? error.message : String(error)
+    };
+  }
+
+  return {
+    errorType: 'analysis_context_too_large',
+    message: contextTooLargeMessage,
+    ...providerRunMetadata(provider, selectedItems)
+  };
+}
+
 const progressLabels: Record<AnalysisProgressStep, string> = {
   preparing: '분석 준비',
   analyzing: 'AI 분석',
@@ -293,6 +339,7 @@ export async function startAnalysisRun(
   try {
     updateAnalysisProgress(repos, analysisRun.id, 'analyzing', 'running');
     const output = validateAnalyzerOutput(await provider.analyze({ store, selectedItems }));
+    const runMetadata = providerRunMetadata(provider, selectedItems);
     updateAnalysisProgress(repos, analysisRun.id, 'validating', 'running');
     validateAnalyzerReferences(output, selectedItems);
     updateAnalysisProgress(repos, analysisRun.id, 'evidence', 'running');
@@ -308,6 +355,7 @@ export async function startAnalysisRun(
         metadata: {
           provider: provider.name,
           mode: provider.mode,
+          model: runMetadata.analyzerModel,
           fieldEvidence: fieldEvidenceByItemId.get(evidence.collectionItemId) ?? {}
         }
       })
@@ -330,7 +378,14 @@ export async function startAnalysisRun(
         negativeExpressions: output.negativeExpressions,
         evidenceItemIds: selectedItems.map((item) => item.id),
         provider: provider.name,
-        mode: provider.mode
+        mode: provider.mode,
+        model: runMetadata.analyzerModel,
+        promptItemCount: runMetadata.promptItemCount,
+        omittedItemCount: runMetadata.omittedItemCount,
+        blogItemLimit: runMetadata.blogItemLimit,
+        promptBlogItemCount: runMetadata.promptBlogItemCount,
+        omittedBlogItemCount: runMetadata.omittedBlogItemCount,
+        promptBudgetReason: runMetadata.promptBudgetReason
       }
     });
     updateAnalysisProgress(repos, analysisRun.id, 'ruleset', 'running');
@@ -378,8 +433,7 @@ export async function startAnalysisRun(
       completedAt,
       result: {
         ...latestResult,
-        analyzerMode: provider.mode,
-        analyzerProvider: provider.name,
+        ...runMetadata,
         output,
         learningSnapshotId: snapshot.id,
         marketingRulesetId: ruleset.id,
@@ -391,20 +445,22 @@ export async function startAnalysisRun(
 
     return getAnalysisArtifacts(repos, analysisRun.id);
   } catch (error) {
+    const storedError = analysisErrorMetadata(error, provider, selectedItems);
     updateAnalysisProgress(
       repos,
       analysisRun.id,
       'failed',
       'failed',
-      error instanceof Error ? error.message : progressMessages.failed
+      asString(storedError.message) ?? progressMessages.failed
     );
     repos.analysisRuns.update(analysisRun.id, {
       status: 'failed',
       completedAt: nowIso(),
-      error: {
-        message: error instanceof Error ? error.message : String(error)
-      }
+      error: storedError
     });
+    if (asString(asRecord(storedError).errorType) === 'analysis_context_too_large') {
+      throw new Error(contextTooLargeMessage);
+    }
     throw error;
   }
 }

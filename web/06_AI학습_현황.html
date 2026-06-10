@@ -46,6 +46,8 @@
 .learning-completion-step-state{font-size:11px;color:#9AA0B4}
 .learning-completion-step.complete .learning-completion-step-state{color:#2F9E44;font-weight:700}
 .learning-completion-step.failed .learning-completion-step-state{color:#C92A2A;font-weight:700}
+.learning-analysis-provenance{display:none;margin:-4px 0 14px;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;background:#F8FAFC;font-size:12px;color:#4A5568;line-height:1.5}
+.learning-analysis-provenance strong{color:#1A1A2E}
 .ruleset-alert{display:none;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:11px 12px;border:1px solid #B2F2BB;background:#EBFBEE;border-radius:6px}
 .ruleset-alert-title{font-size:13px;font-weight:700;color:#2F9E44;margin-bottom:2px}
 .ruleset-alert-desc{font-size:12px;color:#4A5568}
@@ -94,6 +96,7 @@
         <div class="learning-completion-message" id="learning-completion-message">수집, 분석, 룰셋 생성 결과를 불러오는 중입니다.</div>
         <div class="learning-completion-checklist" id="learning-completion-checklist"></div>
       </div>
+      <div class="learning-analysis-provenance" id="learning-analysis-provenance"></div>
       <div class="grid-4" style="margin-bottom:14px">
         <div class="kpi-card"><div class="kpi-label">마지막 학습일</div><div class="kpi-val" id="learning-last-analyzed" style="font-size:16px">-</div></div>
         <div class="kpi-card"><div class="kpi-label">다음 수집 예정일</div><div class="kpi-val" id="learning-next-collection" style="font-size:16px">-</div></div>

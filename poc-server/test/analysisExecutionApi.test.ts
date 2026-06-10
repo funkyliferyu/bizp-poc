@@ -311,6 +311,28 @@ describe('analysis execution API', () => {
       },
       error: null
     });
+    repos.stores.update('store_demo_cake', {
+      metadata: {
+        rawRenderedHtml: '<html>'.repeat(1000),
+        storeMetadata: {
+          parking: '건물 뒤편 2대 주차 가능',
+          businessHours: '화-일 11:00-20:00'
+        }
+      }
+    });
+    repos.collectionItems.update('collection_item_demo_blog', {
+      bodyText: 'OpenAI 분석 입력 예산 테스트용 블로그 본문입니다. '.repeat(600),
+      metadata: {
+        publishedAt: '2026-06-01',
+        blogId: 'blogger_test',
+        logNo: 'log_test',
+        tags: ['분당 케이크', '레터링 케이크'],
+        imageUrls: Array.from({ length: 100 }, (_, index) => `https://cdn.example.com/${index}.jpg`),
+        rawProviderPayload: {
+          duplicatedBody: 'OpenAI 분석 입력 예산 테스트용 블로그 본문입니다. '.repeat(600)
+        }
+      }
+    });
     const parsedOutput: AnalyzerOutput = {
       storePositioning: '분당 레터링 케이크 예약 전문점',
       keyStrengths: ['상담형 주문 제작', '정자동 픽업 동선', '기념일 케이크 후기'],
@@ -383,22 +405,38 @@ describe('analysis execution API', () => {
     const fields = ruleset ? repos.rulesetFields.listByRulesetId(ruleset.id) : [];
 
     expect(parseCalls).toHaveLength(1);
-    expect(JSON.stringify(parseCalls[0])).toContain('test-openai-model');
-    expect(JSON.stringify(parseCalls[0])).toContain('collection_item_demo_blog');
-    expect(JSON.stringify(parseCalls[0])).toContain('reviewWeakness');
-    expect(JSON.stringify(parseCalls[0])).toContain('blogImageFormat');
-    expect(JSON.stringify(parseCalls[0])).toContain('representativeMenu');
+    const parsePayload = JSON.stringify(parseCalls[0]);
+    expect(parsePayload).toContain('test-openai-model');
+    expect(parsePayload).toContain('collection_item_demo_blog');
+    expect(parsePayload).toContain('reviewWeakness');
+    expect(parsePayload).toContain('blogImageFormat');
+    expect(parsePayload).toContain('representativeMenu');
+    expect(parsePayload).toContain('blogger_test');
+    expect(parsePayload).toContain('건물 뒤편 2대 주차 가능');
+    expect(parsePayload).not.toContain('rawProviderPayload');
+    expect(parsePayload).not.toContain('https://cdn.example.com');
     expect(persistedRun?.status).toBe('completed');
     expect(persistedRun?.result).toEqual(
       expect.objectContaining({
         analyzerMode: 'openai',
-        analyzerProvider: 'openAIAnalysisProvider'
+        analyzerProvider: 'openAIAnalysisProvider',
+        analyzerModel: 'test-openai-model',
+        selectedItemCount: 3,
+        promptItemCount: 3,
+        omittedItemCount: 0,
+        blogItemLimit: 10,
+        selectedBlogItemCount: 1,
+        promptBlogItemCount: 1,
+        omittedBlogItemCount: 0,
+        promptCharacterCount: expect.any(Number),
+        promptBudgetReason: 'body_truncated_to_budget'
       })
     );
     expect(snapshot.snapshot).toEqual(
       expect.objectContaining({
         mode: 'openai',
         provider: 'openAIAnalysisProvider',
+        model: 'test-openai-model',
         storePositioning: '분당 레터링 케이크 예약 전문점'
       })
     );
@@ -408,7 +446,8 @@ describe('analysis execution API', () => {
       evidenceType: 'blog_post',
       metadata: {
         provider: 'openAIAnalysisProvider',
-        mode: 'openai'
+        mode: 'openai',
+        model: 'test-openai-model'
       }
     });
     expect(fields.find((field) => field.fieldKey === 'storePositioning')).toMatchObject({
@@ -476,5 +515,64 @@ describe('analysis execution API', () => {
     expect(failedRun?.status).toBe('failed');
     expect(repos.analysisEvidence.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
     expect(repos.learningSnapshots.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
+  });
+
+  it('stores a sanitized context overflow error when OpenAI rejects an oversized analysis prompt', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const analysisRun = repos.analysisRuns.create({
+      id: 'analysis_run_context_overflow_test',
+      storeId: 'store_demo_cake',
+      collectionRunId: 'collection_run_demo_store_learning',
+      status: 'queued',
+      startedAt: null,
+      completedAt: null,
+      result: {
+        selectedItemIds: [
+          'collection_item_demo_blog',
+          'collection_item_demo_place_profile',
+          'collection_item_demo_place_review'
+        ]
+      },
+      error: null
+    });
+
+    await expect(
+      startAnalysisRun(repos, analysisRun.id, {
+        name: 'openAIAnalysisProvider',
+        mode: 'openai',
+        model: 'test-openai-model',
+        getLastRunMetadata: () => ({
+          selectedItemCount: 40,
+          promptItemCount: 31,
+          omittedItemCount: 9,
+          promptCharacterCount: 61000,
+          promptCharacterBudget: 60000,
+          promptBudgetReason: 'prompt_character_budget_exceeded'
+        }),
+        async analyze() {
+          throw new Error(
+            "This model's maximum context length is 128000 tokens. However, your messages resulted in 179181 tokens."
+          );
+        }
+      })
+    ).rejects.toThrow('선택한 콘텐츠가 많아 분석 입력 한도를 초과했습니다.');
+
+    const failedRun = repos.analysisRuns.findById(analysisRun.id);
+    expect(failedRun?.status).toBe('failed');
+    expect(failedRun?.error).toEqual(
+      expect.objectContaining({
+        errorType: 'analysis_context_too_large',
+        message: '선택한 콘텐츠가 많아 분석 입력 한도를 초과했습니다. 일부 콘텐츠를 제외하거나 다시 수집 후 실행해주세요.',
+        analyzerProvider: 'openAIAnalysisProvider',
+        analyzerMode: 'openai',
+        analyzerModel: 'test-openai-model',
+        selectedItemCount: 40,
+        promptItemCount: 31,
+        omittedItemCount: 9,
+        promptBudgetReason: 'prompt_character_budget_exceeded'
+      })
+    );
+    expect(JSON.stringify(failedRun?.error)).not.toContain('179181');
+    expect(repos.analysisEvidence.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
   });
 });

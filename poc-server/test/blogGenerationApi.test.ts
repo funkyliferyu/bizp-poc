@@ -266,7 +266,10 @@ describe('ruleset based blog generation API', () => {
     expect(body.blogPost.title).toBe('OpenAI 분당 레터링 케이크 예약 가이드');
     expect(generation?.prompt).toMatchObject({
       mode: 'openai',
-      provider: 'openAIBlogProvider'
+      provider: 'openAIBlogProvider',
+      model: 'test-blog-model',
+      action: 'generate_blog_post',
+      providerSeoScoreReturned: true
     });
     expect(generation?.output).toMatchObject({
       generator: 'openai_blog_provider',

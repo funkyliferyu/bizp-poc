@@ -24,6 +24,14 @@ function asStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function asString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function asNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 function splitCsv(value: string | null | undefined) {
   if (!value) return [];
   return value
@@ -123,11 +131,26 @@ function analysisPayload(repos: Repositories, storeId: string) {
   const artifacts = latestArtifacts(repos, storeId);
   const run = artifacts?.analysisRun;
   if (!run) return null;
+  const result = asRecord(run.result);
+  const error = asRecord(run.error);
   return {
     id: run.id,
     status: run.status,
     completedAt: run.completedAt,
-    updatedAt: run.updatedAt
+    updatedAt: run.updatedAt,
+    provenance: {
+      provider: asString(result.analyzerProvider) ?? asString(error.analyzerProvider),
+      mode: asString(result.analyzerMode) ?? asString(error.analyzerMode),
+      model: asString(result.analyzerModel) ?? asString(error.analyzerModel),
+      selectedItemCount: asNumber(result.selectedItemCount) ?? asNumber(error.selectedItemCount),
+      promptItemCount: asNumber(result.promptItemCount) ?? asNumber(error.promptItemCount),
+      omittedItemCount: asNumber(result.omittedItemCount) ?? asNumber(error.omittedItemCount),
+      blogItemLimit: asNumber(result.blogItemLimit) ?? asNumber(error.blogItemLimit),
+      selectedBlogItemCount: asNumber(result.selectedBlogItemCount) ?? asNumber(error.selectedBlogItemCount),
+      promptBlogItemCount: asNumber(result.promptBlogItemCount) ?? asNumber(error.promptBlogItemCount),
+      omittedBlogItemCount: asNumber(result.omittedBlogItemCount) ?? asNumber(error.omittedBlogItemCount),
+      promptBudgetReason: asString(result.promptBudgetReason) ?? asString(error.promptBudgetReason)
+    }
   };
 }
 

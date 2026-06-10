@@ -252,6 +252,30 @@
       .join('');
   }
 
+  function renderAnalysisProvenance(provenance) {
+    const container = field('learning-analysis-provenance');
+    if (!container) return;
+    const providerParts = [provenance?.provider || provenance?.mode, provenance?.model].filter(Boolean);
+    const omittedItemCount = Number(provenance?.omittedItemCount || 0);
+    const omittedBlogItemCount = Number(provenance?.omittedBlogItemCount || 0);
+    const blogItemLimit = Number(provenance?.blogItemLimit || 0);
+    const hasBudgetNote = omittedItemCount > 0 || provenance?.promptBudgetReason === 'body_truncated_to_budget';
+    if (providerParts.length === 0 && !hasBudgetNote) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    const providerText = providerParts.length ? `<strong>분석 출처</strong> ${escapeHtml(providerParts.join(' · '))}` : '';
+    const budgetText =
+      hasBudgetNote && omittedBlogItemCount > 0 && blogItemLimit > 0
+        ? `개발 버전에서는 블로그 소스 최대 ${blogItemLimit}개만 분석 입력에 포함됩니다.`
+        : hasBudgetNote
+          ? '분석 입력 예산에 맞춰 일부 본문은 요약/제외되었습니다.'
+          : '';
+    container.innerHTML = [providerText, budgetText].filter(Boolean).map((text) => `<span>${text}</span>`).join(' · ');
+    container.style.display = 'block';
+  }
+
   function renderOverview(status, storeId) {
     field('learning-last-analyzed').textContent = formatDate(status.lastAnalyzedAt);
     field('learning-next-collection').textContent = formatDate(status.nextCollectionAt);
@@ -260,6 +284,7 @@
       ? `✓ ${escapeHtml(status.ruleset.statusLabel || status.ruleset.status)}`
       : '미생성';
     renderCompletion(status.completion);
+    renderAnalysisProvenance(status.analysis?.provenance);
     renderRulesetEntry(status, storeId);
     field('learning-blog-count').textContent = status.channels.blog.collectedCount;
     field('learning-place-count').textContent = status.channels.place.collectedCount;

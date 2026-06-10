@@ -5,6 +5,7 @@
   const titleEl = document.getElementById('content-detail-title');
   const metaEl = document.getElementById('content-detail-meta');
   const statusEl = document.getElementById('content-detail-status');
+  const provenanceEl = document.getElementById('content-provenance-line');
   const bodyEl = document.getElementById('draftContentBody');
   const imageListEl = document.getElementById('content-image-list');
   const seoTotalEl = document.getElementById('seo-total-score');
@@ -22,6 +23,7 @@
   const seoRescoreBtn = document.getElementById('seo-rescore-btn');
   const requestPublishBtn = document.getElementById('request-publish-btn');
   const scheduleRequestPublishBtn = document.getElementById('schedule-request-publish-btn');
+  let latestContentProvenance = null;
 
   if (!titleEl || !bodyEl) return;
 
@@ -146,6 +148,23 @@
       .join('');
   }
 
+  function provenanceText(label, provenance) {
+    if (!provenance) return '';
+    const parts = [provenance.provider || provenance.mode, provenance.model].filter(Boolean);
+    if (parts.length === 0) return '';
+    return `<strong>${escapeHtml(label)}</strong> ${escapeHtml(parts.join(' · '))}`;
+  }
+
+  function renderContentProvenance(contentProvenance, seoProvenance) {
+    if (!provenanceEl) return;
+    const lines = [
+      provenanceText('본문 생성', contentProvenance),
+      provenanceText('SEO 평가', seoProvenance)
+    ].filter(Boolean);
+    provenanceEl.innerHTML = lines.join(' · ');
+    provenanceEl.style.display = lines.length ? 'block' : 'none';
+  }
+
   function renderStatus(status) {
     if (!statusEl) return;
     statusEl.textContent = statusLabel(status);
@@ -168,6 +187,8 @@
     renderBody(article, mediaAssets);
     renderImages(mediaAssets);
     renderSeo(payload.seoScore);
+    latestContentProvenance = payload.contentProvenance || null;
+    renderContentProvenance(payload.contentProvenance, payload.seoScore?.provenance);
   }
 
   async function loadDetail() {
@@ -244,6 +265,7 @@
       if (!response.ok) throw new Error(`SEO 점수를 계산하지 못했습니다. (${response.status})`);
       const payload = await response.json();
       renderSeo(payload.seoScore);
+      renderContentProvenance(latestContentProvenance, payload.seoScore?.provenance);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'SEO 점수를 계산하지 못했습니다.');
     } finally {

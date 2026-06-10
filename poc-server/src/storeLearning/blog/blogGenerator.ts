@@ -49,6 +49,14 @@ type ProviderDraft = {
   seoScore: SeoScoreOutput | null;
 };
 
+type GenerationProvenance = {
+  mode: string;
+  provider: string | null;
+  model: string | null;
+  action: string;
+  providerSeoScoreReturned?: boolean;
+};
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -274,6 +282,12 @@ function itemizedStoredRubric(value: JsonValue | unknown) {
   return parsed.success ? parsed.data : null;
 }
 
+function storedProvenance(value: JsonValue | unknown) {
+  const record = asRecord(value);
+  const provenance = asRecord(record._provenance);
+  return Object.keys(provenance).length > 0 ? provenance : null;
+}
+
 function scoreBlogPost(post: BlogPost, mediaAssets: MediaAsset[]) {
   const article = normalizedArticle(post);
   const keyword = article.seoKeywords.find((item) => post.title.includes(item)) ?? article.seoKeywords[0] ?? '케이크';
@@ -340,7 +354,13 @@ function scoreBlogPost(post: BlogPost, mediaAssets: MediaAsset[]) {
   });
 }
 
-function createSeoScore(repos: Repositories, post: BlogPost, mediaAssets: MediaAsset[], override?: SeoScoreOutput | null) {
+function createSeoScore(
+  repos: Repositories,
+  post: BlogPost,
+  mediaAssets: MediaAsset[],
+  override?: SeoScoreOutput | null,
+  provenance?: GenerationProvenance
+) {
   const scored = override ?? scoreBlogPost(post, mediaAssets);
   const timestamp = nowIso();
   const sequence = repos.seoScores.listByBlogPostId(post.id).length + 1;
@@ -350,7 +370,7 @@ function createSeoScore(repos: Repositories, post: BlogPost, mediaAssets: MediaA
     score: scored.totalScore,
     totalScore: scored.totalScore,
     status: 'scored',
-    rubric: scored.rubric,
+    rubric: provenance ? { _provenance: provenance, ...scored.rubric } : scored.rubric,
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -359,15 +379,32 @@ function createSeoScore(repos: Repositories, post: BlogPost, mediaAssets: MediaA
 function serializeSeoScore(score: SeoScore | null, post: BlogPost, mediaAssets: MediaAsset[]) {
   const scored = scoreBlogPost(post, mediaAssets);
   const storedRubric = itemizedStoredRubric(score?.rubric);
+  const provenance = storedProvenance(score?.rubric);
   return {
     id: score?.id ?? null,
     blogPostId: post.id,
     score: score?.score ?? scored.totalScore,
     totalScore: score?.totalScore ?? score?.score ?? scored.totalScore,
     status: score?.status ?? 'scored',
+    provenance,
     rubric: storedRubric ?? scored.rubric,
     createdAt: score?.createdAt ?? null,
     updatedAt: score?.updatedAt ?? null
+  };
+}
+
+function contentGenerationProvenance(contentGeneration: { prompt: JsonValue } | null): GenerationProvenance | null {
+  const prompt = asRecord(contentGeneration?.prompt);
+  const mode = asString(prompt.mode) || null;
+  const provider = asString(prompt.provider) || asString(prompt.generator) || null;
+  const action = asString(prompt.action) || null;
+  if (!mode && !provider && !action) return null;
+  return {
+    mode: mode || 'unknown',
+    provider,
+    model: asString(prompt.model) || null,
+    action: action || 'generate_blog_post',
+    providerSeoScoreReturned: prompt.providerSeoScoreReturned === true
   };
 }
 
@@ -433,6 +470,9 @@ export async function generateApprovalPendingBlogPost(
     prompt: {
       mode: provider?.mode ?? 'mock',
       provider: provider?.name ?? null,
+      model: provider?.model ?? null,
+      action: 'generate_blog_post',
+      providerSeoScoreReturned: Boolean(providerSeoScore),
       generator: draft.generator,
       rulesetId: ruleset.id,
       fieldKeys: fields.map((field) => field.fieldKey)
@@ -482,7 +522,16 @@ export async function generateApprovalPendingBlogPost(
     score,
     totalScore: score,
     status: 'scored',
-    rubric,
+    rubric: {
+      _provenance: {
+        mode: provider?.mode ?? 'mock',
+        provider: provider?.name ?? 'localSeoScorer',
+        model: provider?.model ?? null,
+        action: 'generate_blog_post',
+        providerSeoScoreReturned: Boolean(providerSeoScore)
+      },
+      ...rubric
+    },
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -580,6 +629,7 @@ export function getBlogPostDetail(repos: Repositories, postId: string) {
     blogPost,
     article,
     contentGeneration,
+    contentProvenance: contentGenerationProvenance(contentGeneration),
     mediaAssets: rawMediaAssets.map(serializeMediaAsset),
     seoScore: serializeSeoScore(latestSeoScore, post, rawMediaAssets)
   };
@@ -653,7 +703,9 @@ export async function regenerateBlogPostText(
     prompt: {
       mode: provider?.mode ?? 'mock',
       provider: provider?.name ?? null,
+      model: provider?.model ?? null,
       action: 'regenerate_text',
+      providerSeoScoreReturned: Boolean(providerSeoScore),
       previousContentGenerationId: post.contentGenerationId,
       revision: revisionNumber
     },
@@ -674,7 +726,13 @@ export async function regenerateBlogPostText(
   const updated = repos.blogPosts.findById(post.id);
   if (!updated) return null;
   const updatedMediaAssets = repos.mediaAssets.listByBlogPostId(updated.id);
-  const seoScore = createSeoScore(repos, updated, updatedMediaAssets, providerSeoScore);
+  const seoScore = createSeoScore(repos, updated, updatedMediaAssets, providerSeoScore, {
+    mode: provider?.mode ?? 'mock',
+    provider: provider?.name ?? 'localSeoScorer',
+    model: provider?.model ?? null,
+    action: 'regenerate_text',
+    providerSeoScoreReturned: Boolean(providerSeoScore)
+  });
   return {
     ...getBlogPostDetail(repos, updated.id),
     contentGeneration,
@@ -743,7 +801,13 @@ export function regenerateBlogPostImages(repos: Repositories, postId: string) {
   const updated = repos.blogPosts.findById(post.id);
   if (!updated) return null;
   const mediaAssets = repos.mediaAssets.listByBlogPostId(updated.id);
-  const seoScore = createSeoScore(repos, updated, mediaAssets);
+  const seoScore = createSeoScore(repos, updated, mediaAssets, null, {
+    mode: 'mock',
+    provider: 'localSeoScorer',
+    model: null,
+    action: 'regenerate_images_rescore',
+    providerSeoScoreReturned: false
+  });
   return {
     ...getBlogPostDetail(repos, updated.id),
     mediaAssets: mediaAssets.map(serializeMediaAsset),
@@ -771,7 +835,13 @@ export async function rescoreBlogPostSeo(repos: Repositories, postId: string, pr
         })
       )
     : null;
-  const seoScore = createSeoScore(repos, post, mediaAssets, providerSeoScore);
+  const seoScore = createSeoScore(repos, post, mediaAssets, providerSeoScore, {
+    mode: provider?.mode ?? 'mock',
+    provider: provider?.name ?? 'localSeoScorer',
+    model: provider?.model ?? null,
+    action: 'seo_rescore',
+    providerSeoScoreReturned: Boolean(providerSeoScore)
+  });
   return {
     blogPost: serializeBlogPost(repos, post.id),
     seoScore: serializeSeoScore(seoScore, post, mediaAssets)
