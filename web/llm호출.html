@@ -638,8 +638,9 @@ user:
   <h2>블로그/SEO 입력 예산 규칙</h2>
   <ul>
     <li>블로그/SEO prompt는 <code>blogPromptBudget.ts</code>에서 생성하며, <code>store.metadata</code>, <code>ruleset.ruleset</code>, article JSON, media metadata는 allowlist/compact 구조로 변환합니다.</li>
-    <li>룰셋은 id/status/version, allowlist summary, compact field list만 보내며 field value는 길이 제한을 둡니다.</li>
+    <li>룰셋은 id/status/version, allowlist summary, Blog/SEO 관련 compact field list만 보내며 field value는 길이 제한을 둡니다.</li>
     <li>본문 재생성/SEO의 article은 title, metaDescription, bounded bodySections/bodyText, seoKeywords, cta, imagePrompts만 포함합니다.</li>
+    <li>prompt가 설정 budget을 넘으면 media asset 수, article section/body 길이, ruleset field value 길이를 단계적으로 줄여 budget 이하로 맞춥니다.</li>
     <li>media asset metadata는 prompt, alt, placement, generator만 포함하며 CDN 응답/raw provider payload는 제외합니다.</li>
     <li><code>content_generations.prompt</code>, <code>contentProvenance</code>, <code>seoScore.provenance</code>에서 provider/model/action/inputBudget을 확인할 수 있습니다.</li>
     <li>Blog/SEO context-length 오류는 원문 token count를 브라우저에 노출하지 않고 한국어 제품 메시지로 sanitize합니다.</li>

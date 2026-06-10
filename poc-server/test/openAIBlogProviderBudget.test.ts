@@ -4,6 +4,7 @@ import type { MediaAsset } from '../src/repositories/media_assets.js';
 import type { MarketingRuleset } from '../src/repositories/marketing_rulesets.js';
 import type { RulesetField } from '../src/repositories/ruleset_fields.js';
 import type { Store } from '../src/repositories/stores.js';
+import { buildBlogDraftPromptInput, buildBlogSeoPromptInput } from '../src/storeLearning/blog/blogPromptBudget.js';
 import { createOpenAIBlogProvider } from '../src/storeLearning/blog/openAIBlogProvider.js';
 
 const STORE_RAW_SENTINEL = 'RAW_STORE_METADATA_SHOULD_NOT_REACH_OPENAI';
@@ -138,6 +139,33 @@ function mediaAsset(index: number): MediaAsset {
     },
     createdAt: timestamp,
     updatedAt: timestamp
+  };
+}
+
+function largeRulesetFields() {
+  return [
+    ...rulesetFields(),
+    ...Array.from({ length: 24 }, (_, index) =>
+      field(`longField${index}`, `긴 룰셋 필드 ${index} ${'검색 의도와 예약 안내 문장 '.repeat(160)}`)
+    )
+  ];
+}
+
+function largeCurrentPost(): BlogPost {
+  return {
+    ...currentPost(),
+    article: {
+      title: '기존 분당 케이크 예약 글',
+      metaDescription: `기존 글 검색 요약 ${'메타 설명 확장 '.repeat(80)}`,
+      bodySections: Array.from({ length: 18 }, (_, index) => ({
+        heading: `긴 본문 섹션 ${index + 1}`,
+        body: `분당 케이크 예약과 레터링 상담 흐름을 설명하는 긴 본문 ${index + 1}. ${'픽업 시간과 디자인 상담 근거를 반복 설명합니다. '.repeat(220)}`
+      })),
+      seoKeywords: Array.from({ length: 30 }, (_, index) => `분당 케이크 키워드 ${index + 1}`),
+      cta: `예약 가능 여부를 확인해 주세요. ${'문의 전 확인사항 '.repeat(80)}`,
+      imagePrompts: Array.from({ length: 20 }, (_, index) => `이미지 프롬프트 ${index + 1} ${'케이크 디테일 '.repeat(40)}`),
+      rawProviderPayload: ARTICLE_RAW_SENTINEL.repeat(160)
+    }
   };
 }
 
@@ -345,5 +373,61 @@ describe('OpenAI blog provider prompt budget', () => {
       mediaAssetCount: 1,
       promptCharacterCount: expect.any(Number)
     });
+  });
+
+  it('keeps oversized SL-B2 regeneration prompts under the configured budget', () => {
+    const result = buildBlogDraftPromptInput(
+      {
+        action: 'regenerate_text',
+        store: store(),
+        ruleset: ruleset(),
+        rulesetFields: largeRulesetFields(),
+        currentPost: largeCurrentPost(),
+        currentArticle: largeCurrentPost().article,
+        mediaAssets: Array.from({ length: 20 }, (_, index) => mediaAsset(index + 1))
+      },
+      {
+        promptCharacterBudget: 9500,
+        articleCharacterBudget: 24000,
+        sectionCharacterBudget: 3200,
+        rulesetFieldCharacterBudget: 1800,
+        mediaAssetLimit: 20
+      }
+    );
+
+    const serialized = JSON.stringify(result.promptInput);
+    expect(result.metadata.promptCharacterCount).toBeLessThanOrEqual(9500);
+    expect(result.metadata.promptBudgetReason).toBe('prompt_character_budget_exceeded');
+    expect(result.metadata.promptMediaAssetCount).toBeLessThan(20);
+    expect(serialized).not.toContain(ARTICLE_RAW_SENTINEL);
+    expect(serialized).not.toContain(MEDIA_RAW_SENTINEL);
+  });
+
+  it('keeps oversized SL-S1 SEO prompts under the configured budget', () => {
+    const result = buildBlogSeoPromptInput(
+      {
+        store: store(),
+        ruleset: ruleset(),
+        rulesetFields: largeRulesetFields(),
+        post: largeCurrentPost(),
+        article: largeCurrentPost().article,
+        mediaAssets: Array.from({ length: 18 }, (_, index) => mediaAsset(index + 1))
+      },
+      {
+        promptCharacterBudget: 8500,
+        articleCharacterBudget: 22000,
+        sectionCharacterBudget: 3000,
+        rulesetFieldCharacterBudget: 1600,
+        mediaAssetLimit: 18
+      }
+    );
+
+    const serialized = JSON.stringify(result.promptInput);
+    expect(result.metadata.promptCharacterCount).toBeLessThanOrEqual(8500);
+    expect(result.metadata.promptBudgetReason).toBe('prompt_character_budget_exceeded');
+    expect(result.metadata.promptMediaAssetCount).toBeLessThan(18);
+    expect(serialized).not.toContain(ARTICLE_RAW_SENTINEL);
+    expect(serialized).not.toContain(RULESET_RAW_SENTINEL);
+    expect(serialized).not.toContain(MEDIA_RAW_SENTINEL);
   });
 });
