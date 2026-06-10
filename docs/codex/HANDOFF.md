@@ -2,13 +2,20 @@
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
-Milestone 12 follow-up is implemented on `codex/collection-delta-plan`.
+Milestone 12 follow-up is implemented through Task 13 on
+`codex/collection-delta-plan`, and Task 14 is now planned on the same branch.
 PR #38 is open and ready for review against `develop`:
 https://github.com/funkyliferyu/bizp-poc/pull/38
 
 Non-admin merge attempts are currently blocked by the `develop` base branch
-policy, and repository auto-merge is disabled. PR #38 should now proceed to
-authorized review/merge, then develop validation.
+policy, and repository auto-merge is disabled.
+
+New CR added after Task 13: milestone 12 Task 14 should be implemented before
+PR #38 is merged. The marketing strategy ruleset > 글쓰기 스타일 tab needs
+save/reset actions on every editable item, no visible `근거 보기` action,
+server-derived current-value calculation logic, server-derived right-side AI
+suggestion values/evidence, and placeholder-style rendering for guidance text
+that is not a real inferred or saved value.
 
 Task 13 code-path check:
 
@@ -65,6 +72,9 @@ The branch now includes:
   block and technical diagnostics, renames `AI 원값` to `초기화`, shows real
   healthcare `대표 진료과목` from Place/store metadata before mock menu fields,
   and shows field-specific `근거 보기` copy.
+- Task 14 is planned but not implemented: 글쓰기 스타일 still needs API-backed
+  field calculation/suggestion payloads, save/reset affordance consistency, no
+  writing-style evidence buttons, and empty/placeholder styling.
 
 Latest feature-branch validation recorded:
 
@@ -92,8 +102,9 @@ Latest feature-branch validation recorded:
 - In-app browser smoke passed on the store registration target:
   `focus=parking` loads the existing store and focuses `#f-parking-note`.
 
-Next step: have an authorized reviewer/admin merge PR #38 to `develop`, then
-run develop validation.
+Next step: execute milestone 12 Task 14 on `codex/collection-delta-plan`,
+rerun feature-branch validation, then proceed with PR #38 merge to `develop`
+and develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 

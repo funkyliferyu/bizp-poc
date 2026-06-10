@@ -48,6 +48,11 @@ Included:
   replace mock representative treatment subjects with real Place/store data,
   rename `AI 원값` to `초기화`, remove visible AI/source-diagnosis copy, and
   remove the remaining brand automatic input criteria block.
+- Clean up the marketing strategy ruleset > 글쓰기 스타일 tab so every
+  editable writing-style item has `저장` and `초기화`, no `근거 보기` action,
+  server-derived current-value logic, server-derived right-side AI suggestion
+  text/evidence, and placeholder-style rendering when no real value has been
+  inferred or entered.
 
 Excluded:
 
@@ -77,6 +82,12 @@ Excluded:
   existing ruleset field logic and fixes the current store-analysis tab.
 - Do not leave source-matrix diagnostics, future improvement copy, or
   `AI 처리`/`AI 판단` labels visible in the 우리 매장 분석 tab after cleanup.
+- Do not use static browser-only right-side AI suggestion fixtures for the
+  글쓰기 스타일 tab after Task 14. The browser may render fallback copy only
+  as an explicit placeholder/empty state, not as a saved current value.
+- Do not remove evidence APIs globally in this task. Remove the visible
+  `근거 보기` action from 글쓰기 스타일 rows only unless a future task broadens
+  that rule to other tabs.
 - Do not modify `admin/`, `pc-web/`, `README_POC.md`, `web/event_operation_poc.html`, or old Event-to-Operation files.
 - Do not stage `.DS_Store`, runtime SQLite DBs, `.env`, screenshots, or generated artifacts.
 
@@ -606,3 +617,88 @@ Excluded:
       `cd poc-server && npm test -- rulesetApi.test.ts analysisExecutionApi.test.ts`.
 - [x] Run `cd poc-server && npm run typecheck`.
 - [x] Run `git diff --check`.
+
+### Task 14: Writing Style Actions, Suggestions, And Empty-Value Styling
+
+**Files:**
+
+- Inspect/modify: `web/07_마케팅전략룰셋.html`
+- Inspect/modify: `web/ruleset_editor.js`
+- Inspect/modify: `poc-server/src/storeLearning/rulesets/rulesetService.ts`
+- Inspect/modify: `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`
+- Inspect/modify: `poc-server/src/storeLearning/analysis/analyzer.ts`
+- Inspect/modify if live analyzer prompt needs the same contract:
+  `poc-server/src/storeLearning/analysis/openAIAnalysisProvider.ts`
+- Inspect/modify if seed/demo data needs realistic current/suggestion values:
+  `poc-server/src/seedStoreLearning.ts`
+- Modify: `poc-server/test/rulesetPage.test.ts`
+- Modify if API contract changes:
+  `poc-server/test/rulesetApi.test.ts`
+- Modify if analyzer/seed contract changes:
+  `poc-server/test/analysisExecutionApi.test.ts`
+
+- [ ] Add RED static tests proving every visible 글쓰기 스타일 editable
+      field row has `저장` and `초기화` actions after hydration. Include the
+      common rows and channel rows currently shown in the tab: `blogPurpose`,
+      `blogWritingStyle`, `blogPreferredLength`, `blogHashtags`,
+      `blogEmojiPolicy`, `seoKeywords`, `ctaStyle`, `industryCommonRules`,
+      `blogRequiredIntroCopy`, and `blogRequiredFooterCopy`.
+- [ ] Add RED static tests proving 글쓰기 스타일 rows do not render the
+      `근거 보기` action. Keep `근거 보기` behavior outside this tab unchanged
+      unless a later CR asks to remove it elsewhere.
+- [ ] Add RED API tests proving the ruleset payload exposes, for each
+      writing-style field, a server-derived object with:
+      `fieldKey`, `currentValue`, `currentValueStatus`, `calculationLogic`,
+      `aiSuggestion.value`, `aiSuggestion.judgment`, `aiSuggestion.evidence`,
+      and `aiSuggestion.inputSignals`.
+- [ ] Define `currentValueStatus` values in the plan implementation as
+      `inferred`, `user_edited`, `placeholder`, or `empty`. Use `placeholder`
+      when the UI has guidance copy but no real inferred/saved value.
+- [ ] Add RED tests proving placeholder-only values render with an input-empty
+      style instead of looking like saved text. The DOM should expose a stable
+      class or data attribute such as `data-placeholder-value="true"` and
+      must not send that placeholder text as the user value when saving unless
+      the user edits it.
+- [ ] Inspect current writing-style value sources before implementing:
+      static HTML defaults, seeded `ruleset_fields`, analyzer field values,
+      healthcare defaults in `web/ruleset_editor.js`, and source-matrix rows.
+      Record the code-path summary in `docs/codex/HANDOFF.md`.
+- [ ] Add a server-side writer for writing-style derivation in
+      `rulesetService.ts`, for example `buildWritingStyleFieldInsights()`.
+      The function should use existing ruleset fields, source-matrix labels,
+      store category, selected Blog/Place evidence summaries, and healthcare
+      defaults to produce current-value logic plus AI-suggestion payloads.
+- [ ] Keep the first implementation deterministic and local to `poc-server`.
+      Do not call OpenAI/Naver from the browser, and do not introduce live
+      competitor/provider calls for these suggestions.
+- [ ] Update `analysis/analyzer.ts` seed/mock field values only where needed
+      so Blog purpose, sentence style, preferred length, hashtags, emoji
+      policy, SEO keywords, CTA, industry-common rules, and required intro/
+      footer copy have distinguishable current values and evidence signals.
+- [ ] If `openAIAnalysisProvider.ts` already emits or validates these fields,
+      update its prompt/schema comments to preserve the same field names and
+      evidence expectations. Do not require live-provider tests for this task.
+- [ ] Update `web/ruleset_editor.js` so the 글쓰기 스타일 right-side AI
+      suggestion panel renders from the API payload, not hardcoded browser
+      fixture copy. Show `현행유지` when the conservative judgment finds no
+      meaningful improvement, and `개선 제안` only when the API marks it.
+- [ ] Update `web/ruleset_editor.js` so every 글쓰기 스타일 editable field
+      receives the same save/reset affordance. The action row should omit
+      `근거 보기` for this tab while still using existing PATCH/reset APIs.
+- [ ] Update `web/ruleset_editor.js` so placeholder-value rows look like empty
+      input controls, retain helpful placeholder text for the user, and save
+      only real user-entered text.
+- [ ] Preserve existing writing-style healthcare defaults, but mark them as
+      real inferred defaults only when the store category is healthcare and
+      the value is meant to be applied to generation. Otherwise show guidance
+      as placeholder/empty style.
+- [ ] Run
+      `cd poc-server && npm test -- rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts`.
+- [ ] Run `cd poc-server && npm run typecheck`.
+- [ ] Run `cd poc-server && npm test`.
+- [ ] Run `cd poc-server && npm run demo:store-learning`.
+- [ ] Run `git diff --check`.
+- [ ] Smoke test `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_12841526`
+      on the 글쓰기 스타일 tab: every field has save/reset, no evidence
+      button, AI suggestion cards are API-backed, and placeholder rows look
+      empty rather than saved.

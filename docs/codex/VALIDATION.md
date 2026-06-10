@@ -1,5 +1,12 @@
 # Validation
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 14 Planned
+
+New writing-style CR has been added to
+`docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` as Task 14 after
+the latest Task 13 validation. Task 14 has not been implemented or validated
+yet.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 13 Commands
 
 Run from `poc-server/`:

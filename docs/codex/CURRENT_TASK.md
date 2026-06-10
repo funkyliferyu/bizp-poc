@@ -10,9 +10,10 @@ Sequential plan ledger control for Store Learning work.
 - `develop` is the intended integration branch.
 - `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
 - Milestone PRs #26-#34, #36, and #37 are merged to `develop`.
-- Milestone 12 CR follow-up is implemented and validated on
+- Milestone 12 CR follow-up is implemented and validated through Task 13 on
   `codex/collection-delta-plan`, including the additional ruleset store-info,
-  common-reference, industry-field, and writing-style UI CR items.
+  common-reference, industry-field, writing-style, image-style,
+  similar-comparison, parking, and our-store-analysis CR items.
 - Image-style and similar-comparison UI CRs are implemented and validated on
   the milestone 12 branch as Task 10 and Task 11.
 - PR #38 is open and ready for review from `codex/collection-delta-plan` to
@@ -23,6 +24,8 @@ Sequential plan ledger control for Store Learning work.
   Task 12. PR #38 has been updated with the follow-up.
 - The our-store-analysis CR is implemented and validated as milestone 12
   Task 13. PR #38 has been updated with the follow-up.
+- A new writing-style CR has been added as milestone 12 Task 14. PR #38 should
+  be held until Task 14 is implemented and validated.
 - Milestones are not fully complete until the work is merged to `develop` and
   develop validation is recorded.
 - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
@@ -77,15 +80,22 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Have an authorized reviewer/admin satisfy the PR #38 base branch policy
-   and merge it to `develop`.
-2. After the CR follow-up work merges to `develop`, run final validation:
+1. Execute Task 14 from
+   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` on
+   `codex/collection-delta-plan`.
+2. Re-run feature-branch validation after Task 14:
    - `cd poc-server && npm run typecheck`
    - `cd poc-server && npm test`
    - `cd poc-server && npm run demo:store-learning`
-3. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+3. Then have an authorized reviewer/admin satisfy the PR #38 base branch policy
+   and merge it to `develop`.
+4. After the CR follow-up work merges to `develop`, run final validation:
+   - `cd poc-server && npm run typecheck`
+   - `cd poc-server && npm test`
+   - `cd poc-server && npm run demo:store-learning`
+5. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
    validation result.
-4. Prepare the `develop` -> `main` promotion path only after validation passes
+6. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 Before editing files, confirm:
