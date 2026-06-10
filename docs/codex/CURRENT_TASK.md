@@ -21,6 +21,8 @@ Sequential plan ledger control for Store Learning work.
   policy; repository auto-merge is disabled.
 - The parking manual-input CR is implemented and validated as milestone 12
   Task 12. PR #38 has been updated with the follow-up.
+- A new our-store-analysis CR has been added as milestone 12 Task 13. PR #38
+  should be held until Task 13 is implemented and validated.
 - Milestones are not fully complete until the work is merged to `develop` and
   develop validation is recorded.
 - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
@@ -75,15 +77,22 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Have an authorized reviewer/admin satisfy the PR #38 base branch policy
-   and merge it to `develop`.
-2. After the CR follow-up work merges to `develop`, run final validation:
+1. Execute Task 13 from
+   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` on
+   `codex/collection-delta-plan`.
+2. Re-run feature-branch validation after Task 13:
    - `cd poc-server && npm run typecheck`
    - `cd poc-server && npm test`
    - `cd poc-server && npm run demo:store-learning`
-3. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+3. Then have an authorized reviewer/admin satisfy the PR #38 base branch policy
+   and merge it to `develop`.
+4. After the CR follow-up work merges to `develop`, run final validation:
+   - `cd poc-server && npm run typecheck`
+   - `cd poc-server && npm test`
+   - `cd poc-server && npm run demo:store-learning`
+5. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
    validation result.
-4. Prepare the `develop` -> `main` promotion path only after validation passes
+6. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 Before editing files, confirm:

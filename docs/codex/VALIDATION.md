@@ -1,5 +1,12 @@
 # Validation
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 13 Planned
+
+New our-store-analysis CR has been added to
+`docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` as Task 13 after
+the latest Task 12 validation. Task 13 has not been implemented or validated
+yet.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 12 Commands
 
 Run from `poc-server/`:

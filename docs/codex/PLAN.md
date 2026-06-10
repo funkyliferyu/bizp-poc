@@ -55,12 +55,15 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. PR #38 now includes milestone 12 Task 12 parking manual-input CTA work and
-   feature-branch validation is recorded on `codex/collection-delta-plan`.
-2. Merge PR #38 to `develop` once the base branch policy requirement is
+1. Execute milestone 12 Task 13 from
+   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` on
+   `codex/collection-delta-plan`.
+2. Re-run feature-branch validation after Task 13 is complete.
+3. Hold PR #38 until Task 13 is implemented and validated.
+4. Merge PR #38 to `develop` once the base branch policy requirement is
    satisfied by an authorized reviewer/admin.
-3. Run final develop validation after the CR follow-up work is merged.
-4. Prepare the `develop` -> `main` promotion path only after validation passes
+5. Run final develop validation after the CR follow-up work is merged.
+6. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 ## Milestone Ledger
@@ -78,7 +81,7 @@ Current next todo as of 2026-06-10:
 | 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
 | 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
 | 11 | 실등록 Store E2E 하드닝 | Merged to develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Awaiting post-CR final validation |
-| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Task 12 feature-branch validation recorded; authorized merge pending |
+| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | New Task 13 planned; execute before merge |
 | 13 | 최종 문서/검증 정리 | Not started | - | Run after CR follow-up merges |
 
 ## Sequential Checklist
@@ -176,6 +179,8 @@ Status:
 - [x] Implementation branch exists: `codex/collection-delta-plan`.
 - [x] Feature-branch validation is recorded in `docs/codex/VALIDATION.md`.
 - [x] Task 12 parking manual-input CTA is implemented and feature-branch
+      validated.
+- [ ] Task 13 our-store-analysis cleanup is implemented and feature-branch
       validated.
 - [ ] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
@@ -398,6 +403,36 @@ CR-Ruleset-ParkingManualInput-009:
 - Do not re-run Place collection or infer parking availability for missing
   parking. The state is explicitly manual input required.
 
+CR-Ruleset-OurStoreAnalysis-010:
+
+- Marketing strategy ruleset > 우리 매장 분석 needs a logic/evidence audit
+  before implementation. Confirm where each field value is generated and
+  whether the generation logic is clear enough for users and maintainers.
+- Current ownership to verify:
+  - `web/07_마케팅전략룰셋.html`: static tab markup and remaining brand
+    source-matrix block.
+  - `web/ruleset_editor.js`: hydration, aliases, healthcare labels,
+    source-note/action/evidence modal rendering.
+  - `poc-server/src/storeLearning/rulesets/rulesetService.ts`: ruleset payload,
+    store facts, current values, save/reset/evidence API.
+  - `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`: field
+    source definitions and current implementation/future suggestion metadata.
+  - `poc-server/src/storeLearning/analysis/analyzer.ts` and
+    `openAIAnalysisProvider.ts`: mock/live analyzer field output contract.
+  - `poc-server/src/storeLearning/analysis/analysisExecutionService.ts`:
+    persistence of analysis evidence and ruleset fields.
+- `근거 보기` must show field-specific evidence. The current model can show
+  repeated evidence when fields share the same collection item and no
+  field-specific reason is persisted.
+- Representative treatment subjects for healthcare stores must come from real
+  Place/store metadata such as hospital subjects, not bakery/menu mock data.
+- Rename visible `AI 원값` action/state copy to `초기화`.
+- Remove visible `AI 처리`, `AI 판단`, and `개선 제안` diagnostics from
+  우리 매장 분석.
+- Remove the remaining `자동 입력 기준` block from 우리 매장 분석.
+- Keep browser calls limited to `poc-server` APIs. Do not add browser-side
+  Naver/OpenAI/external provider calls.
+
 ### 13. 최종 문서/검증 정리
 
 - [ ] Confirm milestones 1-12 are merged to `develop`.
@@ -441,9 +476,10 @@ The current implementation stack should be integrated in this order:
 ```
 
 PRs #26-#34, #36, and #37 have been merged to `develop`. Milestone 12 has new
-CR follow-up work through Task 12 implemented and feature-branch validated on
-`codex/collection-delta-plan`; the next todo is authorized PR #38 merge to
-`develop` and final develop validation.
+our-store-analysis CR follow-up planned as Task 13 on
+`codex/collection-delta-plan`; the next todo is Task 13 execution,
+feature-branch validation, PR review/merge to `develop`, and final develop
+validation.
 
 ## Validation Commands
 

@@ -43,6 +43,11 @@ Included:
   `수동입력 필요` instead of `주차 정보 수집 중`, and provide a right-aligned
   `매장정보에서 입력하기` action that opens the current store in the store
   registration screen focused on parking input.
+- Audit and clean up the marketing strategy ruleset > 우리 매장 분석 tab:
+  verify the field value generation logic, make evidence field-specific,
+  replace mock representative treatment subjects with real Place/store data,
+  rename `AI 원값` to `초기화`, remove visible AI/source-diagnosis copy, and
+  remove the remaining brand automatic input criteria block.
 
 Excluded:
 
@@ -67,6 +72,11 @@ Excluded:
 - Do not re-run Place collection or infer parking availability when Place/store
   data is missing parking information. Missing parking is a manual input state
   in the ruleset UI.
+- Do not connect our-store-analysis reference examples to live competitor or
+  external benchmark providers in this follow-up. This task only audits the
+  existing ruleset field logic and fixes the current store-analysis tab.
+- Do not leave source-matrix diagnostics, future improvement copy, or
+  `AI 처리`/`AI 판단` labels visible in the 우리 매장 분석 tab after cleanup.
 - Do not modify `admin/`, `pc-web/`, `README_POC.md`, `web/event_operation_poc.html`, or old Event-to-Operation files.
 - Do not stage `.DS_Store`, runtime SQLite DBs, `.env`, screenshots, or generated artifacts.
 
@@ -500,3 +510,96 @@ Excluded:
       `soho_store_register.html?storeId=<currentStoreId>&focus=parking`
       focus behavior.
 - [x] Record validation and handoff notes.
+
+### Task 13: Our Store Analysis Logic, Evidence, And UI Cleanup
+
+**Files:**
+
+- Inspect/modify: `web/07_마케팅전략룰셋.html`
+- Inspect/modify: `web/ruleset_editor.js`
+- Inspect/modify: `poc-server/src/storeLearning/rulesets/rulesetService.ts`
+- Inspect/modify: `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`
+- Inspect/modify: `poc-server/src/storeLearning/analysis/analyzer.ts`
+- Inspect/modify if live analyzer contract changes:
+  `poc-server/src/storeLearning/analysis/openAIAnalysisProvider.ts`
+- Inspect/modify if evidence persistence changes:
+  `poc-server/src/storeLearning/analysis/analysisExecutionService.ts`
+- Modify: `poc-server/test/rulesetPage.test.ts`
+- Modify if API evidence/value contract changes:
+  `poc-server/test/rulesetApi.test.ts`
+- Modify if analyzer output contract changes:
+  `poc-server/test/analysisExecutionApi.test.ts`
+
+- [ ] Add a short code-path audit before changing behavior. Record in
+      `docs/codex/HANDOFF.md` that:
+      - `web/07_마케팅전략룰셋.html` owns the static 우리 매장 분석 markup,
+        visible labels, buttons, and remaining
+        `data-source-matrix-section="brand"` block.
+      - `web/ruleset_editor.js` owns API hydration, field aliases,
+        healthcare label switching, reset/evidence button rendering, source
+        badges, source notes, reference panels, and source matrix rendering.
+      - `poc-server/src/storeLearning/rulesets/rulesetService.ts` owns
+        `/strategy-ruleset` payloads, `storeFacts`, current source-matrix
+        values, field reset/save, and the field evidence API.
+      - `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts` owns
+        canonical ruleset field definitions, labels, input-source descriptions,
+        automation labels, and future-suggestion text.
+      - `poc-server/src/storeLearning/analysis/analyzer.ts` owns mock
+        deterministic field values and `rulesetFields[].evidenceItemIds`.
+      - `poc-server/src/storeLearning/analysis/openAIAnalysisProvider.ts` owns
+        the live analyzer prompt/structured output contract.
+      - `poc-server/src/storeLearning/analysis/analysisExecutionService.ts`
+        owns persistence of `analysis_evidence` and `ruleset_fields`.
+- [ ] Add RED tests proving 우리 매장 분석 has no visible
+      `data-source-matrix-section="brand"` block and no visible
+      `자동 입력 기준` copy.
+- [ ] Add RED tests proving 우리 매장 분석 no longer renders visible
+      `AI 처리`, `AI 판단`, or `개선 제안` source/diagnosis copy.
+- [ ] Add RED tests proving the field action button text is `초기화`, not
+      `AI 원값`, and the idle/reset state copy also uses `초기화` where visible.
+- [ ] Add RED tests proving healthcare stores render real representative
+      treatment subjects from Place/store metadata, such as
+      `metadata.naverPlaceParsed.hospitalInfo.subjects`, instead of bakery
+      mock menu copy like `커스텀 레터링 케이크`.
+- [ ] Add RED tests proving generic/non-healthcare stores still render
+      representative menu data from Place menu metadata or existing ruleset
+      fields, and do not show the healthcare `대표 진료과목` label.
+- [ ] Add RED API/evidence tests proving `근거 보기` can return field-specific
+      evidence summaries. The same collection item may support multiple fields,
+      but the modal copy must explain why that item supports the requested
+      field rather than showing the same generic summary for every field.
+- [ ] Inspect the current evidence model before changing it. Current behavior
+      links `ruleset_fields.evidence_item_ids_json` to collection item IDs and
+      shows `analysis_evidence.summary` by item; if the analyzer does not
+      persist field-specific evidence, multiple fields can show the same modal
+      copy. Prefer adding field-specific evidence through existing
+      `analysis_evidence.metadata.fieldKey` or equivalent JSON metadata before
+      adding a new table.
+- [ ] Update the analyzer output contract only as much as needed to preserve
+      field-specific evidence. If extending `AnalyzerOutputSchema`, keep
+      backward compatibility for existing mock/openai output where possible.
+- [ ] Update `analysisExecutionService.ts` so field-specific evidence is
+      persisted with provider/mode and field key metadata, without changing
+      browser-side provider boundaries.
+- [ ] Update `rulesetService.ts` so `buildRulesetFieldEvidence` prefers
+      evidence rows matching the requested field key and falls back to item
+      excerpts only when field-specific evidence is absent.
+- [ ] Update the representative offering resolver so healthcare categories
+      derive `representativeTreatmentSubjects` from real store/Place metadata
+      first, then ruleset fields, then a clear empty/manual-needed state. Do
+      not fall back to bakery mock menu strings for hospital/clinic stores.
+- [ ] Update `web/07_마케팅전략룰셋.html` and `web/ruleset_editor.js` to remove
+      the brand source matrix block from the visible 우리 매장 분석 tab.
+- [ ] Update `web/ruleset_editor.js` so source badges/notes and action states
+      in the 우리 매장 분석 tab use product-facing language only. Remove visible
+      technical diagnostics such as `AI 처리`, `AI 판단`, and `개선 제안`.
+- [ ] Update reset controls so button/state copy says `초기화`.
+- [ ] Keep `근거 보기` visible if the field has evidence, but ensure the modal
+      title/description uses Korean product copy and field-specific evidence.
+- [ ] Preserve browser API boundaries: no browser-side Naver, OpenAI,
+      competitor discovery, scraping, or external provider calls.
+- [ ] Run `cd poc-server && npm test -- rulesetPage.test.ts`.
+- [ ] If evidence/API contracts changed, run
+      `cd poc-server && npm test -- rulesetApi.test.ts analysisExecutionApi.test.ts`.
+- [ ] Run `cd poc-server && npm run typecheck`.
+- [ ] Run `git diff --check`.

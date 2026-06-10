@@ -10,6 +10,38 @@ Non-admin merge attempts are currently blocked by the `develop` base branch
 policy, and repository auto-merge is disabled. The PR has no reported comments
 or reviews and was reported as `MERGEABLE` before the latest Task 12 update.
 
+New CR added after Task 12: milestone 12 Task 13 should be implemented before
+PR #38 is merged. The marketing strategy ruleset > 우리 매장 분석 tab needs a
+logic/evidence audit, field-specific evidence, real healthcare representative
+treatment-subject values, `AI 원값` renamed to `초기화`, and removal of visible
+`AI 처리`/`AI 판단`/`개선 제안` diagnostics plus the remaining
+`자동 입력 기준` block.
+
+Initial code-path check for Task 13:
+
+- `web/07_마케팅전략룰셋.html` owns static 우리 매장 분석 markup, visible labels,
+  action buttons, reference buttons/panel markup, and the remaining
+  `data-source-matrix-section="brand"` block.
+- `web/ruleset_editor.js` owns API hydration, field aliases, healthcare
+  `대표 진료과목` label switching, source badges/notes, reset/evidence action
+  rendering, reference panel updates, and source matrix rendering.
+- `poc-server/src/storeLearning/rulesets/rulesetService.ts` owns the
+  `/strategy-ruleset` payload, `storeFacts`, source-matrix current values,
+  field save/reset, and field evidence API.
+- `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts` owns canonical
+  ruleset field definitions and source/automation/future-suggestion metadata.
+- `poc-server/src/storeLearning/analysis/analyzer.ts` owns mock deterministic
+  ruleset field values and `rulesetFields[].evidenceItemIds`.
+- `poc-server/src/storeLearning/analysis/openAIAnalysisProvider.ts` owns the
+  live analyzer prompt and structured output contract.
+- `poc-server/src/storeLearning/analysis/analysisExecutionService.ts` owns
+  persistence of `analysis_evidence` and `ruleset_fields`.
+
+Current evidence caveat: ruleset fields persist only `evidenceItemIds`, while
+`buildRulesetFieldEvidence` reads per-item `analysis_evidence.summary`. If two
+fields point at the same collection item and no field-specific reason is
+persisted, `근거 보기` can show the same summary for multiple fields.
+
 The branch now includes:
 
 - Collection delta tracking for new/duplicate/unchanged/changed content and
@@ -55,8 +87,9 @@ Latest feature-branch validation recorded:
 - In-app browser smoke passed on the store registration target:
   `focus=parking` loads the existing store and focuses `#f-parking-note`.
 
-Next step: have an authorized reviewer/admin merge PR #38 to `develop`, then
-run final develop validation.
+Next step: execute milestone 12 Task 13 on `codex/collection-delta-plan`, rerun
+feature-branch validation, then proceed with PR #38 merge to `develop` and
+develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
