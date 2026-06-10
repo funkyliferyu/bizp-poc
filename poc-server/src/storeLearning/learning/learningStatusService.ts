@@ -3,6 +3,15 @@ import type { CollectionItem } from '../../repositories/collection_items.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
+import { collectionItemIdentity } from '../collection/collectionItemIdentity.js';
+import {
+  placeMetadataForStatus,
+  presentBlogItem,
+  presentPlaceNews,
+  presentPlacePhotos,
+  presentPlaceProfile,
+  presentPlaceReview
+} from './learningStatusPresenters.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
 
@@ -28,10 +37,18 @@ function latestByUpdatedAt<T extends { updatedAt: string }>(records: T[]) {
 }
 
 function collectedItems(repos: Repositories, storeId: string) {
+  const seenKeys = new Set<string>();
   return repos.collectionItems
     .listByStoreId(storeId)
     .filter((item) => item.status === 'collected')
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .filter((item) => {
+      const key = collectionItemIdentity(item);
+      if (!key) return true;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    });
 }
 
 function itemSummary(item: CollectionItem) {
@@ -279,7 +296,7 @@ export function buildBlogLearningStatus(repos: Repositories, storeId: string) {
   const fallbackKeywords = splitCsv(fieldValue(fields, 'seoKeywords') ?? fieldValue(fields, 'contentKeywords'));
   const items = collectedItems(repos, storeId)
     .filter((item) => item.channel === 'blog')
-    .map((item) => itemSummary(item));
+    .map((item) => presentBlogItem(item));
 
   return {
     storeId,
@@ -297,10 +314,13 @@ export function buildBlogLearningStatus(repos: Repositories, storeId: string) {
 export function buildPlaceLearningStatus(repos: Repositories, storeId: string) {
   const status = buildLearningStatus(repos, storeId);
   if (!status) return null;
+  const store = repos.stores.findById(storeId);
+  if (!store) return null;
   const { fields, snapshot, analysisResult } = learningContext(repos, storeId);
   const items = collectedItems(repos, storeId).filter((item) => item.channel === 'place');
   const profile = items.find((item) => item.sourceType === 'profile') ?? null;
   const reviews = items.filter((item) => item.sourceType === 'review');
+  const profileMetadata = placeMetadataForStatus(store, profile);
   const strengths = asStringArray(snapshot.keyStrengths);
   const legacyStrengths = asStringArray(analysisResult.strengths);
 
@@ -311,8 +331,10 @@ export function buildPlaceLearningStatus(repos: Repositories, storeId: string) {
     selectedCount: status.channels.place.selectedCount,
     lastAnalyzedAt: status.lastAnalyzedAt,
     rulesetStatus: status.ruleset?.status ?? null,
-    profile: profile ? itemSummary(profile) : null,
-    reviews: reviews.map((item) => itemSummary(item)),
+    profile: presentPlaceProfile(store, profile),
+    reviews: reviews.map((item) => presentPlaceReview(item)),
+    photos: presentPlacePhotos(store, items),
+    newsItems: presentPlaceNews(profileMetadata),
     reviewKeywords: strengths.length > 0 ? strengths : legacyStrengths.length > 0 ? legacyStrengths : splitCsv(fieldValue(fields, 'keyStrengths'))
   };
 }

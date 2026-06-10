@@ -295,6 +295,111 @@ describe('Store registration API', () => {
     }
   });
 
+  it('persists external channel links detected from rendered Naver Place imports', async () => {
+    const providerEnv = {
+      NAVER_PLACE_PROVIDER: 'rendered',
+      NAVER_OWNER_AUTHORIZED: 'true',
+      NAVER_PLACE_RENDERER_ENDPOINT: ''
+    };
+    const renderedPlaceUrl = 'https://m.place.naver.com/place/1020864025/home';
+    const renderedHtml = `<html><body><script>window.__APOLLO_STATE__ = ${JSON.stringify({
+      'PlaceDetailBase:1020864025': {
+        __typename: 'PlaceDetailBase',
+        id: '1020864025',
+        name: '테라스의원',
+        category: '피부과',
+        roadAddress: '서울 종로구 송월길 99 경희궁자이2단지 205동상가 2층',
+        virtualPhone: '02-6105-0010'
+      },
+      ROOT_QUERY: {
+        __typename: 'Query',
+        'placeDetail({"input":{"deviceType":"mobile","id":"1020864025","isNx":false}})': {
+          __typename: 'PlaceDetail',
+          base: { __ref: 'PlaceDetailBase:1020864025' },
+          homepages: {
+            __typename: 'Homepage',
+            repr: {
+              __typename: 'HomepageRepr',
+              url: 'https://terraceclinic.com',
+              type: '웹사이트'
+            },
+            items: [
+              { __typename: 'HomepageItem', url: 'https://blog.naver.com/terraceclinic', type: '블로그' },
+              { __typename: 'HomepageItem', url: 'https://www.youtube.com/@terraceclinic', type: '유튜브' },
+              { __typename: 'HomepageItem', url: 'https://www.instagram.com/terraceclinic', type: '인스타그램' },
+              { __typename: 'HomepageItem', url: 'https://www.tiktok.com/@terraceclinic', type: '틱톡' }
+            ]
+          },
+          relatedLinks: [
+            {
+              __typename: 'RelatedLink',
+              name: '당근',
+              url: 'https://www.daangn.com/kr/local-profile/terraceclinic'
+            }
+          ]
+        }
+      }
+    })};</script></body></html>`;
+    const app = express();
+    app.use(express.json());
+    app.get('/fake-renderer', (_req, res) => {
+      res.json({
+        finalUrl: renderedPlaceUrl,
+        html: renderedHtml,
+        bodyText: null
+      });
+    });
+    app.use('/api/stores', createStoreRoutes({ connection, env: providerEnv }));
+    const renderedServer = app.listen(0);
+    const renderedAddress = renderedServer.address() as AddressInfo;
+    const renderedBaseUrl = `http://127.0.0.1:${renderedAddress.port}`;
+    providerEnv.NAVER_PLACE_RENDERER_ENDPOINT = `${renderedBaseUrl}/fake-renderer`;
+
+    try {
+      const response = await fetch(`${renderedBaseUrl}/api/stores/import-place`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ naverPlaceUrl: renderedPlaceUrl })
+      });
+      const body = await readJson(response);
+      const expectedLinks = [
+        { channel: 'blog', label: '블로그', url: 'https://blog.naver.com/terraceclinic' },
+        { channel: 'instagram', label: '인스타그램', url: 'https://www.instagram.com/terraceclinic' },
+        { channel: 'youtube', label: '유튜브', url: 'https://www.youtube.com/@terraceclinic' },
+        { channel: 'tiktok', label: '틱톡', url: 'https://www.tiktok.com/@terraceclinic' },
+        { channel: 'daangn', label: '당근', url: 'https://www.daangn.com/kr/local-profile/terraceclinic' }
+      ];
+
+      expect(response.status).toBe(200);
+      expect(body.store.metadata.externalChannelLinks).toEqual(expect.arrayContaining(expectedLinks));
+      expect(body.store.metadata.naverPlaceParsed.externalChannelLinks).toEqual(expect.arrayContaining(expectedLinks));
+
+      const repos = createStoreLearningRepositories(connection);
+      const channelsByName = new Map(repos.storeChannels.listByStoreId('store_1020864025').map((channel) => [channel.channel, channel]));
+      expect(channelsByName.get('blog')).toEqual(
+        expect.objectContaining({
+          sourceUrl: 'https://blog.naver.com/terraceclinic',
+          status: 'connected'
+        })
+      );
+      for (const channelName of ['instagram', 'youtube', 'tiktok', 'daangn']) {
+        expect(channelsByName.get(channelName)).toEqual(
+          expect.objectContaining({
+            sourceUrl: expectedLinks.find((link) => link.channel === channelName)?.url,
+            status: 'connected',
+            providerMode: 'provider_ready',
+            settings: expect.objectContaining({
+              providerScope: 'not_implemented',
+              detectedFrom: 'naver_place'
+            })
+          })
+        );
+      }
+    } finally {
+      await new Promise<void>((resolve) => renderedServer.close(() => resolve()));
+    }
+  });
+
   it('saves, reads, and patches a store through SQLite-backed repositories', async () => {
     const createResponse = await fetch(`${baseUrl}/api/stores`, {
       method: 'POST',

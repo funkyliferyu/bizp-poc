@@ -71,7 +71,9 @@ describe('Training settings API', () => {
       naverBlog: { enabled: true, blogPostLimit: 75, sourceUrl: 'https://blog.naver.com/demo-cake' },
       naverPlace: { enabled: true, placeReviewLimit: 42, sourceUrl: 'https://naver.me/demo-cake' },
       instagram: { enabled: false, instagramPostLimit: 0, sourceUrl: null },
-      daangn: { enabled: true, daangnPostLimit: 10, sourceUrl: 'https://www.daangn.com/kr/local-profile/demo' }
+      daangn: { enabled: true, daangnPostLimit: 10, sourceUrl: 'https://www.daangn.com/kr/local-profile/demo' },
+      youtube: { enabled: false, sourceUrl: null },
+      tiktok: { enabled: false, sourceUrl: null }
     });
 
     const repos = createStoreLearningRepositories(connection);
@@ -128,7 +130,9 @@ describe('Training settings API', () => {
         naverBlog: 'https://blog.naver.com/demo-cake',
         naverPlace: 'https://naver.me/demo-cake',
         instagram: 'https://instagram.com/demo-cake',
-        daangn: 'https://www.daangn.com/kr/local-profile/demo'
+        daangn: 'https://www.daangn.com/kr/local-profile/demo',
+        youtube: null,
+        tiktok: null
       },
       channelPlan: {
         naverBlog: { enabled: true, limit: 30 },
@@ -169,9 +173,85 @@ describe('Training settings API', () => {
       naverBlog: 'https://blog.naver.com/demo-cake',
       naverPlace: 'https://naver.me/demo-cake',
       instagram: 'https://instagram.com/demo-cake',
-      daangn: null
+      daangn: null,
+      youtube: null,
+      tiktok: null
     });
     expect(run.collectionRun.summary.channelPlan.instagram).toEqual({ enabled: false, limit: 0 });
     expect(run.collectionRun.summary.channelPlan.daangn).toEqual({ enabled: false, limit: 0 });
+  });
+
+  it('preserves future-provider channel URLs and records them in collection run summaries without enabling collection', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.storeChannels.upsert({
+      id: 'channel_store_demo_cake_youtube',
+      storeId: 'store_demo_cake',
+      channel: 'youtube',
+      sourceUrl: 'https://www.youtube.com/@demo-cake',
+      status: 'connected',
+      providerMode: 'provider_ready',
+      settings: {
+        providerScope: 'not_implemented',
+        detectedFrom: 'naver_place'
+      }
+    });
+    repos.storeChannels.upsert({
+      id: 'channel_store_demo_cake_tiktok',
+      storeId: 'store_demo_cake',
+      channel: 'tiktok',
+      sourceUrl: 'https://www.tiktok.com/@demo-cake',
+      status: 'connected',
+      providerMode: 'provider_ready',
+      settings: {
+        providerScope: 'not_implemented',
+        detectedFrom: 'naver_place'
+      }
+    });
+
+    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channels: {
+          naverBlog: { enabled: true, blogPostLimit: 10, sourceUrl: 'https://blog.naver.com/demo-cake' },
+          naverPlace: { enabled: true, placeReviewLimit: 10, sourceUrl: 'https://naver.me/demo-cake' },
+          instagram: { enabled: false, instagramPostLimit: 0, sourceUrl: null },
+          daangn: { enabled: false, daangnPostLimit: 0, sourceUrl: null }
+        }
+      })
+    });
+
+    const savedChannels = repos.storeChannels.listByStoreId('store_demo_cake');
+    expect(savedChannels).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          channel: 'youtube',
+          sourceUrl: 'https://www.youtube.com/@demo-cake',
+          providerMode: 'provider_ready'
+        }),
+        expect.objectContaining({
+          channel: 'tiktok',
+          sourceUrl: 'https://www.tiktok.com/@demo-cake',
+          providerMode: 'provider_ready'
+        })
+      ])
+    );
+
+    const runResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const run = await readJson(runResponse);
+
+    expect(runResponse.status).toBe(200);
+    expect(run.collectionRun.summary.sourceUrls).toEqual(
+      expect.objectContaining({
+        youtube: 'https://www.youtube.com/@demo-cake',
+        tiktok: 'https://www.tiktok.com/@demo-cake'
+      })
+    );
+    expect(run.collectionRun.summary.channelPlan).not.toHaveProperty('youtube');
+    expect(run.collectionRun.summary.channelPlan).not.toHaveProperty('tiktok');
   });
 });

@@ -912,6 +912,11 @@ Before editing files in a new session, confirm the current branch, `git status -
 
 ## Next Suggested Task
 
+Milestone 11 real-store E2E hardening is implemented on
+`codex/real-store-e2e-hardening` and validated on the feature branch. The next
+handoff step is to open/review the milestone 11 PR against `develop`, merge it,
+and run develop validation before any `main` promotion.
+
 Before any production-like pilot, decide approved fallback providers and operating policies for:
 
 - full Naver Blog body access
@@ -919,3 +924,121 @@ Before any production-like pilot, decide approved fallback providers and operati
 - image generation
 - Naver Blog publishing
 - provider failure/error UX in the existing static pages
+
+## Milestone 11 Real Store E2E Handoff
+
+Branch:
+
+- `codex/real-store-e2e-hardening`
+
+Scope completed:
+
+- Real Naver Place registration flow was hardened from Place import through
+  learning settings, collection progress, content selection, analysis execution,
+  learning status, relearn, and ruleset entry.
+- Naver Place external links are normalized and persisted for Blog, Instagram,
+  Daangn, YouTube, and TikTok when present.
+- Learning settings shows detected provider-ready future channels as `준비중`
+  instead of plain `미등록`.
+- Collection progress now shows requested counts immediately, uses a dashboard
+  summary, and displays collected-content review instead of analysis selection.
+- Analysis selection remains on the next screen, and `분석 실행` shows staged
+  progress while the server-side analysis request is running.
+- Learning status Blog and Place tabs render persisted collected data. Blog
+  source links open in a new tab, missing view counts render as `-`, Place
+  hospital data shows `진료과목`, missing news is hidden, and reviews/photos have
+  expand/paging controls.
+- Relearn creates a new collection run and carries `storeId` plus `runId`.
+- Ruleset entry handles a new store with no generated ruleset and still previews
+  direct Place facts.
+
+Feature-branch validation:
+
+- Focused milestone tests passed: 13 files, 92 tests.
+- `npm run typecheck` passed.
+- Full `npm test` passed: 35 files passed, 3 live-provider files skipped by
+  design; 180 tests passed, 6 skipped.
+- `npm run demo:store-learning` passed and seeded `store_demo_cake` with
+  channels, collection items, pending approval blog post, and SEO score output.
+
+Manual browser smoke:
+
+- Local runtime used `PORT=5178 STORE_LEARNING_MOCK_MODE=false
+  NAVER_PLACE_PROVIDER=rendered NAVER_BLOG_PROVIDER=mock npm run dev` because
+  port 5177 was already occupied.
+- Imported real Naver Place URL
+  `https://m.place.naver.com/place/1020864025/home` for `테라스의원`.
+- Store registration populated real category, name, phone, address, business
+  hours, parking, introduction, facilities, review metrics, keywords, treatment
+  info, and external homepage/blog/YouTube/Instagram links.
+- Saving registration navigated to
+  `03_AI학습_온보딩.html?storeId=store_1020864025`.
+- Learning settings showed Blog and Place URLs, Blog limit `최근 10개`, Place
+  limit `최근 50개`, Instagram and YouTube `준비중`, and Daangn/TikTok
+  `미등록`.
+- Collection progress navigated with `storeId` and `runId`, showed Blog
+  `10 / 10`, Place `11 / 51`, collected-content review copy, 10 visible rows,
+  `펼치기`, `이전`, and `다음`.
+- Content selection loaded the actual analysis-selection screen and selected 21
+  collected items.
+- Analysis run `analysis_run_store_1020864025_1781065381395` completed. The
+  configured OpenAI analysis request took about 2 minutes 42 seconds in this
+  local environment.
+- Learning status showed completed learning, Blog source-open links, Blog view
+  counts as `-` where the mock Blog provider has no real view count, Place facts
+  and hospital sections from collected data, hidden empty news, and review
+  pagination. Review expand showed 20 rows and paging advanced to
+  `21-40 / 130개 표시`.
+- `지금 재학습` created
+  `collection_run_store_1020864025_1781065591851` and navigated back to
+  `04_AI학습_수집중.html` with both `storeId` and `runId`.
+- A DB-only smoke store `store_smoke_no_ruleset` confirmed the ruleset empty
+  state and Place facts preview.
+
+Notes:
+
+- Runtime SQLite data under `poc-server/data/` accumulated smoke rows and is
+  ignored, not part of the change.
+- `.DS_Store` remained a local out-of-scope modification and was not staged or
+  edited for this task.
+- Live OpenAI/Naver credentials were not written to HTML, browser JavaScript,
+  docs, fixtures, query strings, screenshots, or localStorage.
+- Benchmark and preview remain mock/provider-ready as scoped.
+
+Follow-up fix after manual Place review check:
+
+- `https://naver.me/xzH6Cf4S` initially showed Place `8 / 51` because the
+  rendered review snapshot yielded 7 text reviews plus profile, while the
+  GraphQL fallback silently returned no rows.
+- Root causes:
+  - fallback query requested unsupported Naver GraphQL media fields
+    (`imageUrl`, `url`, `origin`, `thumbnailUrl`);
+  - fallback started from the Apollo-state cursor instead of `item: "0"`;
+  - bodyless keyword/photo reviews were ignored.
+- The provider now uses supported media fields, starts fallback from
+  `item: "0"`, requests up to 50 rows, preserves keyword/photo-only reviews
+  with useful fallback body text, and does not create failed placeholders when
+  Naver reports fewer available reviews than requested.
+- The collection progress screen now explicitly tells users:
+  - while collecting, they can wait for automatic updates or leave and return
+    because server-side collection continues;
+  - after `일부 수집 완료`, collection is terminal and waiting longer will not
+    collect more items.
+
+Follow-up tweak for source-exhausted collection counts:
+
+- Rendered Blog collection no longer creates failed placeholders for requested
+  posts that do not exist in the Blog list/RSS source.
+- Collection summaries now expose `availableCounts` for Blog posts and Place
+  reviews when providers can determine the available total.
+- Collection progress uses those available totals as the dashboard denominator,
+  so a Blog with 5 posts requested as 50 displays as fully collected rather than
+  partial due only to the configured limit.
+- The top guidance for this case is now
+  `가져올 수 있는 모든 항목이 수집되었습니다.`
+
+Deferred:
+
+- RAG document generation and AI learning collection still have separate review
+  collection paths. Add a shared persisted Place review cache later so either
+  flow can reuse already collected reviews and fetch only the deficit.

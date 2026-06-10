@@ -6,6 +6,7 @@ import { migrateDatabase } from '../src/db/migrate.js';
 import { createCollectionRunRoutes } from '../src/storeLearning/routes/collectionRuns.js';
 import { createStoreRoutes } from '../src/storeLearning/routes/stores.js';
 import { seedDemoStore } from '../src/seedStoreLearning.js';
+import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 
 async function readJson(response: Response) {
   const text = await response.text();
@@ -104,6 +105,93 @@ describe('Collection progress API', () => {
     expect(items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'post')).toHaveLength(2);
     expect(items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'profile')).toHaveLength(1);
     expect(items.collectionItems.filter((item: { sourceType: string }) => item.sourceType === 'review')).toHaveLength(3);
+  });
+
+  it('skips Blog items already collected for the same store on repeated runs', async () => {
+    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channels: {
+          naverBlog: { enabled: true, blogPostLimit: 2 },
+          naverPlace: { enabled: false, placeReviewLimit: 0 },
+          instagram: { enabled: false, instagramPostLimit: 0 }
+        }
+      })
+    });
+
+    const firstCreateResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const firstCreated = await readJson(firstCreateResponse);
+    await fetch(`${baseUrl}/api/collection-runs/${firstCreated.collectionRunId}/start`, { method: 'POST' });
+    await waitForCompleted(baseUrl, firstCreated.collectionRunId);
+
+    const secondCreateResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const secondCreated = await readJson(secondCreateResponse);
+    await fetch(`${baseUrl}/api/collection-runs/${secondCreated.collectionRunId}/start`, { method: 'POST' });
+    const secondRun = await waitForCompleted(baseUrl, secondCreated.collectionRunId);
+
+    const secondItemsResponse = await fetch(`${baseUrl}/api/collection-runs/${secondCreated.collectionRunId}/items`);
+    const secondItems = await readJson(secondItemsResponse);
+    const repos = createStoreLearningRepositories(connection);
+    const mockBlogUrls = repos.collectionItems
+      .listByStoreId('store_demo_cake')
+      .filter((item) => item.channel === 'blog' && item.sourceType === 'post')
+      .map((item) => item.sourceUrl)
+      .filter((url): url is string => Boolean(url?.startsWith('https://blog.naver.com/mock-store/')));
+
+    expect(secondRun.summary.totalItems).toBe(0);
+    expect(secondItems.collectionItems).toEqual([]);
+    expect(mockBlogUrls).toHaveLength(2);
+    expect(new Set(mockBlogUrls).size).toBe(2);
+  });
+
+  it('keeps requested limits available before provider items are created', async () => {
+    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channels: {
+          naverBlog: { enabled: true, blogPostLimit: 10 },
+          naverPlace: { enabled: true, placeReviewLimit: 50 },
+          instagram: { enabled: false, instagramPostLimit: 0 }
+        }
+      })
+    });
+
+    const createRunResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const created = await readJson(createRunResponse);
+
+    expect(createRunResponse.status).toBe(200);
+    expect(created.collectionRun.status).toBe('queued');
+    expect(created.collectionRun.summary.requestedLimits).toEqual(
+      expect.objectContaining({
+        blogPostLimit: 10,
+        placeReviewLimit: 50
+      })
+    );
+    expect(created.collectionRun.summary.channelPlan).toEqual(
+      expect.objectContaining({
+        naverBlog: { enabled: true, limit: 10 },
+        naverPlace: { enabled: true, limit: 50 }
+      })
+    );
+
+    const itemsResponse = await fetch(`${baseUrl}/api/collection-runs/${created.collectionRunId}/items`);
+    const items = await readJson(itemsResponse);
+    expect(items.collectionItems).toEqual([]);
+    expect(items.collectionRunId).toBe(created.collectionRunId);
   });
 
   it('persists owner-authorized source metadata on collection runs and items', async () => {

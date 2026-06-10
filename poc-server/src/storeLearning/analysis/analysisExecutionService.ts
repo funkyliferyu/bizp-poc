@@ -4,6 +4,17 @@ import type { createStoreLearningRepositories } from '../../repositories/storeLe
 import { createMockAnalysisProvider, type AnalysisProvider, validateAnalyzerOutput } from './analyzer.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
+type AnalysisProgressState = 'waiting' | 'running' | 'done' | 'failed';
+type AnalysisProgressStep =
+  | 'preparing'
+  | 'analyzing'
+  | 'validating'
+  | 'evidence'
+  | 'snapshot'
+  | 'ruleset'
+  | 'ruleset_fields'
+  | 'completed'
+  | 'failed';
 
 function nowIso() {
   return new Date().toISOString();
@@ -16,6 +27,71 @@ function asRecord(value: JsonValue | unknown): Record<string, unknown> {
 
 function asStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function asString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+const progressLabels: Record<AnalysisProgressStep, string> = {
+  preparing: '분석 준비',
+  analyzing: 'AI 분석',
+  validating: '결과 검증',
+  evidence: '근거 저장',
+  snapshot: '학습 스냅샷 저장',
+  ruleset: '룰셋 생성',
+  ruleset_fields: '룰셋 필드 저장',
+  completed: '분석 완료',
+  failed: '분석 실패'
+};
+
+const progressMessages: Record<AnalysisProgressStep, string> = {
+  preparing: '선택한 콘텐츠와 매장 정보를 분석 입력으로 정리하고 있습니다.',
+  analyzing: 'AI가 블로그, 플레이스, 리뷰 근거를 분석하고 있습니다. 이 단계가 가장 오래 걸릴 수 있습니다.',
+  validating: 'AI 결과가 필수 형식과 근거 연결 조건을 만족하는지 검증하고 있습니다.',
+  evidence: '분석에 사용된 콘텐츠 근거를 저장하고 있습니다.',
+  snapshot: '학습 현황에서 사용할 매장 학습 스냅샷을 저장하고 있습니다.',
+  ruleset: '마케팅 전략 룰셋 초안을 생성하고 있습니다.',
+  ruleset_fields: '화면에서 편집할 수 있는 룰셋 항목을 저장하고 있습니다.',
+  completed: '분석과 룰셋 생성이 완료되었습니다. 학습 현황 화면으로 이동합니다.',
+  failed: '분석 실행 중 문제가 발생했습니다.'
+};
+
+function progressTimeline(value: unknown) {
+  const progress = asRecord(value);
+  const timeline = progress.timeline;
+  return Array.isArray(timeline) ? timeline.filter((item) => typeof item === 'object' && item !== null) : [];
+}
+
+function updateAnalysisProgress(
+  repos: Repositories,
+  analysisRunId: string,
+  step: AnalysisProgressStep,
+  state: AnalysisProgressState,
+  message = progressMessages[step]
+) {
+  const run = repos.analysisRuns.findById(analysisRunId);
+  if (!run) return null;
+  const result = asRecord(run.result);
+  const previousProgress = asRecord(result.analysisProgress);
+  const now = nowIso();
+  const entry = {
+    step,
+    label: progressLabels[step],
+    state,
+    message,
+    updatedAt: now
+  };
+  return repos.analysisRuns.update(analysisRunId, {
+    result: {
+      ...result,
+      analysisProgress: {
+        ...entry,
+        startedAt: asString(previousProgress.startedAt) ?? run.startedAt ?? now,
+        timeline: [...progressTimeline(previousProgress), entry]
+      }
+    }
+  });
 }
 
 function sanitizeIdPart(value: string) {
@@ -145,10 +221,14 @@ export async function startAnalysisRun(
     startedAt,
     error: null
   });
+  updateAnalysisProgress(repos, analysisRun.id, 'preparing', 'running');
 
   try {
+    updateAnalysisProgress(repos, analysisRun.id, 'analyzing', 'running');
     const output = validateAnalyzerOutput(await provider.analyze({ store, selectedItems }));
+    updateAnalysisProgress(repos, analysisRun.id, 'validating', 'running');
     validateAnalyzerReferences(output, selectedItems);
+    updateAnalysisProgress(repos, analysisRun.id, 'evidence', 'running');
     const evidenceRows = output.evidence.map((evidence, index) =>
       repos.analysisEvidence.upsert({
         id: evidenceId(analysisRun.id, index),
@@ -163,6 +243,7 @@ export async function startAnalysisRun(
         }
       })
     );
+    updateAnalysisProgress(repos, analysisRun.id, 'snapshot', 'running');
     const snapshot = repos.learningSnapshots.upsert({
       id: snapshotId(analysisRun.id),
       storeId: analysisRun.storeId,
@@ -183,6 +264,7 @@ export async function startAnalysisRun(
         mode: provider.mode
       }
     });
+    updateAnalysisProgress(repos, analysisRun.id, 'ruleset', 'running');
     const version = nextRulesetVersion(repos, analysisRun.storeId);
     const ruleset = repos.marketingRulesets.create({
       id: rulesetId(analysisRun.id, version),
@@ -202,6 +284,7 @@ export async function startAnalysisRun(
         negativeExpressions: output.negativeExpressions
       }
     });
+    updateAnalysisProgress(repos, analysisRun.id, 'ruleset_fields', 'running');
     const rulesetFields = output.rulesetFields.map((field) =>
       repos.rulesetFields.upsert({
         id: rulesetFieldId(ruleset.id, field.fieldKey),
@@ -217,12 +300,15 @@ export async function startAnalysisRun(
         confidence: field.confidence
       })
     );
+    updateAnalysisProgress(repos, analysisRun.id, 'completed', 'done');
     const completedAt = nowIso();
+    const latestRun = repos.analysisRuns.findById(analysisRun.id);
+    const latestResult = asRecord(latestRun?.result);
     repos.analysisRuns.update(analysisRun.id, {
       status: 'completed',
       completedAt,
       result: {
-        ...asRecord(analysisRun.result),
+        ...latestResult,
         analyzerMode: provider.mode,
         analyzerProvider: provider.name,
         output,
@@ -236,6 +322,13 @@ export async function startAnalysisRun(
 
     return getAnalysisArtifacts(repos, analysisRun.id);
   } catch (error) {
+    updateAnalysisProgress(
+      repos,
+      analysisRun.id,
+      'failed',
+      'failed',
+      error instanceof Error ? error.message : progressMessages.failed
+    );
     repos.analysisRuns.update(analysisRun.id, {
       status: 'failed',
       completedAt: nowIso(),

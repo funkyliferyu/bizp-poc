@@ -32,4 +32,54 @@ describe('collection progress static page API wiring', () => {
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
   });
+
+  it('renders requested-limit dashboard hooks without static mock review rows', () => {
+    const html = readFileSync(path.join(webRoot, '04_AI학습_수집중.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'collection_progress.js'), 'utf8');
+
+    expect(html).toContain('id="collection-summary-blog"');
+    expect(html).toContain('id="collection-summary-place"');
+    expect(html).toContain('id="collection-summary-instagram"');
+    expect(html).toContain('id="collection-summary-overall"');
+    expect(html).toContain('수집완료 콘텐츠 내역');
+    expect(html).toContain('수집 완료된 콘텐츠입니다. 충분한 레퍼런스 콘텐츠가 확보되었는지 확인하세요.');
+    expect(html).toContain('id="collection-review-expand"');
+    expect(html).toContain('id="collection-review-prev"');
+    expect(html).toContain('id="collection-review-next"');
+    expect(html).not.toContain('수집 중 (23 / 50)');
+    expect(html).not.toContain('AI 작성 의심 콘텐츠 안내');
+    expect(html).not.toContain('class="check-cell"');
+    expect(html).not.toContain('fake-check');
+    expect(html).not.toContain('성남 케이크 맛집 :: 분당 베이커리 솔직 후기');
+
+    expect(js).toContain('function requestedTargetForChannel');
+    expect(js).toContain('REVIEW_COLLAPSED_LIMIT = 10');
+    expect(js).toContain('REVIEW_PAGE_SIZE = 50');
+    expect(js).toContain("field('collection-review-expand')");
+    expect(js).toContain("field('collection-review-prev')");
+    expect(js).toContain("field('collection-review-next')");
+  });
+
+  it('explains whether the user should wait or can leave on collection progress states', () => {
+    const html = readFileSync(path.join(webRoot, '04_AI학습_수집중.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'collection_progress.js'), 'utf8');
+
+    expect(html).toContain('id="collection-progress-guidance"');
+    expect(js).toContain('이 화면에서 기다리면 진행 상황이 자동으로 갱신됩니다.');
+    expect(js).toContain('페이지를 벗어나도 백그라운드에서 수집은 계속 진행됩니다.');
+    expect(js).toContain('현재 수집은 종료되었습니다. 이 화면에서 더 기다려도 추가 수집은 진행되지 않습니다.');
+    expect(js).toContain('가져올 수 있는 모든 항목이 수집되었습니다.');
+  });
+
+  it('treats source-exhausted Blog and Place collections as fully collected in the dashboard', () => {
+    const js = readFileSync(path.join(webRoot, 'collection_progress.js'), 'utf8');
+
+    expect(js).toContain('function availableTargetForChannel');
+    expect(js).toContain('function displayTargetForChannel');
+    expect(js).toContain('function isAllAvailableCollected');
+    expect(js).toContain('전체 블로그 수집 완료');
+    expect(js).toContain('전체 리뷰 수집 완료');
+    expect(js).toContain('가져올 수 있는 모든 항목이 수집되었습니다.');
+    expect(js).not.toContain('<strong>일부 항목만 수집되었습니다.</strong>');
+  });
 });

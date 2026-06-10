@@ -79,4 +79,14 @@ describe('marketing ruleset static page API wiring', () => {
     expect(storeSection).not.toContain('AI 수집');
     expect(storeSection).not.toContain('AI 분석');
   });
+
+  it('shows clear guidance when a newly imported store has no generated ruleset yet', () => {
+    const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
+
+    expect(js).toContain('function renderEmptyRulesetGuidance');
+    expect(js).toContain('수집과 분석을 실행하면 AI가 생성한 마케팅 전략 룰셋을 확인할 수 있습니다.');
+    expect(js).toContain('Place에서 가져온 매장 기본 정보는 아래에서 먼저 확인할 수 있습니다.');
+    expect(js).toContain('payload.ruleset');
+    expect(js).toContain('strategy-ruleset');
+  });
 });

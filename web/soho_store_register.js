@@ -464,6 +464,28 @@
     setHtml(id, `<span class="metadata-value">${escapeHtml(text)}</span>`);
   }
 
+  const EXTERNAL_CHANNEL_LABELS = {
+    blog: '블로그',
+    instagram: '인스타그램',
+    daangn: '당근',
+    youtube: '유튜브',
+    tiktok: '틱톡'
+  };
+
+  function channelLinkLabel(record, fallbackType) {
+    const channel = cleanText(record.channel).toLowerCase();
+    return (
+      cleanText(record.type) ||
+      cleanText(record.label) ||
+      cleanText(record.name) ||
+      cleanText(record.title) ||
+      cleanText(record.channelName) ||
+      EXTERNAL_CHANNEL_LABELS[channel] ||
+      fallbackType ||
+      '외부 링크'
+    );
+  }
+
   function normalizeLinks(parsedPlace) {
     const links = [];
     const addLink = (item, fallbackType) => {
@@ -474,19 +496,26 @@
       }
       if (typeof item === 'object') {
         const record = asRecord(item);
-        const url = cleanText(record.url || record.href || record.link);
-        if (url) links.push({ type: cleanText(record.type || record.label || record.name) || fallbackType || '외부 링크', url });
+        const url = cleanText(record.url || record.landingUrl || record.href || record.link || record.sourceUrl);
+        if (url) links.push({ type: channelLinkLabel(record, fallbackType), url });
       }
     };
 
-    asArray(parsedPlace.homepageLinks || parsedPlace.homepages || parsedPlace.externalLinks).forEach((item) =>
-      addLink(item, parsedPlace.homepageType || '외부 링크')
-    );
-    asArray(parsedPlace.homepageUrl).forEach((url) => addLink(url, parsedPlace.homepageType || '외부 링크'));
+    [
+      [parsedPlace.homepageLinks, parsedPlace.homepageType || '홈페이지'],
+      [parsedPlace.homepages, parsedPlace.homepageType || '홈페이지'],
+      [parsedPlace.externalLinks, '외부 링크'],
+      [parsedPlace.externalChannelLinks, '외부채널'],
+      [asRecord(parsedPlace.naverPlaceParsed).externalChannelLinks, '외부채널']
+    ].forEach(([values, fallbackType]) => {
+      asArray(values).forEach((item) => addLink(item, fallbackType));
+    });
+    asArray(parsedPlace.homepageUrl).forEach((url) => addLink(url, parsedPlace.homepageType || '홈페이지'));
+    asArray(parsedPlace.homepage).forEach((url) => addLink(url, parsedPlace.homepageType || '홈페이지'));
 
     const seen = new Set();
     return links.filter((link) => {
-      const key = `${link.type}:${link.url}`;
+      const key = link.url;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

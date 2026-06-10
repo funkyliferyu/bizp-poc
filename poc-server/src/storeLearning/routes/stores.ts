@@ -3,12 +3,14 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
 import type { JsonValue } from '../../repositories/base.js';
+import type { StoreChannel } from '../../repositories/store_channels.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import type { Store } from '../../repositories/stores.js';
 import { importNaverPlaceUrl } from '../providers/placeImportService.js';
 import type { JsonRecord, PlaceImportProvider, ProviderEnv } from '../providers/placeImportTypes.js';
 import { parseNaverPlaceUrl } from '../providers/naverPlaceUrlParser.js';
 import { configuredBlogProvider, configuredPlaceProvider, ownerSourcePolicy, sourceMetadata } from '../providers/ownerSourcePolicy.js';
+import { extractExternalChannelLinks, type StoreExternalChannel } from '../providers/placeExternalChannels.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
 import {
   buildBlogLearningStatus,
@@ -74,7 +76,9 @@ const TrainingSettingsBodySchema = z.object({
     naverBlog: ChannelSettingsSchema,
     naverPlace: ChannelSettingsSchema,
     instagram: ChannelSettingsSchema,
-    daangn: ChannelSettingsSchema.optional()
+    daangn: ChannelSettingsSchema.optional(),
+    youtube: ChannelSettingsSchema.optional(),
+    tiktok: ChannelSettingsSchema.optional()
   })
 });
 
@@ -139,7 +143,9 @@ function defaultTrainingSettings() {
       naverBlog: { enabled: true, blogPostLimit: 50, sourceUrl: null },
       naverPlace: { enabled: true, placeReviewLimit: 50, sourceUrl: null },
       instagram: { enabled: false, instagramPostLimit: 0, sourceUrl: null },
-      daangn: { enabled: false, daangnPostLimit: 0, sourceUrl: null }
+      daangn: { enabled: false, daangnPostLimit: 0, sourceUrl: null },
+      youtube: { enabled: false, sourceUrl: null },
+      tiktok: { enabled: false, sourceUrl: null }
     }
   };
 }
@@ -163,6 +169,8 @@ function normalizeTrainingSettings(value: unknown) {
   const naverPlace = toJsonRecord(channels.naverPlace);
   const instagram = toJsonRecord(channels.instagram);
   const daangn = toJsonRecord(channels.daangn);
+  const youtube = toJsonRecord(channels.youtube);
+  const tiktok = toJsonRecord(channels.tiktok);
   const legacyBlog = toJsonRecord(channels.blog);
   const legacyPlace = toJsonRecord(channels.place);
 
@@ -190,12 +198,29 @@ function normalizeTrainingSettings(value: unknown) {
         enabled: booleanFromLegacy(daangn.enabled, false),
         daangnPostLimit: numberFromLegacy(daangn.daangnPostLimit, 0),
         sourceUrl: textFromLegacy(daangn.sourceUrl)
+      },
+      youtube: {
+        enabled: false,
+        sourceUrl: textFromLegacy(youtube.sourceUrl)
+      },
+      tiktok: {
+        enabled: false,
+        sourceUrl: textFromLegacy(tiktok.sourceUrl)
       }
     }
   });
 }
 
-function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainingSettings>, env: ProviderEnv) {
+function channelSourceUrl(channels: StoreChannel[], channelName: string) {
+  const channel = channels.find((item) => item.channel === channelName);
+  return channel?.sourceUrl ?? null;
+}
+
+function collectionPlanFromSettings(
+  settings: ReturnType<typeof normalizeTrainingSettings>,
+  env: ProviderEnv,
+  storeChannels: ReturnType<ReturnType<typeof createStoreLearningRepositories>['storeChannels']['listByStoreId']> = []
+) {
   const channels = settings.channels;
   return {
     requestedLimits: {
@@ -207,8 +232,10 @@ function collectionPlanFromSettings(settings: ReturnType<typeof normalizeTrainin
     sourceUrls: {
       naverBlog: channels.naverBlog.sourceUrl ?? null,
       naverPlace: channels.naverPlace.sourceUrl ?? null,
-      instagram: channels.instagram.sourceUrl ?? null,
-      daangn: channels.daangn?.sourceUrl ?? null
+      instagram: channels.instagram.sourceUrl ?? channelSourceUrl(storeChannels, 'instagram'),
+      daangn: channels.daangn?.sourceUrl ?? channelSourceUrl(storeChannels, 'daangn'),
+      youtube: channels.youtube?.sourceUrl ?? channelSourceUrl(storeChannels, 'youtube'),
+      tiktok: channels.tiktok?.sourceUrl ?? channelSourceUrl(storeChannels, 'tiktok')
     },
     channelPlan: {
       naverBlog: {
@@ -254,6 +281,54 @@ function upsertPlaceChannel(
       ...sourceMetadata('place_profile', env)
     }
   });
+}
+
+function providerModeForDetectedChannel(channel: StoreExternalChannel['channel'], env: ProviderEnv) {
+  if (channel === 'blog') return providerModeFromConfig(configuredBlogProvider(env));
+  return 'provider_ready';
+}
+
+function providerSettingsForDetectedChannel(channel: StoreExternalChannel['channel'], link: StoreExternalChannel, env: ProviderEnv) {
+  const base = {
+    providerName: 'naverPlaceDetectedChannel',
+    detectedFrom: 'naver_place',
+    label: link.label
+  };
+  if (channel === 'blog') {
+    return {
+      ...base,
+      configuredBlogProvider: configuredBlogProvider(env),
+      ...sourceMetadata('owner_blog_post', env)
+    };
+  }
+  return {
+    ...base,
+    providerScope: 'not_implemented'
+  };
+}
+
+function detectedExternalChannelLinks(store: Store) {
+  const metadata = toJsonRecord(store.metadata);
+  const parsedPlace = toJsonRecord(metadata.naverPlaceParsed);
+  return extractExternalChannelLinks([metadata.externalChannelLinks, parsedPlace.externalChannelLinks]);
+}
+
+function upsertDetectedExternalChannels(
+  repos: ReturnType<typeof createStoreLearningRepositories>,
+  store: Store,
+  env: ProviderEnv
+) {
+  for (const link of detectedExternalChannelLinks(store)) {
+    repos.storeChannels.upsert({
+      id: channelId(store.id, link.channel),
+      storeId: store.id,
+      channel: link.channel,
+      sourceUrl: link.url,
+      status: 'connected',
+      providerMode: providerModeForDetectedChannel(link.channel, env),
+      settings: providerSettingsForDetectedChannel(link.channel, link, env)
+    });
+  }
 }
 
 function providerModeFromConfig(provider: string) {
@@ -358,11 +433,37 @@ function syncTrainingSourceChannels(
   upsertTrainingSourceChannel(repos, {
     store,
     channel: 'daangn',
-    sourceUrl: settings.channels.daangn?.sourceUrl,
+    sourceUrl: settings.channels.daangn?.sourceUrl || undefined,
     enabled: settings.channels.daangn?.enabled ?? false,
     limit: settings.channels.daangn?.daangnPostLimit ?? 0,
     providerName: 'trainingSettings',
     providerMode: 'manual',
+    settings: {
+      providerScope: 'not_implemented'
+    }
+  });
+
+  upsertTrainingSourceChannel(repos, {
+    store,
+    channel: 'youtube',
+    sourceUrl: settings.channels.youtube?.sourceUrl || undefined,
+    enabled: false,
+    limit: 0,
+    providerName: 'trainingSettings',
+    providerMode: 'provider_ready',
+    settings: {
+      providerScope: 'not_implemented'
+    }
+  });
+
+  upsertTrainingSourceChannel(repos, {
+    store,
+    channel: 'tiktok',
+    sourceUrl: settings.channels.tiktok?.sourceUrl || undefined,
+    enabled: false,
+    limit: 0,
+    providerName: 'trainingSettings',
+    providerMode: 'provider_ready',
     settings: {
       providerScope: 'not_implemented'
     }
@@ -470,6 +571,7 @@ export function createStoreRoutes({
         metadata: imported.store.metadata
       });
       const channel = upsertPlaceChannel(repos, store, imported.provider, env);
+      upsertDetectedExternalChannels(repos, store, env);
       res.json({ store, channel, provider: imported.provider });
     } catch (error) {
       next(error);
@@ -491,6 +593,7 @@ export function createStoreRoutes({
         metadata: toJsonRecord(body.metadata)
       });
       const channel = upsertPlaceChannel(repos, store, null, env);
+      upsertDetectedExternalChannels(repos, store, env);
       res.json({ store, channel });
     } catch (error) {
       next(error);
@@ -644,6 +747,7 @@ export function createStoreRoutes({
         metadata: mergeMetadata(existing.metadata, body.metadata)
       });
       const channel = upsertPlaceChannel(repos, store, null, env);
+      upsertDetectedExternalChannels(repos, store, env);
       res.json({ store, channel, channels: repos.storeChannels.listByStoreId(store.id) });
     } catch (error) {
       next(error);
@@ -706,6 +810,7 @@ export function createStoreRoutes({
 
       const existing = latestByUpdatedAt(repos.trainingSettings.listByStoreId(store.id));
       const settings = normalizeTrainingSettings(existing?.settings ?? defaultTrainingSettings());
+      const storeChannels = repos.storeChannels.listByStoreId(store.id);
       const run = repos.collectionRuns.create({
         id: collectionRunId(store.id),
         storeId: store.id,
@@ -713,7 +818,7 @@ export function createStoreRoutes({
         mode: 'mock',
         startedAt: null,
         completedAt: null,
-        summary: collectionPlanFromSettings(settings, env)
+        summary: collectionPlanFromSettings(settings, env, storeChannels)
       });
 
       res.json({ collectionRunId: run.id, collectionRun: run });

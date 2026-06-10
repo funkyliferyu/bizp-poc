@@ -9,9 +9,11 @@ Sequential plan ledger control for Store Learning work.
 - `main` is the intended public/stable branch.
 - `develop` is the intended integration branch.
 - `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
-- Milestone PRs #26-#34 are merged to `develop`.
-- They are not fully complete until milestone 10 validation is run and
+- Milestone PRs #26-#34 and #36 are merged to `develop`.
+- They are not fully complete until post-hardening final validation is run and
   recorded on `develop`.
+- `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md` is the current
+  implementation plan before final validation/promotion.
 
 ## Branch Policy
 
@@ -62,14 +64,17 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Run milestone 10 develop validation:
+1. Open/review the milestone 11 real-store E2E hardening PR from:
+   - `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md`
+   - branch: `codex/real-store-e2e-hardening`
+2. Keep `develop` as the PR base and merge target.
+3. After the hardening work merges to `develop`, run final validation:
    - `cd poc-server && npm run typecheck`
    - `cd poc-server && npm test`
    - `cd poc-server && npm run demo:store-learning`
-2. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+4. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
    validation result.
-3. Keep `develop` as the PR base for any follow-up fixes.
-4. Prepare the `develop` -> `main` promotion path only after validation passes
+5. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 Before editing files, confirm:

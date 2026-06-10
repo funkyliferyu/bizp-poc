@@ -22,6 +22,10 @@
     </div>
     <div class="card-body">
       <div style="font-size:12px;color:#4A5568;margin-bottom:14px">매장정보에 등록된 URL을 자동으로 불러옵니다. 채널별로 수집 방식이 다르게 적용됩니다.</div>
+      <div class="channel-note" style="margin-bottom:14px">
+        <span style="flex-shrink:0;margin-top:1px" class="icon-info" data-icon="info" data-size="13" data-color="currentColor"></span>
+        인스타그램, 당근, 유튜브, 틱톡은 매장정보에서 URL이 확인되면 표시되지만 수집 기능은 준비중입니다.
+      </div>
 
       <div class="channel-block">
         <div class="channel-header">
@@ -100,7 +104,7 @@
           </div>
           <div class="channel-url-row" style="margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 범위</span>
-            <select id="training-instagram-limit" style="width:160px">
+            <select id="training-instagram-limit" style="width:160px" disabled>
               <option value="0">수집 안 함</option>
               <option value="1">최근 1개</option>
               <option value="10">최근 10개</option>
@@ -110,7 +114,7 @@
           </div>
           <div class="channel-url-row" style="margin-top:8px;margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 주기</span>
-            <select style="width:160px">
+            <select style="width:160px" disabled>
               <option>매주</option>
               <option selected>2주마다</option>
               <option>매월</option>
@@ -130,7 +134,7 @@
           </div>
           <div class="channel-url-row" style="margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 범위</span>
-            <select id="training-daangn-limit" style="width:160px">
+            <select id="training-daangn-limit" style="width:160px" disabled>
               <option value="0">수집 안 함</option>
               <option value="1">최근 1개</option>
               <option value="10">최근 10개</option>
@@ -140,11 +144,49 @@
           </div>
           <div class="channel-url-row" style="margin-bottom:0">
             <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 주기</span>
-            <select style="width:160px">
+            <select style="width:160px" disabled>
               <option>매주</option>
               <option selected>2주마다</option>
               <option>매월</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="channel-block">
+        <div class="channel-header">
+          <span class="channel-name"><span class="icon-youtube" data-icon="youtube" data-size="14" data-color="#FF0033"></span> 유튜브</span>
+          <span id="training-youtube-status" class="badge b-gray">미등록</span>
+        </div>
+        <div class="channel-body">
+          <div class="channel-url-row">
+            <input type="text" id="training-youtube-url" placeholder="매장정보에서 확인된 유튜브 URL" style="flex:1">
+          </div>
+          <div class="channel-url-row" style="margin-bottom:0">
+            <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 상태</span>
+            <select style="width:160px" disabled>
+              <option value="0" selected>수집 안 함</option>
+            </select>
+            <span style="font-size:11px;color:#9AA0B4">준비중</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="channel-block">
+        <div class="channel-header">
+          <span class="channel-name"><span class="icon-music-2" data-icon="music-2" data-size="14" data-color="#111827"></span> 틱톡</span>
+          <span id="training-tiktok-status" class="badge b-gray">미등록</span>
+        </div>
+        <div class="channel-body">
+          <div class="channel-url-row">
+            <input type="text" id="training-tiktok-url" placeholder="매장정보에서 확인된 틱톡 URL" style="flex:1">
+          </div>
+          <div class="channel-url-row" style="margin-bottom:0">
+            <span style="font-size:11px;color:#4A5568;white-space:nowrap">수집 상태</span>
+            <select style="width:160px" disabled>
+              <option value="0" selected>수집 안 함</option>
+            </select>
+            <span style="font-size:11px;color:#9AA0B4">준비중</span>
           </div>
         </div>
       </div>

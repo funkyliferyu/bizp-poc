@@ -119,4 +119,46 @@ describe('selection API', () => {
     expect(profile?.selectedForAnalysis).toBe(1);
     expect(blog?.selectedForAnalysis).toBe(0);
   });
+
+  it('starts analysis and returns learning artifacts with selected item ids', async () => {
+    const createResponse = await fetch(`${baseUrl}/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId: 'store_demo_cake',
+        collectionRunId: 'collection_run_demo_store_learning',
+        selectedItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_review']
+      })
+    });
+    const created = await readJson(createResponse);
+
+    const startResponse = await fetch(`${baseUrl}/api/analysis-runs/${created.analysisRunId}/start`, {
+      method: 'POST'
+    });
+    const started = await readJson(startResponse);
+
+    expect(startResponse.status).toBe(200);
+    expect(started.analysisRun.status).toBe('completed');
+    expect(started.learningSnapshot).toEqual(
+      expect.objectContaining({
+        storeId: 'store_demo_cake',
+        analysisRunId: created.analysisRunId,
+        status: 'active'
+      })
+    );
+    expect(started.marketingRuleset).toEqual(
+      expect.objectContaining({
+        storeId: 'store_demo_cake',
+        learningSnapshotId: started.learningSnapshot.id
+      })
+    );
+    expect(started.analysisRun.result.selectedItemIds).toEqual(
+      expect.arrayContaining([
+        'collection_item_demo_blog',
+        'collection_item_demo_place_profile',
+        'collection_item_demo_place_review'
+      ])
+    );
+    expect(started.analysisRun.result.marketingRulesetId).toBe(started.marketingRuleset.id);
+  });
 });

@@ -254,6 +254,36 @@
     status.textContent = `v${payload.ruleset.version} · ${payload.ruleset.status}`;
   }
 
+  function removeEmptyRulesetGuidance() {
+    const existing = field('ruleset-empty-guidance');
+    if (existing) existing.remove();
+  }
+
+  function renderEmptyRulesetGuidance(payload) {
+    removeEmptyRulesetGuidance();
+    if (payload.ruleset) return;
+    const title = document.querySelector('.page-title');
+    if (!title) return;
+    const storeFacts = payload.storeFacts || {};
+    const availableFacts = [
+      storeFacts.operatingHours ? '운영시간' : null,
+      storeFacts.closedDays ? '휴무' : null,
+      storeFacts.parking ? '주차' : null,
+      storeFacts.storeIntro ? '소개' : null
+    ].filter(Boolean);
+    const guidance = document.createElement('div');
+    guidance.id = 'ruleset-empty-guidance';
+    guidance.className = 'ruleset-source-note';
+    guidance.style.margin = '0 0 16px';
+    guidance.innerHTML = [
+      '<strong>아직 생성된 룰셋이 없습니다.</strong>',
+      '<br>수집과 분석을 실행하면 AI가 생성한 마케팅 전략 룰셋을 확인할 수 있습니다.',
+      '<br>Place에서 가져온 매장 기본 정보는 아래에서 먼저 확인할 수 있습니다.',
+      availableFacts.length ? `<br><strong>확인 가능</strong> ${escapeHtml(availableFacts.join(', '))}` : ''
+    ].join('');
+    title.insertAdjacentElement('afterend', guidance);
+  }
+
   function currentStoreValue(storeFacts, row) {
     const value = storeFacts?.[row.fieldKey];
     if (value) return String(value);
@@ -317,6 +347,7 @@
     (payload.fields || []).forEach((rulesetField) => fieldMap.set(rulesetField.fieldKey, rulesetField));
     (payload.sourceMatrix || []).forEach((row) => sourceMatrixMap.set(row.fieldKey, row));
     renderStatus(payload);
+    renderEmptyRulesetGuidance(payload);
     renderStoreFields(payload);
 
     document.querySelectorAll('[data-ruleset-field]').forEach((element) => {

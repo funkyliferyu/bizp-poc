@@ -89,6 +89,7 @@ describe('Naver Blog rendered collection provider', () => {
         title: '레터링 케이크 예약 안내',
         authorName: '분당 케이크하우스',
         publishedAt: '2026.06.01',
+        viewCount: 1240,
         sourceUrl: 'https://blog.naver.com/demo-cake/223500000001',
         bodyText: expect.stringContaining('최소 하루 전 예약을 권장합니다.'),
         tags: ['분당케이크', '레터링케이크'],
@@ -267,7 +268,7 @@ describe('Naver Blog rendered collection provider', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         channels: {
-          naverBlog: { enabled: true, blogPostLimit: 2, sourceUrl: blogRootUrl },
+          naverBlog: { enabled: true, blogPostLimit: 10, sourceUrl: blogRootUrl },
           naverPlace: { enabled: false, placeReviewLimit: 0 },
           instagram: { enabled: false, instagramPostLimit: 0 },
           daangn: { enabled: false, daangnPostLimit: 0 }
@@ -311,6 +312,11 @@ describe('Naver Blog rendered collection provider', () => {
       placeProfiles: 0,
       placeReviews: 0
     });
+    expect(terminal.summary.availableCounts).toEqual(
+      expect.objectContaining({
+        blogPosts: 2
+      })
+    );
 
     const itemsResponse = await fetch(`${baseUrl}/api/collection-runs/${created.collectionRunId}/items`);
     const items = await readJson(itemsResponse);
@@ -337,6 +343,7 @@ describe('Naver Blog rendered collection provider', () => {
         blogId: 'demo-cake',
         logNo: '223500000001',
         publishedAt: '2026.06.01',
+        viewCount: 1240,
         tags: ['분당케이크', '레터링케이크'],
         imageUrls: ['https://postfiles.pstatic.net/demo-cake-1.jpg']
       })

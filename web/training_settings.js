@@ -1,6 +1,6 @@
 (function () {
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
-  let storeChannelSources = { blog: null, place: null, instagram: null, daangn: null };
+  let storeChannelSources = { blog: null, place: null, instagram: null, daangn: null, youtube: null, tiktok: null };
 
   function field(id) {
     return document.getElementById(id);
@@ -67,7 +67,7 @@
   function linkUrl(item) {
     if (typeof item === 'string') return cleanText(item);
     const record = asRecord(item);
-    return cleanText(record.url || record.href || record.link);
+    return cleanText(record.url || record.href || record.link || record.sourceUrl);
   }
 
   function firstUrlMatching(values, pattern) {
@@ -81,7 +81,9 @@
       parsedPlace.homepageUrl,
       parsedPlace.homepage,
       parsedPlace.bookingUrl,
-      ...asArray(parsedPlace.homepageLinks || parsedPlace.homepages || parsedPlace.externalLinks)
+      ...asArray(parsedPlace.homepageLinks || parsedPlace.homepages || parsedPlace.externalLinks),
+      ...asArray(parsedPlace.externalChannelLinks),
+      ...asArray(asRecord(parsedPlace.naverPlaceParsed).externalChannelLinks)
     ];
   }
 
@@ -89,7 +91,7 @@
     const store = asRecord(payload.store);
     const metadata = asRecord(store.metadata);
     const parsedPlace = asRecord(metadata.naverPlaceParsed || metadata);
-    const homepageUrls = homepageCandidates(parsedPlace);
+    const homepageUrls = [...homepageCandidates(parsedPlace), ...asArray(metadata.externalChannelLinks)];
 
     return {
       blog:
@@ -104,7 +106,15 @@
       daangn:
         channelSource(payload, 'daangn') ||
         cleanText(metadata.daangnUrl) ||
-        firstUrlMatching(homepageUrls, /(^|\/\/)(www\.)?(daangn|karrotmarket)\.com\//i)
+        firstUrlMatching(homepageUrls, /(^|\/\/)(www\.)?(daangn|karrotmarket)\.com\//i),
+      youtube:
+        channelSource(payload, 'youtube') ||
+        cleanText(metadata.youtubeUrl) ||
+        firstUrlMatching(homepageUrls, /(^|\/\/)(www\.)?(youtube\.com|youtu\.be)\//i),
+      tiktok:
+        channelSource(payload, 'tiktok') ||
+        cleanText(metadata.tiktokUrl) ||
+        firstUrlMatching(homepageUrls, /(^|\/\/)(www\.)?tiktok\.com\//i)
     };
   }
 
@@ -116,11 +126,21 @@
     badge.classList.toggle('b-gray', !connected);
   }
 
+  function setFutureProviderStatus(channel, connected) {
+    const badge = field(`training-${channel}-status`);
+    if (!badge) return;
+    badge.textContent = connected ? '준비중' : '미등록';
+    badge.classList.toggle('b-blue', Boolean(connected));
+    badge.classList.toggle('b-gray', !connected);
+  }
+
   function updateChannelStatuses() {
     setChannelStatus('blog', Boolean(textValue('training-blog-url')));
     setChannelStatus('place', Boolean(textValue('training-place-url')));
-    setChannelStatus('instagram', Boolean(textValue('training-instagram-url')));
-    setChannelStatus('daangn', Boolean(textValue('training-daangn-url')));
+    setFutureProviderStatus('instagram', Boolean(textValue('training-instagram-url')));
+    setFutureProviderStatus('daangn', Boolean(textValue('training-daangn-url')));
+    setFutureProviderStatus('youtube', Boolean(textValue('training-youtube-url')));
+    setFutureProviderStatus('tiktok', Boolean(textValue('training-tiktok-url')));
   }
 
   function materialTag(label, value) {
@@ -181,6 +201,8 @@
     const place = channels.naverPlace || channels.place || {};
     const instagram = channels.instagram || {};
     const daangn = channels.daangn || {};
+    const youtube = channels.youtube || {};
+    const tiktok = channels.tiktok || {};
     return {
       channels: {
         naverBlog: {
@@ -202,6 +224,14 @@
           enabled: Boolean(daangn.enabled),
           daangnPostLimit: daangn.daangnPostLimit ?? 0,
           sourceUrl: daangn.sourceUrl || null
+        },
+        youtube: {
+          enabled: false,
+          sourceUrl: youtube.sourceUrl || null
+        },
+        tiktok: {
+          enabled: false,
+          sourceUrl: tiktok.sourceUrl || null
         }
       }
     };
@@ -211,12 +241,14 @@
     const settings = normalize(rawSettings);
     setSelectValue('training-blog-limit', settings.channels.naverBlog.blogPostLimit);
     setSelectValue('training-place-review-limit', settings.channels.naverPlace.placeReviewLimit);
-    setSelectValue('training-instagram-limit', settings.channels.instagram.instagramPostLimit);
-    setSelectValue('training-daangn-limit', settings.channels.daangn.daangnPostLimit);
+    setSelectValue('training-instagram-limit', 0);
+    setSelectValue('training-daangn-limit', 0);
     setTextValue('training-blog-url', settings.channels.naverBlog.sourceUrl || storeChannelSources.blog);
     setTextValue('training-place-url', settings.channels.naverPlace.sourceUrl || storeChannelSources.place);
     setTextValue('training-instagram-url', settings.channels.instagram.sourceUrl || storeChannelSources.instagram);
     setTextValue('training-daangn-url', settings.channels.daangn.sourceUrl || storeChannelSources.daangn);
+    setTextValue('training-youtube-url', settings.channels.youtube.sourceUrl || storeChannelSources.youtube);
+    setTextValue('training-tiktok-url', settings.channels.tiktok.sourceUrl || storeChannelSources.tiktok);
     updateChannelStatuses();
   }
 
@@ -226,6 +258,8 @@
     setTextValue('training-place-url', storeChannelSources.place);
     setTextValue('training-instagram-url', storeChannelSources.instagram);
     setTextValue('training-daangn-url', storeChannelSources.daangn);
+    setTextValue('training-youtube-url', storeChannelSources.youtube);
+    setTextValue('training-tiktok-url', storeChannelSources.tiktok);
     renderTrainingMaterials(payload);
     renderTrainingKeywords(payload);
     updateChannelStatuses();
@@ -261,8 +295,6 @@
   }
 
   function collectSettings() {
-    const instagramPostLimit = numericValue('training-instagram-limit');
-    const daangnPostLimit = numericValue('training-daangn-limit');
     return {
       channels: {
         naverBlog: {
@@ -276,14 +308,22 @@
           sourceUrl: textValue('training-place-url')
         },
         instagram: {
-          enabled: instagramPostLimit > 0,
-          instagramPostLimit,
+          enabled: false,
+          instagramPostLimit: 0,
           sourceUrl: textValue('training-instagram-url')
         },
         daangn: {
-          enabled: daangnPostLimit > 0,
+          enabled: false,
           daangnPostLimit: numericValue('training-daangn-limit'),
           sourceUrl: textValue('training-daangn-url')
+        },
+        youtube: {
+          enabled: false,
+          sourceUrl: textValue('training-youtube-url')
+        },
+        tiktok: {
+          enabled: false,
+          sourceUrl: textValue('training-tiktok-url')
         }
       }
     };

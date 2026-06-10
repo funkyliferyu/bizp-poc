@@ -21,6 +21,7 @@ export type RenderedBlogPost = {
   title: string | null;
   authorName: string | null;
   publishedAt: string | null;
+  viewCount: number | null;
   sourceUrl: string | null;
   bodyText: string | null;
   tags: string[];
@@ -215,6 +216,30 @@ function tagsFrom(html: string) {
   return Array.from(tags);
 }
 
+function numberFrom(value: unknown) {
+  const text = cleanText(value);
+  if (!text) return null;
+  const match = text.match(/[0-9][0-9,]*/);
+  if (!match) return null;
+  const parsed = Number(match[0].replace(/,/g, ''));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function viewCountFrom(html: string, firstTag: string) {
+  const attributeCount =
+    numberFrom(attribute(firstTag, 'data-view-count')) ??
+    numberFrom(attribute(firstTag, 'data-read-count')) ??
+    numberFrom(attribute(firstTag, 'data-hit-count'));
+  if (attributeCount !== null) return attributeCount;
+
+  const jsonCount = html.match(/"(?:viewCount|readCount|hitCount)"\s*:\s*"?([0-9,]+)"?/i);
+  const parsedJsonCount = numberFrom(jsonCount?.[1]);
+  if (parsedJsonCount !== null) return parsedJsonCount;
+
+  const textCount = stripTags(html)?.match(/(?:조회수|조회)\s*[:：]?\s*([0-9,]+)/);
+  return numberFrom(textCount?.[1]);
+}
+
 function bodyFrom(html: string, bodyText: string | null) {
   return (
     textFromMarkedBlock(html, 'data-blog-body') ??
@@ -244,6 +269,7 @@ export function extractRenderedBlogPost(input: {
       attribute(firstTag, 'data-published-at') ??
       cleanText(metas.get('article:published_time')) ??
       cleanText(metas.get('pubdate')),
+    viewCount: viewCountFrom(block, firstTag),
     sourceUrl: attribute(firstTag, 'data-source-url') ?? input.finalUrl,
     bodyText: bodyFrom(block, input.bodyText),
     tags: tagsFrom(block),
@@ -346,7 +372,13 @@ function explicitPostUrls(env: ProviderEnv) {
     .filter((value): value is string => Boolean(value));
 }
 
-function failedBlogItems(plan: CollectionPlan, sourceUrl: string | null, reason: string, startOrdinal = 1) {
+function failedBlogItems(
+  plan: CollectionPlan,
+  sourceUrl: string | null,
+  reason: string,
+  startOrdinal = 1,
+  extraMetadata: Record<string, unknown> = {}
+) {
   const items: CollectionProviderItemDraft[] = [];
   for (let index = startOrdinal; index <= plan.blogPostLimit; index += 1) {
     items.push({
@@ -361,7 +393,8 @@ function failedBlogItems(plan: CollectionPlan, sourceUrl: string | null, reason:
         providerMode: 'real',
         bodyAvailability: 'unavailable',
         reason,
-        ordinal: index
+        ordinal: index,
+        ...extraMetadata
       }
     });
   }
@@ -439,10 +472,14 @@ export async function collectRenderedBlogItems(context: {
 
   const postCandidates = await postUrlsForSource(env, sourceUrl, plan.blogPostLimit, renderer);
   if (postCandidates.length === 0) {
-    return failedBlogItems(plan, sourceUrl, 'rendered_blog_post_links_not_found');
+    return failedBlogItems(plan, sourceUrl, 'rendered_blog_post_links_not_found', 1, {
+      availableBlogPostCount: 0,
+      requestedBlogPostLimit: plan.blogPostLimit
+    });
   }
 
   const items: CollectionProviderItemDraft[] = [];
+  const availableBlogPostCount = postCandidates.length;
   for (const [index, candidate] of postCandidates.entries()) {
     const postUrl = candidate.url;
     const snapshot = await renderer(postUrl, env);
@@ -455,7 +492,12 @@ export async function collectRenderedBlogItems(context: {
       finalUrl: snapshot.finalUrl || postUrl
     });
     if (!post.bodyText) {
-      items.push(...failedBlogItems(plan, postUrl, 'rendered_blog_body_not_found', index + 1).slice(0, 1));
+      items.push(
+        ...failedBlogItems(plan, postUrl, 'rendered_blog_body_not_found', index + 1, {
+          availableBlogPostCount,
+          requestedBlogPostLimit: plan.blogPostLimit
+        }).slice(0, 1)
+      );
       continue;
     }
     const canonicalSourceUrl = toNaverBlogPostUrl(post.sourceUrl) ?? toNaverBlogPostUrl(postUrl) ?? post.sourceUrl;
@@ -473,21 +515,18 @@ export async function collectRenderedBlogItems(context: {
         logNo: post.logNo,
         authorName: post.authorName,
         publishedAt: post.publishedAt,
+        ...(post.viewCount === null ? {} : { viewCount: post.viewCount }),
         tags: post.tags,
         imageUrls: post.imageUrls,
         ordinal: index + 1,
         blogSourceUrl: sourceUrl,
-        blogSourceDiscovery: candidate.discovery
+        blogSourceDiscovery: candidate.discovery,
+        availableBlogPostCount,
+        requestedBlogPostLimit: plan.blogPostLimit
       }
     });
   }
 
-  if (items.length < plan.blogPostLimit) {
-    return [
-      ...items,
-      ...failedBlogItems(plan, sourceUrl, 'rendered_blog_post_not_found', items.length + 1)
-    ];
-  }
   return items;
 }
 

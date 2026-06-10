@@ -219,6 +219,21 @@ describe('store registration static page API wiring', () => {
     expect(js).toContain('메뉴 전체보기');
   });
 
+  it('renders imported external channel links in the registration metadata panel', () => {
+    const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
+
+    expect(js).toContain('function channelLinkLabel');
+    expect(js).toContain('externalChannelLinks');
+    expect(js).toContain('asRecord(parsedPlace.naverPlaceParsed).externalChannelLinks');
+    expect(js).toContain('record.landingUrl');
+    expect(js).toContain('record.sourceUrl');
+    expect(js).toContain("blog: '블로그'");
+    expect(js).toContain("instagram: '인스타그램'");
+    expect(js).toContain("daangn: '당근'");
+    expect(js).toContain("youtube: '유튜브'");
+    expect(js).toContain("tiktok: '틱톡'");
+  });
+
   it('surfaces imported Place assets and generated RAG documents inside the upload section', () => {
     const html = readFileSync(path.join(webRoot, 'soho_store_register.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');

@@ -93,7 +93,8 @@ function graphQlReviewItems(start: number, end: number) {
     return {
       id: `graphql-${index}`,
       reviewId: index <= 10 ? `ssr-public-${index}` : `graphql-public-${index}`,
-      body: `GraphQL fallback review ${index}`,
+      cursor: `cursor-${index}`,
+      body: index === 4 ? '' : `GraphQL fallback review ${index}`,
       rating: '5',
       created: '2026.06.01',
       author: { id: `graphql-author-${index}`, nickname: `gql-${index}` },
@@ -202,6 +203,80 @@ describe('Naver Place rendered collection provider', () => {
     ]);
   });
 
+  it('preserves review date metadata on rendered visitor review items', async () => {
+    const provider = createNaverPlaceRenderedCollectionProvider(async () => ({
+      finalUrl: reviewUrl,
+      bodyText: null,
+      html: `<html><body>
+        <article data-review-card data-review-id="review-date-1" data-reviewer="date-user" data-review-date="2026.06.01">
+          <p class="review-body">작성일을 가진 방문자 리뷰입니다.</p>
+        </article>
+      </body></html>`
+    }));
+
+    const items = await provider.collect({
+      env: {},
+      plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 1 },
+      store: {
+        id: 'store_review_date',
+        name: '리뷰 작성일 테스트 매장',
+        naverPlaceUrl: placeUrl,
+        naverPlaceId: '1838952735',
+        category: null,
+        address: null,
+        phone: null,
+        description: null,
+        metadata: {},
+        createdAt: '2026-06-09T00:00:00.000Z',
+        updatedAt: '2026-06-09T00:00:00.000Z'
+      }
+    });
+
+    expect(items[0].metadata).toEqual(
+      expect.objectContaining({
+        reviewDate: '2026.06.01'
+      })
+    );
+  });
+
+  it('preserves visitor photo URLs from rendered visitor reviews', async () => {
+    const provider = createNaverPlaceRenderedCollectionProvider(async () => ({
+      finalUrl: reviewUrl,
+      bodyText: null,
+      html: `<html><body>
+        <article data-review-card data-review-id="review-photo-1" data-reviewer="photo-user" data-review-date="2026.06.01">
+          <p class="review-body">사진이 포함된 방문자 리뷰입니다.</p>
+          <img src="https://pup-review-phinf.pstatic.net/review-photo-1.jpg" alt="review photo">
+        </article>
+      </body></html>`
+    }));
+
+    const items = await provider.collect({
+      env: {},
+      plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 1 },
+      store: {
+        id: 'store_visitor_photo',
+        name: '방문자 사진 테스트 매장',
+        naverPlaceUrl: placeUrl,
+        naverPlaceId: '1838952735',
+        category: null,
+        address: null,
+        phone: null,
+        description: null,
+        metadata: {},
+        createdAt: '2026-06-09T00:00:00.000Z',
+        updatedAt: '2026-06-09T00:00:00.000Z'
+      }
+    });
+
+    expect(items[0].metadata).toEqual(
+      expect.objectContaining({
+        photoUrls: ['https://pup-review-phinf.pstatic.net/review-photo-1.jpg'],
+        visitorPhotoUrls: ['https://pup-review-phinf.pstatic.net/review-photo-1.jpg']
+      })
+    );
+  });
+
   it('loads additional rendered review batches until the requested limit is reached', async () => {
     const firstBatchUrl = 'https://m.place.naver.com/restaurant/1838952735/review/visitor';
     const secondBatchUrl = 'https://m.place.naver.com/restaurant/1838952735/review/visitor?cursor=second';
@@ -270,9 +345,9 @@ describe('Naver Place rendered collection provider', () => {
 
   it('uses the Naver GraphQL fallback when the rendered snapshot only contains the first review batch', async () => {
     const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body ?? '[]')) as Array<{ variables?: { input?: { sort?: string } } }>;
-      const sort = body[0]?.variables?.input?.sort;
-      const items = sort === 'recent' ? graphQlReviewItems(51, 100) : graphQlReviewItems(1, 50);
+      const body = JSON.parse(String(init?.body ?? '[]')) as Array<{ variables?: { input?: { item?: string } } }>;
+      const item = body[0]?.variables?.input?.item;
+      const items = item === 'cursor-50' ? graphQlReviewItems(51, 100) : graphQlReviewItems(1, 50);
       return new Response(JSON.stringify([{ data: { visitorReviews: { total: 120, items } } }]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -308,6 +383,10 @@ describe('Naver Place rendered collection provider', () => {
       const collectedReviews = items.filter((item) => item.sourceType === 'review' && item.status !== 'failed');
       expect(collectedReviews).toHaveLength(100);
       expect(fetchMock).toHaveBeenCalledWith('https://api.place.naver.com/graphql', expect.any(Object));
+      expect(fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body ?? '[]'))[0].variables.input.item)).toEqual([
+        '0',
+        'cursor-50'
+      ]);
       expect(collectedReviews.at(-1)).toEqual(
         expect.objectContaining({
           bodyText: 'GraphQL fallback review 100',
@@ -321,6 +400,126 @@ describe('Naver Place rendered collection provider', () => {
           bodyAvailability: 'rendered_place_visitor_review'
         })
       );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('paginates Naver GraphQL fallback with supported media fields and review cursors', async () => {
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '[]')) as Array<{
+        query?: string;
+        variables?: { input?: { item?: string; sort?: string; size?: number } };
+      }>;
+      const query = body[0]?.query ?? '';
+      expect(query).not.toContain('imageUrl');
+      expect(query).not.toContain('origin');
+      expect(query).not.toContain('thumbnailUrl');
+
+      const item = body[0]?.variables?.input?.item ?? '0';
+      const page =
+        item === '0'
+          ? graphQlReviewItems(1, 10)
+          : item === 'cursor-10'
+            ? graphQlReviewItems(11, 20)
+            : graphQlReviewItems(21, 25);
+      return new Response(JSON.stringify([{ data: { visitorReviews: { total: 25, items: page } } }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const provider = createNaverPlaceRenderedCollectionProvider(async () => ({
+        finalUrl: reviewUrl,
+        bodyText: null,
+        html: apolloReviewHtmlWithItems(1)
+      }));
+
+      const items = await provider.collect({
+        env: {},
+        plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 25 },
+        store: {
+          id: 'store_graphql_cursor_fallback',
+          name: '그래프큐엘 커서 테스트 매장',
+          naverPlaceUrl: placeUrl,
+          naverPlaceId: '1824807602',
+          category: null,
+          address: null,
+          phone: null,
+          description: null,
+          metadata: {},
+          createdAt: '2026-06-09T00:00:00.000Z',
+          updatedAt: '2026-06-09T00:00:00.000Z'
+        }
+      });
+
+      const collectedReviews = items.filter((item) => item.sourceType === 'review' && item.status !== 'failed');
+      expect(collectedReviews).toHaveLength(25);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body ?? '[]'))[0].variables.input.item)).toEqual([
+        '0',
+        'cursor-10',
+        'cursor-20'
+      ]);
+      expect(collectedReviews.at(-1)).toEqual(
+        expect.objectContaining({
+          bodyText: 'GraphQL fallback review 25',
+          title: '방문자 리뷰 - gql-25'
+        })
+      );
+      expect(collectedReviews[3]).toEqual(
+        expect.objectContaining({
+          bodyText: '방문자 리뷰 키워드: 신선해요',
+          title: '방문자 리뷰 - gql-4'
+        })
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('does not create failed placeholders when GraphQL reports fewer available reviews than requested', async () => {
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '[]')) as Array<{ query?: string }>;
+      expect(body[0]?.query).not.toContain('imageUrl');
+      return new Response(JSON.stringify([{ data: { visitorReviews: { total: 45, items: graphQlReviewItems(1, 45) } } }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const provider = createNaverPlaceRenderedCollectionProvider(async () => ({
+        finalUrl: reviewUrl,
+        bodyText: null,
+        html: apolloReviewHtmlWithItems(10)
+      }));
+
+      const items = await provider.collect({
+        env: {},
+        plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 50 },
+        store: {
+          id: 'store_graphql_available_total',
+          name: '그래프큐엘 전체수 테스트 매장',
+          naverPlaceUrl: placeUrl,
+          naverPlaceId: '1824807602',
+          category: null,
+          address: null,
+          phone: null,
+          description: null,
+          metadata: {},
+          createdAt: '2026-06-09T00:00:00.000Z',
+          updatedAt: '2026-06-09T00:00:00.000Z'
+        }
+      });
+
+      const reviews = items.filter((item) => item.sourceType === 'review');
+      expect(reviews).toHaveLength(45);
+      expect(reviews.every((item) => item.status !== 'failed')).toBe(true);
+      expect(reviews.at(-1)).toEqual(expect.objectContaining({ title: '방문자 리뷰 - gql-45' }));
     } finally {
       vi.unstubAllGlobals();
     }
