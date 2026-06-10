@@ -181,11 +181,15 @@ from the current marketing ruleset.
 **Key files:**
 
 - `poc-server/src/storeLearning/blog/openAIBlogProvider.ts`
+- `poc-server/src/storeLearning/blog/blogPromptBudget.ts`
 - `poc-server/src/storeLearning/blog/blogGenerator.ts`
 - `poc-server/src/storeLearning/routes/stores.ts`
 
-**Current budget status:** No dedicated prompt budget builder exists yet.
-`store.metadata` and `ruleset.ruleset` are passed through in full.
+**Current budget behavior:** `buildBlogDraftPromptInput()` compacts the OpenAI
+prompt before serialization. Store metadata is allowlisted, ruleset JSON is
+reduced to an allowlisted summary plus compact ruleset fields, ruleset field
+values are capped, media assets are limited, and prompt budget metadata is
+recorded as `inputBudget`.
 
 ```mermaid
 flowchart TD
@@ -223,10 +227,17 @@ You are a Korean local-store blog content strategist. Return validated structure
     name,
     category,
     address,
+    phone,
     description,
-    metadata // full current store metadata
+    metadata // allowlisted profile facts only
   },
-  ruleset: ruleset.ruleset, // full current ruleset JSON
+  ruleset: {
+    id,
+    status,
+    version,
+    summary, // allowlisted ruleset summary only
+    fields: [{ fieldKey, finalValue, source, locked }]
+  },
   rulesetFields: [
     {
       fieldKey,
@@ -255,11 +266,12 @@ You are a Korean local-store blog content strategist. Return validated structure
 ```
 
 **Stored provenance:** `content_generations.prompt` stores mode, provider,
-model, action, providerSeoScoreReturned, generator, rulesetId, and fieldKeys.
-The database column is `prompt_json`.
+model, action, providerSeoScoreReturned, `inputBudget`, generator, rulesetId,
+and fieldKeys. The database column is `prompt_json`.
 
 **Fallback:** if no provider is created, `buildDraft()` creates a deterministic
-mock draft. Provider errors are not sanitized like analysis errors yet.
+mock draft. Context-length provider errors are sanitized to a Korean product
+message before they reach route error responses.
 
 ---
 
@@ -275,12 +287,14 @@ same `generateDraft` provider method with `action = "regenerate_text"`.
 **Key files:**
 
 - `poc-server/src/storeLearning/blog/openAIBlogProvider.ts`
+- `poc-server/src/storeLearning/blog/blogPromptBudget.ts`
 - `poc-server/src/storeLearning/blog/blogGenerator.ts`
 - `poc-server/src/storeLearning/routes/blogPosts.ts`
 
-**Current budget status:** No dedicated prompt budget builder exists yet.
-`currentPost.article`, `currentArticle`, and `mediaAssets.metadata` may be
-large.
+**Current budget behavior:** `buildBlogDraftPromptInput()` uses the same compact
+store/ruleset shape as `SL-B1`, compacts `currentPost.article` to title, meta,
+bounded body sections/body text, keywords, CTA, and image prompts, and
+allowlists media asset metadata.
 
 ```mermaid
 flowchart TD
@@ -321,10 +335,17 @@ You are a Korean local-store blog content strategist. Return validated structure
     name,
     category,
     address,
+    phone,
     description,
-    metadata // full current store metadata
+    metadata // allowlisted profile facts only
   },
-  ruleset: ruleset.ruleset,
+  ruleset: {
+    id,
+    status,
+    version,
+    summary,
+    fields: [{ fieldKey, finalValue, source, locked }]
+  },
   rulesetFields: [
     {
       fieldKey,
@@ -337,7 +358,15 @@ You are a Korean local-store blog content strategist. Return validated structure
     id,
     status,
     title,
-    article: currentArticle ?? currentPost.article
+    article: {
+      title,
+      metaDescription,
+      bodySections, // bounded section count and body length
+      bodyText,
+      seoKeywords,
+      cta,
+      imagePrompts
+    }
   },
   mediaAssets: [
     {
@@ -345,18 +374,20 @@ You are a Korean local-store blog content strategist. Return validated structure
       assetType,
       status,
       prompt,
-      metadata
+      metadata // prompt, alt, placement, generator only
     }
   ]
 }
 ```
 
 **Stored provenance:** a new `content_generations` row is created with
-`contentType = "blog_post_text_revision"`. SEO provenance is stored under
-`seo_scores.rubric._provenance` and serialized as `seoScore.provenance`.
+`contentType = "blog_post_text_revision"`. `inputBudget` is stored in
+`content_generations.prompt` and exposed through `contentProvenance`.
+SEO provenance is stored under `seo_scores.rubric._provenance` and serialized
+as `seoScore.provenance`.
 
 **Fallback:** if no provider is created, local mock revision content is built.
-Provider errors are not sanitized like analysis errors yet.
+Context-length provider errors are sanitized to a Korean product message.
 
 ---
 
@@ -372,11 +403,13 @@ readiness.
 **Key files:**
 
 - `poc-server/src/storeLearning/blog/openAIBlogProvider.ts`
+- `poc-server/src/storeLearning/blog/blogPromptBudget.ts`
 - `poc-server/src/storeLearning/blog/blogGenerator.ts`
 - `poc-server/src/storeLearning/routes/blogPosts.ts`
 
-**Current budget status:** No dedicated prompt budget builder exists yet.
-`post.article` and `mediaAssets.metadata` are passed through.
+**Current budget behavior:** `buildBlogSeoPromptInput()` compacts the post
+article to bounded article fields, uses the compact ruleset/ruleset field shape,
+allowlists media asset metadata, and records `inputBudget` in SEO provenance.
 
 ```mermaid
 flowchart TD
@@ -412,7 +445,13 @@ You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring o
     category,
     address
   },
-  ruleset: ruleset?.ruleset ?? null,
+  ruleset: {
+    id,
+    status,
+    version,
+    summary,
+    fields: [{ fieldKey, finalValue, source, locked }]
+  } | null,
   rulesetFields: [
     {
       fieldKey,
@@ -425,7 +464,15 @@ You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring o
     id,
     status,
     title,
-    article // full current article JSON
+    article: {
+      title,
+      metaDescription,
+      bodySections,
+      bodyText,
+      seoKeywords,
+      cta,
+      imagePrompts
+    }
   },
   mediaAssets: [
     {
@@ -433,7 +480,7 @@ You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring o
       assetType,
       status,
       prompt,
-      metadata
+      metadata // prompt, alt, placement, generator only
     }
   ]
 }
@@ -455,12 +502,13 @@ You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring o
 }
 ```
 
-**Stored provenance:** provider/mode/model/action are stored in
-`seo_scores.rubric._provenance`, then separated into `seoScore.provenance` in
-API responses.
+**Stored provenance:** provider/mode/model/action and `inputBudget` are stored
+in `seo_scores.rubric._provenance`, then separated into `seoScore.provenance`
+in API responses.
 
 **Fallback:** if no provider is created, `scoreBlogPost()` computes a
-deterministic local score.
+deterministic local score. Context-length provider errors are sanitized to a
+Korean product message.
 
 ---
 
@@ -635,14 +683,12 @@ drafts with `generationTrace.mode = "mock"` and `fallbackReason`.
 
 ## Current Gaps And Next Planning Targets
 
-1. **Blog/SEO prompt budget:** `SL-B1`, `SL-B2`, and `SL-S1` do not have an
-   analysis-style prompt budget builder yet.
-2. **Blog/SEO metadata allowlist:** Blog generation still sends
-   `store.metadata`; regeneration and SEO send full article/media metadata.
-3. **Blog/SEO failure sanitization:** Provider errors route upward without an
-   analysis-style product error shape.
-4. **Provider telemetry symmetry:** Analysis run metadata is richer than
-   blog/SEO generation metadata.
-5. **Legacy route isolation:** Legacy Event-to-Operation calls are still
+1. **Provider telemetry symmetry:** Analysis run metadata is still broader than
+   Blog/SEO metadata because analysis tracks selected/prompt/omitted source
+   item counts.
+2. **Blog/SEO budget tuning:** `SL-B1`, `SL-B2`, and `SL-S1` now use compact
+   prompt builders, but default character budgets may need tuning with larger
+   live stores.
+3. **Legacy route isolation:** Legacy Event-to-Operation calls are still
    server-reachable and should stay clearly separated from Store Learning
    validation.

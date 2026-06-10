@@ -152,6 +152,21 @@ Implementation status:
    document that SL-A1 is the primary route for AI-derived ruleset fields and
    that direct Place facts remain direct.
 
+## Request Change: Blog/SEO Prompt Budget Status
+
+Implementation status:
+
+- Done: `SL-B1`, `SL-B2`, and `SL-S1` now use
+  `poc-server/src/storeLearning/blog/blogPromptBudget.ts`.
+- Done: Blog/SEO OpenAI prompts compact `store.metadata`, `ruleset.ruleset`,
+  current article JSON, and media asset metadata before serialization.
+- Done: content generation prompt metadata, content detail provenance, and SEO
+  provenance expose `inputBudget` with provider/model/action metadata.
+- Done: Blog/SEO context-length provider errors are sanitized to a Korean
+  product message instead of exposing raw token-count errors.
+- Remaining follow-up: tune default Blog/SEO character budgets against larger
+  live stores if real inputs still approach provider limits.
+
 ## Task 1: Add LLM Call Trace Contract
 
 **Files:**

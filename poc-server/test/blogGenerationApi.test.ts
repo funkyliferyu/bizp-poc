@@ -290,4 +290,53 @@ describe('ruleset based blog generation API', () => {
       })
     });
   });
+
+  it('sanitizes OpenAI context length errors during blog draft generation', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    seedDemoStore(connection);
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/stores',
+      createStoreRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-blog-model' },
+        blogProviderClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async () => {
+                  throw new Error(
+                    "This model's maximum context length is 128000 tokens. However, your messages resulted in 179181 tokens."
+                  );
+                }
+              }
+            }
+          }
+        }
+      })
+    );
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/blog-posts/generate`, {
+      method: 'POST'
+    });
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('블로그 생성 입력이 커서 AI 처리 한도를 초과했습니다. 룰셋 또는 기존 글 내용을 줄인 뒤 다시 시도해주세요.');
+    expect(JSON.stringify(body)).not.toContain('179181');
+    expect(JSON.stringify(body)).not.toContain('maximum context length');
+  });
 });

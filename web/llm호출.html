@@ -176,9 +176,9 @@
       <p>글쓰기 서버 산출 제안, 룰셋 미리보기, 유사업체비교, 이미지 재생성은 현재 런타임 LLM 호출이 아님.</p>
     </section>
     <section class="summary-card">
-      <div class="summary-label">주요 리스크</div>
-      <div class="summary-value">블로그/SEO 입력 예산 미적용</div>
-      <p>분석 provider는 예산화됐지만, 블로그 초안/본문 재생성/SEO provider는 아직 store metadata, article, media metadata를 크게 보낼 수 있음.</p>
+      <div class="summary-label">입력 예산 상태</div>
+      <div class="summary-value">분석·블로그·SEO 적용</div>
+      <p>분석과 블로그 초안/본문 재생성/SEO provider는 서버에서 compact prompt를 구성하고 inputBudget provenance를 남김.</p>
     </section>
   </div>
 
@@ -275,18 +275,18 @@ JSON.stringify({
             <code>POST /api/stores/:storeId/blog-posts/generate</code>
           </td>
           <td><span class="badge yes">LLM 호출 대상</span><br>마케팅 룰셋을 기반으로 승인 대기 블로그 초안과 이미지 프롬프트를 생성하도록 정의됨.</td>
-          <td><span class="badge yes">현재 실제 호출 가능</span><br>현재 readiness 기준 <code>openAIBlogProvider</code>가 ready. 단 provider가 null이면 로컬 mock 초안을 생성. 아직 analysis처럼 prompt budget builder는 없음.</td>
+          <td><span class="badge yes">현재 실제 호출 가능</span><br>현재 readiness 기준 <code>openAIBlogProvider</code>가 ready. provider가 null이면 로컬 mock 초안을 생성. OpenAI 입력은 <code>blogPromptBudget</code>로 compact됨.</td>
           <td>
             <ul class="mono-list">
               <li><code>OPENAI_API_KEY</code> 있음: OpenAI 호출</li>
               <li>없음: <code>buildDraft()</code> deterministic 초안</li>
-              <li>OpenAI provider는 생성 실패를 내부에서 잡지 않음. route error로 전파됨.</li>
+              <li>OpenAI context-length 오류는 한국어 안전 메시지로 sanitize</li>
             </ul>
           </td>
           <td>
             <ul class="mono-list">
-              <li><code>store</code>: id, name, category, address, description, metadata 전체</li>
-              <li><code>ruleset.ruleset</code> 전체</li>
+              <li><code>store</code>: id, name, category, address, phone, description, allowlist profile facts</li>
+              <li><code>ruleset</code>: id, status, version, allowlist summary, compact fields</li>
               <li><code>rulesetFields</code>: fieldKey, finalValue, source, locked</li>
               <li><code>currentPost</code> 없음</li>
               <li><code>mediaAssets</code> 빈 배열</li>
@@ -298,7 +298,7 @@ Follow the ruleset...
 produce image prompts instead of image assets.
 
 user:
-JSON.stringify(draftPromptInput(input))</td>
+JSON.stringify(buildBlogDraftPromptInput(input).promptInput)</td>
           <td>
             <code>zodResponseFormat(BlogProviderDraftOutputSchema, 'store_learning_blog_draft')</code><br>
             이후 <code>BlogProviderDraftOutputSchema.parse()</code>, <code>BlogDraftOutputSchema.parse()</code>.
@@ -309,7 +309,7 @@ JSON.stringify(draftPromptInput(input))</td>
               <li><code>blog_posts</code> pending_approval 생성</li>
               <li><code>media_assets</code>는 실제 이미지가 아니라 image_prompt placeholder 생성</li>
               <li><code>seo_scores</code>는 provider seoScore가 있으면 사용, 없으면 로컬 점수 사용</li>
-              <li><code>content_generations.prompt</code>(DB <code>prompt_json</code>)에 mode, provider, model, action, providerSeoScoreReturned 저장</li>
+              <li><code>content_generations.prompt</code>(DB <code>prompt_json</code>)에 mode, provider, model, action, providerSeoScoreReturned, inputBudget 저장</li>
             </ul>
           </td>
           <td>
@@ -326,7 +326,7 @@ JSON.stringify(draftPromptInput(input))</td>
             <code>POST /api/blog-posts/:postId/regenerate-text</code>
           </td>
           <td><span class="badge yes">LLM 호출 대상</span><br>기존 글과 룰셋을 넣어 본문을 다시 생성하도록 정의됨.</td>
-          <td><span class="badge yes">현재 실제 호출 가능</span><br>현재 <code>openAIBlogProvider.generateDraft()</code>를 재사용. provider가 없으면 mock revision. 아직 analysis처럼 prompt budget builder는 없음.</td>
+          <td><span class="badge yes">현재 실제 호출 가능</span><br>현재 <code>openAIBlogProvider.generateDraft()</code>를 재사용. provider가 없으면 mock revision. OpenAI 입력은 <code>blogPromptBudget</code>로 compact됨.</td>
           <td>
             <ul class="mono-list">
               <li><code>OPENAI_API_KEY</code> 있음: OpenAI 호출</li>
@@ -335,11 +335,10 @@ JSON.stringify(draftPromptInput(input))</td>
           </td>
           <td>
             <ul class="mono-list">
-              <li><code>store</code>: id, name, category, address, description, metadata 전체</li>
-              <li><code>ruleset.ruleset</code>, <code>rulesetFields</code></li>
-              <li><code>currentPost</code>: id, status, title, article</li>
-              <li><code>currentArticle</code>: 현재 article JSON</li>
-              <li><code>mediaAssets</code>: id, assetType, status, prompt, metadata</li>
+              <li><code>store</code>: id, name, category, address, phone, description, allowlist profile facts</li>
+              <li><code>ruleset</code>: id, status, version, allowlist summary, compact fields</li>
+              <li><code>currentPost.article</code>: title, metaDescription, bounded bodySections/bodyText, seoKeywords, cta, imagePrompts</li>
+              <li><code>mediaAssets</code>: id, assetType, status, prompt, allowlist metadata</li>
             </ul>
           </td>
           <td class="prompt-box">system:
@@ -347,8 +346,8 @@ JSON.stringify(draftPromptInput(input))</td>
 
 user:
 task = Regenerate...
-store, ruleset, rulesetFields,
-currentPost, currentArticle, mediaAssets</td>
+store, compact ruleset/rulesetFields,
+compact currentPost, compact mediaAssets</td>
           <td>블로그 초안 생성과 동일한 <code>BlogProviderDraftOutputSchema</code> 사용.</td>
           <td>
             <ul class="mono-list">
@@ -356,7 +355,7 @@ currentPost, currentArticle, mediaAssets</td>
               <li><code>blog_posts.article</code> 업데이트</li>
               <li>revision 기록 추가</li>
               <li><code>seo_scores</code> 새로 생성</li>
-              <li>본문/SEO provenance는 콘텐츠 상세 화면의 compact line에 표시</li>
+              <li>본문/SEO provenance와 inputBudget은 콘텐츠 상세 화면의 compact line/API payload에서 확인 가능</li>
             </ul>
           </td>
           <td>
@@ -373,7 +372,7 @@ currentPost, currentArticle, mediaAssets</td>
             <code>POST /api/blog-posts/:postId/seo-score</code>
           </td>
           <td><span class="badge yes">LLM 호출 대상</span><br>블로그 초안의 SEO/승인 준비도를 구조화 점수로 평가하도록 정의됨.</td>
-          <td><span class="badge yes">현재 실제 호출 가능</span><br>현재 provider가 있으면 <code>openAIBlogProvider.scoreSeo()</code> 호출. provider가 없으면 로컬 산식. 아직 analysis처럼 prompt budget builder는 없음.</td>
+          <td><span class="badge yes">현재 실제 호출 가능</span><br>현재 provider가 있으면 <code>openAIBlogProvider.scoreSeo()</code> 호출. provider가 없으면 로컬 산식. OpenAI 입력은 <code>blogPromptBudget</code>로 compact됨.</td>
           <td>
             <ul class="mono-list">
               <li><code>OPENAI_API_KEY</code> 있음: OpenAI 호출</li>
@@ -383,9 +382,9 @@ currentPost, currentArticle, mediaAssets</td>
           <td>
             <ul class="mono-list">
               <li><code>store</code>: id, name, category, address</li>
-              <li><code>ruleset</code>, <code>rulesetFields</code></li>
-              <li><code>post</code>: id, status, title, article 전체</li>
-              <li><code>mediaAssets</code>: id, assetType, status, prompt, metadata</li>
+              <li><code>ruleset</code>: id, status, version, allowlist summary, compact fields</li>
+              <li><code>post.article</code>: title, metaDescription, bounded bodySections/bodyText, seoKeywords, cta, imagePrompts</li>
+              <li><code>mediaAssets</code>: id, assetType, status, prompt, allowlist metadata</li>
             </ul>
           </td>
           <td class="prompt-box">system:
@@ -393,12 +392,12 @@ You are a Korean Naver Blog SEO reviewer...
 Return strict structured SEO scoring only.
 
 user:
-JSON.stringify(seoPromptInput(input))</td>
+JSON.stringify(buildBlogSeoPromptInput(input).promptInput)</td>
           <td>
             <code>zodResponseFormat(SeoScoreOutputSchema, 'store_learning_blog_seo_score')</code><br>
             이후 <code>SeoScoreOutputSchema.parse()</code>.
           </td>
-          <td><code>seo_scores.rubric._provenance</code>에 provider/mode/model/action을 저장하고 API 직렬화에서 <code>seoScore.provenance</code>로 분리. 상세 화면의 SEO 바/항목과 compact provenance line에 표시.</td>
+          <td><code>seo_scores.rubric._provenance</code>에 provider/mode/model/action/inputBudget을 저장하고 API 직렬화에서 <code>seoScore.provenance</code>로 분리. 상세 화면의 SEO 바/항목과 compact provenance line에 표시.</td>
           <td>
             <span class="code-ref">poc-server/src/storeLearning/blog/openAIBlogProvider.ts:90-168</span>
             <span class="code-ref">poc-server/src/storeLearning/blog/blogGenerator.ts:754-779</span>
@@ -636,13 +635,14 @@ user:
     <li>그래도 context length 오류가 발생하면 <code>analysis_context_too_large</code>로 sanitize되어 제품용 메시지만 브라우저에 노출됩니다.</li>
   </ul>
 
-  <h2>남은 LLM 입력 예산 리스크</h2>
+  <h2>블로그/SEO 입력 예산 규칙</h2>
   <ul>
-    <li>블로그 초안 생성의 <code>draftPromptInput()</code>은 현재 <code>store.metadata</code>와 <code>ruleset.ruleset</code>을 별도 allowlist 없이 전달합니다.</li>
-    <li>블로그 본문 재생성은 <code>currentPost.article</code>, <code>currentArticle</code>, <code>mediaAssets.metadata</code>를 포함하므로 긴 초안/반복 revision에서 prompt가 커질 수 있습니다.</li>
-    <li>SEO 재평가의 <code>seoPromptInput()</code>은 <code>post.article</code> 전체와 <code>mediaAssets.metadata</code>를 전달합니다. 현재는 구조화 점수만 요청하지만 analysis 수준의 budget guard는 없습니다.</li>
-    <li>블로그/SEO OpenAI provider 실패는 현재 분석처럼 <code>analysis_context_too_large</code> 형태로 sanitize 저장되지 않습니다. route error로 전파되는 경로를 별도 제품 메시지로 정리해야 합니다.</li>
-    <li>다음 적용 순서는 블로그/SEO prompt compact builder 추가, provider run metadata 저장, 실패 sanitize, 콘텐츠 상세/목록 provenance 보강입니다.</li>
+    <li>블로그/SEO prompt는 <code>blogPromptBudget.ts</code>에서 생성하며, <code>store.metadata</code>, <code>ruleset.ruleset</code>, article JSON, media metadata는 allowlist/compact 구조로 변환합니다.</li>
+    <li>룰셋은 id/status/version, allowlist summary, compact field list만 보내며 field value는 길이 제한을 둡니다.</li>
+    <li>본문 재생성/SEO의 article은 title, metaDescription, bounded bodySections/bodyText, seoKeywords, cta, imagePrompts만 포함합니다.</li>
+    <li>media asset metadata는 prompt, alt, placement, generator만 포함하며 CDN 응답/raw provider payload는 제외합니다.</li>
+    <li><code>content_generations.prompt</code>, <code>contentProvenance</code>, <code>seoScore.provenance</code>에서 provider/model/action/inputBudget을 확인할 수 있습니다.</li>
+    <li>Blog/SEO context-length 오류는 원문 token count를 브라우저에 노출하지 않고 한국어 제품 메시지로 sanitize합니다.</li>
   </ul>
 
   <h2>라이브 모드 확인</h2>
