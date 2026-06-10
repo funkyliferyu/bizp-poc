@@ -7,6 +7,22 @@ New writing-style CR has been added to
 the latest Task 13 validation. Task 14 has not been implemented or validated
 yet.
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Collection Fingerprint Hotfix
+
+Bug report: a no-new-content collection run could appear as `수집 실패` because
+Place profile fingerprinting called `trim()` on non-string metadata and raised
+`value?.trim is not a function`.
+
+- RED `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts -t "non-string|fingerprints Place profiles"`:
+  failed with `value?.trim is not a function` and a rendered collection run
+  status of `failed`.
+- GREEN `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts -t "non-string|fingerprints Place profiles"`:
+  passed after making profile identity text normalization safe for strings,
+  numbers, booleans, arrays, and objects.
+- Focused regression
+  `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts`:
+  passed, 27 tests.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 13 Commands
 
 Run from `poc-server/`:

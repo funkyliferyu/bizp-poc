@@ -642,4 +642,77 @@ describe('Naver Place rendered collection provider', () => {
       })
     );
   });
+
+  it('completes rendered collection when Place profile metadata contains non-string values', async () => {
+    const providerEnv = {
+      NAVER_OWNER_AUTHORIZED: 'true',
+      NAVER_PLACE_PROVIDER: 'rendered',
+      NAVER_BLOG_PROVIDER: 'mock',
+      NAVER_PLACE_RENDERER_ENDPOINT: ''
+    };
+    const app = express();
+    app.use(express.json());
+    app.get('/fake-renderer', (_req, res) => {
+      res.json({
+        finalUrl: reviewUrl,
+        html: fixtureHtml,
+        bodyText: null
+      });
+    });
+    app.use('/api/stores', createStoreRoutes({ connection, env: providerEnv }));
+    app.use('/api/collection-runs', createCollectionRunRoutes({ connection, stepDelayMs: 0, env: providerEnv }));
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+    providerEnv.NAVER_PLACE_RENDERER_ENDPOINT = `${baseUrl}/fake-renderer`;
+
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.update('store_demo_cake', {
+      naverPlaceUrl: placeUrl,
+      naverPlaceId: '1838952735',
+      metadata: {
+        category: ['의료/건강', '정형외과'],
+        closedDays: ['매주 월요일'],
+        parking: { available: false, note: null },
+        reviewStats: { visitor: 61 },
+        hospitalInfo: {
+          subjects: ['정형외과', '내과']
+        }
+      }
+    });
+
+    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channels: {
+          naverBlog: { enabled: false, blogPostLimit: 0 },
+          naverPlace: { enabled: true, placeReviewLimit: 1 },
+          instagram: { enabled: false, instagramPostLimit: 0 }
+        }
+      })
+    });
+    const createRunResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const created = await readJson(createRunResponse);
+
+    const startResponse = await fetch(`${baseUrl}/api/collection-runs/${created.collectionRunId}/start`, {
+      method: 'POST'
+    });
+    const started = await readJson(startResponse);
+    const terminal = await waitForTerminalRun(baseUrl, created.collectionRunId);
+
+    expect(startResponse.status).toBe(200);
+    expect(started.collectionRun.status).not.toBe('failed');
+    expect(terminal.status).toBe('completed');
+    expect(terminal.summary.error).toBeUndefined();
+    expect(terminal.summary.collectionDelta).toEqual(
+      expect.objectContaining({
+        counts: expect.objectContaining({ new: 2 })
+      })
+    );
+  });
 });

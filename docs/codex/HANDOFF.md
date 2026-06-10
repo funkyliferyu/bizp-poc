@@ -75,6 +75,11 @@ The branch now includes:
 - Task 14 is planned but not implemented: 글쓰기 스타일 still needs API-backed
   field calculation/suggestion payloads, save/reset affordance consistency, no
   writing-style evidence buttons, and empty/placeholder styling.
+- Collection profile fingerprint hardening is implemented after a reported
+  real-run failure: non-string Place/store metadata such as arrays, objects,
+  numbers, and booleans no longer throws `value?.trim is not a function`, so
+  no-new-content collection runs can complete and expose collection-delta state
+  instead of appearing as provider failures.
 
 Latest feature-branch validation recorded:
 
@@ -82,6 +87,8 @@ Latest feature-branch validation recorded:
   passed, 34 tests.
 - `npm test -- rulesetApi.test.ts`: passed, 13 tests after legacy evidence
   fallback polish.
+- `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts`:
+  passed, 27 tests after collection fingerprint metadata type hardening.
 - `npm run typecheck`: passed.
 - `npm test`: passed, 207 tests and 6 skipped live-provider tests across
   38 files.

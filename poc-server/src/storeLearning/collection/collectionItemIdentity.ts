@@ -9,9 +9,22 @@ export type CollectionIdentityInput = {
   metadata?: unknown;
 };
 
-function cleanText(value: string | null | undefined) {
-  const text = value?.trim();
-  return text ? text : null;
+function cleanText(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text ? text : null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    const text: string = value.map(cleanText).filter(Boolean).join(', ');
+    return text || null;
+  }
+  if (value && typeof value === 'object') {
+    const text = stableJson(value);
+    return text === '{}' ? null : text;
+  }
+  return null;
 }
 
 function normalizeTitle(value: string | null | undefined) {
