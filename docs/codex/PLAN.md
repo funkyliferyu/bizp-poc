@@ -55,9 +55,9 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. Review draft PR #38 from `codex/collection-delta-plan` to `develop`.
-2. Mark PR #38 ready when review feedback is resolved, then merge it to
-   `develop`.
+1. PR #38 is ready for review and has no reported comments/checks.
+2. Merge PR #38 to `develop` once the base branch policy requirement is
+   satisfied by an authorized reviewer/admin.
 3. Run final develop validation after the CR follow-up work is merged.
 4. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
@@ -77,7 +77,7 @@ Current next todo as of 2026-06-10:
 | 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
 | 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
 | 11 | 실등록 Store E2E 하드닝 | Merged to develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Awaiting post-CR final validation |
-| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Draft PR review/merge pending |
+| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Ready PR; base policy blocks non-admin merge |
 | 13 | 최종 문서/검증 정리 | Not started | - | Run after CR follow-up merges |
 
 ## Sequential Checklist

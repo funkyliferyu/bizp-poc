@@ -3,8 +3,12 @@
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
 Milestone 12 follow-up is implemented on `codex/collection-delta-plan`.
-Draft PR #38 is open against `develop`:
+PR #38 is open and ready for review against `develop`:
 https://github.com/funkyliferyu/bizp-poc/pull/38
+
+Non-admin merge attempts are currently blocked by the `develop` base branch
+policy, and repository auto-merge is disabled. The PR has no reported comments,
+reviews, or status checks and is reported as `MERGEABLE`.
 
 The branch now includes:
 
@@ -44,8 +48,8 @@ Latest feature-branch validation recorded:
   image and comparison titles render red `rgb(224, 49, 49)`, image field order
   is correct, and the image matrix/source notes are absent.
 
-Next step: review draft PR #38, resolve any feedback, mark it ready, then merge
-to `develop` and run develop validation.
+Next step: an authorized reviewer/admin needs to satisfy the PR #38 base branch
+policy and merge it to `develop`; then run develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 

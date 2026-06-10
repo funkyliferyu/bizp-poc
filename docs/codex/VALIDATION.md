@@ -39,6 +39,10 @@ http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 Final Validation
 
 Draft PR: https://github.com/funkyliferyu/bizp-poc/pull/38
+PR #38 was marked ready for review. Non-admin `gh pr merge --merge`,
+`gh pr merge --squash`, and `gh pr merge --merge --auto` attempts did not
+merge it: the `develop` base branch policy blocks non-admin merge, and
+repository auto-merge is disabled.
 
 - `npm test -- rulesetPage.test.ts`: passed, 13 tests.
 - `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts`:
