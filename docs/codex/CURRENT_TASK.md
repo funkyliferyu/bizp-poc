@@ -9,18 +9,17 @@ Sequential plan ledger control for Store Learning work.
 - `main` is the intended public/stable branch.
 - `develop` is the intended integration branch.
 - `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
-- Milestone PRs #26-#34, #36, and #37 are merged to `develop`.
-- Milestone 12 CR follow-up is implemented and validated through Task 16 on
-  `codex/collection-delta-plan`, including the additional ruleset store-info,
+- Milestone PRs #26-#34, #36, #37, and #38 are merged to `develop`.
+- Milestone 12 CR follow-up is implemented, merged, and validated on
+  `develop`, including the additional ruleset store-info,
   common-reference, industry-field, writing-style, image-style,
   similar-comparison, parking, our-store-analysis, no-new-content collection,
   and review-weakness backfill CR items.
 - Image-style and similar-comparison UI CRs are implemented and validated on
   the milestone 12 branch as Task 10 and Task 11.
-- PR #38 is open and ready for review from `codex/collection-delta-plan` to
-  `develop`.
-- Non-admin merge attempts for PR #38 are blocked by the `develop` base branch
-  policy; repository auto-merge is disabled.
+- PR #38 was merged to `develop` with merge commit `204f964`.
+- Develop validation after PR #38 passed on 2026-06-10 and is recorded in
+  `docs/codex/VALIDATION.md`.
 - The parking manual-input CR is implemented and validated as milestone 12
   Task 12. PR #38 has been updated with the follow-up.
 - The our-store-analysis CR is implemented and validated as milestone 12
@@ -36,10 +35,11 @@ Sequential plan ledger control for Store Learning work.
   validated as milestone 12 Task 17 on the PR #38 branch.
 - The channel-level cached collection guidance CR is implemented and validated
   as milestone 12 Task 18 on the PR #38 branch.
-- Milestones are not fully complete until the work is merged to `develop` and
-  develop validation is recorded.
-- `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
-  implementation plan; PR #38 merge is the next item after Task 18 validation.
+- Milestone 12 is complete on `develop`.
+- The next planned implementation track is the LLM call audit and analysis
+  prompt-budget follow-up in
+  `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
+- The temporary reviewer-facing LLM call table is `web/llm호출.html`.
 
 ## Branch Policy
 
@@ -90,16 +90,12 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Have an authorized reviewer/admin satisfy the PR #38 base branch policy
-   and merge it to `develop` after Task 17 is complete.
-2. After the CR follow-up work merges to `develop`, run final validation:
-   - `cd poc-server && npm run typecheck`
-   - `cd poc-server && npm test`
-   - `cd poc-server && npm run demo:store-learning`
-4. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
-   validation result.
-5. Prepare the `develop` -> `main` promotion path only after validation passes
-   and the user approves publication timing.
+1. Start a new `codex/*` branch from latest `develop`.
+2. Implement `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
+3. Keep `web/llm호출.html` available for reviewer verification until it is
+   replaced by the productized LLM provenance UI or explicitly removed.
+4. Prepare the `develop` -> `main` promotion path only after the user approves
+   publication timing.
 
 Before editing files, confirm:
 

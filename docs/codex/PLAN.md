@@ -55,30 +55,34 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. Merge PR #38 to `develop` after Task 17 is implemented and validated, once
-   the base branch policy requirement is satisfied by an authorized
-   reviewer/admin.
-2. Run final develop validation after the CR follow-up work is merged.
-3. Prepare the `develop` -> `main` promotion path only after validation passes
-   and the user approves publication timing.
+1. Start the LLM call audit and analysis prompt-budget follow-up from
+   `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md` on a new `codex/*` branch
+   from latest `develop`, unless the user explicitly chooses publication or
+   final cleanup first.
+2. Keep `web/llm호출.html` as the temporary reviewer-facing verification table
+   until the LLM provenance work either replaces it or the user says to remove
+   it.
+3. Prepare the `develop` -> `main` promotion path only after the user approves
+   publication timing.
 
 ## Milestone Ledger
 
 | # | Milestone | Current state | Tracking | Develop gate |
 |---|---|---|---|---|
-| 1 | 현황 감사와 데이터 매핑 | Merged to develop | [#26](https://github.com/funkyliferyu/bizp-poc/pull/26) | Awaiting final validation |
-| 2 | 매장정보등록 정리 | Merged to develop | [#27](https://github.com/funkyliferyu/bizp-poc/pull/27) | Awaiting final validation |
-| 3 | AI 학습 설정 데이터 정리 | Merged to develop | [#28](https://github.com/funkyliferyu/bizp-poc/pull/28) | Awaiting final validation |
-| 4 | 수집 실행 안정화 | Merged to develop | [#29](https://github.com/funkyliferyu/bizp-poc/pull/29) | Awaiting final validation |
-| 5 | 수집 데이터 선택/RAW 조회 확장 | Merged to develop | [#30](https://github.com/funkyliferyu/bizp-poc/pull/30) | Awaiting final validation |
-| 6 | 분석 실행과 룰셋 생성 계약 정리 | Merged to develop | [#31](https://github.com/funkyliferyu/bizp-poc/pull/31) | Awaiting final validation |
-| 7 | 마케팅 전략 룰셋 화면 적용 | Merged to develop | [#32](https://github.com/funkyliferyu/bizp-poc/pull/32) | Awaiting final validation |
-| 8 | AI 학습 현황 화면 적용 | Merged to develop | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Awaiting final validation |
-| 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
-| 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
-| 11 | 실등록 Store E2E 하드닝 | Merged to develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Awaiting post-CR final validation |
-| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Task 17 planned; implement/validate before PR #38 merge |
-| 13 | 최종 문서/검증 정리 | Not started | - | Run after CR follow-up merges |
+| 1 | 현황 감사와 데이터 매핑 | Validated on develop | [#26](https://github.com/funkyliferyu/bizp-poc/pull/26) | Covered by final develop validation after PR #38 |
+| 2 | 매장정보등록 정리 | Validated on develop | [#27](https://github.com/funkyliferyu/bizp-poc/pull/27) | Covered by final develop validation after PR #38 |
+| 3 | AI 학습 설정 데이터 정리 | Validated on develop | [#28](https://github.com/funkyliferyu/bizp-poc/pull/28) | Covered by final develop validation after PR #38 |
+| 4 | 수집 실행 안정화 | Validated on develop | [#29](https://github.com/funkyliferyu/bizp-poc/pull/29) | Covered by final develop validation after PR #38 |
+| 5 | 수집 데이터 선택/RAW 조회 확장 | Validated on develop | [#30](https://github.com/funkyliferyu/bizp-poc/pull/30) | Covered by final develop validation after PR #38 |
+| 6 | 분석 실행과 룰셋 생성 계약 정리 | Validated on develop | [#31](https://github.com/funkyliferyu/bizp-poc/pull/31) | Covered by final develop validation after PR #38 |
+| 7 | 마케팅 전략 룰셋 화면 적용 | Validated on develop | [#32](https://github.com/funkyliferyu/bizp-poc/pull/32) | Covered by final develop validation after PR #38 |
+| 8 | AI 학습 현황 화면 적용 | Validated on develop | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Covered by final develop validation after PR #38 |
+| 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Validated on develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Covered by final develop validation after PR #38 |
+| 10 | 마케팅 전략 룰셋 API 계약 후속 | Validated on develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Covered by final develop validation after PR #38 |
+| 11 | 실등록 Store E2E 하드닝 | Validated on develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Covered by final develop validation after PR #38 |
+| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Validated on develop | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), merge `204f964` | Develop validation recorded 2026-06-10 |
+| 13 | LLM 호출 감사와 분석 입력 예산 | Planned | [plan](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md), temporary table `web/llm호출.html` | Start on new `codex/*` branch from latest `develop` |
+| 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist
 
@@ -188,8 +192,8 @@ Status:
       and feature-branch validated.
 - [x] Task 18 channel-level cached collection guidance is implemented and
       feature-branch validated.
-- [ ] PR is merged to `develop`.
-- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [x] PR is merged to `develop`: #38, merge commit `204f964`.
+- [x] Develop validation is recorded in `docs/codex/VALIDATION.md`.
 
 CR-Dedup-Relearning-001:
 
@@ -481,10 +485,10 @@ The current implementation stack should be integrated in this order:
 #26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34 -> #36 -> #37 -> CR follow-up
 ```
 
-PRs #26-#34, #36, and #37 have been merged to `develop`. Milestone 12 CR
-follow-up through Task 14 is implemented and feature-branch validated on
-`codex/collection-delta-plan`; the next todo is PR #38 review/merge to
-`develop`, then final develop validation.
+PRs #26-#34, #36, #37, and #38 have been merged to `develop`. Final develop
+validation after PR #38 passed on 2026-06-10. The next todo is the LLM call
+audit and analysis prompt-budget follow-up in
+`docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
 
 ## Validation Commands
 
