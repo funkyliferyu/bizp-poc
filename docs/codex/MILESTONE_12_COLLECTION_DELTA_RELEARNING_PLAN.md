@@ -39,6 +39,10 @@ Included:
   fields into the top image-style controls.
 - Mark the similar-comparison tab/block as a red common example with the title
   `(공통예시) 유사업체비교`.
+- When the marketing strategy ruleset has no parking information, show
+  `수동입력 필요` instead of `주차 정보 수집 중`, and provide a right-aligned
+  `매장정보에서 입력하기` action that opens the current store in the store
+  registration screen focused on parking input.
 
 Excluded:
 
@@ -60,6 +64,9 @@ Excluded:
 - Do not connect similar-comparison examples to real competitor discovery or
   external benchmark providers in this pass. This CR only changes the visible
   example labeling.
+- Do not re-run Place collection or infer parking availability when Place/store
+  data is missing parking information. Missing parking is a manual input state
+  in the ruleset UI.
 - Do not modify `admin/`, `pc-web/`, `README_POC.md`, `web/event_operation_poc.html`, or old Event-to-Operation files.
 - Do not stage `.DS_Store`, runtime SQLite DBs, `.env`, screenshots, or generated artifacts.
 
@@ -430,3 +437,60 @@ Excluded:
 - [x] Run `cd poc-server && npm test -- rulesetPage.test.ts`.
 - [x] Run `cd poc-server && npm run typecheck`.
 - [x] Run `git diff --check`.
+
+### Task 12: Ruleset Missing Parking Manual Input CTA
+
+**Files:**
+
+- Modify: `web/07_마케팅전략룰셋.html`
+- Modify: `web/ruleset_editor.js`
+- Modify: `web/soho_store_register.js`
+- Modify: `poc-server/test/rulesetPage.test.ts`
+- Modify: `poc-server/test/storeRegistrationPage.test.ts`
+- Modify only if the store registration page needs a visible focus target:
+  `web/soho_store_register.html`
+
+- [ ] Add RED tests in `poc-server/test/rulesetPage.test.ts` proving the
+      marketing ruleset store-info tab no longer contains the fallback text
+      `주차 정보 수집 중`.
+- [ ] Add RED tests proving the parking row has a stable hook for a missing
+      parking state, for example `data-manual-required-field="parking"`, and
+      can render the exact text `수동입력 필요`.
+- [ ] Add RED tests proving the parking row has a right-aligned
+      `매장정보에서 입력하기` action with a stable hook such as
+      `data-store-registration-action="parking"`.
+- [ ] Add RED tests proving the parking action builds an internal browser URL
+      only, preserving API boundaries:
+      `soho_store_register.html?storeId=<currentStoreId>&focus=parking`.
+      The browser must not call Naver/OpenAI/external providers for this
+      action.
+- [ ] Add RED tests in `poc-server/test/storeRegistrationPage.test.ts` proving
+      `soho_store_register.js` reads a `storeId` query parameter before
+      falling back to `bizplanet.storeRegistration.storeId` in local storage.
+- [ ] Add RED tests proving `soho_store_register.js` handles `focus=parking`
+      by focusing or scrolling to the existing parking controls, using the
+      current store's edit screen rather than creating a new store.
+- [ ] Update `web/07_마케팅전략룰셋.html` so the static parking fallback is
+      `수동입력 필요`, not `주차 정보 수집 중`.
+- [ ] Update `web/07_마케팅전략룰셋.html` so the parking row can display the
+      right-aligned `매장정보에서 입력하기` button without disturbing the
+      existing store-info row layout.
+- [ ] Update `web/ruleset_editor.js` with a small parking value normalizer:
+      empty, null, `-`, `수집/결과 대기`, or old `주차 정보 수집 중` values
+      should render as `수동입력 필요`.
+- [ ] Update `web/ruleset_editor.js` so the manual parking action is visible
+      only for the missing parking state and navigates to
+      `soho_store_register.html?storeId=${currentStoreId()}&focus=parking`.
+- [ ] Update `web/soho_store_register.js` so `currentStoreId` initializes from
+      the `storeId` query parameter when present, stores it in local storage,
+      and loads that existing store via `GET /api/stores/:storeId`.
+- [ ] Update `web/soho_store_register.js` so `focus=parking` scrolls to the
+      existing parking radio group or parking note input after saved store data
+      has populated. Keep the interaction local to the browser page.
+- [ ] Preserve existing save behavior: after the user edits parking and saves,
+      the existing `PUT /api/stores/:storeId` path should update the same
+      store, not create a duplicate.
+- [ ] Run `cd poc-server && npm test -- rulesetPage.test.ts storeRegistrationPage.test.ts`.
+- [ ] Run `cd poc-server && npm test -- staticWebConnectivity.test.ts rulesetApi.test.ts storeRegistrationApi.test.ts`.
+- [ ] Run `cd poc-server && npm run typecheck`.
+- [ ] Run `git diff --check`.

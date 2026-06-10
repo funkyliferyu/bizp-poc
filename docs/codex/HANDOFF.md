@@ -10,6 +10,12 @@ Non-admin merge attempts are currently blocked by the `develop` base branch
 policy, and repository auto-merge is disabled. The PR has no reported comments,
 reviews, or status checks and is reported as `MERGEABLE`.
 
+New CR added after the PR was marked ready: milestone 12 Task 12 should be
+implemented before PR #38 is merged. The ruleset store-info parking row must
+show `수동입력 필요` when parking is missing, not `주차 정보 수집 중`, and must
+provide a right-aligned `매장정보에서 입력하기` action that opens
+`soho_store_register.html?storeId=<currentStoreId>&focus=parking`.
+
 The branch now includes:
 
 - Collection delta tracking for new/duplicate/unchanged/changed content and
@@ -48,8 +54,9 @@ Latest feature-branch validation recorded:
   image and comparison titles render red `rgb(224, 49, 49)`, image field order
   is correct, and the image matrix/source notes are absent.
 
-Next step: an authorized reviewer/admin needs to satisfy the PR #38 base branch
-policy and merge it to `develop`; then run develop validation.
+Next step: execute milestone 12 Task 12 on `codex/collection-delta-plan`, rerun
+feature-branch validation, then proceed with PR #38 merge to `develop` and
+develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
