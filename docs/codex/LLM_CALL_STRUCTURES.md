@@ -189,7 +189,10 @@ from the current marketing ruleset.
 prompt before serialization. Store metadata is allowlisted, ruleset JSON is
 reduced to an allowlisted summary plus compact ruleset fields, ruleset field
 values are capped, media assets are limited, and prompt budget metadata is
-recorded as `inputBudget`.
+recorded as `inputBudget`. If the serialized prompt still exceeds the
+configured budget, the builder progressively reduces media asset count, article
+section count/body length, and ruleset field value length until it fits or
+reaches minimum context. Only Blog/SEO-relevant ruleset field keys are included.
 
 ```mermaid
 flowchart TD
@@ -410,6 +413,8 @@ readiness.
 **Current budget behavior:** `buildBlogSeoPromptInput()` compacts the post
 article to bounded article fields, uses the compact ruleset/ruleset field shape,
 allowlists media asset metadata, and records `inputBudget` in SEO provenance.
+It uses the same progressive fit loop and Blog/SEO-relevant ruleset field
+allowlist as `SL-B1`/`SL-B2`.
 
 ```mermaid
 flowchart TD
@@ -686,9 +691,6 @@ drafts with `generationTrace.mode = "mock"` and `fallbackReason`.
 1. **Provider telemetry symmetry:** Analysis run metadata is still broader than
    Blog/SEO metadata because analysis tracks selected/prompt/omitted source
    item counts.
-2. **Blog/SEO budget tuning:** `SL-B1`, `SL-B2`, and `SL-S1` now use compact
-   prompt builders, but default character budgets may need tuning with larger
-   live stores.
-3. **Legacy route isolation:** Legacy Event-to-Operation calls are still
+2. **Legacy route isolation:** Legacy Event-to-Operation calls are still
    server-reachable and should stay clearly separated from Store Learning
    validation.

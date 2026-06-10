@@ -164,8 +164,10 @@ Implementation status:
   provenance expose `inputBudget` with provider/model/action metadata.
 - Done: Blog/SEO context-length provider errors are sanitized to a Korean
   product message instead of exposing raw token-count errors.
-- Remaining follow-up: tune default Blog/SEO character budgets against larger
-  live stores if real inputs still approach provider limits.
+- Done: oversized Blog/SEO prompts now run through a progressive fit loop that
+  reduces media asset count, article section/body length, and ruleset field
+  value length to stay under the configured prompt character budget where
+  possible.
 
 ## Task 1: Add LLM Call Trace Contract
 
