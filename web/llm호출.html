@@ -226,6 +226,7 @@
               <li><code>selectedItems</code>: id, channel, sourceType, title, sourceUrl, budgeted bodyText. 개발 버전에서는 Blog 소스가 몇 개든 최신순 최대 10개만 포함</li>
               <li><code>metadata</code>: publishedAt, reviewDate, rating, reviewerName, blogId, logNo, tags, Place profile facts 등 allowlist만 포함</li>
               <li><code>requiredRulesetFieldKeys</code></li>
+              <li><code>requiredRulesetFields</code>: AI 산출 대상 fieldKey, label, section, valueKind, sourceTier, inputSources, expectedOutput, evidenceGuidance. 운영시간/휴무일/주차/대표 진료과목 같은 direct Place/manual facts는 제외</li>
             </ul>
           </td>
           <td class="prompt-box">system:
@@ -239,14 +240,16 @@ JSON.stringify({
   store,
   selectedItemIds,
   selectedItems,
-  requiredRulesetFieldKeys
+  requiredRulesetFieldKeys,
+  requiredRulesetFields
 })</td>
           <td>
             <code>zodResponseFormat(AnalyzerOutputSchema, 'store_learning_analysis')</code><br>
-            이후 <code>validateAnalyzerOutput()</code>로 재검증.
+            이후 <code>validateAnalyzerOutput()</code>, <code>validateAnalyzerRulesetFieldContract()</code>, <code>validateAnalyzerReferences()</code>로 재검증.
           </td>
           <td>
             <ul class="mono-list">
+              <li>저장 전 모든 AI 산출 대상 <code>rulesetFields</code>가 정확히 1회 존재해야 하며, unknown fieldKey와 OpenAI <code>source</code> 불일치는 실패 처리</li>
               <li><code>analysis_evidence</code> 저장</li>
               <li><code>learning_snapshots</code> 저장</li>
               <li><code>marketing_rulesets</code> 생성</li>

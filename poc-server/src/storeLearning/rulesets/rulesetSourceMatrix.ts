@@ -24,6 +24,14 @@ export type RulesetSourceMatrixRow = {
   notes: string;
 };
 
+export type AnalyzerRulesetFieldContract = Pick<
+  RulesetSourceMatrixRow,
+  'fieldKey' | 'label' | 'section' | 'valueKind' | 'sourceTier' | 'inputSources'
+> & {
+  expectedOutput: string;
+  evidenceGuidance: string;
+};
+
 function row(input: RulesetSourceMatrixRow): RulesetSourceMatrixRow {
   return input;
 }
@@ -682,4 +690,40 @@ export function sourceMatrixForFieldKey(fieldKey: string) {
 
 export function serializeRulesetSourceMatrix() {
   return RULESET_SOURCE_MATRIX.map((item) => ({ ...item }));
+}
+
+function expectedOutputForAnalyzerField(row: RulesetSourceMatrixRow) {
+  const valueShape =
+    row.valueKind === 'list' || row.valueKind === 'tags' || row.valueKind === 'colors'
+      ? 'Korean comma-separated list'
+      : row.valueKind === 'policy'
+        ? 'Korean policy'
+        : 'Korean text';
+  return `${row.label}: ${valueShape} for direct ruleset UI use.`;
+}
+
+function evidenceGuidanceForAnalyzerField(row: RulesetSourceMatrixRow) {
+  const baseGuidance = 'Use selected collection item IDs only; do not invent facts.';
+  const placeGuidance =
+    row.sourceTier === 'place_then_ai'
+      ? ' Start from direct Place facts, then use Blog/review evidence for priority or copy guidance.'
+      : '';
+  const strategyOnlyGuidance =
+    row.fieldKey === 'reviewWeakness'
+      ? ' strategy-only; do not turn weaknesses into public claims.'
+      : '';
+  return `${baseGuidance}${placeGuidance}${strategyOnlyGuidance}`;
+}
+
+export function serializeAnalyzerRulesetFieldContract(): AnalyzerRulesetFieldContract[] {
+  return AI_SOURCE_MATRIX.map((item) => ({
+    fieldKey: item.fieldKey,
+    label: item.label,
+    section: item.section,
+    valueKind: item.valueKind,
+    sourceTier: item.sourceTier,
+    inputSources: [...item.inputSources],
+    expectedOutput: expectedOutputForAnalyzerField(item),
+    evidenceGuidance: evidenceGuidanceForAnalyzerField(item)
+  }));
 }

@@ -64,7 +64,8 @@ flowchart TD
   Provider --> Budget[buildAnalysisPromptInput]
   Budget --> OpenAI[OpenAI chat.completions.parse]
   OpenAI --> Zod[zodResponseFormat + validateAnalyzerOutput]
-  Zod --> Persist[analysis_evidence + learning_snapshots + marketing_rulesets + ruleset_fields]
+  Zod --> Contract[required ruleset field contract + evidence reference validation]
+  Contract --> Persist[analysis_evidence + learning_snapshots + marketing_rulesets + ruleset_fields]
   Persist --> RunResult[analysis_runs.result provenance and budget metadata]
   RunResult --> UI[Selection/Learning status provenance UI]
 ```
@@ -118,21 +119,46 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
       }
     }
   ],
-  requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS
+  requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS,
+  requiredRulesetFields: [
+    {
+      fieldKey,
+      label,
+      section,
+      valueKind,
+      sourceTier,
+      inputSources,
+      expectedOutput,
+      evidenceGuidance
+    }
+  ]
 }
 ```
+
+`requiredRulesetFields` is built from the AI source matrix only. Direct
+Place/manual facts such as `operatingHours`, `closedDays`, `parking`, and
+`representativeTreatmentSubjects` stay direct and are not included as
+LLM-generated ruleset fields.
 
 ### Response Handling
 
 ```mermaid
 flowchart LR
   Parsed[OpenAI parsed JSON] --> AnalyzerSchema[AnalyzerOutputSchema]
-  AnalyzerSchema --> ReferenceValidation[validateAnalyzerReferences]
+  AnalyzerSchema --> FieldContract[validateAnalyzerRulesetFieldContract]
+  FieldContract --> ReferenceValidation[validateAnalyzerReferences]
   ReferenceValidation --> Evidence[analysis_evidence]
   ReferenceValidation --> Snapshot[learning_snapshots]
   ReferenceValidation --> Ruleset[marketing_rulesets]
   ReferenceValidation --> Fields[ruleset_fields]
 ```
+
+Before persistence, `SL-A1` enforces that every
+`REQUIRED_ANALYZER_RULESET_FIELD_KEYS` field appears exactly once in
+`rulesetFields`, unknown field keys are rejected, OpenAI provider outputs use
+`source = "openai_analysis"`, and all evidence item references point to the
+selected collection items. A failure at this stage marks the analysis run as
+failed and saves no evidence, snapshot, marketing ruleset, or ruleset fields.
 
 **Stored metadata:** `analysis_runs.result` stores
 `analyzerProvider`, `analyzerMode`, `analyzerModel`, selected/prompt/omitted
@@ -620,4 +646,3 @@ drafts with `generationTrace.mode = "mock"` and `fallbackReason`.
 5. **Legacy route isolation:** Legacy Event-to-Operation calls are still
    server-reachable and should stay clearly separated from Store Learning
    validation.
-

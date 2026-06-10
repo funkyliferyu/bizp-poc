@@ -6,7 +6,11 @@ import type { LearningSnapshot } from '../../repositories/learning_snapshots.js'
 import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
-import { canonicalRulesetFieldKey, sourceMatrixForFieldKey } from '../rulesets/rulesetSourceMatrix.js';
+import {
+  REQUIRED_ANALYZER_RULESET_FIELD_KEYS,
+  canonicalRulesetFieldKey,
+  sourceMatrixForFieldKey
+} from '../rulesets/rulesetSourceMatrix.js';
 import { createMockAnalysisProvider, type AnalysisProvider, validateAnalyzerOutput } from './analyzer.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
@@ -202,6 +206,46 @@ function validateAnalyzerReferences(
   }
 }
 
+function validateAnalyzerRulesetFieldContract(
+  output: ReturnType<typeof validateAnalyzerOutput>,
+  provider: AnalysisProvider
+) {
+  const requiredFieldKeys = new Set(REQUIRED_ANALYZER_RULESET_FIELD_KEYS);
+  const seenFieldKeys = new Set<string>();
+  const duplicateFieldKeys = new Set<string>();
+  const unknownFieldKeys = new Set<string>();
+  const invalidOpenAISourceFieldKeys = new Set<string>();
+
+  for (const field of output.rulesetFields) {
+    if (seenFieldKeys.has(field.fieldKey)) {
+      duplicateFieldKeys.add(field.fieldKey);
+    }
+    seenFieldKeys.add(field.fieldKey);
+    if (!requiredFieldKeys.has(field.fieldKey)) {
+      unknownFieldKeys.add(field.fieldKey);
+    }
+    if (provider.mode === 'openai' && field.source !== 'openai_analysis') {
+      invalidOpenAISourceFieldKeys.add(field.fieldKey);
+    }
+  }
+
+  const missingFieldKeys = REQUIRED_ANALYZER_RULESET_FIELD_KEYS.filter((fieldKey) => !seenFieldKeys.has(fieldKey));
+  if (missingFieldKeys.length > 0) {
+    throw new Error(`Analyzer output missing required ruleset fields: ${missingFieldKeys.join(', ')}`);
+  }
+  if (duplicateFieldKeys.size > 0) {
+    throw new Error(`Analyzer output has duplicate ruleset fields: ${Array.from(duplicateFieldKeys).join(', ')}`);
+  }
+  if (unknownFieldKeys.size > 0) {
+    throw new Error(`Analyzer output has unknown ruleset fields: ${Array.from(unknownFieldKeys).join(', ')}`);
+  }
+  if (invalidOpenAISourceFieldKeys.size > 0) {
+    throw new Error(
+      `OpenAI analyzer output must use source=openai_analysis for ruleset fields: ${Array.from(invalidOpenAISourceFieldKeys).join(', ')}`
+    );
+  }
+}
+
 function nextRulesetVersion(repos: Repositories, storeId: string) {
   return repos.marketingRulesets
     .listByStoreId(storeId)
@@ -341,6 +385,7 @@ export async function startAnalysisRun(
     const output = validateAnalyzerOutput(await provider.analyze({ store, selectedItems }));
     const runMetadata = providerRunMetadata(provider, selectedItems);
     updateAnalysisProgress(repos, analysisRun.id, 'validating', 'running');
+    validateAnalyzerRulesetFieldContract(output, provider);
     validateAnalyzerReferences(output, selectedItems);
     updateAnalysisProgress(repos, analysisRun.id, 'evidence', 'running');
     const fieldEvidenceByItemId = fieldEvidenceByCollectionItemId(output);
