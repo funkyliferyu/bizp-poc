@@ -1,9 +1,21 @@
 import type { JsonValue } from '../../repositories/base.js';
+import type { AnalysisEvidence } from '../../repositories/analysis_evidence.js';
+import type { AnalysisRun } from '../../repositories/analysis_runs.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
+import type { LearningSnapshot } from '../../repositories/learning_snapshots.js';
+import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
+import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { createMockAnalysisProvider, type AnalysisProvider, validateAnalyzerOutput } from './analyzer.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
+export type AnalysisArtifacts = {
+  analysisRun: AnalysisRun;
+  analysisEvidence: AnalysisEvidence[];
+  learningSnapshot: LearningSnapshot | null;
+  marketingRuleset: MarketingRuleset | null;
+  rulesetFields: RulesetField[];
+};
 type AnalysisProgressState = 'waiting' | 'running' | 'done' | 'failed';
 type AnalysisProgressStep =
   | 'preparing'
@@ -164,9 +176,21 @@ function rulesetFieldId(marketingRulesetId: string, fieldKey: string) {
   return `ruleset_field_${marketingRulesetId}_${sanitizeIdPart(fieldKey)}`;
 }
 
-export function getAnalysisArtifacts(repos: Repositories, analysisRunId: string) {
+export function getAnalysisArtifacts(repos: Repositories, analysisRunId: string): AnalysisArtifacts | null {
   const analysisRun = repos.analysisRuns.findById(analysisRunId);
   if (!analysisRun) return null;
+
+  const result = asRecord(analysisRun.result);
+  const reusedAnalysisRunId = asString(result.reusedAnalysisRunId);
+  if (reusedAnalysisRunId && reusedAnalysisRunId !== analysisRun.id) {
+    const reusedArtifacts = getAnalysisArtifacts(repos, reusedAnalysisRunId);
+    if (reusedArtifacts) {
+      return {
+        ...reusedArtifacts,
+        analysisRun
+      };
+    }
+  }
 
   const analysisEvidence = repos.analysisEvidence.listByAnalysisRunId(analysisRun.id);
   const learningSnapshot = latestByUpdatedAt(repos.learningSnapshots.listByAnalysisRunId(analysisRun.id));

@@ -141,8 +141,12 @@ describe('marketing ruleset API', () => {
         'reviewStrength',
         'reviewWeakness',
         'catchphrase',
+        'industryCommonRules',
+        'blogRequiredIntroCopy',
+        'blogRequiredFooterCopy',
         'blogPurpose',
         'blogPreferredLength',
+        'blogHashtags',
         'blogImageFormat',
         'blogImageStyle',
         'blogOverlayPolicy'

@@ -1,5 +1,52 @@
 # Codex Handoff
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
+
+Milestone 12 follow-up is implemented on `codex/collection-delta-plan` and is
+ready for PR review/merge to `develop`.
+
+The branch now includes:
+
+- Collection delta tracking for new/duplicate/unchanged/changed content and
+  unchanged Place profile fingerprints.
+- Analysis no-op reuse when there are no new Blog posts, no new Place reviews,
+  and the Place profile is unchanged.
+- Collection/selection UI messaging for cache reuse and no-change analysis
+  skip paths.
+- Learning status display fixes: real Blog publication date handling and 5
+  collapsed Place review rows.
+- Ruleset store-info cleanup: apply improvement suggestions only to 운영시간,
+  휴무일, and 주차, and remove the lower automatic-input block.
+- Our-store-analysis reference boxes are clearly red-labeled common examples,
+  and healthcare stores show 대표 진료과목 instead of 대표 메뉴.
+- Writing-style UI now separates current AI-inferred style from conservative
+  AI suggestions and includes healthcare industry-common rules plus mandatory
+  Blog intro/footer copy controls.
+- Image-style UI now labels the block `(공통예시) 이미지 스타일` in red,
+  removes the visible automatic-input matrix/source note path, and promotes
+  `비율·포맷` plus `텍스트 오버레이` into the top common image-style controls.
+- Similar-comparison UI now labels the block `(공통예시) 유사업체비교` in red
+  while keeping the existing comparison mock data and interactions intact.
+
+Latest feature-branch validation recorded:
+
+- `npm test -- rulesetPage.test.ts`: passed, 13 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts`:
+  passed, 52 tests.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 202 tests and 6 skipped live-provider tests across 38 files.
+- `npm run demo:store-learning`: passed and seeded
+  `poc-server/data/store-learning.sqlite`.
+- `git diff --check`: passed.
+- In-app browser smoke passed on
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html`:
+  image and comparison titles render red `rgb(224, 49, 49)`, image field order
+  is correct, and the image matrix/source notes are absent.
+
+Next step: open/review the milestone 12 CR follow-up PR from
+`codex/collection-delta-plan` to `develop`, then merge and run develop
+validation.
+
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
 Canonical ruleset API is now `/api/stores/:storeId/strategy-ruleset`.
@@ -924,6 +971,122 @@ Before any production-like pilot, decide approved fallback providers and operati
 - image generation
 - Naver Blog publishing
 - provider failure/error UX in the existing static pages
+
+## Milestone 12 Collection Delta And Relearning Skip Handoff
+
+Branch:
+
+- `codex/collection-delta-plan`
+
+Scope completed:
+
+- Repeated collection runs now record collection delta state after provider
+  collection and before saving current-run items.
+- Blog posts and Place reviews still use identity-based duplicate detection.
+- Place profiles now have URL/title identity plus a stable profile fingerprint
+  based on source URL, title/body text, and stable Place metadata fields.
+- Unchanged Place profiles are not saved as new current-run items. Changed
+  Place profiles remain meaningful and analyzable.
+- Collection run summaries include `collectionDelta` counts for `new`,
+  `duplicate`, `unchanged`, and `changed`, plus `hasMeaningfulChanges`.
+- Saved collection item metadata includes `collectionDelta`, and saved Place
+  profiles include `profileFingerprint`.
+- No-change collection runs can create a completed skipped analysis run with no
+  selected items when a previous completed learning result exists.
+- Skipped analysis runs reuse the latest completed analysis/snapshot/ruleset
+  artifacts and expose progress messaging equivalent to
+  `이전과 동일해 학습을 종료합니다`.
+- Collection progress shows `신규 수집 0개`, `기존 캐시 재사용`, and
+  `플레이스 정보 변경 없음` for no-change runs.
+- Content selection enables analysis/reuse for no-change runs even when there
+  are 0 selected current-run items.
+- Learning status Blog rows no longer use collection time as a fallback for
+  `발행일`; unknown publication dates render as `-`.
+- Content selection Blog `발행일` also reads provider publication metadata.
+- Learning status Place reviews now show 5 reviews in the collapsed default
+  state; expanded paging remains 20 reviews per page.
+
+Validation:
+
+- `npm test -- collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts collectionProgressPage.test.ts selectionPage.test.ts learningStatusApi.test.ts learningStatusPage.test.ts`: PASS, 39 tests.
+- `npm run typecheck`: PASS.
+- `npm test`: PASS, 35 files passed, 3 live-provider files skipped by default;
+  194 tests passed, 6 skipped.
+- `npm run demo:store-learning`: PASS.
+
+Notes:
+
+- Provider pre-filter optimization remains deferred. Current behavior still
+  calls providers first, then compares collected drafts safely before saving or
+  running analysis.
+- If no previous completed learning result exists, a no-change analysis create
+  request returns a 400 instead of inventing artifacts.
+- Runtime SQLite data under `poc-server/data/` is generated/ignored and not part
+  of the change.
+- `.DS_Store` remains an out-of-scope local modification and must not be staged.
+
+Ruleset UI CR addendum:
+
+- Marketing strategy ruleset > store info tab no longer shows the lower
+  `자동 입력 기준` source matrix block.
+- Store info source suggestion notes are hidden for store-info rows. The
+  applied direct Place/store follow-up scope is limited to 운영시간, 휴무일,
+  and 주차; unmentioned store-info rows do not keep visible improvement
+  suggestion blocks.
+- Our-store-analysis reference panel titles are now explicitly marked as common
+  examples, e.g. `(공통예시) 포지셔닝 참고`, and the title treatment is red.
+- Reference panels remain illustrative in this pass. They still use the
+  existing `poc-server` benchmark-evidence API/mock payload path and are not
+  wired to live external providers.
+- Our-store-analysis representative offering now changes by category. Healthcare
+  categories such as 병원, 의원, 클리닉, 정형외과, 피부과, or 치과 show
+  `대표 진료과목`; generic/non-healthcare categories continue to show
+  `대표 메뉴`.
+- Writing style now has first-class current-style controls and a right-side AI
+  suggestion panel for each row. The common surface exposes `글의 목적`,
+  `문장 스타일`, `선호 길이`, `해시태그`, `이모지 사용`, `SEO 키워드`,
+  and `CTA`.
+- The writing-style source matrix and per-field source-note technical metadata
+  are hidden from the visible writing-style UI.
+- Healthcare categories show medical-specific writing controls:
+  `업종공통규칙`, `필수 인트로 문구`, and `필수 푸터 문구`. The default
+  medical footer text uses the user-provided medical-law copy, while
+  non-healthcare seed/default fields do not receive that footer by default.
+- New persisted ruleset field keys were added for
+  `industryCommonRules`, `blogRequiredIntroCopy`, `blogRequiredFooterCopy`, and
+  `blogHashtags`, with source-matrix metadata and mock analyzer/seed support.
+- Blog generation consumption of required intro/footer copy and random
+  multi-purpose selection is intentionally deferred. The next implementation
+  step should wire these persisted fields into `blogGenerator.ts` so approved
+  required intro/footer copy is prepended/appended deterministically and
+  multiple Blog purposes can be selected per generated post.
+
+Additional validation:
+
+- `npm test -- rulesetPage.test.ts`: PASS, 11 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts blogGenerationApi.test.ts`:
+  PASS, 60 tests.
+- `npm run typecheck`: PASS.
+- `npm test`: PASS, 35 files passed, 3 live-provider files skipped by default;
+  200 tests passed, 6 skipped.
+- `npm run demo:store-learning`: PASS.
+- Browser UI check on `http://localhost:5177/07_마케팅전략룰셋.html`: PASS for
+  store source-matrix removal, red `(공통예시)` reference title, and healthcare
+  `대표 진료과목` label.
+- Browser UI check on the writing-style tab: PASS for no writing-style source
+  matrix, no writing-style source notes, current/suggestion layout, conservative
+  `현행유지`/`개선 제안` states, first-class Blog style fields, and medical
+  required-copy controls.
+- New planned follow-up, not yet implemented: Task 10 in
+  `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` should clean up
+  the image-style tab by relabeling it `(공통예시) 이미지 스타일` in red,
+  removing visible `AI 처리`/`개선 제안`/`자동 입력 기준`, and promoting
+  `비율·포맷` plus `텍스트 오버레이` into the top image-style controls after
+  `피할 스타일`.
+- New planned follow-up, not yet implemented: Task 11 in the same milestone
+  plan should relabel the similar-comparison block as
+  `(공통예시) 유사업체비교` in red while preserving the existing comparison
+  mock data/interactions and browser API boundaries.
 
 ## Milestone 11 Real Store E2E Handoff
 

@@ -9,13 +9,19 @@ import {
   type CollectionProvider,
   type CollectionProviderItemDraft
 } from './collectionProviders.js';
-import { collectionItemIdentity } from './collectionItemIdentity.js';
+import { collectionItemIdentity, collectionProfileFingerprint } from './collectionItemIdentity.js';
 import { createMockCollectionProvider } from './mockCollectionProvider.js';
 import { createNaverBlogRenderedCollectionProvider, isRenderedBlogCollectionProvider } from './naverBlogRenderedCollectionProvider.js';
 import { createNaverPlaceRenderedCollectionProvider } from './naverPlaceRenderedCollectionProvider.js';
 import { createNaverSearchCollectionProvider } from './naverSearchCollectionProvider.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
+type CollectionDeltaState = 'new' | 'duplicate' | 'unchanged' | 'changed';
+type CollectionDeltaSummary = {
+  counts: Record<CollectionDeltaState, number>;
+  byChannel: Record<string, Record<CollectionDeltaState, number>>;
+  hasMeaningfulChanges: boolean;
+};
 
 export type CollectionRunnerOptions = {
   env?: ProviderEnv;
@@ -85,13 +91,46 @@ function defaultBodyAvailability(draft: CollectionProviderItemDraft, provider: C
 function enrichItemMetadata(
   draft: CollectionProviderItemDraft,
   provider: CollectionProvider,
-  env: ProviderEnv
+  env: ProviderEnv,
+  deltaState: CollectionDeltaState,
+  profileFingerprint: string | null
 ): JsonRecord {
   return {
     bodyAvailability: defaultBodyAvailability(draft, provider),
     ...draft.metadata,
-    ...sourceMetadata(sourceKindForDraft(draft), env)
+    ...sourceMetadata(sourceKindForDraft(draft), env),
+    collectionDelta: deltaState,
+    ...(profileFingerprint ? { profileFingerprint } : {})
   };
+}
+
+function emptyDeltaSummary(): CollectionDeltaSummary {
+  return {
+    counts: { new: 0, duplicate: 0, unchanged: 0, changed: 0 },
+    byChannel: {},
+    hasMeaningfulChanges: false
+  };
+}
+
+function incrementDelta(summary: CollectionDeltaSummary, channel: string, state: CollectionDeltaState) {
+  summary.counts[state] += 1;
+  summary.byChannel[channel] ??= { new: 0, duplicate: 0, unchanged: 0, changed: 0 };
+  summary.byChannel[channel][state] += 1;
+  if (state === 'new' || state === 'changed') summary.hasMeaningfulChanges = true;
+}
+
+function latestByCreatedAt<T extends { createdAt: string }>(records: T[]) {
+  return records.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).at(-1) ?? null;
+}
+
+function existingProfileMatch(repos: Repositories, storeId: string, draft: CollectionProviderItemDraft) {
+  const key = collectionItemIdentity(draft);
+  if (!key) return null;
+  return latestByCreatedAt(
+    repos.collectionItems
+      .listByStoreId(storeId)
+      .filter((item) => item.status !== 'failed' && item.runId && collectionItemIdentity(item) === key)
+  );
 }
 
 async function ensureProviderItems(
@@ -114,21 +153,49 @@ async function ensureProviderItems(
   const existingKeys = new Set(
     repos.collectionItems
       .listByStoreId(run.storeId)
-      .filter((item) => item.runId !== run.id && item.status !== 'failed')
+      .filter((item) => item.runId !== run.id && item.status !== 'failed' && item.sourceType !== 'profile')
       .map(collectionItemIdentity)
       .filter((key): key is string => Boolean(key))
   );
   const currentRunKeys = new Set<string>();
-  const uniqueDrafts = drafts.filter((draft) => {
-    if (draft.status === 'failed') return true;
+  const deltaSummary = emptyDeltaSummary();
+  const uniqueDrafts = drafts.flatMap((draft) => {
+    if (draft.status === 'failed') {
+      incrementDelta(deltaSummary, draft.channel, 'new');
+      return [{ draft, deltaState: 'new' as CollectionDeltaState, profileFingerprint: null }];
+    }
+
+    if (draft.channel === 'place' && draft.sourceType === 'profile') {
+      const profileFingerprint = collectionProfileFingerprint(draft);
+      const existingProfile = existingProfileMatch(repos, run.storeId, draft);
+      if (!existingProfile) {
+        incrementDelta(deltaSummary, draft.channel, 'new');
+        return [{ draft, deltaState: 'new' as CollectionDeltaState, profileFingerprint }];
+      }
+      const existingFingerprint = collectionProfileFingerprint(existingProfile);
+      if (existingFingerprint && existingFingerprint === profileFingerprint) {
+        incrementDelta(deltaSummary, draft.channel, 'unchanged');
+        return [];
+      }
+      incrementDelta(deltaSummary, draft.channel, 'changed');
+      return [{ draft, deltaState: 'changed' as CollectionDeltaState, profileFingerprint }];
+    }
+
     const key = collectionItemIdentity(draft);
-    if (!key) return true;
-    if (existingKeys.has(key) || currentRunKeys.has(key)) return false;
+    if (!key) {
+      incrementDelta(deltaSummary, draft.channel, 'new');
+      return [{ draft, deltaState: 'new' as CollectionDeltaState, profileFingerprint: null }];
+    }
+    if (existingKeys.has(key) || currentRunKeys.has(key)) {
+      incrementDelta(deltaSummary, draft.channel, 'duplicate');
+      return [];
+    }
     currentRunKeys.add(key);
-    return true;
+    incrementDelta(deltaSummary, draft.channel, 'new');
+    return [{ draft, deltaState: 'new' as CollectionDeltaState, profileFingerprint: null }];
   });
 
-  return uniqueDrafts.map((draft: CollectionProviderItemDraft, index) =>
+  const items = uniqueDrafts.map(({ draft, deltaState, profileFingerprint }, index) =>
     repos.collectionItems.upsert({
       id: itemId(run.id, draft.sourceType, index + 1),
       runId: run.id,
@@ -142,9 +209,11 @@ async function ensureProviderItems(
       selectedForAnalysis: 0,
       selectionReason: null,
       selectedAt: null,
-      metadata: enrichItemMetadata(draft, provider, env)
+      metadata: enrichItemMetadata(draft, provider, env, deltaState, profileFingerprint)
     })
   );
+
+  return { items, deltaSummary };
 }
 
 function summarizeItems(repos: Repositories, run: CollectionRun) {
@@ -184,7 +253,8 @@ function summarizeItems(repos: Repositories, run: CollectionRun) {
     completedItems: items.filter((item) => item.status === 'collected').length,
     itemStatusCounts: byStatus,
     collectedCounts,
-    availableCounts
+    availableCounts,
+    collectionDelta: (summary.collectionDelta ?? null) as JsonValue
   };
 }
 
@@ -260,7 +330,7 @@ export async function startCollectionRun(
 
   activeRuns.add(runId);
   try {
-    const items = await ensureProviderItems(repos, run, provider, env);
+    const { items, deltaSummary } = await ensureProviderItems(repos, run, provider, env);
     const collectingRun = repos.collectionRuns.update(runId, {
       status: 'collecting',
       mode: provider.mode,
@@ -278,7 +348,8 @@ export async function startCollectionRun(
           acc[item.status] = (acc[item.status] ?? 0) + 1;
           return acc;
         }, {}),
-        collectedCounts: { blogPosts: 0, placeProfiles: 0, placeReviews: 0 }
+        collectedCounts: { blogPosts: 0, placeProfiles: 0, placeReviews: 0 },
+        collectionDelta: deltaSummary as unknown as JsonValue
       }
     });
 

@@ -308,6 +308,24 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
       confidence: 0.76
     },
     {
+      fieldKey: 'industryCommonRules',
+      value: '업종 공통 필수 고지 없음',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.62
+    },
+    {
+      fieldKey: 'blogRequiredIntroCopy',
+      value: '브랜드 소개나 반복 인트로가 있을 때만 직접 입력',
+      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
+      confidence: 0.7
+    },
+    {
+      fieldKey: 'blogRequiredFooterCopy',
+      value: '예약, 문의, 운영 안내 등 반복 푸터가 있을 때만 직접 입력',
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.62
+    },
+    {
       fieldKey: 'negativeExpressions',
       value: '전국 최고, 무조건 가능, 효능 보장, 과장된 원조 표현',
       evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
@@ -357,7 +375,7 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     },
     {
       fieldKey: 'blogPurpose',
-      value: '검색 유입과 예약 전 상세 정보 안내',
+      value: '검색 유입, 예약 상담 유도, 신뢰 형성',
       evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
       confidence: 0.85
     },
@@ -372,6 +390,12 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
       value: '본문 700-1,000자와 사진 8장 이상 권장',
       evidenceItemIds: ['collection_item_demo_blog'],
       confidence: 0.77
+    },
+    {
+      fieldKey: 'blogHashtags',
+      value: '#분당케이크 #레터링케이크 #커스텀케이크 #당일제작케이크',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
+      confidence: 0.78
     },
     {
       fieldKey: 'blogEmojiPolicy',

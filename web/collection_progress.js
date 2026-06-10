@@ -77,6 +77,14 @@
     return asRecord(run?.summary);
   }
 
+  function collectionDelta(run) {
+    return asRecord(readSummary(run).collectionDelta);
+  }
+
+  function hasNoMeaningfulChanges(run) {
+    return collectionDelta(run).hasMeaningfulChanges === false;
+  }
+
   function requestedTargetForChannel(run, channel) {
     const summary = readSummary(run);
     const requestedLimits = asRecord(summary.requestedLimits);
@@ -279,8 +287,14 @@
     const terminal = ['completed', 'partial_completed', 'failed'].includes(run.status);
     const allAvailableCollected = isAllAvailableCollected(run, items);
     const overallTarget = displayTargetForChannel(run, items, 'overall') || counts.total;
+    const noMeaningfulChanges = hasNoMeaningfulChanges(run);
 
-    if (run.status === 'completed' || allAvailableCollected) {
+    if (run.status === 'completed' && noMeaningfulChanges) {
+      progressCard.style.background = '#EBFBEE';
+      progressCard.style.borderColor = '#8CE99A';
+      status.innerHTML = '수집 완료 <span class="progress-meta" id="collection-progress-meta">신규 수집 0개</span>';
+      guidance.innerHTML = '<strong>새로 수집된 콘텐츠가 없습니다.</strong> 기존 캐시 재사용 · 플레이스 정보 변경 없음. 다음 단계에서 기존 학습 결과를 바로 재사용할 수 있습니다.';
+    } else if (run.status === 'completed' || allAvailableCollected) {
       progressCard.style.background = '#EBFBEE';
       progressCard.style.borderColor = '#8CE99A';
       status.innerHTML = `수집 완료 <span class="progress-meta" id="collection-progress-meta">총 ${counts.collected}개 수집됨</span>`;
@@ -304,9 +318,11 @@
 
     renderSummary(run, items);
     field('collection-ready-count').textContent =
-      terminal ? `${counts.collected}개 수집됨` : `수집 중 ${counts.collected} / ${overallTarget}`;
+      terminal && noMeaningfulChanges
+        ? '신규 수집 0개 · 기존 캐시 재사용 · 플레이스 정보 변경 없음'
+        : terminal ? `${counts.collected}개 수집됨` : `수집 중 ${counts.collected} / ${overallTarget}`;
     field('content-select').style.display = terminal ? 'block' : 'none';
-    field('collection-next-btn').disabled = !terminal || counts.collected === 0;
+    field('collection-next-btn').disabled = !terminal || (counts.collected === 0 && !hasNoMeaningfulChanges(run));
     field('collection-blog-raw-button').disabled = !latestRunId;
   }
 

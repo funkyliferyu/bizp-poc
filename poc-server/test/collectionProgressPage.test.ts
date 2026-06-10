@@ -82,4 +82,15 @@ describe('collection progress static page API wiring', () => {
     expect(js).toContain('가져올 수 있는 모든 항목이 수집되었습니다.');
     expect(js).not.toContain('<strong>일부 항목만 수집되었습니다.</strong>');
   });
+
+  it('renders no-change collection delta guidance for cached content reuse', () => {
+    const js = readFileSync(path.join(webRoot, 'collection_progress.js'), 'utf8');
+
+    expect(js).toContain('function collectionDelta');
+    expect(js).toContain('function hasNoMeaningfulChanges');
+    expect(js).toContain('신규 수집 0개');
+    expect(js).toContain('기존 캐시 재사용');
+    expect(js).toContain('플레이스 정보 변경 없음');
+    expect(js).toContain('counts.collected === 0 && !hasNoMeaningfulChanges(run)');
+  });
 });

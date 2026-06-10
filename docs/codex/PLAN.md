@@ -55,10 +55,10 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. Open/review the milestone 11 real-store E2E hardening PR from
-   `codex/real-store-e2e-hardening` to `develop`.
-2. Merge the hardening work to `develop`.
-3. Run final develop validation after the hardening work is on `develop`.
+1. Open/review the milestone 12 CR follow-up PR from
+   `codex/collection-delta-plan` to `develop`.
+2. Merge the CR follow-up work to `develop`.
+3. Run final develop validation after the CR follow-up work is merged.
 4. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
@@ -76,8 +76,9 @@ Current next todo as of 2026-06-10:
 | 8 | AI 학습 현황 화면 적용 | Merged to develop | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Awaiting final validation |
 | 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
 | 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
-| 11 | 실등록 Store E2E 하드닝 | Planned | `codex/real-store-e2e-hardening`, [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Feature-branch validation passed; PR/merge pending |
-| 12 | 최종 문서/검증 정리 | Not started | - | Run after milestone 11 merges |
+| 11 | 실등록 Store E2E 하드닝 | Merged to develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Awaiting post-CR final validation |
+| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Planned | [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Task 10/11 feature-branch validation passed; PR/review pending |
+| 13 | 최종 문서/검증 정리 | Not started | - | Run after CR follow-up merges |
 
 ## Sequential Checklist
 
@@ -157,13 +158,231 @@ Current next todo as of 2026-06-10:
       `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md`.
 - [x] Implementation branch exists: `codex/real-store-e2e-hardening`.
 - [x] Feature-branch validation is recorded in `docs/codex/VALIDATION.md`.
-- [ ] PR is merged to `develop`.
+- [x] PR is merged to `develop`: #37, merge commit `5ffed45`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
 - [x] Ledger is updated with current status.
 
-### 12. 최종 문서/검증 정리
+### 12. CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시
 
-- [ ] Confirm milestones 1-11 are merged to `develop`.
+Status:
+
+- [x] Keep this as a planning backlog until the user says the CR list is
+      complete.
+- [x] After CR intake is complete, create a milestone-specific implementation
+      plan before editing runtime code.
+- [x] Milestone plan exists:
+      `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`.
+- [x] Implementation branch exists: `codex/collection-delta-plan`.
+- [x] Feature-branch validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+
+CR-Dedup-Relearning-001:
+
+- Current behavior already prevents duplicate saves for some collected content,
+  but only after provider collection finishes. The follow-up plan should keep
+  this safe post-collection comparison first, then consider provider pre-filter
+  optimizations later.
+- Blog posts and Place reviews have identity-based duplicate handling.
+  Place profile items need an identity or fingerprint so an unchanged profile
+  is not treated as a new analyzable item every run.
+- Add a Place profile fingerprint based on the Place URL plus stable normalized
+  core metadata/body text. The comparison should distinguish `new`,
+  `duplicate`, `unchanged`, and `changed` results.
+- Persist collection delta state so collection progress can separately show
+  신규 수집 0개, 기존 캐시 재사용, and 플레이스 정보 변경 없음.
+- Before analysis execution, detect the no-op case: no new Blog posts, no new
+  Place reviews, and Place profile `unchanged`.
+- For the no-op case, skip analyzer execution, reuse the latest completed
+  analysis/snapshot/ruleset, and navigate directly to learning status with a
+  message equivalent to `이전과 동일해 학습을 종료합니다`.
+- Keep `changed` Place profile behavior analyzable, so a real Place metadata
+  change still regenerates the learning snapshot and ruleset.
+- Add tests around collection item identity/fingerprint, collection run delta
+  summaries, analysis skip/reuse behavior, and the collection/selection UI
+  messages.
+- Provider optimization is explicitly follow-up: after the correctness path is
+  in place, evaluate latest publication date, review URL, or provider-specific
+  pre-filtering to reduce fetch work.
+
+CR-LearningStatus-Display-002:
+
+- Blog collected-content rows in learning status must show the real blog
+  publication date from provider metadata, not the collection date. The
+  collection date is operational metadata and is not meaningful to the user
+  reading this screen.
+- Do not silently substitute `collectedAt` into a column labeled `발행일`.
+  If the provider does not expose a real publication date, show an explicit
+  empty/unknown value such as `-` or a separately labeled collection timestamp.
+- Keep source-specific parsing server-side and continue serving the browser
+  through `poc-server` APIs only.
+- Add API/presenter tests that distinguish `publishedAt` from `collectedAt`
+  and assert the learning status Blog tab serializes/renders the real
+  publication date.
+- Place reviews in learning status should show 5 reviews in the collapsed
+  default state. The expanded/paginated state can continue to show larger pages,
+  but the first collapsed view should provide enough review signal without
+  requiring expansion.
+- Add static/page tests for the Place review collapsed count and expanded
+  pagination behavior so a future UI change does not regress back to 2 rows.
+
+CR-Ruleset-StoreInfo-003:
+
+- Marketing strategy ruleset > store info tab should apply improvement
+  suggestions only for `operatingHours`, `closedDays`, and `parking`.
+- For 운영시간, 휴무일, and 주차, render direct Place/store values in the
+  store info tab and remove the current "future improvement" suggestion copy
+  once those values are applied.
+- Reject/hide improvement suggestions for store-info fields not mentioned in
+  this CR. Do not silently apply or keep visible suggestion blocks for name,
+  category, address, phone, business number, or store intro as part of this
+  follow-up.
+- Remove the lower "자동 입력 기준" block/table from the marketing strategy
+  ruleset page UI. Keep source/status data behind API/tests only if it is still
+  needed by existing contracts.
+- Add static/page tests for `web/07_마케팅전략룰셋.html` and
+  `web/ruleset_editor.js` proving:
+  - 운영시간, 휴무일, and 주차 render as applied direct Place/store values.
+  - unmentioned store-info improvement suggestion blocks are absent/rejected.
+  - the lower automatic input criteria/source matrix block is absent from the
+    rendered UI.
+- Keep browser calls limited to `poc-server` APIs and avoid changing
+  benchmark, preview, or live-provider scope while applying this UI cleanup.
+
+CR-Ruleset-Reference-Industry-004:
+
+- Marketing strategy ruleset > our-store-analysis reference boxes are excluded
+  from this real-data wiring pass. They should remain common examples, not
+  live connected benchmark or store-specific evidence.
+- Make that example status explicit in every reference panel title by rendering
+  the title in the form `(공통예시) 포지셔닝 참고`,
+  `(공통예시) 업체 주장 강점 참고`, etc.
+- Render the `(공통예시)` reference title treatment in red for every reference
+  box, so users can immediately tell the panel is illustrative only.
+- Add static/page tests covering all reference buttons/panels, not only the
+  default positioning reference, so future changes do not reconnect one of the
+  panels silently.
+- Add industry-aware field presence rules for the our-store-analysis tab.
+  Example: hospital/clinic categories should not show `대표 메뉴`; they should
+  show a healthcare-appropriate field such as `대표 진료과목`.
+- Keep field presence/label behavior data-driven by store category or business
+  type where possible, while preserving fallback behavior for generic food,
+  retail, and uncategorized stores.
+- Add tests for at least one hospital/clinic fixture and one non-healthcare
+  fixture proving the correct fields are visible/hidden and labels are
+  category-appropriate.
+- Do not modify reference boxes to call Naver, OpenAI, browser-side scraping,
+  or any external provider. Browser code must continue using `poc-server` APIs
+  only.
+
+CR-Ruleset-WritingStyle-Medical-005:
+
+- Marketing strategy ruleset > writing style needs an industry-common-rules
+  row/block for industry-specific mandatory content.
+- For healthcare/medical categories, add a rule equivalent to
+  `블로그 하단에 반드시 의료법 관련 내용 포함`.
+- Convert the attached medical-law footer reference into text and use it as
+  the default required Blog footer copy for medical stores:
+  `*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.`
+  and
+  `*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.`
+- Improve the catchphrase area so the user can configure content that must be
+  included in every generated Blog post, instead of treating catchphrase as a
+  single generic slogan only.
+- Split or extend catchphrase UI into explicit required-inclusion slots such as
+  Blog intro required copy and Blog footer required copy. This must support
+  hospital cases where a repeated representative-doctor intro and medical-law
+  footer need to appear in every post.
+- Use the attached intro/footer examples as UI guidance: repeated intro copy may
+  include representative doctor/profile language, and repeated footer copy may
+  include clinic credentials, hours, phone, and compliance disclaimers.
+- Keep these required-inclusion fields editable and lockable like existing
+  ruleset fields, so user-edited mandatory copy is not overwritten by relearn.
+- Ensure generated Blog preview/content can consume the new required-inclusion
+  fields in a later implementation step; for this planning item, at minimum
+  document the API/UI contract and tests needed.
+- Add tests for healthcare category behavior and non-healthcare fallback:
+  healthcare stores show medical common rules and required Blog footer controls;
+  generic stores do not get medical-law copy by default.
+- Browser code must continue calling only `poc-server` APIs; do not embed
+  provider credentials or call external medical/legal sources from the browser.
+
+CR-Ruleset-WritingStyle-AiSuggestions-006:
+
+- Marketing strategy ruleset > writing style should be redesigned from a raw
+  editable field list into a page that clearly shows:
+  - the current writing style that AI inferred from existing Blog posts;
+  - conservative AI suggestions that may improve CTA/conversion;
+  - per-field evidence for why the suggestion is or is not needed.
+- Remove/hide the writing-style `자동 입력 기준` source matrix block from the
+  visible UI.
+- Keep the existing editable text-field behavior, but present it as the
+  current AI-inferred style rather than as a table-like technical settings
+  dump.
+- Add `글의 목적` as a top-level input in the writing-style common area.
+  AI should analyze existing Blog posts and auto-fill at least 3 Blog purpose
+  types. When multiple purposes exist, Blog generation should randomly select
+  one or more purposes per generated post.
+- Add `문장 스타일` as a top-level input in the writing-style common area.
+  AI should analyze existing Blog posts and auto-fill the detected sentence
+  style, then reuse that style consistently for generated posts.
+- Add or promote these inputs so they are visible as first-class writing-style
+  controls: `선호 길이`, `해시태그`, `이모지 사용`, `SEO 키워드`, and `CTA`.
+  AI should infer them from existing Blog posts and reuse the same style in
+  generated content.
+- Add an AI suggestion panel to the right side of each current input. For each
+  field, the panel should show:
+  - a conservative improvement decision layer, either `개선 제안` or `현행유지`;
+  - the suggested replacement or augmentation text when improvement is needed;
+  - evidence from existing Blog/style analysis and CTA reasoning.
+- Improvement decisions must be conservative. If there is no clear improvement
+  opportunity, show `현행유지` rather than inventing new copy.
+- Add tests proving the writing-style page no longer renders the source matrix,
+  renders the current/suggestion two-column layout, exposes all required
+  fields, and supports `현행유지` as a first-class AI judgment.
+- Keep browser calls limited to `poc-server` APIs. AI analysis/suggestion data
+  should come from server-side ruleset/analysis payloads or mock mode, not
+  browser-side provider calls.
+
+CR-Ruleset-ImageStyle-007:
+
+- Marketing strategy ruleset > image style should make clear that the current
+  image guidance is a common example, not real image-analysis output.
+- Change the image-style block/header label to `(공통예시) 이미지 스타일`.
+- Render that `(공통예시) 이미지 스타일` title in red, matching the common
+  example treatment used by the our-store-analysis reference panels.
+- Remove all visible `AI 처리`, `AI 판단`, and `개선 제안` source/note text
+  from the image-style UI.
+- Remove the visible image-style `자동 입력 기준` source matrix block.
+- Promote source-matrix-only image guidance into top-level image-style fields:
+  `비율·포맷` and `텍스트 오버레이` should appear after `피할 스타일`.
+- Preserve the existing top image-style order before the new fields:
+  `주 사용 색상`, `강조 색상`, `이미지 무드`, `주 사용 스타일`, `피할 스타일`.
+- Keep browser calls limited to `poc-server` APIs. Do not add browser-side
+  image analysis, Naver, OpenAI, or external provider calls.
+- Add static/page tests proving the label, red common-example treatment,
+  source-note removal, source-matrix removal, and promoted image controls.
+
+CR-Ruleset-SimilarComparison-008:
+
+- Marketing strategy ruleset > similar comparison should make clear that the
+  current comparison content is a common example, not real competitor discovery
+  or live benchmark evidence.
+- Change the similar-comparison block/header label to
+  `(공통예시) 유사업체비교`.
+- Render that `(공통예시) 유사업체비교` title in red, matching the common
+  example treatment used by the our-store-analysis reference panels and the
+  planned image-style cleanup.
+- Preserve existing comparison mock data, comparison type/company selection,
+  `모두 비교`, evidence button behavior, and API boundaries.
+- Do not add browser-side Naver, OpenAI, competitor discovery, scraping, or
+  external provider calls.
+- Add static/page tests proving the label, red common-example treatment, and
+  absence of new external browser calls.
+
+### 13. 최종 문서/검증 정리
+
+- [ ] Confirm milestones 1-12 are merged to `develop`.
 - [ ] Run `cd poc-server && npm run typecheck`.
 - [ ] Run `cd poc-server && npm test`.
 - [ ] Run `cd poc-server && npm run demo:store-learning`.
@@ -200,12 +419,13 @@ Current next todo as of 2026-06-10:
 The current implementation stack should be integrated in this order:
 
 ```text
-#26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34 -> #36 -> milestone 11
+#26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34 -> #36 -> #37 -> CR follow-up
 ```
 
-PRs #26-#34 and #36 have been merged to `develop`. Milestone 11 implementation
-is validated on `codex/real-store-e2e-hardening`; the next todo is PR review,
-merge to `develop`, then final develop validation and document handoff.
+PRs #26-#34, #36, and #37 have been merged to `develop`. Milestone 12 has new
+image-style and similar-comparison CRs planned on `codex/collection-delta-plan`;
+the next todo is Task 10 then Task 11 execution, feature-branch validation, PR
+review/merge to `develop`, and final develop validation.
 
 ## Validation Commands
 

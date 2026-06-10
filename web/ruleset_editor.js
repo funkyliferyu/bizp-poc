@@ -8,8 +8,17 @@
     contentKeywords: ['seoKeywords'],
     seoKeywords: ['contentKeywords'],
     reviewStrength: ['keyStrengths'],
-    keyStrengths: ['reviewStrength']
+    keyStrengths: ['reviewStrength'],
+    representativeTreatmentSubjects: ['representativeMenu'],
+    representativeMenu: ['representativeTreatmentSubjects']
   };
+  const APPLIED_STORE_INFO_FIELDS = new Set(['operatingHours', 'closedDays', 'parking']);
+  const HEALTHCARE_CATEGORY_KEYWORDS = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'];
+  const MEDICAL_INDUSTRY_COMMON_RULE = '블로그 하단에 반드시 의료법 관련 내용 포함';
+  const MEDICAL_BLOG_FOOTER_COPY = [
+    '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+    '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
+  ].join('\n');
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -199,7 +208,7 @@
 
   function renderRulesetSourceNote(element, matrix) {
     element.querySelectorAll('.ruleset-source-note').forEach((note) => note.remove());
-    if (!matrix) return;
+    if (!matrix || !shouldRenderRulesetSourceNote(element)) return;
     const note = document.createElement('div');
     note.className = 'ruleset-source-note';
     note.innerHTML = [
@@ -210,16 +219,37 @@
     element.appendChild(note);
   }
 
+  function isStoreInfoRulesetField(element) {
+    return Boolean(element?.closest('#sec-store') && element.dataset.rulesetField);
+  }
+
+  function isWritingStyleRulesetField(element) {
+    return Boolean(element?.closest('#sec-write') && element.dataset.rulesetField);
+  }
+
+  function isImageStyleRulesetField(element) {
+    return Boolean(element?.closest('#sec-img') && element.dataset.rulesetField);
+  }
+
+  function shouldRenderRulesetSourceNote(element) {
+    const fieldKey = element?.dataset.rulesetField;
+    if (isStoreInfoRulesetField(element) && APPLIED_STORE_INFO_FIELDS.has(fieldKey)) return false;
+    return !isStoreInfoRulesetField(element) && !isWritingStyleRulesetField(element) && !isImageStyleRulesetField(element);
+  }
+
   function directFactValue(storeFacts, fieldKey) {
     if (!storeFacts || !fieldKey) return null;
     return storeFacts[fieldKey] ?? null;
   }
 
   function preferredCurrentValue(payload, fieldKey, existingValue) {
-    const rulesetField = findFieldForMatrixRow({ fieldKey });
-    if (rulesetField) return rulesetField.finalValue || rulesetField.aiValue || existingValue;
     const matrix = matrixForFieldKey(fieldKey);
     const matrixCurrentValue = matrix ? matrix.currentValue : null;
+    if (APPLIED_STORE_INFO_FIELDS.has(fieldKey)) {
+      return directFactValue(payload.storeFacts, fieldKey) ?? matrixCurrentValue ?? existingValue;
+    }
+    const rulesetField = findFieldForMatrixRow({ fieldKey });
+    if (rulesetField) return rulesetField.finalValue || rulesetField.aiValue || existingValue;
     return matrixCurrentValue ?? directFactValue(payload.storeFacts, fieldKey) ?? existingValue;
   }
 
@@ -242,6 +272,56 @@
       const nextValue = key ? storeFacts[key] : null;
       if (value && nextValue) value.textContent = nextValue;
     });
+  }
+
+  function categoryText(payload) {
+    return [payload.storeFacts?.category, payload.store?.category]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  function isHealthcareStore(payload) {
+    const category = categoryText(payload);
+    return HEALTHCARE_CATEGORY_KEYWORDS.some((keyword) => category.includes(keyword));
+  }
+
+  function configureIndustryFields(payload) {
+    const isHealthcare = isHealthcareStore(payload);
+    document.querySelectorAll('[data-industry-field="representativeOffering"]').forEach((field) => {
+      const label = field.querySelector('[data-industry-label]');
+      const button = field.querySelector('[data-reference-key]');
+      field.dataset.rulesetField = isHealthcare ? 'representativeTreatmentSubjects' : 'representativeMenu';
+      field.dataset.rulesetAliases = isHealthcare ? 'representativeMenu' : '';
+      if (label) label.textContent = isHealthcare ? '대표 진료과목' : '대표 메뉴';
+      if (button) {
+        button.dataset.referenceKey = isHealthcare ? 'treatmentSubject' : 'menu';
+        button.setAttribute('onclick', 'showReferenceLayer(this.dataset.referenceKey)');
+      }
+    });
+  }
+
+  function setWritingDefaultValue(fieldKey, value) {
+    document.querySelectorAll(`[data-ruleset-field="${fieldKey}"]`).forEach((element) => {
+      const rulesetField = findFieldForElement(element);
+      if (rulesetField?.locked || rulesetField?.source === 'user_edited') return;
+      const valueElement = element.querySelector('[data-ruleset-value]');
+      if (!valueElement) return;
+      valueElement.textContent = value;
+      valueElement.dataset.originalValue = value;
+      renderKeywordTags(element, value);
+    });
+  }
+
+  function configureWritingStyleFields(payload) {
+    const isHealthcare = isHealthcareStore(payload);
+    document.querySelectorAll('[data-healthcare-only]').forEach((element) => {
+      element.style.display = isHealthcare ? '' : 'none';
+      element.setAttribute('aria-hidden', isHealthcare ? 'false' : 'true');
+    });
+    if (!isHealthcare) return;
+    setWritingDefaultValue('industryCommonRules', MEDICAL_INDUSTRY_COMMON_RULE);
+    setWritingDefaultValue('blogRequiredFooterCopy', MEDICAL_BLOG_FOOTER_COPY);
   }
 
   function renderStatus(payload) {
@@ -349,6 +429,7 @@
     renderStatus(payload);
     renderEmptyRulesetGuidance(payload);
     renderStoreFields(payload);
+    configureIndustryFields(payload);
 
     document.querySelectorAll('[data-ruleset-field]').forEach((element) => {
       const rulesetField = findFieldForElement(element);
@@ -358,6 +439,7 @@
         renderDirectRulesetRow(element, payload);
       }
     });
+    configureWritingStyleFields(payload);
     renderSourceMatrix(payload);
   }
 

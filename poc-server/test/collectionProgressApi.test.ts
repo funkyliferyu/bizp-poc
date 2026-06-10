@@ -153,6 +153,68 @@ describe('Collection progress API', () => {
     expect(new Set(mockBlogUrls).size).toBe(2);
   });
 
+  it('records collection delta and skips unchanged Place profiles on repeated runs', async () => {
+    await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channels: {
+          naverBlog: { enabled: true, blogPostLimit: 1 },
+          naverPlace: { enabled: true, placeReviewLimit: 1 },
+          instagram: { enabled: false, instagramPostLimit: 0 }
+        }
+      })
+    });
+
+    const firstCreateResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const firstCreated = await readJson(firstCreateResponse);
+    await fetch(`${baseUrl}/api/collection-runs/${firstCreated.collectionRunId}/start`, { method: 'POST' });
+    const firstRun = await waitForCompleted(baseUrl, firstCreated.collectionRunId);
+
+    expect(firstRun.summary.collectionDelta).toEqual(
+      expect.objectContaining({
+        hasMeaningfulChanges: true,
+        counts: { new: 3, duplicate: 0, unchanged: 0, changed: 0 }
+      })
+    );
+
+    const secondCreateResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const secondCreated = await readJson(secondCreateResponse);
+    await fetch(`${baseUrl}/api/collection-runs/${secondCreated.collectionRunId}/start`, { method: 'POST' });
+    const secondRun = await waitForCompleted(baseUrl, secondCreated.collectionRunId);
+
+    const secondItemsResponse = await fetch(`${baseUrl}/api/collection-runs/${secondCreated.collectionRunId}/items`);
+    const secondItems = await readJson(secondItemsResponse);
+    const repos = createStoreLearningRepositories(connection);
+    const storedProfiles = repos.collectionItems
+      .listByStoreId('store_demo_cake')
+      .filter((item) => item.channel === 'place' && item.sourceType === 'profile' && item.sourceUrl === 'https://naver.me/mock-place');
+
+    expect(secondRun.summary.totalItems).toBe(0);
+    expect(secondRun.summary.collectionDelta).toEqual(
+      expect.objectContaining({
+        hasMeaningfulChanges: false,
+        counts: { new: 0, duplicate: 2, unchanged: 1, changed: 0 }
+      })
+    );
+    expect(secondItems.collectionItems).toEqual([]);
+    expect(storedProfiles).toHaveLength(1);
+    expect(storedProfiles[0].metadata).toEqual(
+      expect.objectContaining({
+        collectionDelta: 'new',
+        profileFingerprint: expect.any(String)
+      })
+    );
+  });
+
   it('keeps requested limits available before provider items are created', async () => {
     await fetch(`${baseUrl}/api/stores/store_demo_cake/training-settings`, {
       method: 'PUT',

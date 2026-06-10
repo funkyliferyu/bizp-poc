@@ -108,8 +108,10 @@ describe('learning status static page API wiring', () => {
     expect(js).toContain('function renderPlacePhotos');
     expect(js).toContain('function renderPlaceReviews');
     expect(js).toContain('function renderPlaceNews');
+    expect(js).toContain('PLACE_REVIEW_COLLAPSED_LIMIT = 5');
     expect(js).toContain('PLACE_REVIEW_EXPANDED_LIMIT = 20');
     expect(js).toContain("window.open(url, '_blank', 'noopener,noreferrer')");
     expect(js).toContain("field('learning-place-news').style.display = newsItems.length === 0 ? 'none' : 'block'");
+    expect(js).not.toContain('PLACE_REVIEW_COLLAPSED_LIMIT = 2');
   });
 });

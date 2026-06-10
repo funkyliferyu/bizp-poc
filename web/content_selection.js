@@ -3,6 +3,7 @@
   let latestItems = [];
   let latestStoreId = null;
   let latestRunId = null;
+  let latestCollectionRun = null;
   let analysisInFlight = false;
   let analysisElapsedTimer = null;
   let analysisElapsedStartedAt = null;
@@ -65,6 +66,17 @@
     return params().get('runId');
   }
 
+  function asRecord(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return value;
+  }
+
+  function hasNoMeaningfulChanges() {
+    const summary = asRecord(latestCollectionRun?.summary);
+    const collectionDelta = asRecord(summary.collectionDelta);
+    return collectionDelta.hasMeaningfulChanges === false;
+  }
+
   function isSelected(item) {
     return Number(item.selectedForAnalysis) === 1;
   }
@@ -78,6 +90,11 @@
     const date = value ? new Date(value) : null;
     if (!date || Number.isNaN(date.getTime())) return '-';
     return `${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function blogPublishedDate(item) {
+    const metadata = asRecord(item?.metadata);
+    return metadata.publishedAt || metadata.postDate || metadata.postdate || metadata.publishedDate || metadata.datePublished || null;
   }
 
   function sourceLabel(item) {
@@ -122,7 +139,7 @@
             <div class="selection-title-main">${title}</div>
             ${evidence ? `<div class="selection-evidence">${evidence}</div>` : ''}
           </td>
-          <td>${dateLabel(item.createdAt)}</td>
+          <td>${dateLabel(blogPublishedDate(item))}</td>
           <td>${escapeHtml(item.metadata?.views ?? '-')}</td>
         </tr>`;
       })
@@ -152,11 +169,14 @@
     const blogItems = latestItems.filter((item) => item.channel === 'blog');
     const placeItems = latestItems.filter((item) => item.channel === 'place');
     const selectedCount = latestItems.filter(isSelected).length;
+    const canReusePreviousLearning = hasNoMeaningfulChanges();
 
     field('selection-blog-count').textContent = `· ${blogItems.length}개 수집`;
     field('selection-place-count').textContent = `· ${placeItems.length}개 수집`;
-    field('selection-selected-count').textContent = `${selectedCount}개 선택됨`;
-    field('selection-analysis-btn').disabled = analysisInFlight || selectedCount === 0;
+    field('selection-selected-count').textContent = selectedCount > 0
+      ? `${selectedCount}개 선택됨`
+      : canReusePreviousLearning ? '기존 학습 결과 재사용' : '0개 선택됨';
+    field('selection-analysis-btn').disabled = analysisInFlight || (selectedCount === 0 && !canReusePreviousLearning);
     field('selection-blog-raw-button').disabled = !latestRunId;
   }
 
@@ -170,6 +190,7 @@
     const response = await fetch(`/api/collection-runs/${runId}/selectable-items`);
     const payload = await readResponse(response);
     latestStoreId = payload.storeId || latestStoreId;
+    latestCollectionRun = payload.collectionRun || latestCollectionRun;
     latestItems = payload.items || [];
     render();
   }
@@ -353,15 +374,19 @@
     setAnalysisError('');
     setAnalysisOverlayVisible(true);
     startAnalysisElapsedTimer();
-    setAnalysisStep('ready', '준비 중');
+    setAnalysisStep('ready', hasNoMeaningfulChanges() ? '이전과 동일해 학습을 종료합니다' : '준비 중');
     let stopProgressPolling = null;
 
     try {
       const payload = await createAnalysisRun();
       const analysisRunId = payload.analysisRunId;
-      setAnalysisStep('queued', '선택 저장 완료');
+      setAnalysisStep('queued', hasNoMeaningfulChanges() ? '기존 학습 결과 재사용' : '선택 저장 완료');
       stopProgressPolling = startAnalysisProgressPolling(analysisRunId);
-      setAnalysisStep('started', 'AI 분석 중');
+      if (hasNoMeaningfulChanges()) {
+        setAnalysisStep('started', '이전과 동일해 학습을 종료합니다');
+      } else {
+        setAnalysisStep('started', 'AI 분석 중');
+      }
       const started = await startAnalysisRun(analysisRunId);
       stopProgressPolling?.();
       applyAnalysisProgress(started.analysisRun?.result?.analysisProgress);

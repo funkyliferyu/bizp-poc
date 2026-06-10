@@ -9,11 +9,16 @@ Sequential plan ledger control for Store Learning work.
 - `main` is the intended public/stable branch.
 - `develop` is the intended integration branch.
 - `docs/codex/PLAN.md` is the central checklist for deciding the next todo.
-- Milestone PRs #26-#34 and #36 are merged to `develop`.
-- They are not fully complete until post-hardening final validation is run and
-  recorded on `develop`.
-- `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md` is the current
-  implementation plan before final validation/promotion.
+- Milestone PRs #26-#34, #36, and #37 are merged to `develop`.
+- Milestone 12 CR follow-up is implemented and validated on
+  `codex/collection-delta-plan`, including the additional ruleset store-info,
+  common-reference, industry-field, and writing-style UI CR items.
+- Image-style and similar-comparison UI CRs are implemented and validated on
+  the milestone 12 branch as Task 10 and Task 11.
+- Milestones are not fully complete until the work is merged to `develop` and
+  develop validation is recorded.
+- `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
+  implementation plan before PR review/merge.
 
 ## Branch Policy
 
@@ -64,17 +69,14 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Open/review the milestone 11 real-store E2E hardening PR from:
-   - `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md`
-   - branch: `codex/real-store-e2e-hardening`
-2. Keep `develop` as the PR base and merge target.
-3. After the hardening work merges to `develop`, run final validation:
+1. Open/review the milestone 12 CR follow-up PR with `develop` as the base.
+2. After the CR follow-up work merges to `develop`, run final validation:
    - `cd poc-server && npm run typecheck`
    - `cd poc-server && npm test`
    - `cd poc-server && npm run demo:store-learning`
-4. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
+3. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
    validation result.
-5. Prepare the `develop` -> `main` promotion path only after validation passes
+4. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 Before editing files, confirm:

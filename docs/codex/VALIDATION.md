@@ -1,5 +1,74 @@
 # Validation
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 Commands
+
+Run from `poc-server/`:
+
+```bash
+npm test -- rulesetPage.test.ts
+npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+```
+
+Run from repo root:
+
+```bash
+git diff --check
+```
+
+In-app browser smoke target:
+
+```text
+http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html
+```
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 TDD Evidence
+
+- RED `npm test -- rulesetPage.test.ts`: failed because the image-style tab
+  still rendered `이미지 스타일`, still exposed
+  `data-source-matrix-section="image_common,image_instagram,image_blog"`, and
+  the similar-comparison tab still rendered `유사업체비교`.
+- GREEN `npm test -- rulesetPage.test.ts`: passed, 13 tests, after labeling
+  image style as `(공통예시) 이미지 스타일`, moving `비율·포맷` and
+  `텍스트 오버레이` into the top image common controls, removing the image
+  source matrix container, suppressing image-style source notes, and labeling
+  similar comparison as `(공통예시) 유사업체비교`.
+
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 10/11 Final Validation
+
+- `npm test -- rulesetPage.test.ts`: passed, 13 tests.
+- `npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts`:
+  passed, 52 tests.
+- `npm run typecheck`: passed.
+- `npm test`: passed, 202 tests and 6 skipped live-provider tests across 38 files.
+- `npm run demo:store-learning`: passed and seeded Store Learning demo data at
+  `poc-server/data/store-learning.sqlite`.
+- `git diff --check`: passed.
+- In-app browser smoke passed:
+  - Image tab visible title: `(공통예시) 이미지 스타일`.
+  - Image title color: `rgb(224, 49, 49)`.
+  - Image common field order: `primaryColors`, `accentColors`,
+    `imageDirection`, `imageStyle`, `imageAvoidStyle`, `blogImageFormat`,
+    `blogOverlayPolicy`.
+  - Image matrix absent and `.ruleset-source-note` count is `0`.
+  - Similar-comparison visible title: `(공통예시) 유사업체비교`.
+  - Similar-comparison title color: `rgb(224, 49, 49)`.
+  - Existing comparison controls remained populated with 5 type buttons and 3
+    company buttons.
+- Expected milestone files:
+  - `docs/codex/CURRENT_TASK.md`
+  - `docs/codex/HANDOFF.md`
+  - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`
+  - `docs/codex/PLAN.md`
+  - `docs/codex/VALIDATION.md`
+  - `poc-server/test/rulesetPage.test.ts`
+  - `web/07_마케팅전략룰셋.html`
+  - `web/ruleset_editor.js`
+- Existing unrelated `.DS_Store` local modification must remain unstaged and
+  outside the milestone commit.
+
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT Commands
 
 Run from `poc-server/`:
@@ -1400,3 +1469,125 @@ Result:
   default; 185 tests passed, 6 skipped.
 - PASS, TypeScript typecheck.
 - PASS, `git diff --check`.
+
+## Milestone 12 Collection Delta And Relearning Skip Validation
+
+Date: 2026-06-10
+
+Branch:
+
+- `codex/collection-delta-plan`
+
+Focused validation:
+
+```bash
+cd poc-server
+npm test -- collectionProgressApi.test.ts -t "collection delta"
+npm test -- analysisExecutionApi.test.ts -t "no meaningful changes"
+npm test -- collectionProgressPage.test.ts selectionPage.test.ts -t "no-change|reuse"
+npm test -- learningStatusApi.test.ts learningStatusPage.test.ts selectionPage.test.ts -t "publication date|publication dates|Place dynamic"
+npm test -- collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts collectionProgressPage.test.ts selectionPage.test.ts learningStatusApi.test.ts learningStatusPage.test.ts
+npm run typecheck
+```
+
+Result:
+
+- PASS, collection delta RED/GREEN: repeated identical collection records
+  duplicate Blog/review items, unchanged Place profile, no new current-run
+  items, and a saved profile fingerprint.
+- PASS, no-op analysis RED/GREEN: empty selected items are accepted only for
+  no-meaningful-change collection runs, and latest completed
+  analysis/snapshot/ruleset artifacts are reused.
+- PASS, browser contract tests for no-change collection messages, no-change
+  selection/reuse behavior, Blog publication-date metadata, and 5 collapsed
+  Place reviews.
+- PASS, focused related suite: 7 files / 39 tests.
+- PASS, TypeScript typecheck.
+
+Full validation:
+
+```bash
+cd poc-server
+npm test
+npm run demo:store-learning
+```
+
+Result:
+
+- PASS, full test suite: 35 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 194 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+
+Boundary checks:
+
+- `.DS_Store` remained an existing local out-of-scope modification and was not
+  staged.
+- No `admin/` changes.
+- No `pc-web/` changes.
+- No `README_POC.md` or `web/event_operation_poc.html` changes.
+- Browser code continues to call only `poc-server` APIs, except user-clicked
+  external source/photo links that open in a new tab.
+
+Ruleset UI CR addendum validation:
+
+```bash
+cd poc-server
+npm test -- rulesetPage.test.ts
+npm test -- staticWebConnectivity.test.ts rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts blogGenerationApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+git diff --check
+```
+
+Result:
+
+- PASS, ruleset page RED/GREEN coverage: 11 tests, including the writing-style
+  medical required-copy controls and current-style plus AI-suggestion layout.
+- PASS, related static/API/generation regression coverage: 60 tests across
+  `staticWebConnectivity.test.ts`, `rulesetPage.test.ts`, `rulesetApi.test.ts`,
+  `analysisExecutionApi.test.ts`, and `blogGenerationApi.test.ts`.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 35 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 200 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `git diff --check`.
+
+Browser UI validation:
+
+- URL:
+  `http://localhost:5177/07_마케팅전략룰셋.html`
+- Page identity loaded with title:
+  `localhost:5177/07_마케팅전략룰셋.html`
+- Store tab check:
+  - `#sec-store [data-source-matrix-section]` count: 0
+  - store tab text did not include `자동 입력 기준`
+- Our-store-analysis tab check after clicking the tab:
+  - reference title: `(공통예시) 포지셔닝 참고`
+  - reference title color: `rgb(224, 49, 49)`
+  - current healthcare-category context label: `대표 진료과목`
+  - current reference key: `treatmentSubject`
+- Writing-style tab check after clicking the tab:
+  - `#sec-write [data-source-matrix-section="write_common,write_instagram,write_blog"]`
+    count: 0
+  - `#sec-write .ruleset-source-note` count: 0
+  - current/suggestion layout count: 1
+  - AI suggestion panel count: 13
+  - visible text includes `현행유지`, `개선 제안`, and the medical-law footer
+    reference text when the current healthcare store context is active.
+- Browser console note:
+  - The browser log buffer included one older `MutationObserver` error from
+    `http://localhost:5177/` before the direct ruleset-page check. The direct
+    DOM state for the ruleset page was verified after reload.

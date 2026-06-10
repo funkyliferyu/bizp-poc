@@ -229,6 +229,60 @@ describe('analysis execution API', () => {
     );
   });
 
+  it('reuses latest learning artifacts when a collection run has no meaningful changes', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.upsert({
+      id: 'collection_run_no_meaningful_changes',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'mock',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: false,
+          counts: { new: 0, duplicate: 2, unchanged: 1, changed: 0 }
+        }
+      },
+      createdAt: '2026-06-10T00:00:00.000Z',
+      updatedAt: '2026-06-10T00:00:01.000Z'
+    });
+
+    const createResponse = await fetch(`${baseUrl}/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId: 'store_demo_cake',
+        collectionRunId: 'collection_run_no_meaningful_changes',
+        selectedItemIds: []
+      })
+    });
+    const created = await readJson(createResponse);
+
+    expect(createResponse.status).toBe(200);
+    expect(created.analysisRun.status).toBe('completed');
+    expect(created.analysisRun.result).toEqual(
+      expect.objectContaining({
+        skippedReason: 'no_meaningful_collection_changes',
+        reusedAnalysisRunId: 'analysis_run_demo_store_learning',
+        learningSnapshotId: 'learning_snapshot_demo_store_learning',
+        marketingRulesetId: 'marketing_ruleset_demo_v1'
+      })
+    );
+
+    const startResponse = await fetch(`${baseUrl}/api/analysis-runs/${created.analysisRunId}/start`, {
+      method: 'POST'
+    });
+    const started = await readJson(startResponse);
+
+    expect(startResponse.status).toBe(200);
+    expect(started.analysisRun.id).toBe(created.analysisRunId);
+    expect(started.analysisRun.status).toBe('completed');
+    expect(started.learningSnapshot.id).toBe('learning_snapshot_demo_store_learning');
+    expect(started.marketingRuleset.id).toBe('marketing_ruleset_demo_v1');
+    expect(started.rulesetFields.length).toBeGreaterThan(0);
+  });
+
   it('persists OpenAI analyzer output with validated evidence links', async () => {
     const repos = createStoreLearningRepositories(connection);
     const analysisRun = repos.analysisRuns.create({
