@@ -129,6 +129,68 @@ describe('marketing ruleset API', () => {
     });
   });
 
+  it('returns server-derived writing style field insights with calculation logic and suggestions', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset`);
+    const body = await readJson(response);
+    const requiredFieldKeys = [
+      'blogPurpose',
+      'blogWritingStyle',
+      'blogPreferredLength',
+      'blogHashtags',
+      'blogEmojiPolicy',
+      'seoKeywords',
+      'ctaStyle',
+      'industryCommonRules',
+      'blogRequiredIntroCopy',
+      'blogRequiredFooterCopy'
+    ];
+    const insightsByKey = new Map(
+      body.writingStyleInsights.map((insight: { fieldKey: string }) => [insight.fieldKey, insight])
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.writingStyleInsights).toEqual(expect.any(Array));
+    for (const fieldKey of requiredFieldKeys) {
+      const insight = insightsByKey.get(fieldKey) as {
+        fieldKey: string;
+        currentValue: string | null;
+        currentValueStatus: string;
+        calculationLogic: string;
+        aiSuggestion: {
+          value: string;
+          judgment: string;
+          evidence: string;
+          inputSignals: string[];
+        };
+      };
+
+      expect(insight).toMatchObject({
+        fieldKey,
+        currentValueStatus: expect.stringMatching(/^(inferred|user_edited|placeholder|empty)$/),
+        calculationLogic: expect.any(String),
+        aiSuggestion: expect.objectContaining({
+          value: expect.any(String),
+          judgment: expect.stringMatching(/^(maintain|improve)$/),
+          evidence: expect.any(String),
+          inputSignals: expect.arrayContaining([expect.any(String)])
+        })
+      });
+      expect(insight.calculationLogic.length).toBeGreaterThan(20);
+      expect(insight.aiSuggestion.evidence.length).toBeGreaterThan(20);
+    }
+    expect(insightsByKey.get('blogRequiredIntroCopy')).toMatchObject({
+      currentValueStatus: 'placeholder',
+      placeholderText: expect.stringContaining('반복')
+    });
+    expect(insightsByKey.get('blogWritingStyle')).toMatchObject({
+      currentValueStatus: 'inferred',
+      aiSuggestion: expect.objectContaining({ judgment: 'maintain' })
+    });
+    expect(insightsByKey.get('blogPurpose')).toMatchObject({
+      aiSuggestion: expect.objectContaining({ judgment: 'improve' })
+    });
+  });
+
   it('seeds ruleset fields used by the UI source matrix rows', async () => {
     const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset`);
     const body = await readJson(response);

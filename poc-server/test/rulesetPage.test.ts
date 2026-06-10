@@ -30,6 +30,7 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/fields/${fieldKey}/reset`');
     expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/fields/${fieldKey}/evidence`)');
     expect(js).not.toContain('fetch(`/api/stores/${storeId}/ruleset`)');
+    expect(() => new Function(js)).not.toThrow();
     expect(html).toContain('/strategy-ruleset/benchmark-evidence');
     expect(html).toContain('/strategy-ruleset/regenerate-preview');
     expect(html).not.toContain("fetch('strategy_benchmark_fixture.json')");
@@ -173,7 +174,10 @@ describe('marketing ruleset static page API wiring', () => {
       ['blogHashtags', '해시태그'],
       ['blogEmojiPolicy', '이모지 사용'],
       ['seoKeywords', 'SEO 키워드'],
-      ['ctaStyle', 'CTA']
+      ['ctaStyle', 'CTA'],
+      ['industryCommonRules', '업종공통규칙'],
+      ['blogRequiredIntroCopy', '필수 인트로 문구'],
+      ['blogRequiredFooterCopy', '필수 푸터 문구']
     ];
 
     expect(writeSection).toContain('data-writing-style-layout="current-plus-suggestion"');
@@ -192,8 +196,15 @@ describe('marketing ruleset static page API wiring', () => {
       expect(writeSection).toContain(`data-ruleset-field="${fieldKey}"`);
       expect(writeSection).toContain(label);
     }
+    expect(writeSection).not.toContain('근거 보기');
     expect(js).toContain('function isWritingStyleRulesetField');
-    expect(js).toContain('!isWritingStyleRulesetField(element)');
+    expect(js).toContain('function renderActionRow');
+    expect(js).toContain('includeEvidence');
+    expect(js).toContain('data-ruleset-action="reset">초기화</button>');
+    expect(js).toContain('function renderWritingStyleInsights');
+    expect(js).toContain('payload.writingStyleInsights');
+    expect(js).toContain('data-placeholder-value');
+    expect(js).toContain('placeholderText');
   });
 
   it('removes the automatic input criteria block from the store info tab', () => {

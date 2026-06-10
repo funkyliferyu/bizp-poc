@@ -1,11 +1,74 @@
 # Validation
 
-## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 14 Planned
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 14 Final Validation
 
-New writing-style CR has been added to
-`docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` as Task 14 after
-the latest Task 13 validation. Task 14 has not been implemented or validated
-yet.
+Task 14 implements the writing-style CR for marketing strategy rulesets:
+server-derived `writingStyleInsights`, API-backed right-side AI suggestions,
+save/reset on writing-style editable rows, no writing-tab `근거 보기` action,
+and placeholder-style empty guidance that is not saved unless edited.
+
+TDD evidence:
+
+- RED `npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts`:
+  failed because `writingStyleInsights` was absent and the browser script did
+  not have writing-specific action/placeholder rendering.
+- GREEN
+  `npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts test/analysisExecutionApi.test.ts`:
+  passed, 35 tests.
+- Browser smoke initially caught a real `ruleset_editor.js` syntax regression.
+  `node --check web/ruleset_editor.js` and a parseability assertion in
+  `rulesetPage.test.ts` were added before final validation.
+
+Commands:
+
+```bash
+cd poc-server
+npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts test/analysisExecutionApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/ruleset_editor.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused Task 14 suite: 3 files and 35 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 36 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 210 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, `git diff --check`.
+
+Browser smoke:
+
+- URL:
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_12841526`
+- `localhost:5177` was already running and served the ruleset HTML with HTTP
+  200.
+- Writing-style tab check:
+  - visible rows had `저장` and `초기화` action buttons;
+  - writing-tab `근거 보기` button count was `0`;
+  - API-backed suggestion states included both `개선 제안` and `현행유지`;
+  - placeholder/empty rows exposed `data-placeholder-value="true"`.
+- Browser console contained older syntax errors from the failed pre-fix load,
+  but after the fix the page rendered the updated action/suggestion DOM.
+
+Boundaries:
+
+- `.DS_Store` remains an existing local out-of-scope modification and was not
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or `web/event_operation_poc.html`
+  changes.
+- Browser code continues to call only `poc-server` APIs for this flow.
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Collection Fingerprint Hotfix
 

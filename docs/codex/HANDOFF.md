@@ -2,20 +2,36 @@
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
-Milestone 12 follow-up is implemented through Task 13 on
-`codex/collection-delta-plan`, and Task 14 is now planned on the same branch.
+Milestone 12 follow-up is implemented through Task 14 on
+`codex/collection-delta-plan`.
 PR #38 is open and ready for review against `develop`:
 https://github.com/funkyliferyu/bizp-poc/pull/38
 
 Non-admin merge attempts are currently blocked by the `develop` base branch
 policy, and repository auto-merge is disabled.
 
-New CR added after Task 13: milestone 12 Task 14 should be implemented before
-PR #38 is merged. The marketing strategy ruleset > 글쓰기 스타일 tab needs
-save/reset actions on every editable item, no visible `근거 보기` action,
-server-derived current-value calculation logic, server-derived right-side AI
-suggestion values/evidence, and placeholder-style rendering for guidance text
-that is not a real inferred or saved value.
+Task 14 completed for the marketing strategy ruleset > 글쓰기 스타일 tab:
+save/reset actions are rendered for editable rows, `근거 보기` is omitted from
+the writing-style tab, `writingStyleInsights` supplies server-derived
+current-value status/calculation logic/right-side AI suggestion values and
+evidence, and placeholder-style guidance text is not sent as a saved user
+value unless the user edits it.
+
+Task 14 code-path check:
+
+- `poc-server/src/storeLearning/rulesets/rulesetService.ts` now builds
+  `writingStyleInsights` from existing ruleset fields, source-matrix rows,
+  store category, analysis evidence summaries, and healthcare defaults.
+- `web/ruleset_editor.js` hydrates writing-style values and right-side
+  suggestions from `payload.writingStyleInsights`, renders save/reset without
+  writing-tab evidence buttons, and uses `data-placeholder-value="true"` for
+  placeholder/empty-style values.
+- `web/07_마케팅전략룰셋.html` adds placeholder input styling for those rows.
+- `poc-server/test/rulesetApi.test.ts` covers the `writingStyleInsights`
+  payload contract and status values.
+- `poc-server/test/rulesetPage.test.ts` covers writing-style action hooks,
+  removal of writing-tab evidence actions, placeholder hooks, API-backed
+  suggestion hooks, and browser-script parseability.
 
 Task 13 code-path check:
 
@@ -72,9 +88,11 @@ The branch now includes:
   block and technical diagnostics, renames `AI 원값` to `초기화`, shows real
   healthcare `대표 진료과목` from Place/store metadata before mock menu fields,
   and shows field-specific `근거 보기` copy.
-- Task 14 is planned but not implemented: 글쓰기 스타일 still needs API-backed
-  field calculation/suggestion payloads, save/reset affordance consistency, no
-  writing-style evidence buttons, and empty/placeholder styling.
+- Task 14 writing-style cleanup is implemented: the API exposes
+  `writingStyleInsights`, the tab uses API-backed AI suggestions, all visible
+  rows get save/reset affordances, writing-tab evidence buttons are removed,
+  and placeholder/empty guidance is styled as input guidance instead of saved
+  text.
 - Collection profile fingerprint hardening is implemented after a reported
   real-run failure: non-string Place/store metadata such as arrays, objects,
   numbers, and booleans no longer throws `value?.trim is not a function`, so
@@ -83,14 +101,14 @@ The branch now includes:
 
 Latest feature-branch validation recorded:
 
-- `npm test -- rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts`:
-  passed, 34 tests.
+- `npm test -- --run test/rulesetPage.test.ts test/rulesetApi.test.ts test/analysisExecutionApi.test.ts`:
+  passed, 35 tests.
 - `npm test -- rulesetApi.test.ts`: passed, 13 tests after legacy evidence
   fallback polish.
 - `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts`:
   passed, 27 tests after collection fingerprint metadata type hardening.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 209 tests and 6 skipped live-provider tests across
+- `npm test`: passed, 210 tests and 6 skipped live-provider tests across
   39 files.
 - `npm run demo:store-learning`: passed and seeded
   `poc-server/data/store-learning.sqlite`.
@@ -108,10 +126,14 @@ Latest feature-branch validation recorded:
   `soho_store_register.html?storeId=store_12841526&focus=parking`.
 - In-app browser smoke passed on the store registration target:
   `focus=parking` loads the existing store and focuses `#f-parking-note`.
+- In-app browser smoke passed on
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_12841526`:
+  the writing-style tab had save/reset actions for visible rows, zero
+  writing-tab evidence buttons, API-backed `개선 제안`/`현행유지` suggestion
+  states, and placeholder rows marked with `data-placeholder-value="true"`.
 
-Next step: execute milestone 12 Task 14 on `codex/collection-delta-plan`,
-rerun feature-branch validation, then proceed with PR #38 merge to `develop`
-and develop validation.
+Next step: have an authorized reviewer/admin satisfy the PR #38 `develop` base
+branch policy and merge it to `develop`, then run develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
