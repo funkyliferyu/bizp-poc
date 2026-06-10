@@ -32,12 +32,12 @@ Sequential plan ledger control for Store Learning work.
   milestone 12 Task 15 on the PR #38 branch.
 - The review-weakness legacy backfill/action bugfix is implemented and
   validated as milestone 12 Task 16 on the PR #38 branch.
-- The required-footer store-name/action-state cleanup CR is planned as
-  milestone 12 Task 17 and is pending implementation.
+- The required-footer store-name/action-state cleanup CR is implemented and
+  validated as milestone 12 Task 17 on the PR #38 branch.
 - Milestones are not fully complete until the work is merged to `develop` and
   develop validation is recorded.
 - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current
-  implementation plan; Task 17 is the next planned item before PR #38 merge.
+  implementation plan; PR #38 merge is the next item after Task 17 validation.
 
 ## Branch Policy
 
@@ -88,12 +88,9 @@ milestone that is not validated on `develop`.
 
 Current next todo:
 
-1. Implement and validate Task 17 from
-   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` when the user
-   says to proceed.
-2. Have an authorized reviewer/admin satisfy the PR #38 base branch policy
+1. Have an authorized reviewer/admin satisfy the PR #38 base branch policy
    and merge it to `develop` after Task 17 is complete.
-3. After the CR follow-up work merges to `develop`, run final validation:
+2. After the CR follow-up work merges to `develop`, run final validation:
    - `cd poc-server && npm run typecheck`
    - `cd poc-server && npm test`
    - `cd poc-server && npm run demo:store-learning`

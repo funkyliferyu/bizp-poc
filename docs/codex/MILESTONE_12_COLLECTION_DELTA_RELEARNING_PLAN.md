@@ -804,29 +804,29 @@ Excluded:
 - Modify: `poc-server/test/rulesetApi.test.ts`
 - Modify: `poc-server/test/rulesetPage.test.ts`
 
-- [ ] Add RED API tests proving healthcare `blogRequiredFooterCopy` uses the
+- [x] Add RED API tests proving healthcare `blogRequiredFooterCopy` uses the
       current store/hospital name, not the example text `테라스의원`, for stores
       such as `서구연세정형외과의원`.
-- [ ] Normalize the medical footer template server-side so example-only clinic
+- [x] Normalize the medical footer template server-side so example-only clinic
       names are replaced with `store.name` before the field is serialized as
       the current value or writing-style insight value.
-- [ ] Preserve explicitly user-edited footer copy as-is unless it still matches
+- [x] Preserve explicitly user-edited footer copy as-is unless it still matches
       the known default/example template and has not been locked by the user.
-- [ ] Add RED static/browser-script tests proving the action row does not show
+- [x] Add RED static/browser-script tests proving the action row does not show
       redundant state text such as the trailing `초기화` to the right of the
       `저장`/`초기화` buttons in normal loaded rows.
-- [ ] Keep the `초기화` button itself visible and functional.
-- [ ] Keep transient operational states such as `저장 중`, `저장됨`, `복원 중`,
+- [x] Keep the `초기화` button itself visible and functional.
+- [x] Keep transient operational states such as `저장 중`, `저장됨`, `복원 중`,
       and `처리 실패` available only when they are actively set after an action.
-- [ ] Update `web/ruleset_editor.js` so the default loaded state text is empty
+- [x] Update `web/ruleset_editor.js` so the default loaded state text is empty
       or hidden when no action is in progress.
-- [ ] Run `cd poc-server && npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts`.
-- [ ] Run `cd poc-server && npm run typecheck`.
-- [ ] Run `cd poc-server && npm test`.
-- [ ] Run `cd poc-server && npm run demo:store-learning`.
-- [ ] Run `node --check web/ruleset_editor.js`.
-- [ ] Run `git diff --check`.
-- [ ] Smoke test the 글쓰기 스타일 tab on localhost for
+- [x] Run `cd poc-server && npm test -- rulesetApi rulesetPage`.
+- [x] Run `cd poc-server && npm run typecheck`.
+- [x] Run `cd poc-server && npm test`.
+- [x] Run `cd poc-server && npm run demo:store-learning`.
+- [x] Run `node --check web/ruleset_editor.js`.
+- [x] Run `git diff --check`.
+- [x] Smoke test the 글쓰기 스타일 tab on localhost for
       `store_12841526`: the required footer uses `서구연세정형외과의원`, and
       action rows show the `초기화` button without a duplicate trailing
       `초기화` label.

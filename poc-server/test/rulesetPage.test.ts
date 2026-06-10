@@ -150,7 +150,8 @@ describe('marketing ruleset static page API wiring', () => {
     expect(writeSection).toContain('data-ruleset-field="blogRequiredIntroCopy"');
     expect(writeSection).toContain('data-writing-required-copy="footer"');
     expect(writeSection).toContain('data-ruleset-field="blogRequiredFooterCopy"');
-    expect(writeSection).toContain('*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, &lt;의료법 제 56조 제 1항&gt;을 준수합니다.');
+    expect(writeSection).toContain('*본 포스팅은 해당 병원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, &lt;의료법 제 56조 제 1항&gt;을 준수합니다.');
+    expect(writeSection).not.toContain('*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며');
     expect(writeSection).toContain('*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.');
     expect(writeSection).toContain('대표원장 소개, 전문의 이력, 진료 철학처럼 모든 블로그 인트로에 반복 포함할 문구');
     expect(writeSection).toContain('자격·진료시간·연락처·의료법 고지처럼 모든 블로그 푸터에 반복 포함할 문구');
@@ -201,6 +202,10 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).toContain('function renderActionRow');
     expect(js).toContain('includeEvidence');
     expect(js).toContain('data-ruleset-action="reset">초기화</button>');
+    expect(js).toContain('<span class="ruleset-field-state" data-ruleset-state></span>');
+    expect(js).not.toContain('data-ruleset-state>수정 가능</span>');
+    expect(js).not.toContain("state.textContent = rulesetField.locked ? '수정값 고정' : '초기화'");
+    expect(js).not.toContain("state.textContent = '초기화'");
     expect(js).toContain('function renderWritingStyleInsights');
     expect(js).toContain('payload.writingStyleInsights');
     expect(js).toContain('data-placeholder-value');

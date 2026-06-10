@@ -191,6 +191,62 @@ describe('marketing ruleset API', () => {
     });
   });
 
+  it('uses the current healthcare store name in required blog footer copy defaults and legacy AI values', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.create({
+      id: 'store_healthcare_footer_copy',
+      name: '서구연세정형외과의원',
+      naverPlaceUrl: 'https://m.place.naver.com/place/12841526/home',
+      naverPlaceId: '12841526',
+      category: '의료/건강 > 병원/클리닉 > 정형외과',
+      address: '인천 서구 가정로394번길 1 백천빌딩',
+      phone: '032-582-7582',
+      description: null,
+      metadata: {}
+    });
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_healthcare_footer_copy',
+      storeId: 'store_healthcare_footer_copy',
+      learningSnapshotId: null,
+      status: 'draft',
+      version: 1,
+      ruleset: {}
+    });
+    repos.rulesetFields.create({
+      id: 'ruleset_field_healthcare_footer_copy',
+      rulesetId: 'marketing_ruleset_healthcare_footer_copy',
+      fieldKey: 'blogRequiredFooterCopy',
+      fieldValue: '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+      aiValue: '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+      userValue: null,
+      finalValue: '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+      source: 'ai_generated',
+      locked: 0,
+      evidenceItemIds: [],
+      confidence: 0.84
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_healthcare_footer_copy/strategy-ruleset`);
+    const body = await readJson(response);
+    const footerField = body.fields.find((field: { fieldKey: string }) => field.fieldKey === 'blogRequiredFooterCopy');
+    const footerInsight = body.writingStyleInsights.find(
+      (insight: { fieldKey: string }) => insight.fieldKey === 'blogRequiredFooterCopy'
+    );
+
+    expect(response.status).toBe(200);
+    expect(footerField).toMatchObject({
+      aiValue: expect.stringContaining('서구연세정형외과의원'),
+      finalValue: expect.stringContaining('서구연세정형외과의원')
+    });
+    expect(footerField.aiValue).not.toContain('테라스의원');
+    expect(footerField.finalValue).not.toContain('테라스의원');
+    expect(footerInsight).toMatchObject({
+      currentValue: expect.stringContaining('서구연세정형외과의원'),
+      currentValueStatus: 'inferred'
+    });
+    expect(footerInsight.currentValue).not.toContain('테라스의원');
+  });
+
   it('seeds ruleset fields used by the UI source matrix rows', async () => {
     const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset`);
     const body = await readJson(response);

@@ -110,7 +110,7 @@ export function createMockAnalysisProvider(): AnalysisProvider {
         : '브랜드 소개나 반복 인트로가 있을 때만 직접 입력';
       const blogRequiredFooterCopy = isHealthcareCategory
         ? [
-            '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+            `*본 포스팅은 ${store.name}에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.`,
             '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
           ].join('\n')
         : '예약, 문의, 운영 안내 등 반복 푸터가 있을 때만 직접 입력';

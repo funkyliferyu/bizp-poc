@@ -17,7 +17,7 @@
   const HEALTHCARE_CATEGORY_KEYWORDS = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'];
   const MEDICAL_INDUSTRY_COMMON_RULE = '블로그 하단에 반드시 의료법 관련 내용 포함';
   const MEDICAL_BLOG_FOOTER_COPY = [
-    '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+    '*본 포스팅은 해당 병원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
     '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
   ].join('\n');
   const PARKING_MANUAL_REQUIRED_TEXT = '수동입력 필요';
@@ -185,7 +185,7 @@
       includeEvidence
         ? '<button type="button" class="ruleset-action-btn" data-ruleset-action="evidence">근거 보기</button>'
         : '',
-      '<span class="ruleset-field-state" data-ruleset-state>수정 가능</span>'
+      '<span class="ruleset-field-state" data-ruleset-state></span>'
     ].filter(Boolean).join('');
     return row;
   }
@@ -344,9 +344,7 @@
     renderKeywordTags(element, value.textContent);
     updateSourceBadge(element, rulesetField);
 
-    const row = renderActionRow(element);
-    const state = row.querySelector('[data-ruleset-state]');
-    if (state) state.textContent = rulesetField.locked ? '수정값 고정' : '초기화';
+    renderActionRow(element);
     renderRulesetSourceNote(element, rulesetField.sourceMatrix || matrixForFieldKey(rulesetField.fieldKey));
   }
 
@@ -456,9 +454,7 @@
       value.contentEditable = 'true';
       value.setAttribute('role', 'textbox');
       value.setAttribute('tabindex', '0');
-      const row = renderActionRow(element);
-      const state = row.querySelector('[data-ruleset-state]');
-      if (state) state.textContent = '초기화';
+      renderActionRow(element);
     }
     if (fieldKey === 'parking') updateParkingManualAction(element, value.textContent);
     renderKeywordTags(element, value.textContent);
@@ -652,7 +648,9 @@
 
   function setState(element, message) {
     const state = element.querySelector('[data-ruleset-state]');
-    if (state) state.textContent = message;
+    if (!state) return;
+    state.textContent = message;
+    state.hidden = !message;
   }
 
   function updateFieldInMemory(rulesetField) {
@@ -679,7 +677,7 @@
     updateFieldInMemory(payload.field);
     updateWritingInsightFromField(payload.field);
     renderRulesetField(element, payload.field);
-    setState(element, '초기화');
+    setState(element, '');
   }
 
   function showEvidenceModal(payload) {

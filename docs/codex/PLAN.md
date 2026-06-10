@@ -55,14 +55,11 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. Implement Task 17 in
-   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` on
-   `codex/collection-delta-plan` when the user says to proceed.
-2. Merge PR #38 to `develop` after Task 17 is implemented and validated, once
+1. Merge PR #38 to `develop` after Task 17 is implemented and validated, once
    the base branch policy requirement is satisfied by an authorized
    reviewer/admin.
-3. Run final develop validation after the CR follow-up work is merged.
-4. Prepare the `develop` -> `main` promotion path only after validation passes
+2. Run final develop validation after the CR follow-up work is merged.
+3. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 ## Milestone Ledger
@@ -187,7 +184,7 @@ Status:
       feature-branch validated.
 - [x] Task 16 review-weakness legacy backfill is implemented and
       feature-branch validated.
-- [ ] Task 17 required-footer store-name/action-state cleanup is implemented
+- [x] Task 17 required-footer store-name/action-state cleanup is implemented
       and feature-branch validated.
 - [ ] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.

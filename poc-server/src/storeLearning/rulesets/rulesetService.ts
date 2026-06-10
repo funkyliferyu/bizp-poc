@@ -18,10 +18,11 @@ type WritingStyleSuggestionJudgment = 'maintain' | 'improve';
 
 const HEALTHCARE_CATEGORY_KEYWORDS = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'];
 const MEDICAL_INDUSTRY_COMMON_RULE = '블로그 하단에 반드시 의료법 관련 내용 포함';
-const MEDICAL_BLOG_FOOTER_COPY = [
-  '*본 포스팅은 테라스의원에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
+const MEDICAL_BLOG_FOOTER_EXAMPLE_STORE_NAME = '테라스의원';
+const MEDICAL_BLOG_FOOTER_LINES = [
+  '*본 포스팅은 {storeName}에서 의료정보 제공 및 병원 광고 목적으로 직접 작성한 글이며, <의료법 제 56조 제 1항>을 준수합니다.',
   '*모든 시술은 개인의 피부에 따라 크고 작은 부작용이 발생할 수 있습니다. 반드시 사전에 의료진과 충분한 상담을 진행한 후 시술을 결정하시는 것을 권장드립니다.'
-].join('\n');
+];
 
 const WRITING_STYLE_INSIGHT_FIELD_KEYS = [
   'blogPurpose',
@@ -225,6 +226,49 @@ function serializeField(field: RulesetField, fieldKeyOverride?: string) {
   };
 }
 
+function medicalBlogFooterCopy(storeName: string | null | undefined) {
+  const normalizedStoreName = storeName?.trim() || '해당 병원';
+  return MEDICAL_BLOG_FOOTER_LINES
+    .map((line) => line.replace('{storeName}', normalizedStoreName))
+    .join('\n');
+}
+
+function storeNameFromFacts(storeFacts: Record<string, unknown>) {
+  const name = storeFacts.name;
+  if (typeof name === 'string' && name.trim()) return name.trim();
+  if (typeof name === 'number' && Number.isFinite(name)) return String(name);
+  return '해당 병원';
+}
+
+function normalizeMedicalBlogFooterCopy(
+  value: string | null | undefined,
+  storeFacts: Record<string, unknown>,
+  isUserEdited: boolean
+) {
+  const storeName = storeNameFromFacts(storeFacts);
+  if (!value) return medicalBlogFooterCopy(storeName);
+  if (isUserEdited) return value;
+  return value.replaceAll(MEDICAL_BLOG_FOOTER_EXAMPLE_STORE_NAME, storeName);
+}
+
+function serializeFieldForStore(
+  field: RulesetField,
+  storeFacts: Record<string, unknown>,
+  fieldKeyOverride?: string
+): SerializedRulesetField {
+  const serialized = serializeField(field, fieldKeyOverride);
+  if (!isHealthcareStoreFacts(storeFacts) || serialized.fieldKey !== 'blogRequiredFooterCopy') return serialized;
+  const isUserEdited = serialized.locked || serialized.source === 'user_edited';
+  const aiValue = normalizeMedicalBlogFooterCopy(serialized.aiValue, storeFacts, false);
+  const finalValue = normalizeMedicalBlogFooterCopy(serialized.finalValue || serialized.aiValue, storeFacts, isUserEdited);
+  return {
+    ...serialized,
+    aiValue,
+    finalValue,
+    userValue: isUserEdited ? serialized.userValue : serialized.userValue?.replaceAll(MEDICAL_BLOG_FOOTER_EXAMPLE_STORE_NAME, storeNameFromFacts(storeFacts)) ?? null
+  };
+}
+
 function serializeStoreFacts(store: StoreRecord) {
   const metadata = asRecord(store.metadata);
   const parsed = asRecord(metadata.naverPlaceParsed);
@@ -376,7 +420,9 @@ function writingFieldValue(fieldKey: string, field: SerializedRulesetField | nul
   const fieldValue = field?.finalValue || field?.aiValue || null;
   if (fieldValue) return fieldValue;
   if (isHealthcare && fieldKey === 'industryCommonRules') return MEDICAL_INDUSTRY_COMMON_RULE;
-  if (isHealthcare && fieldKey === 'blogRequiredFooterCopy') return MEDICAL_BLOG_FOOTER_COPY;
+  if (isHealthcare && fieldKey === 'blogRequiredFooterCopy') {
+    return medicalBlogFooterCopy(storeNameFromFacts(storeFacts));
+  }
   return null;
 }
 
@@ -530,7 +576,7 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
   }
 
   const storeFacts = serializeStoreFacts(store);
-  const serializedFields = fields.map((field) => serializeField(field));
+  const serializedFields = fields.map((field) => serializeFieldForStore(field, storeFacts));
   const evidenceRows = analysisRun ? repos.analysisEvidence.listByAnalysisRunId(analysisRun.id) : [];
 
   return {
@@ -587,7 +633,7 @@ export function updateRulesetFieldValue(
   });
 
   return {
-    field: serializeField(updated, fieldKey)
+    field: serializeFieldForStore(updated, serializeStoreFacts(context.store), fieldKey)
   };
 }
 
@@ -595,17 +641,22 @@ export function resetRulesetFieldValue(repos: Repositories, storeId: string, fie
   const context = rulesetFieldContext(repos, storeId, fieldKey);
   if (!context) return null;
   if (!context.field) return { field: null };
+  const storeFacts = serializeStoreFacts(context.store);
+  const aiValue =
+    fieldKey === 'blogRequiredFooterCopy' && isHealthcareStoreFacts(storeFacts)
+      ? normalizeMedicalBlogFooterCopy(context.field.aiValue, storeFacts, false)
+      : context.field.aiValue;
 
   const updated = repos.rulesetFields.update(context.field.id, {
     userValue: null,
-    finalValue: context.field.aiValue,
-    fieldValue: context.field.aiValue,
+    finalValue: aiValue,
+    fieldValue: aiValue,
     source: 'ai_generated',
     locked: 0
   });
 
   return {
-    field: serializeField(updated, fieldKey)
+    field: serializeFieldForStore(updated, storeFacts, fieldKey)
   };
 }
 
