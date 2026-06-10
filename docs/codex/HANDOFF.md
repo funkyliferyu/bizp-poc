@@ -1,5 +1,25 @@
 # Codex Handoff
 
+## NEXT-SESSION-LLM-CALL-AUDIT
+
+Temporary LLM-call verification table was added at `web/llm호출.html`.
+Open it locally at:
+
+```text
+http://localhost:5177/llm%ED%98%B8%EC%B6%9C.html
+```
+
+Next-session implementation plan was added at
+`docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
+
+Key finding: Store Learning analysis/blog/SEO paths do call OpenAI when
+`OPENAI_API_KEY` is configured, but several UI surfaces that look like AI are
+currently local/mock/static. The current analysis provider also sends full
+metadata into the OpenAI prompt, which caused the observed 128k context
+overflow for `store_1020864025` with 40 selected Blog posts. The next session
+should add LLM provenance metadata and an analysis prompt budget before more
+live analysis runs.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
 Milestone 12 follow-up is implemented through Task 18 on
