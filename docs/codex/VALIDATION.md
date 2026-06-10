@@ -1,5 +1,77 @@
 # Validation
 
+## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 16 Final Validation
+
+Task 16 fixes the 우리 매장 분석 `리뷰 약점` legacy fallback issue:
+older rulesets that do not have a persisted `reviewWeakness` field now receive
+a server-side backfilled field derived from collected review/blog evidence, not
+the static browser fallback. Because it is returned as a normal ruleset field,
+the row also gets `저장`, `초기화`, and `근거 보기`.
+
+TDD evidence:
+
+- RED
+  `npm test -- --run test/rulesetApi.test.ts -t "review weakness|field source matrix"`:
+  failed because `reviewWeakness` was absent from a legacy ruleset payload and
+  the source-matrix text still described it as a static UI sample.
+- GREEN same command: passed, 2 focused tests.
+
+Commands:
+
+```bash
+cd poc-server
+npm test -- --run test/rulesetApi.test.ts -t "review weakness|field source matrix"
+npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/ruleset_editor.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused Task 16 suite: 2 tests.
+- PASS, ruleset API/page regression suite: 2 files and 30 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 36 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 214 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, `git diff --check`.
+
+Browser/API smoke:
+
+- Localhost API check:
+  `GET /api/stores/store_1020864025/strategy-ruleset`
+  returned `reviewWeakness` as `analysis_backfill` with value
+  `통증 걱정 완화 안내 필요, 사후관리/재발 기대치 안내 필요, 대기/혼잡 경험 관리 필요`.
+- The same API response no longer used the static fallback
+  `주차 공간 협소, 현금 결제 불가 언급`.
+- `GET /api/stores/store_1020864025/strategy-ruleset/fields/reviewWeakness/evidence`
+  returned collected review excerpts.
+- Playwright smoke target:
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_1020864025`
+- The `리뷰 약점` row showed the backfilled collected-review-derived value.
+- The row rendered `저장`, `초기화`, and `근거 보기`.
+- Clicking `근거 보기` opened `리뷰 약점 근거 보기` with collected review
+  excerpts.
+
+Boundaries:
+
+- `.DS_Store` remains an existing local out-of-scope modification and was not
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser code continues to call only `poc-server` APIs for this flow.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 15 Final Validation
 
 Task 15 fixes the no-new-content collection state:

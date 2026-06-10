@@ -101,6 +101,29 @@ const WRITING_STYLE_SUGGESTIONS: Record<
   }
 };
 
+const REVIEW_WEAKNESS_SIGNALS = [
+  {
+    label: '통증 걱정 완화 안내 필요',
+    keywords: ['아파', '통증', '겁', '마취', '무섭', '위험']
+  },
+  {
+    label: '사후관리/재발 기대치 안내 필요',
+    keywords: ['재발', '붉은기', '관리', '기다리', '남은']
+  },
+  {
+    label: '대기/혼잡 경험 관리 필요',
+    keywords: ['사람이 많', '대기', '예약', '기다림', '붐']
+  },
+  {
+    label: '방문/주차 동선 안내 보완 필요',
+    keywords: ['주차', '찾기', '동선', '픽업', '위치']
+  },
+  {
+    label: '가격/결제 안내 선명화 필요',
+    keywords: ['가격', '비싸', '결제', '현금', '카드']
+  }
+] as const;
+
 function latestByUpdatedAt<T extends { updatedAt: string }>(records: T[]) {
   return records.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).at(-1) ?? null;
 }
@@ -235,6 +258,86 @@ function serializeStoreFacts(store: StoreRecord) {
     parking: parkingValue(metadata.parkingNote, parsed.parkingNote, metadata.parking, parsed.parking),
     representativeTreatmentSubjects: representativeTreatmentSubjectsValue(metadata, parsed)
   };
+}
+
+function rulesetFieldId(rulesetId: string, fieldKey: string) {
+  return `ruleset_field_${rulesetId}_${fieldKey.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+}
+
+function collectionItemSearchText(item: CollectionItem) {
+  return [item.title, item.bodyText].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function collectedReviewWeaknessEvidenceItems(repos: Repositories, storeId: string) {
+  return repos.collectionItems
+    .listByStoreId(storeId)
+    .filter((item) => {
+      if (item.status !== 'collected') return false;
+      if (item.sourceType !== 'review' && item.sourceType !== 'post') return false;
+      return Boolean(collectionItemSearchText(item));
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+function deriveReviewWeaknessFromCollectedItems(items: CollectionItem[]) {
+  const matchedLabels: string[] = [];
+  const matchedItemIds: string[] = [];
+
+  for (const signal of REVIEW_WEAKNESS_SIGNALS) {
+    const matchedItem = items.find((item) => {
+      const text = collectionItemSearchText(item);
+      return signal.keywords.some((keyword) => text.includes(keyword));
+    });
+    if (!matchedItem) continue;
+    matchedLabels.push(signal.label);
+    matchedItemIds.push(matchedItem.id);
+  }
+
+  if (matchedLabels.length > 0) {
+    return {
+      value: unique(matchedLabels).slice(0, 3).join(', '),
+      evidenceItemIds: unique(matchedItemIds).slice(0, 5),
+      confidence: 0.62
+    };
+  }
+
+  const fallbackEvidenceItemIds = items.slice(0, 3).map((item) => item.id);
+  if (fallbackEvidenceItemIds.length > 0) {
+    return {
+      value: '반복적으로 확인되는 리뷰 약점 없음',
+      evidenceItemIds: fallbackEvidenceItemIds,
+      confidence: 0.45
+    };
+  }
+
+  return {
+    value: '리뷰 약점을 판단할 수집 근거가 아직 없습니다',
+    evidenceItemIds: [],
+    confidence: 0.3
+  };
+}
+
+function ensureReviewWeaknessBackfill(
+  repos: Repositories,
+  store: StoreRecord,
+  rulesetId: string,
+  fields: RulesetField[]
+) {
+  if (fields.some((field) => canonicalRulesetFieldKey(field.fieldKey) === 'reviewWeakness')) return null;
+  const derived = deriveReviewWeaknessFromCollectedItems(collectedReviewWeaknessEvidenceItems(repos, store.id));
+  return repos.rulesetFields.upsert({
+    id: rulesetFieldId(rulesetId, 'reviewWeakness'),
+    rulesetId,
+    fieldKey: 'reviewWeakness',
+    fieldValue: derived.value,
+    aiValue: derived.value,
+    userValue: null,
+    finalValue: derived.value,
+    source: 'analysis_backfill',
+    locked: 0,
+    evidenceItemIds: derived.evidenceItemIds,
+    confidence: derived.confidence
+  });
 }
 
 function sourceMatrixWithCurrentValues(storeFacts: Record<string, unknown>, fields: ReturnType<typeof serializeField>[]) {
@@ -375,9 +478,13 @@ function latestRulesetContext(repos: Repositories, storeId: string) {
     ? repos.learningSnapshots.findById(marketingRuleset.learningSnapshotId)
     : null;
   const analysisRun = learningSnapshot ? repos.analysisRuns.findById(learningSnapshot.analysisRunId) : null;
-  const fields = repos.rulesetFields
+  let fields = repos.rulesetFields
     .listByRulesetId(marketingRuleset.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const backfilledReviewWeakness = ensureReviewWeaknessBackfill(repos, store, marketingRuleset.id, fields);
+  if (backfilledReviewWeakness) {
+    fields = [...fields, backfilledReviewWeakness].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
 
   return {
     store,

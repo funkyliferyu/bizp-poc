@@ -29,6 +29,8 @@ Sequential plan ledger control for Store Learning work.
   follow-up.
 - The no-new-content collection state bugfix is implemented and validated as
   milestone 12 Task 15 on the PR #38 branch.
+- The review-weakness legacy backfill/action bugfix is implemented and
+  validated as milestone 12 Task 16 on the PR #38 branch.
 - Milestones are not fully complete until the work is merged to `develop` and
   develop validation is recorded.
 - `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` is the current

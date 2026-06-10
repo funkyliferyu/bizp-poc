@@ -58,6 +58,9 @@ Included:
   Place profile review-count changes as meaningful profile changes, and dim the
   collection progress screen's analysis selection button when there is nothing
   new to analyze.
+- Backfill missing legacy `reviewWeakness` ruleset fields from collected
+  review/blog evidence so the 우리 매장 분석 tab does not fall back to the same
+  static mock weakness copy and still exposes save/reset/evidence actions.
 
 Excluded:
 
@@ -748,3 +751,40 @@ Excluded:
 - [x] Smoke test the collection progress page on `localhost:5177` with a
       no-meaningful-change run: the no-new text is visible and the analysis
       selection button is disabled.
+
+### Task 16: Review Weakness Legacy Backfill And Actions
+
+**Files:**
+
+- Modify: `poc-server/src/storeLearning/rulesets/rulesetService.ts`
+- Modify: `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts`
+- Modify: `poc-server/test/rulesetApi.test.ts`
+
+- [x] Add RED API tests proving a legacy ruleset without `reviewWeakness`
+      receives a server-side backfilled `reviewWeakness` field.
+- [x] Prove the backfilled value is derived from collected review evidence and
+      does not reuse the static browser fallback copy such as
+      `주차 공간 협소, 현금 결제 불가 언급`.
+- [x] Prove the evidence API works for the backfilled field so the browser can
+      render `근거 보기`.
+- [x] Prove PATCH save and reset routes work for the backfilled field, enabling
+      the visible `저장` and `초기화` actions.
+- [x] Update the source-matrix implementation note so `reviewWeakness` is no
+      longer described as a static UI sample.
+- [x] Add lazy backfill in the ruleset payload path: when the latest marketing
+      ruleset lacks `reviewWeakness`, derive a conservative strategy-only
+      weakness summary from collected Place review/Blog text and persist it as
+      `analysis_backfill`.
+- [x] Exclude failed placeholder review items from the backfill by using only
+      `status = collected` content.
+- [x] Run
+      `cd poc-server && npm test -- --run test/rulesetApi.test.ts -t "review weakness|field source matrix"`.
+- [x] Run `cd poc-server && npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts`.
+- [x] Run `cd poc-server && npm run typecheck`.
+- [x] Run `cd poc-server && npm test`.
+- [x] Run `cd poc-server && npm run demo:store-learning`.
+- [x] Run `node --check web/ruleset_editor.js`.
+- [x] Run `git diff --check`.
+- [x] Smoke test `store_1020864025` on localhost: `reviewWeakness` displays
+      collected-review-derived values and shows `저장`, `초기화`, and
+      `근거 보기`; evidence opens with collected review excerpts.

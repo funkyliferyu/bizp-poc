@@ -2,7 +2,7 @@
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
-Milestone 12 follow-up is implemented through Task 15 on
+Milestone 12 follow-up is implemented through Task 16 on
 `codex/collection-delta-plan`.
 PR #38 is open and ready for review against `develop`:
 https://github.com/funkyliferyu/bizp-poc/pull/38
@@ -24,6 +24,13 @@ and disables the analysis selection CTA. Rendered Place review slots that
 cannot be confirmed by GraphQL are no longer persisted as failed placeholders,
 and Place profile review counters no longer make the profile fingerprint look
 changed.
+
+Task 16 completed for the our-store-analysis `리뷰 약점` bug:
+legacy rulesets that predate the `reviewWeakness` analyzer field no longer fall
+back to the static browser copy `주차 공간 협소, 현금 결제 불가 언급`. The server
+now lazily backfills `reviewWeakness` from collected Place review/Blog evidence,
+persists it as `analysis_backfill`, and the browser receives it as a normal
+editable ruleset field with `저장`, `초기화`, and `근거 보기`.
 
 Task 14 code-path check:
 
@@ -54,6 +61,19 @@ Task 15 code-path check:
   is `false`.
 - `web/collection_progress.js` renders the no-new-content message and disables
   the analysis selection button with `새로 분석할 콘텐츠가 없습니다.` title text.
+
+Task 16 code-path check:
+
+- `poc-server/src/storeLearning/rulesets/rulesetService.ts` now checks the
+  latest ruleset for a missing `reviewWeakness` field and creates a conservative
+  backfill from collected review/blog text only.
+- The backfill ignores failed collection placeholders and uses evidence item
+  IDs from collected content, so the evidence modal can show real excerpts.
+- `poc-server/src/storeLearning/rulesets/rulesetSourceMatrix.ts` no longer
+  describes `reviewWeakness` as a static UI sample.
+- `web/ruleset_editor.js` did not need a special case: once the API returns a
+  normal `reviewWeakness` field, existing field hydration attaches save/reset/
+  evidence actions.
 
 Task 13 code-path check:
 
@@ -124,9 +144,30 @@ The branch now includes:
   unconfirmed review slots are not shown as failed items, review-count-only
   Place profile changes are ignored for fingerprinting, no-meaningful-change
   runs return no selectable analysis items, and the progress CTA is dimmed.
+- Review weakness legacy backfill is implemented: old rulesets missing
+  `reviewWeakness` receive a collected-review-derived strategy-only field
+  instead of the static browser fallback, with save/reset/evidence actions.
 
 Latest feature-branch validation recorded:
 
+- `npm test -- --run test/rulesetApi.test.ts -t "review weakness|field source matrix"`:
+  passed, 2 focused tests after Task 16.
+- `npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts`:
+  passed, 30 tests after Task 16.
+- `npm run typecheck`: passed after Task 16.
+- `npm test`: passed after Task 16, 214 tests and 6 skipped live-provider
+  tests across 39 files.
+- `npm run demo:store-learning`: passed after Task 16.
+- `node --check web/ruleset_editor.js`: passed after Task 16.
+- `git diff --check`: passed after Task 16.
+- Localhost API smoke passed for `store_1020864025`: `reviewWeakness` returned
+  `통증 걱정 완화 안내 필요, 사후관리/재발 기대치 안내 필요, 대기/혼잡 경험 관리 필요`
+  with collected review evidence item IDs.
+- Playwright localhost smoke passed on
+  `http://localhost:5177/07_%EB%A7%88%EC%BC%80%ED%8C%85%EC%A0%84%EB%9E%B5%EB%A3%B0%EC%85%8B.html?storeId=store_1020864025`:
+  the `리뷰 약점` row showed the collected-review-derived value, rendered
+  `저장`, `초기화`, and `근거 보기`, and the evidence modal opened with
+  collected review excerpts.
 - `npm test -- --run test/collectionItemIdentity.test.ts test/naverPlaceRenderedCollectionProvider.test.ts test/selectionApi.test.ts test/collectionProgressPage.test.ts`:
   passed, 24 tests after Task 15.
 - `npm run typecheck`: passed after Task 15.
