@@ -3,6 +3,33 @@
   let latestItems = [];
   let latestStoreId = null;
   let latestRunId = null;
+  let analysisInFlight = false;
+  let analysisElapsedTimer = null;
+  let analysisElapsedStartedAt = null;
+
+  const analysisOverlayStepOrder = ['queued', 'analyzing', 'validating', 'snapshot', 'ruleset', 'navigate'];
+  const analysisServerStepToOverlayStep = {
+    preparing: 'queued',
+    analyzing: 'analyzing',
+    validating: 'validating',
+    evidence: 'validating',
+    snapshot: 'snapshot',
+    ruleset: 'ruleset',
+    ruleset_fields: 'ruleset',
+    completed: 'navigate',
+    failed: 'validating'
+  };
+  const analysisServerStepToCardStep = {
+    preparing: 'ready',
+    analyzing: 'started',
+    validating: 'started',
+    evidence: 'started',
+    snapshot: 'started',
+    ruleset: 'ruleset',
+    ruleset_fields: 'ruleset',
+    completed: 'navigate',
+    failed: 'started'
+  };
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -129,7 +156,7 @@
     field('selection-blog-count').textContent = `· ${blogItems.length}개 수집`;
     field('selection-place-count').textContent = `· ${placeItems.length}개 수집`;
     field('selection-selected-count').textContent = `${selectedCount}개 선택됨`;
-    field('selection-analysis-btn').disabled = selectedCount === 0;
+    field('selection-analysis-btn').disabled = analysisInFlight || selectedCount === 0;
     field('selection-blog-raw-button').disabled = !latestRunId;
   }
 
@@ -169,6 +196,136 @@
     render();
   }
 
+  function setAnalysisOverlayVisible(visible) {
+    const overlay = field('selection-analysis-overlay');
+    if (!overlay) return;
+    overlay.classList.toggle('active', Boolean(visible));
+    overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
+  function setAnalysisOverlayStatus(text) {
+    const status = field('selection-analysis-overlay-status');
+    if (status) status.textContent = text || '분석 실행 중';
+  }
+
+  function formatElapsed(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function stopAnalysisElapsedTimer() {
+    if (analysisElapsedTimer) window.clearInterval(analysisElapsedTimer);
+    analysisElapsedTimer = null;
+  }
+
+  function startAnalysisElapsedTimer() {
+    stopAnalysisElapsedTimer();
+    analysisElapsedStartedAt = Date.now();
+    const elapsed = field('selection-analysis-overlay-elapsed');
+    const tick = () => {
+      if (elapsed && analysisElapsedStartedAt) {
+        elapsed.textContent = `경과 ${formatElapsed(Date.now() - analysisElapsedStartedAt)}`;
+      }
+    };
+    tick();
+    analysisElapsedTimer = window.setInterval(tick, 1000);
+  }
+
+  function setAnalysisOverlayFlow(stepKey, stateText) {
+    const activeIndex = analysisOverlayStepOrder.indexOf(stepKey);
+    const steps = Array.from(document.querySelectorAll('[data-analysis-overlay-step]'));
+    steps.forEach((step) => {
+      const key = step.getAttribute('data-analysis-overlay-step');
+      const index = analysisOverlayStepOrder.indexOf(key);
+      const state = step.querySelector('.analysis-overlay-step-state');
+      const isDone = activeIndex >= 0 && index >= 0 && index < activeIndex;
+      const isActive = key === stepKey;
+      step.classList.toggle('done', isDone);
+      step.classList.toggle('active', isActive);
+      if (state) {
+        if (isDone) state.textContent = '완료';
+        else if (isActive) state.textContent = stateText || '진행 중';
+        else state.textContent = '대기';
+      }
+    });
+  }
+
+  function setAnalysisStep(stepKey, stateText, overlayStepKey) {
+    const progress = field('selection-analysis-progress');
+    const steps = Array.from(document.querySelectorAll('[data-analysis-step]'));
+    const stepOrder = ['ready', 'queued', 'started', 'ruleset', 'navigate'];
+    const activeIndex = stepOrder.indexOf(stepKey);
+
+    if (progress) progress.classList.add('active');
+    setAnalysisOverlayStatus(stateText || '진행 중');
+    setAnalysisOverlayFlow(overlayStepKey || analysisServerStepToOverlayStep[stepKey] || stepKey, stateText);
+    steps.forEach((step) => {
+      const key = step.getAttribute('data-analysis-step');
+      const index = stepOrder.indexOf(key);
+      const state = step.querySelector('.analysis-step-state');
+      step.classList.toggle('done', index >= 0 && index < activeIndex);
+      step.classList.toggle('active', key === stepKey);
+      if (state) {
+        if (index >= 0 && index < activeIndex) state.textContent = '완료';
+        else if (key === stepKey) state.textContent = stateText || '진행 중';
+        else state.textContent = '대기';
+      }
+    });
+  }
+
+  function applyAnalysisProgress(progress) {
+    if (!progress || typeof progress !== 'object') return;
+    const step = progress.step;
+    if (typeof step !== 'string') return;
+    const label = typeof progress.label === 'string' ? progress.label : '분석 실행';
+    const message = typeof progress.message === 'string' ? progress.message : label;
+    const stateText = progress.state === 'done' ? '완료' : label;
+    const cardStep = analysisServerStepToCardStep[step] || 'started';
+    const overlayStep = analysisServerStepToOverlayStep[step] || 'analyzing';
+    setAnalysisStep(cardStep, stateText, overlayStep);
+    setAnalysisOverlayStatus(message);
+  }
+
+  async function readAnalysisRun(analysisRunId) {
+    const response = await fetch(`/api/analysis-runs/${analysisRunId}`);
+    return readResponse(response);
+  }
+
+  function startAnalysisProgressPolling(analysisRunId) {
+    let stopped = false;
+    let timer = null;
+    const poll = async () => {
+      if (stopped) return;
+      try {
+        const artifacts = await readAnalysisRun(analysisRunId);
+        const progress = artifacts.analysisRun?.result?.analysisProgress;
+        applyAnalysisProgress(progress);
+        const status = artifacts.analysisRun?.status;
+        if (['completed', 'failed'].includes(status)) {
+          stopped = true;
+          if (timer) window.clearInterval(timer);
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    };
+    poll();
+    timer = window.setInterval(poll, 1000);
+    return () => {
+      stopped = true;
+      if (timer) window.clearInterval(timer);
+    };
+  }
+
+  function setAnalysisError(message) {
+    const error = field('selection-analysis-error');
+    if (!error) return;
+    error.textContent = message;
+    error.style.display = message ? 'block' : 'none';
+  }
+
   async function createAnalysisRun() {
     const selectedItemIds = latestItems.filter(isSelected).map((item) => item.id);
     const response = await fetch('/api/analysis-runs', {
@@ -180,11 +337,55 @@
         selectedItemIds
       })
     });
-    const payload = await readResponse(response);
-    const next = new URL('06_AI학습_현황.html?', window.location.href);
-    next.searchParams.set('storeId', latestStoreId);
-    next.searchParams.set('analysisRunId', payload.analysisRunId);
-    window.location.href = `${next.pathname}${next.search}`;
+    return readResponse(response);
+  }
+
+  async function startAnalysisRun(analysisRunId) {
+    const response = await fetch(`/api/analysis-runs/${analysisRunId}/start`, {
+      method: 'POST'
+    });
+    return readResponse(response);
+  }
+
+  async function runAnalysisFlow() {
+    analysisInFlight = true;
+    renderCounts();
+    setAnalysisError('');
+    setAnalysisOverlayVisible(true);
+    startAnalysisElapsedTimer();
+    setAnalysisStep('ready', '준비 중');
+    let stopProgressPolling = null;
+
+    try {
+      const payload = await createAnalysisRun();
+      const analysisRunId = payload.analysisRunId;
+      setAnalysisStep('queued', '선택 저장 완료');
+      stopProgressPolling = startAnalysisProgressPolling(analysisRunId);
+      setAnalysisStep('started', 'AI 분석 중');
+      const started = await startAnalysisRun(analysisRunId);
+      stopProgressPolling?.();
+      applyAnalysisProgress(started.analysisRun?.result?.analysisProgress);
+      setAnalysisStep('started', '분석 완료');
+      setAnalysisStep('ruleset', started.marketingRuleset ? '생성 완료' : '확인 중');
+      setAnalysisStep('navigate', '이동 중');
+
+      latestStoreId = started.analysisRun?.storeId || latestStoreId;
+      if (latestStoreId) window.localStorage.setItem(STORE_ID_KEY, latestStoreId);
+
+      const next = new URL('06_AI학습_현황.html?', window.location.href);
+      next.searchParams.set('storeId', latestStoreId);
+      next.searchParams.set('analysisRunId', analysisRunId);
+      window.location.href = `${next.pathname}${next.search}`;
+    } catch (error) {
+      analysisInFlight = false;
+      renderCounts();
+      setAnalysisOverlayVisible(false);
+      stopAnalysisElapsedTimer();
+      stopProgressPolling?.();
+      const message = error instanceof Error ? error.message : '분석 실행을 시작하지 못했습니다.';
+      setAnalysisError(message);
+      throw error;
+    }
   }
 
   function rawDataUrl() {
@@ -211,7 +412,7 @@
     window.localStorage.setItem(STORE_ID_KEY, latestStoreId);
 
     field('selection-analysis-btn').addEventListener('click', () => {
-      createAnalysisRun().catch((error) => {
+      runAnalysisFlow().catch((error) => {
         alert(error instanceof Error ? error.message : '분석 실행을 시작하지 못했습니다.');
       });
     });

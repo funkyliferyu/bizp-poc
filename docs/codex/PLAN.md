@@ -53,28 +53,31 @@ The next todo is the first milestone below that is not `Validated on develop`.
 If its PR is open, the todo is to review, merge or retarget that PR, then
 validate on `develop`; it is not to skip ahead.
 
-Current next todo as of 2026-06-09:
+Current next todo as of 2026-06-10:
 
-1. Run milestone 10 final develop validation.
-2. Update `docs/codex/HANDOFF.md` and `docs/codex/VALIDATION.md` with the
-   develop validation result.
-3. Prepare the `develop` -> `main` promotion path only after validation passes
+1. Open/review the milestone 11 real-store E2E hardening PR from
+   `codex/real-store-e2e-hardening` to `develop`.
+2. Merge the hardening work to `develop`.
+3. Run final develop validation after the hardening work is on `develop`.
+4. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 ## Milestone Ledger
 
 | # | Milestone | Current state | Tracking | Develop gate |
 |---|---|---|---|---|
-| 1 | 현황 감사와 데이터 매핑 | Merged to develop | [#26](https://github.com/funkyliferyu/bizp-poc/pull/26) | Awaiting milestone 10 validation |
-| 2 | 매장정보등록 정리 | Merged to develop | [#27](https://github.com/funkyliferyu/bizp-poc/pull/27) | Awaiting milestone 10 validation |
-| 3 | AI 학습 설정 데이터 정리 | Merged to develop | [#28](https://github.com/funkyliferyu/bizp-poc/pull/28) | Awaiting milestone 10 validation |
-| 4 | 수집 실행 안정화 | Merged to develop | [#29](https://github.com/funkyliferyu/bizp-poc/pull/29) | Awaiting milestone 10 validation |
-| 5 | 수집 데이터 선택/RAW 조회 확장 | Merged to develop | [#30](https://github.com/funkyliferyu/bizp-poc/pull/30) | Awaiting milestone 10 validation |
-| 6 | 분석 실행과 룰셋 생성 계약 정리 | Merged to develop | [#31](https://github.com/funkyliferyu/bizp-poc/pull/31) | Awaiting milestone 10 validation |
-| 7 | 마케팅 전략 룰셋 화면 적용 | Merged to develop | [#32](https://github.com/funkyliferyu/bizp-poc/pull/32) | Awaiting milestone 10 validation |
-| 8 | AI 학습 현황 화면 적용 | Merged to develop | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Awaiting milestone 10 validation |
-| 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting milestone 10 validation |
-| 10 | 최종 문서/검증 정리 | Not started | - | Ready to run |
+| 1 | 현황 감사와 데이터 매핑 | Merged to develop | [#26](https://github.com/funkyliferyu/bizp-poc/pull/26) | Awaiting final validation |
+| 2 | 매장정보등록 정리 | Merged to develop | [#27](https://github.com/funkyliferyu/bizp-poc/pull/27) | Awaiting final validation |
+| 3 | AI 학습 설정 데이터 정리 | Merged to develop | [#28](https://github.com/funkyliferyu/bizp-poc/pull/28) | Awaiting final validation |
+| 4 | 수집 실행 안정화 | Merged to develop | [#29](https://github.com/funkyliferyu/bizp-poc/pull/29) | Awaiting final validation |
+| 5 | 수집 데이터 선택/RAW 조회 확장 | Merged to develop | [#30](https://github.com/funkyliferyu/bizp-poc/pull/30) | Awaiting final validation |
+| 6 | 분석 실행과 룰셋 생성 계약 정리 | Merged to develop | [#31](https://github.com/funkyliferyu/bizp-poc/pull/31) | Awaiting final validation |
+| 7 | 마케팅 전략 룰셋 화면 적용 | Merged to develop | [#32](https://github.com/funkyliferyu/bizp-poc/pull/32) | Awaiting final validation |
+| 8 | AI 학습 현황 화면 적용 | Merged to develop | [#33](https://github.com/funkyliferyu/bizp-poc/pull/33) | Awaiting final validation |
+| 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
+| 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
+| 11 | 실등록 Store E2E 하드닝 | Planned | `codex/real-store-e2e-hardening`, [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Feature-branch validation passed; PR/merge pending |
+| 12 | 최종 문서/검증 정리 | Not started | - | Run after milestone 11 merges |
 
 ## Sequential Checklist
 
@@ -141,9 +144,26 @@ Current next todo as of 2026-06-09:
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
 - [x] Ledger is updated with current status.
 
-### 10. 최종 문서/검증 정리
+### 10. 마케팅 전략 룰셋 API 계약 후속
 
-- [x] Confirm milestones 1-9 are merged to `develop`.
+- [x] Milestone plan/branch/PR exists: PR #36.
+- [x] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [x] Ledger is updated with current status.
+
+### 11. 실등록 Store E2E 하드닝
+
+- [x] Milestone plan exists:
+      `docs/codex/MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md`.
+- [x] Implementation branch exists: `codex/real-store-e2e-hardening`.
+- [x] Feature-branch validation is recorded in `docs/codex/VALIDATION.md`.
+- [ ] PR is merged to `develop`.
+- [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
+- [x] Ledger is updated with current status.
+
+### 12. 최종 문서/검증 정리
+
+- [ ] Confirm milestones 1-11 are merged to `develop`.
 - [ ] Run `cd poc-server && npm run typecheck`.
 - [ ] Run `cd poc-server && npm test`.
 - [ ] Run `cd poc-server && npm run demo:store-learning`.
@@ -180,11 +200,12 @@ Current next todo as of 2026-06-09:
 The current implementation stack should be integrated in this order:
 
 ```text
-#26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34
+#26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34 -> #36 -> milestone 11
 ```
 
-This stack has been merged to `develop`. The next todo is milestone 10
-develop validation and document handoff.
+PRs #26-#34 and #36 have been merged to `develop`. Milestone 11 implementation
+is validated on `codex/real-store-e2e-hardening`; the next todo is PR review,
+merge to `develop`, then final develop validation and document handoff.
 
 ## Validation Commands
 

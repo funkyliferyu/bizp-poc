@@ -1,5 +1,10 @@
 (function () {
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
+  const PLACE_REVIEW_COLLAPSED_LIMIT = 2;
+  const PLACE_REVIEW_EXPANDED_LIMIT = 20;
+  let latestPlaceReviews = [];
+  let placeReviewsExpanded = false;
+  let placeReviewPage = 0;
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -38,9 +43,37 @@
   }
 
   function shortDate(value) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      const compact = trimmed.match(/^(\d{4})(\d{2})(\d{2})$/);
+      if (compact) return `${compact[2]}.${compact[3]}`;
+      const separated = trimmed.match(/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/);
+      if (separated) return `${separated[2].padStart(2, '0')}.${separated[3].padStart(2, '0')}`;
+    }
     const date = value ? new Date(value) : null;
     if (!date || Number.isNaN(date.getTime())) return '-';
     return `${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function blogPublishedDate(item) {
+    return item.publishedAt || item.collectedAt;
+  }
+
+  function firstText(...values) {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    }
+    return '';
+  }
+
+  function formatCount(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ko-KR') : '-';
+  }
+
+  function openExternalUrl(url) {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   function badge(status) {
@@ -63,10 +96,91 @@
     window.location.href = rulesetHref(storeId);
   }
 
+  async function createCollectionRun(storeId) {
+    const response = await fetch(`/api/stores/${storeId}/collection-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    return readResponse(response);
+  }
+
+  function goToCollectionProgress(storeId, runId) {
+    window.localStorage.setItem(STORE_ID_KEY, storeId);
+    const next = new URL('04_AI학습_수집중.html?', window.location.href);
+    next.searchParams.set('storeId', storeId);
+    next.searchParams.set('runId', runId);
+    window.location.href = `${next.pathname}${next.search}`;
+  }
+
+  async function startRelearn(storeId, button) {
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = '재학습 준비 중';
+    try {
+      const payload = await createCollectionRun(storeId);
+      const runId = payload.collectionRunId || payload.collectionRun?.id;
+      if (!runId) throw new Error('수집 실행 정보를 생성하지 못했습니다.');
+      goToCollectionProgress(storeId, runId);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = originalText;
+      throw error;
+    }
+  }
+
+  function wireRelearn(storeId) {
+    const button = field('learning-relearn-btn');
+    if (!button) return;
+    button.addEventListener('click', () => {
+      startRelearn(storeId, button).catch((error) => {
+        alert(error instanceof Error ? error.message : '재학습을 시작하지 못했습니다.');
+      });
+    });
+  }
+
   function wireRulesetNavigation(storeId) {
     [field('learning-ruleset-alert-link'), field('learning-ruleset-card')].forEach((element) => {
       if (!element) return;
       element.addEventListener('click', () => goToRuleset(storeId));
+    });
+  }
+
+  function wireExternalLinks() {
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const blogSource = target.closest('[data-blog-source-url]');
+      if (blogSource) {
+        event.preventDefault();
+        openExternalUrl(blogSource.getAttribute('data-blog-source-url'));
+        return;
+      }
+      const placePhoto = target.closest('[data-place-photo-url]');
+      if (placePhoto) {
+        event.preventDefault();
+        openExternalUrl(placePhoto.getAttribute('data-place-photo-url'));
+      }
+    });
+  }
+
+  function wirePlaceReviewControls() {
+    const expandButton = field('learning-review-expand');
+    const prevButton = field('learning-review-prev');
+    const nextButton = field('learning-review-next');
+    if (!expandButton || !prevButton || !nextButton) return;
+    expandButton.addEventListener('click', () => {
+      placeReviewsExpanded = !placeReviewsExpanded;
+      placeReviewPage = 0;
+      renderPlaceReviews(latestPlaceReviews);
+    });
+    prevButton.addEventListener('click', () => {
+      placeReviewPage = Math.max(placeReviewPage - 1, 0);
+      renderPlaceReviews(latestPlaceReviews);
+    });
+    nextButton.addEventListener('click', () => {
+      placeReviewPage += 1;
+      renderPlaceReviews(latestPlaceReviews);
     });
   }
 
@@ -166,49 +280,227 @@
     const visibleItems = blog.items.slice(0, 10);
     container.innerHTML = visibleItems
       .map((item) => {
-        return `<tr>
+        const rowAttrs = item.sourceUrl
+          ? ` class="learning-blog-row" data-blog-source-url="${escapeHtml(item.sourceUrl)}" title="블로그 새 탭 열기"`
+          : '';
+        return `<tr${rowAttrs}>
           <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(item.title || item.summary || '제목 없음')}</td>
-          <td>${shortDate(item.collectedAt)}</td>
-          <td>${item.selectedForAnalysis ? '선택' : '-'}</td>
+          <td>${shortDate(blogPublishedDate(item))}</td>
+          <td>${formatCount(item.viewCount)}</td>
         </tr>`;
       })
       .join('');
     field('learning-blog-visible').textContent = `${visibleItems.length} / ${blog.collectedCount}개 표시`;
   }
 
-  function renderPlaceProfile(profile) {
-    const container = field('learning-place-profile');
+  function renderFactRow(label, value, full) {
+    const text = Array.isArray(value) ? value.filter(Boolean).join('<br>') : firstText(value);
+    if (!text) return '';
+    return `<div class="place-fact${full ? ' full' : ''}">
+      <span class="place-fact-label">${escapeHtml(label)}</span>
+      <span style="line-height:1.6">${Array.isArray(value) ? value.map(escapeHtml).join('<br>') : escapeHtml(text)}</span>
+    </div>`;
+  }
+
+  function parkingText(facts) {
+    if (!facts) return '';
+    if (facts.parkingNote) return facts.parkingNote;
+    if (facts.parking === 'free') return '무료 주차';
+    if (facts.parking === 'available') return '주차 가능';
+    if (facts.parking === 'near') return '인근 주차';
+    return firstText(facts.parking);
+  }
+
+  function renderPlaceFacts(profile) {
+    const container = field('learning-place-facts');
+    if (!container) return;
     if (!profile) {
-      container.innerHTML = '<div class="learning-empty" style="grid-column:span 2">플레이스 기본 정보가 없습니다.</div>';
+      container.innerHTML = '<div class="learning-empty" style="grid-column:span 2;padding:12px">플레이스 기본 정보가 없습니다.</div>';
       return;
     }
-    container.innerHTML = `
-      <div style="padding:7px 12px;border-bottom:1px solid #EDF2F7;border-right:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">항목</span><span>${escapeHtml(profile.title || '플레이스 기본정보')}</span></div>
-      <div style="padding:7px 12px;border-bottom:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">상태</span><span>${profile.selectedForAnalysis ? '분석 포함' : '분석 제외'}</span></div>
-      <div style="padding:7px 12px;grid-column:span 2;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px;flex-shrink:0">수집 내용</span><span style="line-height:1.6">${escapeHtml(profile.summary || '-')}</span></div>`;
+    const facts = profile.facts || {};
+    const rows = [
+      renderFactRow('항목', profile.title || '플레이스 기본정보'),
+      renderFactRow('업종', facts.category),
+      renderFactRow('주소', facts.address, true),
+      renderFactRow('전화', facts.phone),
+      renderFactRow('영업시간', facts.operatingHours, true),
+      renderFactRow('휴무', facts.closedDays),
+      renderFactRow('주차', parkingText(facts), true),
+      renderFactRow('소개', facts.introduction || profile.summary, true)
+    ].filter(Boolean);
+    container.innerHTML = rows.length
+      ? rows.join('')
+      : '<div class="learning-empty" style="grid-column:span 2;padding:12px">표시할 플레이스 기본 정보가 없습니다.</div>';
+  }
+
+  function industryItemText(item) {
+    if (typeof item === 'string') return item;
+    return firstText(item?.name, item?.title, item?.label, item?.subject, item?.description);
+  }
+
+  function renderIndustryChip(item) {
+    const text = industryItemText(item);
+    return text ? `<span class="kw-tag">${escapeHtml(text)}</span>` : '';
+  }
+
+  function renderMenuRow(item) {
+    const name = firstText(item?.name, item?.title, item?.label);
+    const price = firstText(item?.price);
+    const description = firstText(item?.description, item?.summary);
+    return `<tr>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name || '-')}</td>
+      <td style="width:110px">${escapeHtml(price || description || '-')}</td>
+    </tr>`;
+  }
+
+  function renderPlaceIndustrySections(profile) {
+    const container = field('learning-place-industry-sections');
+    if (!container) return;
+    const sections = profile?.industrySections || [];
+    if (sections.length === 0) {
+      container.hidden = true;
+      container.innerHTML = '';
+      return;
+    }
+    container.hidden = false;
+    container.innerHTML = sections
+      .map((section) => {
+        const items = Array.isArray(section.items) ? section.items : [];
+        const label = section.label || (section.type === 'menu' ? '메뉴' : '업종 정보');
+        const count = items.length ? ` · ${items.length}개` : '';
+        if (section.type === 'menu') {
+          return `<hr class="divider">
+            <div class="sec-title">${escapeHtml(label)} <span style="font-size:11px;color:#9AA0B4;font-weight:400">${escapeHtml(count)}</span></div>
+            <table class="tbl" style="table-layout:fixed;margin-bottom:4px">
+              <thead><tr><th>항목</th><th style="width:110px">가격/설명</th></tr></thead>
+              <tbody>${items.map(renderMenuRow).join('')}</tbody>
+            </table>`;
+        }
+        return `<hr class="divider">
+          <div class="sec-title">${escapeHtml(label)} <span style="font-size:11px;color:#9AA0B4;font-weight:400">${escapeHtml(count)}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${items.map(renderIndustryChip).join('')}</div>`;
+      })
+      .join('');
+  }
+
+  function renderPhotoGrid(sectionId, gridId, countId, urls, moreUrl) {
+    const section = field(sectionId);
+    const grid = field(gridId);
+    const count = field(countId);
+    const safeUrls = Array.isArray(urls) ? urls.filter(Boolean) : [];
+    if (!section || !grid || !count) return;
+    if (safeUrls.length === 0 && !moreUrl) {
+      section.hidden = true;
+      grid.innerHTML = '';
+      count.textContent = '';
+      return;
+    }
+    section.hidden = false;
+    count.textContent = safeUrls.length ? `· ${safeUrls.length}장` : '· 플레이스에서 확인';
+    const visibleUrls = safeUrls.slice(0, 4);
+    const remaining = Math.max(safeUrls.length - visibleUrls.length, 0);
+    const images = visibleUrls
+      .map((url) => `<div class="photo-thumb"><img src="${escapeHtml(url)}" alt=""></div>`)
+      .join('');
+    const moreTile = moreUrl
+      ? `<div class="photo-thumb"><button type="button" class="photo-more-btn" data-place-photo-url="${escapeHtml(moreUrl)}">${remaining > 0 ? `+${remaining}` : '사진 탭'}</button></div>`
+      : '';
+    grid.innerHTML = `${images}${moreTile}`;
+  }
+
+  function renderPlacePhotos(photos) {
+    renderPhotoGrid('learning-place-photos', 'learning-place-photos-grid', 'learning-place-photos-count', photos?.place, photos?.placeMoreUrl);
+    renderPhotoGrid('learning-visitor-photos', 'learning-visitor-photos-grid', 'learning-visitor-photos-count', photos?.visitor, photos?.visitorMoreUrl);
+  }
+
+  function reviewMeta(review) {
+    const date = firstText(review.reviewDate, shortDate(review.collectedAt));
+    const collectedAt = review.reviewDate && review.collectedAt ? `수집 ${shortDate(review.collectedAt)}` : '';
+    const reviewer = firstText(review.reviewerName);
+    const rating = typeof review.rating === 'number' ? `${review.rating}점` : '';
+    const selected = review.selectedForAnalysis ? '분석 포함' : '분석 제외';
+    return [date, collectedAt, reviewer, rating, selected].filter(Boolean).join(' · ');
+  }
+
+  function renderPlaceReviews(reviews) {
+    latestPlaceReviews = Array.isArray(reviews) ? reviews : [];
+    const reviewContainer = field('learning-place-reviews');
+    const controls = field('learning-review-controls');
+    const count = field('learning-review-count');
+    const range = field('learning-review-range');
+    const expandButton = field('learning-review-expand');
+    const prevButton = field('learning-review-prev');
+    const nextButton = field('learning-review-next');
+    if (!reviewContainer || !controls || !count || !range || !expandButton || !prevButton || !nextButton) return;
+
+    const total = latestPlaceReviews.length;
+    count.textContent = total ? `· ${total}개` : '· 0개';
+    if (total === 0) {
+      reviewContainer.innerHTML = '<div class="learning-empty">플레이스 리뷰 데이터가 없습니다.</div>';
+      controls.style.display = 'none';
+      return;
+    }
+
+    controls.style.display = 'flex';
+    const limit = placeReviewsExpanded ? PLACE_REVIEW_EXPANDED_LIMIT : PLACE_REVIEW_COLLAPSED_LIMIT;
+    const maxPage = placeReviewsExpanded ? Math.max(Math.ceil(total / limit) - 1, 0) : 0;
+    placeReviewPage = Math.min(placeReviewPage, maxPage);
+    const start = placeReviewPage * limit;
+    const visibleReviews = latestPlaceReviews.slice(start, start + limit);
+    reviewContainer.innerHTML = visibleReviews
+      .map((review) => {
+        const photos = Array.isArray(review.photoUrls) && review.photoUrls.length
+          ? `<div style="display:flex;gap:6px;margin-top:8px">${review.photoUrls.slice(0, 4).map((url) => `<div class="photo-thumb" style="width:42px;height:42px;aspect-ratio:auto"><img src="${escapeHtml(url)}" alt=""></div>`).join('')}</div>`
+          : '';
+        return `<div class="review-item">
+          <div style="font-size:11px;color:#9AA0B4;margin-bottom:4px">${escapeHtml(reviewMeta(review))}</div>
+          <div style="font-size:12px;color:#1A1A2E;line-height:1.6">${escapeHtml(review.summary || review.title || '-')}</div>
+          ${photos}
+        </div>`;
+      })
+      .join('');
+
+    const end = Math.min(start + visibleReviews.length, total);
+    range.textContent = placeReviewsExpanded ? `${start + 1}-${end} / ${total}개 표시` : `${end} / ${total}개 표시`;
+    expandButton.textContent = placeReviewsExpanded ? '접기' : '펼치기';
+    expandButton.disabled = total <= PLACE_REVIEW_COLLAPSED_LIMIT;
+    prevButton.disabled = !placeReviewsExpanded || placeReviewPage === 0;
+    nextButton.disabled = !placeReviewsExpanded || placeReviewPage >= maxPage;
+  }
+
+  function renderPlaceNews(items) {
+    const newsItems = Array.isArray(items) ? items : [];
+    field('learning-place-news').style.display = newsItems.length === 0 ? 'none' : 'block';
+    field('learning-place-news').hidden = newsItems.length === 0;
+    const count = field('learning-place-news-count');
+    const list = field('learning-place-news-list');
+    if (!list || !count) return;
+    count.textContent = `· ${newsItems.length}개`;
+    list.innerHTML = newsItems
+      .map((item) => {
+        const text = firstText(item.title, item.content, item.summary, item.name, item.description);
+        const date = shortDate(firstText(item.publishedAt, item.date, item.createdAt, item.updatedAt));
+        return `<tr>
+          <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(text || '-')}</td>
+          <td>${escapeHtml(date)}</td>
+        </tr>`;
+      })
+      .join('');
   }
 
   function renderPlace(place) {
-    renderPlaceProfile(place.profile);
+    renderPlaceFacts(place.profile);
+    renderPlaceIndustrySections(place.profile);
+    renderPlacePhotos(place.photos || {});
     const keywordContainer = field('learning-review-keywords');
     keywordContainer.innerHTML = (place.reviewKeywords || [])
       .map((keyword) => `<span class="kw-tag">${escapeHtml(keyword)}</span>`)
       .join('');
-
-    const reviewContainer = field('learning-place-reviews');
-    if (!place.reviews || place.reviews.length === 0) {
-      reviewContainer.innerHTML = '<div class="learning-empty">플레이스 리뷰 데이터가 없습니다.</div>';
-      return;
-    }
-    const visibleReviews = place.reviews.slice(0, 8);
-    reviewContainer.innerHTML = visibleReviews
-      .map((review) => {
-        return `<div class="review-item">
-          <div style="font-size:11px;color:#9AA0B4;margin-bottom:4px">${shortDate(review.collectedAt)} · ${review.selectedForAnalysis ? '분석 포함' : '분석 제외'}</div>
-          <div style="font-size:12px;color:#1A1A2E;line-height:1.6">${escapeHtml(review.summary || review.title || '-')}</div>
-        </div>`;
-      })
-      .join('');
+    placeReviewsExpanded = false;
+    placeReviewPage = 0;
+    renderPlaceReviews(place.reviews || []);
+    renderPlaceNews(place.newsItems || []);
   }
 
   function renderInstagram(instagram) {
@@ -248,6 +540,9 @@
     const storeId = currentStoreId();
     window.localStorage.setItem(STORE_ID_KEY, storeId);
     wireRulesetNavigation(storeId);
+    wireRelearn(storeId);
+    wireExternalLinks();
+    wirePlaceReviewControls();
 
     try {
       const [status, blog, place, instagram] = await loadLearningStatus(storeId);

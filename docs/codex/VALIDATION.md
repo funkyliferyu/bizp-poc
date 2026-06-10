@@ -1264,3 +1264,139 @@ Manual verification:
 - Confirm `docs/codex/CURRENT_TASK.md` exists.
 - Confirm `AGENTS.md` points future feature work to `develop`.
 - Confirm GitHub Pages source is `main` after branch setup.
+
+## Milestone 11 Real Store E2E Hardening Validation
+
+Date: 2026-06-10
+
+Branch:
+
+- `codex/real-store-e2e-hardening`
+
+Focused validation:
+
+```bash
+cd poc-server
+npm test -- naverPlaceRenderedProvider.test.ts storeRegistrationApi.test.ts trainingSettingsApi.test.ts trainingSettingsPage.test.ts collectionProgressApi.test.ts collectionProgressPage.test.ts selectionApi.test.ts selectionPage.test.ts learningStatusApi.test.ts learningStatusPage.test.ts rulesetApi.test.ts rulesetPage.test.ts staticWebConnectivity.test.ts
+npm run typecheck
+```
+
+Result:
+
+- PASS, 13 files / 92 tests.
+- PASS, TypeScript typecheck.
+
+Full local validation:
+
+```bash
+cd poc-server
+npm test
+npm run demo:store-learning
+```
+
+Result:
+
+- PASS, 35 test files passed and 3 live-provider integration files skipped by
+  default.
+- PASS, 180 tests passed and 6 live-provider tests skipped by default.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+
+Manual browser smoke:
+
+```bash
+cd poc-server
+PORT=5178 STORE_LEARNING_MOCK_MODE=false NAVER_PLACE_PROVIDER=rendered NAVER_BLOG_PROVIDER=mock npm run dev
+```
+
+Port note:
+
+- `npm run dev` on 5177 was already occupied, so the smoke used 5178.
+
+Flow result:
+
+- Opened `http://localhost:5178/soho_store_register.html`.
+- Imported `https://m.place.naver.com/place/1020864025/home`.
+- Registration created and carried `storeId=store_1020864025` into the learning
+  settings query string.
+- Learning settings showed saved Blog/Place URLs and detected
+  Instagram/YouTube provider-ready channels.
+- Collection progress showed Blog limit 10 immediately and displayed collected
+  content review with pagination controls.
+- Content selection remained the actual analysis-selection step.
+- `분석 실행` showed staged progress and server-side analysis completed for
+  `analysis_run_store_1020864025_1781065381395`.
+- Learning status Blog rows used source-open links; missing mock-provider view
+  counts displayed as `-`.
+- Learning status Place tab showed collected facts, hospital `진료과목`, photo
+  sections, real review metadata, hidden empty news, and review pagination.
+- Place review expand showed 20 rows and paging advanced to
+  `21-40 / 130개 표시`.
+- `지금 재학습` created a new collection run and navigated with both `storeId`
+  and `runId`.
+- A new store without a ruleset displayed a safe ruleset empty state and
+  previewed direct Place facts.
+
+Boundary checks:
+
+- `git diff --check`: PASS.
+- `git diff --cached --name-only`: empty, nothing staged.
+- `.DS_Store` remained unstaged and out of scope.
+- No `admin/` changes.
+- No `pc-web/` changes.
+- No `README_POC.md` or `web/event_operation_poc.html` changes.
+- Browser code calls `poc-server` APIs only, except user-clicked external source
+  links that open in a new tab.
+- Benchmark and preview behavior remains mock/provider-ready.
+
+Follow-up validation for Place review partial collection:
+
+```bash
+cd poc-server
+npm test -- naverPlaceRenderedCollectionProvider.test.ts collectionProgressPage.test.ts collectionProgressApi.test.ts
+npm run typecheck
+```
+
+Result:
+
+- PASS, 3 files / 18 tests.
+- PASS, TypeScript typecheck.
+
+Live provider probe:
+
+- Input: `https://naver.me/xzH6Cf4S`
+- Plan: Place reviews up to 50, no Blog/Profile.
+- Result after fix:
+  - total review items returned: 45
+  - collected: 45
+  - failed: 0
+- Before fix, the same Place yielded only 7 collected reviews and failed
+  placeholders for the rest.
+
+Source-exhausted count/completion validation:
+
+```bash
+cd poc-server
+npm test -- naverBlogRenderedCollectionProvider.test.ts -t "persists rendered Blog full bodies"
+npm test -- collectionProgressPage.test.ts -t "source-exhausted"
+npm test -- collectionProgressPage.test.ts collectionProgressApi.test.ts naverBlogRenderedCollectionProvider.test.ts naverPlaceRenderedCollectionProvider.test.ts
+npm run typecheck
+npm test
+git diff --check
+```
+
+Result:
+
+- PASS, rendered Blog provider now completes when requested limit is larger than
+  discovered Blog posts and records `summary.availableCounts.blogPosts`.
+- PASS, collection progress page has source-exhausted dashboard labels:
+  `전체 블로그 수집 완료`, `전체 리뷰 수집 완료`, and
+  `가져올 수 있는 모든 항목이 수집되었습니다.`
+- PASS, full test suite: 35 files passed, 3 live-provider files skipped by
+  default; 185 tests passed, 6 skipped.
+- PASS, TypeScript typecheck.
+- PASS, `git diff --check`.

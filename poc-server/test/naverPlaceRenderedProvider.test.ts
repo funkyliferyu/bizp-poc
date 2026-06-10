@@ -318,6 +318,64 @@ window.__APOLLO_STATE__ = ${JSON.stringify({
 })};
 </script>
 </body></html>`;
+const externalChannelApolloHtml = `<html><body>
+<script>
+window.__APOLLO_STATE__ = ${JSON.stringify({
+  'PlaceDetailBase:1020864025': {
+    __typename: 'PlaceDetailBase',
+    id: '1020864025',
+    name: '테라스의원',
+    category: '피부과',
+    roadAddress: '서울 종로구 송월길 99 경희궁자이2단지 205동상가 2층',
+    virtualPhone: '02-6105-0010'
+  },
+  ROOT_QUERY: {
+    __typename: 'Query',
+    'placeDetail({"input":{"deviceType":"mobile","id":"1020864025","isNx":false}})': {
+      __typename: 'PlaceDetail',
+      base: { __ref: 'PlaceDetailBase:1020864025' },
+      homepages: {
+        __typename: 'Homepage',
+        repr: {
+          __typename: 'HomepageRepr',
+          url: 'https://terraceclinic.com',
+          type: '웹사이트'
+        },
+        items: [
+          {
+            __typename: 'HomepageItem',
+            url: 'https://blog.naver.com/terraceclinic',
+            type: '블로그'
+          },
+          {
+            __typename: 'HomepageItem',
+            url: 'https://www.youtube.com/@terraceclinic',
+            type: '유튜브'
+          },
+          {
+            __typename: 'HomepageItem',
+            url: 'https://www.instagram.com/terraceclinic',
+            type: '인스타그램'
+          },
+          {
+            __typename: 'HomepageItem',
+            url: 'https://www.tiktok.com/@terraceclinic',
+            type: '틱톡'
+          }
+        ]
+      },
+      relatedLinks: [
+        {
+          __typename: 'RelatedLink',
+          name: '당근',
+          url: 'https://www.daangn.com/kr/local-profile/terraceclinic'
+        }
+      ]
+    }
+  }
+})};
+</script>
+</body></html>`;
 
 async function readJson(response: Response) {
   const text = await response.text();
@@ -559,6 +617,25 @@ describe('Naver Place rendered provider', () => {
         coordinates: { x: '126.9773987', y: '37.5569661', mapZoomLevel: 12 },
         transitInfo: ['회현역 4호선']
       })
+    );
+  });
+
+  it('extracts external channel links from Naver Place homepage and related link blocks', () => {
+    const profile = extractRenderedPlaceProfile({
+      html: externalChannelApolloHtml,
+      bodyText: null,
+      finalUrl: 'https://m.place.naver.com/place/1020864025/home',
+      naverPlaceId: '1020864025'
+    });
+
+    expect(profile.externalChannelLinks).toEqual(
+      expect.arrayContaining([
+        { channel: 'blog', label: '블로그', url: 'https://blog.naver.com/terraceclinic' },
+        { channel: 'instagram', label: '인스타그램', url: 'https://www.instagram.com/terraceclinic' },
+        { channel: 'youtube', label: '유튜브', url: 'https://www.youtube.com/@terraceclinic' },
+        { channel: 'tiktok', label: '틱톡', url: 'https://www.tiktok.com/@terraceclinic' },
+        { channel: 'daangn', label: '당근', url: 'https://www.daangn.com/kr/local-profile/terraceclinic' }
+      ])
     );
   });
 

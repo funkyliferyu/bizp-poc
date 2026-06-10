@@ -20,10 +20,77 @@ tr.unchecked td{color:#9AA0B4}
 .selection-evidence{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
 .evidence-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid #E2E8F0;border-radius:999px;background:#F8FAFC;color:#6B7280;font-size:10px;line-height:1.4}
 .evidence-badge strong{color:#3B5BDB}
+.analysis-progress{display:none;margin-bottom:16px}
+.analysis-progress.active{display:block}
+.analysis-step-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.analysis-step{border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:10px 12px;min-height:68px}
+.analysis-step-label{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.analysis-step-state{font-size:11px;color:#9AA0B4}
+.analysis-step.active{border-color:#3B5BDB;background:#EEF2FF}
+.analysis-step.active .analysis-step-state{color:#3B5BDB;font-weight:700}
+.analysis-step.done{border-color:#8CE99A;background:#EBFBEE}
+.analysis-step.done .analysis-step-state{color:#2F9E44;font-weight:700}
+.analysis-progress-error{display:none;margin-top:10px;font-size:12px;color:#C92A2A}
+.analysis-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(17,24,39,.48);z-index:2000;padding:24px}
+.analysis-overlay.active{display:flex}
+.analysis-overlay-panel{width:min(560px,calc(100vw - 48px));border-radius:8px;background:#fff;border:1px solid #E2E8F0;box-shadow:0 18px 48px rgba(17,24,39,.2);padding:24px;text-align:center}
+.analysis-overlay-spinner{width:34px;height:34px;border:3px solid #DCE3F8;border-top-color:#3B5BDB;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+.analysis-overlay-title{font-size:18px;font-weight:800;color:#1A1A2E;margin-bottom:8px}
+.analysis-overlay-desc{font-size:13px;line-height:1.65;color:#4A5568;margin-bottom:14px}
+.analysis-overlay-meta{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.analysis-overlay-status{font-size:12px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border:1px solid #DCE3F8;border-radius:999px;padding:7px 10px;display:inline-flex}
+.analysis-overlay-elapsed{font-size:12px;font-weight:700;color:#4A5568;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:999px;padding:7px 10px;display:inline-flex}
+.analysis-overlay-flow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:left}
+.analysis-overlay-step{border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:9px 10px;min-width:0}
+.analysis-overlay-step-label{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.analysis-overlay-step-state{font-size:11px;color:#9AA0B4;line-height:1.5}
+.analysis-overlay-step.active{border-color:#3B5BDB;background:#F5F7FF}
+.analysis-overlay-step.active .analysis-overlay-step-state{color:#3B5BDB;font-weight:700}
+.analysis-overlay-step.done{border-color:#8CE99A;background:#F4FFF6}
+.analysis-overlay-step.done .analysis-overlay-step-state{color:#2F9E44;font-weight:700}
+@media (max-width:1100px){.analysis-step-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.analysis-overlay-flow{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <script src="icons.js"></script>
+<div class="analysis-overlay" id="selection-analysis-overlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="selection-analysis-overlay-title" aria-describedby="selection-analysis-overlay-desc">
+  <div class="analysis-overlay-panel">
+    <div class="analysis-overlay-spinner" aria-hidden="true"></div>
+    <div class="analysis-overlay-title" id="selection-analysis-overlay-title">AI 분석을 실행하고 있습니다</div>
+    <div class="analysis-overlay-desc" id="selection-analysis-overlay-desc">선택한 콘텐츠를 분석하고 룰셋을 생성하는 중입니다. 시간이 걸릴 수 있습니다. 실제 AI 응답 구간은 수십 초 이상 이어질 수 있습니다. 이 화면을 유지하면 완료 후 학습 현황 화면으로 자동 이동합니다. 잠시만 기다려주세요.</div>
+    <div class="analysis-overlay-meta">
+      <div class="analysis-overlay-status" id="selection-analysis-overlay-status">분석 실행 준비 중</div>
+      <div class="analysis-overlay-elapsed" id="selection-analysis-overlay-elapsed">경과 00:00</div>
+    </div>
+    <div class="analysis-overlay-flow" id="selection-analysis-overlay-flow">
+      <div class="analysis-overlay-step" data-analysis-overlay-step="queued">
+        <div class="analysis-overlay-step-label">콘텐츠 확정</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-analysis-overlay-step="analyzing">
+        <div class="analysis-overlay-step-label">AI 분석</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-analysis-overlay-step="validating">
+        <div class="analysis-overlay-step-label">결과 검증</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-analysis-overlay-step="snapshot">
+        <div class="analysis-overlay-step-label">학습 스냅샷 저장</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-analysis-overlay-step="ruleset">
+        <div class="analysis-overlay-step-label">룰셋 생성</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-analysis-overlay-step="navigate">
+        <div class="analysis-overlay-step-label">학습 현황 이동</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="topbar">
   <div class="topbar-breadcrumb">마케팅 채널관리 &rsaquo; AI 학습 &rsaquo; <span>분석 콘텐츠 선택</span></div>
 </div>
@@ -34,6 +101,35 @@ tr.unchecked td{color:#9AA0B4}
   <div class="err-banner warning" style="margin-bottom:16px">
     <div class="err-title"><span class="icon-alert-triangle" data-icon="alert-triangle" data-size="14" data-color="currentColor"></span> AI 작성 의심 콘텐츠 안내</div>
     <div class="err-desc">AI가 작성한 글을 분석에 포함하면 룰셋이 왜곡될 수 있습니다. 'AI 작성 의심' 표시된 항목은 기본적으로 체크 해제되어 있습니다. 직접 작성하거나 직접 발행한 글만 선택하는 것을 권장합니다.</div>
+  </div>
+
+  <div class="card analysis-progress" id="selection-analysis-progress" aria-live="polite">
+    <div class="card-header">분석 실행 진행</div>
+    <div class="card-body">
+      <div class="analysis-step-list">
+        <div class="analysis-step" data-analysis-step="ready">
+          <div class="analysis-step-label">분석 실행 준비</div>
+          <div class="analysis-step-state">대기</div>
+        </div>
+        <div class="analysis-step" data-analysis-step="queued">
+          <div class="analysis-step-label">콘텐츠 확정</div>
+          <div class="analysis-step-state">대기</div>
+        </div>
+        <div class="analysis-step" data-analysis-step="started">
+          <div class="analysis-step-label">AI 분석</div>
+          <div class="analysis-step-state">대기</div>
+        </div>
+        <div class="analysis-step" data-analysis-step="ruleset">
+          <div class="analysis-step-label">룰셋 생성</div>
+          <div class="analysis-step-state">대기</div>
+        </div>
+        <div class="analysis-step" data-analysis-step="navigate">
+          <div class="analysis-step-label">학습 현황 이동</div>
+          <div class="analysis-step-state">대기</div>
+        </div>
+      </div>
+      <div class="analysis-progress-error" id="selection-analysis-error"></div>
+    </div>
   </div>
 
   <div class="card">

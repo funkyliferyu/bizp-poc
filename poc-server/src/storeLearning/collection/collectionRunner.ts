@@ -9,6 +9,7 @@ import {
   type CollectionProvider,
   type CollectionProviderItemDraft
 } from './collectionProviders.js';
+import { collectionItemIdentity } from './collectionItemIdentity.js';
 import { createMockCollectionProvider } from './mockCollectionProvider.js';
 import { createNaverBlogRenderedCollectionProvider, isRenderedBlogCollectionProvider } from './naverBlogRenderedCollectionProvider.js';
 import { createNaverPlaceRenderedCollectionProvider } from './naverPlaceRenderedCollectionProvider.js';
@@ -110,8 +111,24 @@ async function ensureProviderItems(
     store,
     storeChannels: repos.storeChannels.listByStoreId(store.id)
   });
+  const existingKeys = new Set(
+    repos.collectionItems
+      .listByStoreId(run.storeId)
+      .filter((item) => item.runId !== run.id && item.status !== 'failed')
+      .map(collectionItemIdentity)
+      .filter((key): key is string => Boolean(key))
+  );
+  const currentRunKeys = new Set<string>();
+  const uniqueDrafts = drafts.filter((draft) => {
+    if (draft.status === 'failed') return true;
+    const key = collectionItemIdentity(draft);
+    if (!key) return true;
+    if (existingKeys.has(key) || currentRunKeys.has(key)) return false;
+    currentRunKeys.add(key);
+    return true;
+  });
 
-  return drafts.map((draft: CollectionProviderItemDraft, index) =>
+  return uniqueDrafts.map((draft: CollectionProviderItemDraft, index) =>
     repos.collectionItems.upsert({
       id: itemId(run.id, draft.sourceType, index + 1),
       runId: run.id,
@@ -132,6 +149,10 @@ async function ensureProviderItems(
 
 function summarizeItems(repos: Repositories, run: CollectionRun) {
   const items = repos.collectionItems.listByRunId(run.id);
+  const summary = asRecord(run.summary);
+  const requestedLimits = asRecord(summary.requestedLimits);
+  const blogPostLimit = asLimit(requestedLimits.blogPostLimit);
+  const placeReviewLimit = asLimit(requestedLimits.placeReviewLimit);
   const byStatus = items.reduce<Record<string, number>>((acc, item) => {
     acc[item.status] = (acc[item.status] ?? 0) + 1;
     return acc;
@@ -141,12 +162,29 @@ function summarizeItems(repos: Repositories, run: CollectionRun) {
     placeProfiles: items.filter((item) => item.sourceType === 'profile' && item.status === 'collected').length,
     placeReviews: items.filter((item) => item.sourceType === 'review' && item.status === 'collected').length
   };
+  const countFromMetadata = (sourceType: string, keys: string[], requestedLimit: number) => {
+    const counts = items
+      .filter((item) => item.sourceType === sourceType)
+      .flatMap((item) => {
+        const metadata = asRecord(item.metadata);
+        return keys
+          .map((key) => metadata[key])
+          .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+      });
+    if (counts.length === 0 || requestedLimit <= 0) return null;
+    return Math.max(0, Math.min(requestedLimit, Math.max(...counts)));
+  };
+  const availableCounts = {
+    blogPosts: countFromMetadata('post', ['availableBlogPostCount', 'total'], blogPostLimit),
+    placeReviews: countFromMetadata('review', ['availableReviewTotal'], placeReviewLimit)
+  };
   return {
-    ...asRecord(run.summary),
+    ...summary,
     totalItems: items.length,
     completedItems: items.filter((item) => item.status === 'collected').length,
     itemStatusCounts: byStatus,
-    collectedCounts
+    collectedCounts,
+    availableCounts
   };
 }
 

@@ -10,6 +10,20 @@
 .state-btn.active{background:#EEF2FF;color:#3B5BDB;border-color:#3B5BDB}
 .photo-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
 .photo-thumb{aspect-ratio:1;background:#F7F8FA;border-radius:6px;border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;border-radius:6px}
+.photo-more-btn{width:100%;height:100%;border:0;background:#EEF2FF;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border-radius:6px}
+.learning-blog-row{cursor:pointer}
+.learning-blog-row:hover td{background:#F8FAFF}
+.place-section{margin-bottom:16px}
+.place-section[hidden]{display:none}
+.place-facts-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden}
+.place-fact{padding:7px 12px;border-bottom:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px;min-width:0}
+.place-fact:nth-child(odd){border-right:1px solid #EDF2F7}
+.place-fact.full{grid-column:span 2;border-right:0}
+.place-fact-label{color:#9AA0B4;min-width:56px;flex-shrink:0}
+.review-controls{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:#9AA0B4}
+.review-controls button{height:26px;padding:0 9px;border:1px solid #E2E8F0;border-radius:6px;background:#fff;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
+.review-controls button:disabled{color:#CBD1DF;cursor:not-allowed}
 .kw-tag{font-size:11px;padding:3px 10px;border-radius:12px;background:#F7F8FA;color:#4A5568;border:1px solid #E2E8F0}
 .review-item{padding:10px 0;border-bottom:1px solid #EDF2F7}
 .review-item:last-child{border-bottom:none}
@@ -93,7 +107,7 @@
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid #E2E8F0">
         <span style="font-size:12px;color:#4A5568">마지막 학습 이후 새로 등록된 콘텐츠를 수집하여 룰셋을 업데이트합니다.</span>
-        <button class="btn btn-primary btn-sm" onclick="location.href='04_AI학습_수집중.html'" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 재학습 수집">지금 재학습</button>
+        <button class="btn btn-primary btn-sm" id="learning-relearn-btn" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 재학습 수집">지금 재학습</button>
       </div>
     </div>
   </div>
@@ -121,78 +135,50 @@
 
       <!-- 플레이스 탭 -->
       <div id="tab-place" style="display:none;padding:0 16px 16px">
-        <div class="sec-title"><span class="icon-info" data-icon="info" data-size="14" data-color="currentColor"></span> 기본 정보 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 2026.05.16 수집</span></div>
-        <div id="learning-place-profile" style="display:grid;grid-template-columns:1fr 1fr;gap:0;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden">
-          <div style="padding:7px 12px;border-bottom:1px solid #EDF2F7;border-right:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">업종</span><span>베이커리·케이크</span></div>
-          <div style="padding:7px 12px;border-bottom:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">브레이크</span><span>없음</span></div>
-          <div style="padding:7px 12px;border-bottom:1px solid #EDF2F7;border-right:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">주소</span><span>경기 성남시 분당구 정자일로 95</span></div>
-          <div style="padding:7px 12px;border-bottom:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">휴무일</span><span>매주 월요일</span></div>
-          <div style="padding:7px 12px;border-right:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">영업시간</span><span>10:00 – 20:00</span></div>
-          <div style="padding:7px 12px;border-bottom:1px solid #EDF2F7;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px">주차</span><span>가능</span></div>
-          <div style="padding:7px 12px;grid-column:span 2;font-size:12px;display:flex;gap:8px"><span style="color:#9AA0B4;min-width:56px;flex-shrink:0">매장 소개</span><span style="line-height:1.6">분당 정자동에 위치한 커스텀 케이크 전문 베이커리입니다. 레터링 케이크, 당일 제작, 다양한 디자인 케이크를 합리적인 가격에 제공합니다.</span></div>
-        </div>
+        <section class="place-section" id="learning-place-profile">
+          <div class="sec-title"><span class="icon-info" data-icon="info" data-size="14" data-color="currentColor"></span> 기본 정보</div>
+          <div id="learning-place-facts" class="place-facts-grid">
+            <div class="learning-empty" style="grid-column:span 2;padding:12px">플레이스 기본 정보를 불러오는 중입니다.</div>
+          </div>
+        </section>
+
+        <section class="place-section" id="learning-place-industry-sections"></section>
+
+        <section class="place-section" id="learning-place-photos" hidden>
+          <hr class="divider">
+          <div class="sec-title"><span class="icon-image" data-icon="image" data-size="14" data-color="currentColor"></span> 업체 사진 <span id="learning-place-photos-count" style="font-size:11px;color:#9AA0B4;font-weight:400"></span></div>
+          <div class="photo-grid" id="learning-place-photos-grid"></div>
+        </section>
+
+        <section class="place-section" id="learning-visitor-photos" hidden>
+          <div class="sec-title"><span class="icon-camera" data-icon="camera" data-size="14" data-color="currentColor"></span> 방문자 사진 <span id="learning-visitor-photos-count" style="font-size:11px;color:#9AA0B4;font-weight:400"></span></div>
+          <div class="photo-grid" id="learning-visitor-photos-grid"></div>
+        </section>
 
         <hr class="divider">
-        <div class="sec-title"><span class="icon-utensils" data-icon="utensils" data-size="14" data-color="currentColor"></span> 메뉴 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 12개</span></div>
-        <table class="tbl" style="table-layout:fixed;margin-bottom:4px">
-          <thead><tr><th style="width:40px"></th><th>메뉴명</th><th style="width:80px">가격</th></tr></thead>
-          <tbody>
-            <tr><td><div style="width:32px;height:32px;background:#F7F8FA;border-radius:4px;border:1px solid #E2E8F0"></div></td><td>커스텀 레터링 케이크</td><td>48,000원~</td></tr>
-            <tr><td><div style="width:32px;height:32px;background:#F7F8FA;border-radius:4px;border:1px solid #E2E8F0"></div></td><td>딸기 생크림 케이크</td><td>32,000원</td></tr>
-            <tr><td><div style="width:32px;height:32px;background:#F7F8FA;border-radius:4px;border:1px solid #E2E8F0"></div></td><td>티라미수 케이크</td><td>28,000원</td></tr>
-          </tbody>
-        </table>
-        <div style="font-size:11px;color:#9AA0B4;margin-bottom:14px">3 / 12개 표시 · <span style="color:#3B5BDB;cursor:pointer">전체 보기</span></div>
-
-        <hr class="divider">
-        <div class="sec-title"><span class="icon-image" data-icon="image" data-size="14" data-color="currentColor"></span> 업체 사진 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 18장</span></div>
-        <div class="photo-grid" style="margin-bottom:14px">
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb" style="background:#EEF2FF"><span style="font-size:13px;font-weight:600;color:#3B5BDB">+14</span></div>
-        </div>
-
-        <div class="sec-title"><span class="icon-camera" data-icon="camera" data-size="14" data-color="currentColor"></span> 방문자 사진 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 43장</span></div>
-        <div class="photo-grid" style="margin-bottom:14px">
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb"><span class="icon-image" data-icon="image" data-size="18" data-color="#9AA0B4"></span></div>
-          <div class="photo-thumb" style="background:#EEF2FF"><span style="font-size:13px;font-weight:600;color:#3B5BDB">+39</span></div>
-        </div>
-
-        <hr class="divider">
-        <div class="sec-title"><span class="icon-star" data-icon="star" data-size="14" data-color="currentColor"></span> 리뷰 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 127개</span></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="font-size:22px;font-weight:700;color:#1A1A2E">4.7</span>
-          <span style="color:#F08C00;font-size:14px">★★★★★</span>
-          <span style="font-size:11px;color:#9AA0B4">영수증 리뷰 84 · 블로그 리뷰 43</span>
-        </div>
-        <div id="learning-review-keywords" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-          <span class="kw-tag">맛있어요 92</span>
-          <span class="kw-tag">친절해요 78</span>
-          <span class="kw-tag">분위기 좋아요 61</span>
-          <span class="kw-tag">포장 예뻐요 55</span>
-        </div>
+        <div class="sec-title"><span class="icon-star" data-icon="star" data-size="14" data-color="currentColor"></span> 리뷰 <span id="learning-review-count" style="font-size:11px;color:#9AA0B4;font-weight:400"></span></div>
+        <div id="learning-review-keywords" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
         <div id="learning-place-reviews">
           <div class="review-item">
             <div style="font-size:11px;color:#9AA0B4;margin-bottom:4px">-</div>
             <div style="font-size:12px;color:#1A1A2E;line-height:1.6">플레이스 리뷰 데이터를 불러오는 중입니다.</div>
           </div>
         </div>
-        <div style="font-size:11px;color:#9AA0B4;margin-top:8px">2 / 127개 표시 · <span style="color:#3B5BDB;cursor:pointer">전체 보기</span></div>
+        <div class="review-controls" id="learning-review-controls">
+          <span id="learning-review-range">-</span>
+          <button type="button" id="learning-review-expand">펼치기</button>
+          <button type="button" id="learning-review-prev">이전</button>
+          <button type="button" id="learning-review-next">다음</button>
+        </div>
 
-        <hr class="divider">
-        <div class="sec-title"><span class="icon-megaphone" data-icon="megaphone" data-size="14" data-color="currentColor"></span> 소식 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 6개</span></div>
-        <table class="tbl" style="table-layout:fixed">
+        <section class="place-section" id="learning-place-news" style="margin-top:16px" hidden>
+          <hr class="divider">
+          <div class="sec-title"><span class="icon-megaphone" data-icon="megaphone" data-size="14" data-color="currentColor"></span> 소식 <span id="learning-place-news-count" style="font-size:11px;color:#9AA0B4;font-weight:400"></span></div>
+          <table class="tbl" style="table-layout:fixed">
           <thead><tr><th style="width:auto">내용</th><th style="width:60px">날짜</th></tr></thead>
-          <tbody>
-            <tr><td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">어버이날 특별 케이크 사전 주문 받습니다</td><td>05.01</td></tr>
-            <tr><td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">5월 신메뉴 딸기 타르트 출시 안내</td><td>04.20</td></tr>
-          </tbody>
-        </table>
+          <tbody id="learning-place-news-list"></tbody>
+          </table>
+        </section>
       </div>
 
       <!-- 인스타 탭 -->

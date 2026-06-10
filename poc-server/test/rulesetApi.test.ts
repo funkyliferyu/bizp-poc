@@ -277,6 +277,61 @@ describe('marketing ruleset API', () => {
     });
   });
 
+  it('returns newly imported store Place facts without requiring an existing ruleset', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.create({
+      id: 'store_real_place_without_ruleset',
+      name: '테라스의원',
+      naverPlaceUrl: 'https://m.place.naver.com/hospital/1020864025/home',
+      naverPlaceId: '1020864025',
+      category: '의료,건강 > 병원 > 피부과',
+      address: '서울 종로구 송월길 99 경희궁자이2단지 205동상가 2층',
+      phone: '02-6105-0010',
+      description: null,
+      metadata: {
+        naverPlaceParsed: {
+          businessHours: ['월-금 10:00-19:00', '토 10:00-14:00'],
+          closedDays: '일요일',
+          parking: 'near',
+          parkingNote: '경희궁자이2단지아파트 후문 상가 주차장 이용 가능',
+          placeIntro: '대표원장 직접 상담으로 차별화된 피부과 진료를 제공합니다.'
+        }
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_real_place_without_ruleset/strategy-ruleset`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.store).toMatchObject({
+      id: 'store_real_place_without_ruleset',
+      name: '테라스의원'
+    });
+    expect(body.ruleset).toBeNull();
+    expect(body.learningSnapshot).toBeNull();
+    expect(body.analysis).toBeNull();
+    expect(body.fields).toEqual([]);
+    expect(body.storeFacts).toMatchObject({
+      name: '테라스의원',
+      category: '의료,건강 > 병원 > 피부과',
+      address: '서울 종로구 송월길 99 경희궁자이2단지 205동상가 2층',
+      phone: '02-6105-0010',
+      operatingHours: '월-금 10:00-19:00, 토 10:00-14:00',
+      closedDays: '일요일',
+      parking: '경희궁자이2단지아파트 후문 상가 주차장 이용 가능',
+      storeIntro: '대표원장 직접 상담으로 차별화된 피부과 진료를 제공합니다.'
+    });
+    expect(body.sourceMatrix.find((row: { fieldKey: string }) => row.fieldKey === 'operatingHours')).toMatchObject({
+      currentValue: '월-금 10:00-19:00, 토 10:00-14:00'
+    });
+    expect(body.sourceMatrix.find((row: { fieldKey: string }) => row.fieldKey === 'parking')).toMatchObject({
+      currentValue: '경희궁자이2단지아파트 후문 상가 주차장 이용 가능'
+    });
+    expect(body.sourceMatrix.find((row: { fieldKey: string }) => row.fieldKey === 'storeIntro')).toMatchObject({
+      currentValue: '대표원장 직접 상담으로 차별화된 피부과 진료를 제공합니다.'
+    });
+  });
+
   it('persists user edits, locks the field, and can reset to the AI value', async () => {
     const editedValue = '분당 기념일 레터링 케이크 예약 전문점';
     const editResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/positioning`, {

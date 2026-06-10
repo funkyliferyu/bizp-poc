@@ -6,15 +6,27 @@
 <link rel="stylesheet" href="common.css">
 <script src="icons.js"></script>
 <style>
-.check-cell{width:32px;text-align:center}
-.fake-check{width:14px;height:14px;border-radius:3px;border:1.5px solid #E2E8F0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;vertical-align:middle}
-.fake-check.on{background:#3B5BDB;border-color:#3B5BDB}
-.ai-suspect{font-size:10px;padding:1px 6px;border-radius:10px;background:#F7F8FA;color:#9AA0B4;border:1px solid #E2E8F0;margin-left:4px}
-tr.unchecked td{color:#9AA0B4}
 #content-select{display:none}
+.collection-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.collection-guidance{margin:10px 0 12px;padding:9px 12px;border:1px solid #E2E8F0;border-radius:6px;background:#fff;font-size:12px;line-height:1.6;color:#4A5568}
+.collection-guidance strong{color:#1A1A2E}
+.collection-summary-card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:12px;min-height:106px;display:flex;flex-direction:column;gap:8px}
+.collection-summary-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.collection-summary-name{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#1A1A2E;min-width:0}
+.collection-summary-count{font-size:20px;font-weight:700;color:#1A1A2E;line-height:1}
+.collection-summary-sub{font-size:11px;color:#9AA0B4;line-height:1.5;word-break:break-all}
 .collection-item-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .collection-item-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;background:#fff;font-size:12px;color:#4A5568}
 .collection-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.collection-review-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-top:1px solid #E2E8F0;background:#F7F8FA}
+.collection-review-actions{display:flex;align-items:center;gap:6px}
+.collection-muted{font-size:12px;color:#9AA0B4}
+.collection-empty{padding:28px 12px;text-align:center;color:#9AA0B4;font-size:12px}
+.collection-title-cell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0}
+.collection-source-cell{width:112px;white-space:nowrap;color:#4A5568}
+.collection-date-cell{width:96px;white-space:nowrap;color:#4A5568}
+.collection-status-cell{width:88px;white-space:nowrap;text-align:right}
+@media (max-width:1100px){.collection-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -31,94 +43,83 @@ tr.unchecked td{color:#9AA0B4}
         <span class="spinner"></span> 수집 중
         <span class="progress-meta" id="collection-progress-meta">페이지를 벗어나도 수집은 계속 진행됩니다</span>
       </div>
-      <div class="prog-ch-row" id="row-blog">
-        <span class="prog-ch-name"><span data-icon="rss" data-size="13" data-color="#03C75A"></span> 네이버 블로그</span>
-        <span class="s-ing"><span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span> 수집 중 (23 / 50)</span>
+      <div class="collection-guidance" id="collection-progress-guidance">
+        <strong>수집 실행 중입니다.</strong> 이 화면에서 기다리면 진행 상황이 자동으로 갱신됩니다. 페이지를 벗어나도 백그라운드에서 수집은 계속 진행됩니다.
       </div>
-      <div class="prog-ch-row" style="margin-top:6px" id="row-place">
-        <span class="prog-ch-name"><span data-icon="map-pin" data-size="13" data-color="#03C75A"></span> 네이버 플레이스</span>
-        <span class="s-done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg> 완료</span>
-      </div>
-      <div class="prog-ch-row" style="margin-top:6px" id="row-insta">
-        <span class="prog-ch-name"><span data-icon="instagram" data-size="13" data-color="#E1306C"></span> 인스타그램</span>
-        <span class="s-wait">대기 중</span>
+      <div class="collection-summary-grid">
+        <div class="collection-summary-card" id="collection-summary-overall">
+          <div class="collection-summary-head">
+            <span class="collection-summary-name"><span data-icon="loader" data-size="14" data-color="#3B5BDB"></span> 전체 진행</span>
+            <span class="s-wait">대기</span>
+          </div>
+          <div class="collection-summary-count">0 / 0</div>
+          <div class="collection-summary-sub">수집 실행을 준비하고 있습니다.</div>
+        </div>
+        <div class="collection-summary-card" id="collection-summary-blog">
+          <div class="collection-summary-head">
+            <span class="collection-summary-name"><span data-icon="rss" data-size="14" data-color="#03C75A"></span> 네이버 블로그</span>
+            <span class="s-wait">대기</span>
+          </div>
+          <div class="collection-summary-count">0 / 0</div>
+          <div class="collection-summary-sub">설정값을 불러오는 중입니다.</div>
+        </div>
+        <div class="collection-summary-card" id="collection-summary-place">
+          <div class="collection-summary-head">
+            <span class="collection-summary-name"><span data-icon="map-pin" data-size="14" data-color="#03C75A"></span> 네이버 플레이스</span>
+            <span class="s-wait">대기</span>
+          </div>
+          <div class="collection-summary-count">0 / 0</div>
+          <div class="collection-summary-sub">설정값을 불러오는 중입니다.</div>
+        </div>
+        <div class="collection-summary-card" id="collection-summary-instagram">
+          <div class="collection-summary-head">
+            <span class="collection-summary-name"><span data-icon="instagram" data-size="14" data-color="#E1306C"></span> 인스타그램</span>
+            <span class="s-wait">대기</span>
+          </div>
+          <div class="collection-summary-count">0 / 0</div>
+          <div class="collection-summary-sub">설정값을 불러오는 중입니다.</div>
+        </div>
       </div>
     </div>
     <div class="collection-item-list" id="collection-item-list"></div>
   </div>
 
-  <!-- 수집 완료 후 콘텐츠 선택 영역 -->
+  <!-- 수집 완료 후 콘텐츠 확인 영역 -->
   <div id="content-select">
     <div class="divider" style="margin:24px 0"></div>
 
-    <div class="page-title" style="font-size:15px;margin-bottom:4px">분석할 콘텐츠 선택</div>
-    <div style="font-size:13px;color:#4A5568;margin-bottom:16px">수집된 콘텐츠 중 분석에 포함할 항목을 선택하세요.</div>
-
-    <div class="err-banner warning" style="margin-bottom:16px">
-      <div class="err-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F08C00" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        AI 작성 의심 콘텐츠 안내
-      </div>
-      <div class="err-desc">AI가 작성한 글을 분석에 포함하면 룰셋이 왜곡될 수 있습니다. 'AI 작성 의심' 표시된 항목은 기본적으로 체크 해제되어 있습니다. 직접 작성하거나 직접 발행한 글만 선택하는 것을 권장합니다.</div>
-    </div>
+    <div class="page-title" style="font-size:15px;margin-bottom:4px">수집완료 콘텐츠 내역</div>
+    <div style="font-size:13px;color:#4A5568;margin-bottom:16px">수집 완료된 콘텐츠입니다. 충분한 레퍼런스 콘텐츠가 확보되었는지 확인하세요.</div>
 
     <div class="card">
       <div class="card-header">
         <span style="display:flex;align-items:center;gap:6px">
-          <span data-icon="rss" data-size="14" data-color="#03C75A"></span>
-          네이버 블로그 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 48개 수집</span>
+          <span data-icon="list-checks" data-size="14" data-color="#3B5BDB"></span>
+          수집 콘텐츠 <span class="collection-muted" id="collection-review-count">0개 수집</span>
         </span>
       </div>
       <div class="card-body" style="padding:0">
         <table class="tbl" style="table-layout:fixed">
           <thead>
             <tr>
-              <th class="check-cell">
-                <div class="fake-check on" style="margin:0 auto">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
-                </div>
-              </th>
+              <th class="collection-source-cell">수집원</th>
               <th style="width:auto">제목</th>
-              <th style="width:64px">발행일</th>
-              <th style="width:60px">조회수</th>
+              <th class="collection-date-cell">발행/작성일</th>
+              <th class="collection-status-cell">상태</th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td class="check-cell"><div class="fake-check on" style="margin:0 auto"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></td>
-              <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">성남 케이크 맛집 :: 분당 베이커리 솔직 후기</td>
-              <td>05.14</td><td>1,240</td>
-            </tr>
-            <tr>
-              <td class="check-cell"><div class="fake-check on" style="margin:0 auto"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></td>
-              <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">어버이날 케이크 당일 제작 가능해요 <span class="ai-suspect">AI 작성 의심</span></td>
-              <td>05.08</td><td>880</td>
-            </tr>
-            <tr class="unchecked">
-              <td class="check-cell"><div class="fake-check" style="margin:0 auto"></div></td>
-              <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">분당 레터링케이크 커스텀 주문 후기 <span class="ai-suspect">AI 작성 의심</span></td>
-              <td>04.22</td><td>540</td>
-            </tr>
-            <tr>
-              <td class="check-cell"><div class="fake-check on" style="margin:0 auto"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></td>
-              <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">봄 시즌 딸기케이크 신메뉴 소개</td>
-              <td>04.10</td><td>320</td>
-            </tr>
+          <tbody id="collection-review-list">
+            <tr><td colspan="4" class="collection-empty">수집 콘텐츠를 불러오는 중입니다.</td></tr>
           </tbody>
         </table>
-        <div style="padding:10px 12px;font-size:11px;color:#9AA0B4">4 / 48개 표시 · <span style="color:#3B5BDB;cursor:pointer">전체 보기</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <span style="display:flex;align-items:center;gap:6px">
-          <span data-icon="map-pin" data-size="14" data-color="#03C75A"></span>
-          네이버 플레이스 <span style="font-size:11px;color:#9AA0B4;font-weight:400">· 매장정보 및 리뷰 32건</span>
-        </span>
-      </div>
-      <div class="card-body">
-        <div style="font-size:12px;color:#4A5568">플레이스 정보는 전체 포함됩니다. 개별 선택이 적용되지 않습니다.</div>
+        <div class="collection-review-toolbar">
+          <span class="collection-muted" id="collection-review-range">0 / 0개 표시</span>
+          <div class="collection-review-actions">
+            <button class="btn btn-ghost btn-sm" id="collection-review-expand" type="button" disabled>펼치기</button>
+            <button class="btn btn-ghost btn-sm" id="collection-review-prev" type="button" disabled>이전</button>
+            <button class="btn btn-ghost btn-sm" id="collection-review-next" type="button" disabled>다음</button>
+          </div>
+        </div>
       </div>
     </div>
 

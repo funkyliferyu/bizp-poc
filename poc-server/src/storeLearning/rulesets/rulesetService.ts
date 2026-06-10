@@ -25,6 +25,53 @@ function asStringArray(value: JsonValue) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function asString(value: JsonValue | null | undefined) {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function businessHourRecordText(value: JsonValue) {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) return null;
+  const day = asString(record.day) ?? asString(record.dayOfWeek) ?? asString(record.name) ?? asString(record.label);
+  const openClose = [asString(record.openTime), asString(record.closeTime)].filter(Boolean).join('-') || null;
+  const businessRange =
+    asString(record.businessHours) ??
+    asString(record.hours) ??
+    asString(record.time) ??
+    openClose;
+  const description = asString(record.description) ?? asString(record.status);
+  const text = [day, businessRange || description].filter(Boolean).join(' ');
+  return text || null;
+}
+
+function asDisplayList(value: JsonValue | null | undefined) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => asString(item) ?? businessHourRecordText(item))
+      .filter((item): item is string => Boolean(item));
+  }
+  const single = asString(value);
+  return single ? [single] : [];
+}
+
+function firstDisplayValue(...values: Array<JsonValue | null | undefined>) {
+  for (const value of values) {
+    const displayList = asDisplayList(value);
+    if (displayList.length > 0) return displayList.join(', ');
+  }
+  return null;
+}
+
+function parkingValue(...values: Array<JsonValue | null | undefined>) {
+  const value = firstDisplayValue(...values);
+  if (value === 'y' || value === 'available') return '주차 가능';
+  if (value === 'n' || value === 'none') return '주차 불가';
+  if (value === 'near') return '인근 주차';
+  return value;
+}
+
 function excerpt(value: string | null | undefined, maxLength = 160) {
   const trimmed = value?.replace(/\s+/g, ' ').trim();
   if (!trimmed) return null;
@@ -49,15 +96,35 @@ function serializeField(field: RulesetField, fieldKeyOverride?: string) {
 
 function serializeStoreFacts(store: StoreRecord) {
   const metadata = asRecord(store.metadata);
+  const parsed = asRecord(metadata.naverPlaceParsed);
   return {
     name: store.name,
-    category: store.category,
-    address: store.address,
-    phone: store.phone,
-    storeIntro: store.description,
-    operatingHours: metadata.operatingHours ?? null,
-    closedDays: metadata.closedDays ?? null,
-    parking: metadata.parking ?? null
+    category: store.category ?? firstDisplayValue(parsed.category, metadata.category),
+    address: store.address ?? firstDisplayValue(parsed.address, metadata.address),
+    phone: store.phone ?? firstDisplayValue(parsed.phone, metadata.phone),
+    storeIntro: firstDisplayValue(
+      store.description,
+      metadata.placeIntro,
+      parsed.placeIntro,
+      metadata.introduction,
+      parsed.introduction,
+      metadata.description,
+      parsed.description
+    ),
+    operatingHours: firstDisplayValue(
+      metadata.operatingHours,
+      parsed.operatingHours,
+      metadata.businessHours,
+      parsed.businessHours,
+      metadata.weeklyBusinessHours,
+      parsed.weeklyBusinessHours,
+      metadata.openHours,
+      parsed.openHours,
+      metadata.hours,
+      parsed.hours
+    ),
+    closedDays: firstDisplayValue(metadata.closedDays, parsed.closedDays),
+    parking: parkingValue(metadata.parkingNote, parsed.parkingNote, metadata.parking, parsed.parking)
   };
 }
 

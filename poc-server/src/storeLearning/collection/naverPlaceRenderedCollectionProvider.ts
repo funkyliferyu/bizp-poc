@@ -19,12 +19,14 @@ export type RenderedPlaceReview = {
   reviewDate: string | null;
   rating: number | null;
   bodyText: string | null;
+  cursor?: string | null;
   reviewKeywords: string[];
   hasMedia: boolean;
   hasVideo: boolean;
   hasOwnerReply: boolean;
   ownerReplyText: string | null;
   replyStatus: 'replied' | 'not_replied';
+  photoUrls: string[];
   sourceUrl: string | null;
   ordinal: number;
 };
@@ -80,6 +82,29 @@ function absoluteUrl(value: string | null, baseUrl: string) {
   } catch {
     return null;
   }
+}
+
+function imageUrlsFromReviewBlock(block: string, baseUrl: string) {
+  const urls = new Set<string>();
+  for (const match of block.matchAll(/<img\b[^>]*>/gi)) {
+    const src = attribute(match[0], 'src') ?? attribute(match[0], 'data-src');
+    const absolute = absoluteUrl(src, baseUrl);
+    if (absolute) urls.add(absolute);
+  }
+  return Array.from(urls);
+}
+
+function imageUrlsFromMedia(media: unknown) {
+  if (!Array.isArray(media)) return [];
+  const urls = new Set<string>();
+  for (const value of media) {
+    const record = asRecord(value);
+    for (const key of ['imageUrl', 'url', 'origin', 'thumbnailUrl', 'thumbnail', 'previewImageUrl']) {
+      const url = asString(record?.[key]);
+      if (url) urls.add(url);
+    }
+  }
+  return Array.from(urls);
 }
 
 function asBooleanAttribute(value: string | null) {
@@ -180,10 +205,11 @@ function ownerReplyFrom(block: string) {
   return stripTags(match?.[1] ?? '');
 }
 
-function reviewFromTaggedBlock(block: string, ordinal: number): RenderedPlaceReview {
+function reviewFromTaggedBlock(block: string, ordinal: number, finalUrl = ''): RenderedPlaceReview {
   const firstTag = block.match(/^<\w+\b[^>]*>/)?.[0] ?? '';
   const ownerReplyText = ownerReplyFrom(block);
   const hasOwnerReply = Boolean(ownerReplyText);
+  const photoUrls = imageUrlsFromReviewBlock(block, finalUrl);
   return {
     reviewId: attribute(firstTag, 'data-review-id'),
     reviewerName: attribute(firstTag, 'data-reviewer'),
@@ -191,11 +217,12 @@ function reviewFromTaggedBlock(block: string, ordinal: number): RenderedPlaceRev
     rating: numberValue(attribute(firstTag, 'data-rating')),
     bodyText: textFromClass(block, 'review-body') ?? stripTags(block),
     reviewKeywords: reviewKeywordsFrom(block),
-    hasMedia: asBooleanAttribute(attribute(firstTag, 'data-media')),
+    hasMedia: asBooleanAttribute(attribute(firstTag, 'data-media')) || photoUrls.length > 0,
     hasVideo: asBooleanAttribute(attribute(firstTag, 'data-video')),
     hasOwnerReply,
     ownerReplyText,
     replyStatus: hasOwnerReply ? 'replied' : 'not_replied',
+    photoUrls,
     sourceUrl: attribute(firstTag, 'data-source-url'),
     ordinal
   };
@@ -231,6 +258,7 @@ function reviewsFromJsonLd(html: string, finalUrl: string) {
             hasOwnerReply: false,
             ownerReplyText: null,
             replyStatus: 'not_replied',
+            photoUrls: asString(reviewRecord.image) ? [asString(reviewRecord.image) as string] : [],
             sourceUrl: `${finalUrl}#review-${ordinal}`,
             ordinal
           });
@@ -316,6 +344,14 @@ function reviewKeywordsFromApolloReview(review: Record<string, unknown>) {
   return Array.from(keywords);
 }
 
+function reviewBodyTextFrom(body: unknown, keywords: string[], media: unknown) {
+  const bodyText = cleanText(body);
+  if (bodyText) return bodyText;
+  if (keywords.length > 0) return `방문자 리뷰 키워드: ${keywords.join(', ')}`;
+  if (Array.isArray(media) && media.length > 0) return '사진이 포함된 방문자 리뷰입니다.';
+  return null;
+}
+
 function hasVideoMedia(media: unknown) {
   if (!Array.isArray(media)) return false;
   return media.some((value) => {
@@ -331,10 +367,13 @@ function reviewsFromApolloState(html: string, finalUrl: string) {
   const reviews: RenderedPlaceReview[] = [];
   for (const key of reviewRefsFromApolloState(state)) {
     const review = asRecord(state[key]);
-    const bodyText = cleanText(review?.body);
-    if (!review || !bodyText) continue;
+    if (!review) continue;
+    const keywords = reviewKeywordsFromApolloReview(review);
     const author = resolveNaverApolloRef(state, review.author);
     const media = Array.isArray(review.media) ? review.media : [];
+    const bodyText = reviewBodyTextFrom(review.body, keywords, media);
+    if (!bodyText) continue;
+    const photoUrls = imageUrlsFromMedia(media);
     const reply = asRecord(review.reply);
     const ownerReplyText = cleanText(reply?.body);
     const reviewId = cleanText(review.reviewId ?? review.id);
@@ -345,12 +384,14 @@ function reviewsFromApolloState(html: string, finalUrl: string) {
       reviewDate: cleanText(review.representativeVisitDateTime ?? review.created ?? review.visited),
       rating: asNumber(review.rating),
       bodyText,
-      reviewKeywords: reviewKeywordsFromApolloReview(review),
+      cursor: cleanText(review.cursor),
+      reviewKeywords: keywords,
       hasMedia: media.length > 0 || Boolean(asString(review.thumbnail)),
       hasVideo: hasVideoMedia(media),
       hasOwnerReply: Boolean(ownerReplyText),
       ownerReplyText,
       replyStatus: ownerReplyText ? 'replied' : 'not_replied',
+      photoUrls,
       sourceUrl: `${finalUrl}#${reviewId ?? `review-${ordinal}`}`,
       ordinal
     });
@@ -381,11 +422,10 @@ function visitorReviewInputFromApolloState(html: string) {
 }
 
 function reviewFromGraphQlItem(item: Record<string, unknown>, finalUrl: string, ordinal: number): RenderedPlaceReview | null {
-  const bodyText = cleanText(item.body);
-  if (!bodyText) return null;
   const author = asRecord(item.author);
   const reply = asRecord(item.reply);
   const media = asArray(item.media);
+  const photoUrls = imageUrlsFromMedia(media);
   const reviewId = cleanText(item.reviewId ?? item.id);
   const keywords = new Set<string>();
   for (const keyword of asArray(item.votedKeywords)) {
@@ -398,6 +438,9 @@ function reviewFromGraphQlItem(item: Record<string, unknown>, finalUrl: string, 
       if (name) keywords.add(name);
     }
   }
+  const keywordList = Array.from(keywords);
+  const bodyText = reviewBodyTextFrom(item.body, keywordList, media);
+  if (!bodyText) return null;
   const ownerReplyText = cleanText(reply?.body);
   return {
     reviewId,
@@ -405,12 +448,14 @@ function reviewFromGraphQlItem(item: Record<string, unknown>, finalUrl: string, 
     reviewDate: cleanText(item.representativeVisitDateTime ?? item.created ?? item.visited),
     rating: asNumber(item.rating),
     bodyText,
-    reviewKeywords: Array.from(keywords),
+    cursor: cleanText(item.cursor),
+    reviewKeywords: keywordList,
     hasMedia: media.length > 0 || Boolean(asString(item.thumbnail)),
     hasVideo: hasVideoMedia(media),
     hasOwnerReply: Boolean(ownerReplyText),
     ownerReplyText,
     replyStatus: ownerReplyText ? 'replied' : 'not_replied',
+    photoUrls,
     sourceUrl: `${finalUrl}#${reviewId ?? `review-${ordinal}`}`,
     ordinal
   };
@@ -430,7 +475,7 @@ const VISITOR_REVIEWS_QUERY = `query visitorReviews($input: VisitorReviewsInput)
       reply { body }
       votedKeywords { name }
       visitCategories { keywords { name } }
-      media { type videoId videoUrl thumbnail }
+      media { type videoId videoUrl thumbnail thumbnailRatio }
     }
   }
 }`;
@@ -464,9 +509,12 @@ async function fetchGraphQlVisitorReviews(input: Record<string, unknown>, finalU
   const payload = (await response.json()) as unknown;
   const result = asRecord(asRecord(Array.isArray(payload) ? payload[0] : payload)?.data)?.visitorReviews;
   const items = asArray(asRecord(result)?.items);
-  return items
-    .map((item, index) => reviewFromGraphQlItem(asRecord(item) ?? {}, finalUrl, index + 1))
-    .filter((review): review is RenderedPlaceReview => Boolean(review));
+  return {
+    total: asNumber(asRecord(result)?.total),
+    reviews: items
+      .map((item, index) => reviewFromGraphQlItem(asRecord(item) ?? {}, finalUrl, index + 1))
+      .filter((review): review is RenderedPlaceReview => Boolean(review))
+  };
 }
 
 function reviewKey(review: RenderedPlaceReview) {
@@ -497,32 +545,38 @@ async function collectGraphQlReviewFallback(input: {
   seenReviews: Set<string>;
 }) {
   const baseInput = visitorReviewInputFromApolloState(input.html);
-  if (!baseInput) return;
+  if (!baseInput) return null;
   const size = graphQlBatchSize(input.env, input.limit);
-  const variants: Array<Record<string, unknown>> = [
-    {},
-    { sort: 'recent' },
-    { sort: 'recommend' },
-    { sort: 'rank' },
-    { hasContent: true },
-    { isPhotoUsed: true }
-  ];
+  let nextItem = String(baseInput.item ?? '0');
+  const seenCursors = new Set<string>();
+  const maxPages = Math.min(40, Math.ceil(input.limit / size) + 2);
+  let availableTotal: number | null = null;
 
-  for (const variant of variants) {
+  for (let page = 0; page < maxPages && input.reviews.length < input.limit; page += 1) {
+    if (seenCursors.has(nextItem)) break;
+    seenCursors.add(nextItem);
     if (input.reviews.length >= input.limit) break;
-    const reviews = await fetchGraphQlVisitorReviews(
+    const result = await fetchGraphQlVisitorReviews(
       {
         ...baseInput,
-        ...variant,
-        item: baseInput.item ?? '0',
+        item: nextItem,
         includeContent: true,
         size
       },
       input.finalUrl,
       input.env
-    ).catch(() => []);
+    ).catch(() => null);
+    const reviews = result?.reviews ?? [];
+    if (result?.total !== null && result?.total !== undefined) {
+      availableTotal = Math.max(availableTotal ?? 0, result.total);
+    }
+    if (reviews.length === 0) break;
     addUniqueReviews(input.reviews, input.seenReviews, reviews, input.limit);
+    const nextCursor = reviews[reviews.length - 1]?.cursor;
+    if (!nextCursor) break;
+    nextItem = nextCursor;
   }
+  return availableTotal;
 }
 
 export function extractRenderedPlaceReviews(input: {
@@ -532,7 +586,9 @@ export function extractRenderedPlaceReviews(input: {
 }): RenderedPlaceReview[] {
   const blocks = taggedBlocks(input.html);
   if (blocks.length > 0) {
-    return blocks.map((block, index) => reviewFromTaggedBlock(block, index + 1)).filter((review) => Boolean(review.bodyText));
+    return blocks
+      .map((block, index) => reviewFromTaggedBlock(block, index + 1, input.finalUrl))
+      .filter((review) => Boolean(review.bodyText));
   }
   const apolloReviews = reviewsFromApolloState(input.html, input.finalUrl);
   if (apolloReviews.length > 0) return apolloReviews;
@@ -711,8 +767,9 @@ async function collectReviewItems(env: ProviderEnv, plan: CollectionPlan, store:
     currentSnapshot = await renderer(nextReviewUrl, env);
   }
 
+  let availableReviewTotal: number | null = null;
   if (reviews.length < plan.placeReviewLimit) {
-    await collectGraphQlReviewFallback({
+    availableReviewTotal = await collectGraphQlReviewFallback({
       html: rendered.snapshot.html,
       finalUrl: rendered.reviewUrl,
       env,
@@ -744,13 +801,17 @@ async function collectReviewItems(env: ProviderEnv, plan: CollectionPlan, store:
         hasOwnerReply: review.hasOwnerReply,
         ownerReplyText: review.ownerReplyText,
         replyStatus: review.replyStatus,
+        photoUrls: review.photoUrls,
+        visitorPhotoUrls: review.photoUrls,
         ordinal: review.ordinal,
-        reviewTabUrl: rendered.reviewUrl
+        reviewTabUrl: rendered.reviewUrl,
+        availableReviewTotal: availableReviewTotal ?? reviews.length,
+        requestedReviewLimit: plan.placeReviewLimit
       }
     };
   });
 
-  if (items.length < plan.placeReviewLimit) {
+  if (items.length < plan.placeReviewLimit && (availableReviewTotal === null || items.length < availableReviewTotal)) {
     return [
       ...items,
       ...failedReviewItems(plan, rendered.reviewUrl, 'rendered_place_review_not_found', items.length + 1)

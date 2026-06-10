@@ -6,6 +6,7 @@ import { migrateDatabase } from '../src/db/migrate.js';
 import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 import { seedDemoStore } from '../src/seedStoreLearning.js';
 import type { AnalyzerOutput } from '../src/storeLearning/analysis/analyzer.js';
+import { createMockAnalysisProvider } from '../src/storeLearning/analysis/analyzer.js';
 import { createAnalysisRunRoutes } from '../src/storeLearning/routes/analysisRuns.js';
 import { createStoreRoutes } from '../src/storeLearning/routes/stores.js';
 import { startAnalysisRun } from '../src/storeLearning/analysis/analysisExecutionService.js';
@@ -172,6 +173,60 @@ describe('analysis execution API', () => {
     expect(latest.marketingRuleset.status).toBe('draft');
     expect(latest.rulesetFields.length).toBeGreaterThanOrEqual(30);
     expect(latest.analysisEvidence.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('persists user-visible analysis progress while the analyzer is running', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const analysisRun = repos.analysisRuns.create({
+      id: 'analysis_run_progress_test',
+      storeId: 'store_demo_cake',
+      collectionRunId: 'collection_run_demo_store_learning',
+      status: 'queued',
+      startedAt: null,
+      completedAt: null,
+      result: {
+        selectedItemIds: [
+          'collection_item_demo_blog',
+          'collection_item_demo_place_profile',
+          'collection_item_demo_place_review'
+        ]
+      },
+      error: null
+    });
+    const mockProvider = createMockAnalysisProvider();
+    let progressDuringAnalyze: Record<string, unknown> | null = null;
+
+    const artifacts = await startAnalysisRun(repos, analysisRun.id, {
+      name: 'progressAwareProvider',
+      mode: 'mock',
+      async analyze(input) {
+        const runningRun = repos.analysisRuns.findById(analysisRun.id);
+        progressDuringAnalyze = (runningRun?.result as Record<string, unknown>)?.analysisProgress as Record<string, unknown>;
+        return mockProvider.analyze(input);
+      }
+    });
+    const persistedRun = repos.analysisRuns.findById(analysisRun.id);
+    const finalProgress = (persistedRun?.result as Record<string, unknown>)?.analysisProgress as Record<string, unknown>;
+    const timeline = finalProgress?.timeline as Array<Record<string, unknown>>;
+
+    expect(artifacts?.analysisRun.status).toBe('completed');
+    expect(progressDuringAnalyze).toEqual(
+      expect.objectContaining({
+        step: 'analyzing',
+        label: 'AI 분석',
+        state: 'running'
+      })
+    );
+    expect(finalProgress).toEqual(
+      expect.objectContaining({
+        step: 'completed',
+        label: '분석 완료',
+        state: 'done'
+      })
+    );
+    expect(timeline.map((entry) => entry.step)).toEqual(
+      expect.arrayContaining(['preparing', 'analyzing', 'validating', 'snapshot', 'ruleset', 'completed'])
+    );
   });
 
   it('persists OpenAI analyzer output with validated evidence links', async () => {

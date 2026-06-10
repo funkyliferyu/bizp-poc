@@ -55,4 +55,61 @@ describe('learning status static page API wiring', () => {
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
   });
+
+  it('creates a new collection run before relearn navigation', () => {
+    const html = readFileSync(path.join(webRoot, '06_AI학습_현황.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
+
+    expect(html).toContain('id="learning-relearn-btn"');
+    expect(html).not.toContain('onclick="location.href=\'04_AI학습_수집중.html\'"');
+
+    expect(js).toContain('function createCollectionRun');
+    expect(js).toContain('fetch(`/api/stores/${storeId}/collection-runs`');
+    expect(js).toContain("method: 'POST'");
+    expect(js).toContain('function goToCollectionProgress');
+    expect(js).toContain('04_AI학습_수집중.html?');
+    expect(js).toContain("next.searchParams.set('storeId', storeId)");
+    expect(js).toContain("next.searchParams.set('runId', runId)");
+    expect(js).toContain("window.localStorage.setItem(STORE_ID_KEY, storeId)");
+  });
+
+  it('renders Blog rows as source links with published date and view count fields', () => {
+    const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
+
+    expect(js).toContain('data-blog-source-url');
+    expect(js).toContain('learning-blog-row');
+    expect(js).toContain("window.open(url, '_blank', 'noopener,noreferrer')");
+    expect(js).toContain('blogPublishedDate(item)');
+    expect(js).toContain('item.viewCount');
+    expect(js).toContain('[.-](\\d{1,2})[.-](\\d{1,2})');
+    expect(js).not.toContain('source-open-btn');
+    expect(js).not.toContain('>열기</button>');
+    expect(js).not.toContain("item.selectedForAnalysis ? '선택' : '-'");
+  });
+
+  it('renders Place dynamic sections and interactions without static placeholders', () => {
+    const html = readFileSync(path.join(webRoot, '06_AI학습_현황.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
+
+    expect(html).toContain('id="learning-place-facts"');
+    expect(html).toContain('id="learning-place-industry-sections"');
+    expect(html).toContain('id="learning-place-photos"');
+    expect(html).toContain('id="learning-visitor-photos"');
+    expect(html).toContain('id="learning-review-controls"');
+    expect(html).toContain('id="learning-review-expand"');
+    expect(html).toContain('id="learning-review-prev"');
+    expect(html).toContain('id="learning-review-next"');
+    expect(html).toContain('id="learning-place-news"');
+    expect(html).not.toContain('커스텀 레터링 케이크');
+    expect(html).not.toContain('어버이날 특별 케이크 사전 주문 받습니다');
+
+    expect(js).toContain('function renderPlaceFacts');
+    expect(js).toContain('function renderPlaceIndustrySections');
+    expect(js).toContain('function renderPlacePhotos');
+    expect(js).toContain('function renderPlaceReviews');
+    expect(js).toContain('function renderPlaceNews');
+    expect(js).toContain('PLACE_REVIEW_EXPANDED_LIMIT = 20');
+    expect(js).toContain("window.open(url, '_blank', 'noopener,noreferrer')");
+    expect(js).toContain("field('learning-place-news').style.display = newsItems.length === 0 ? 'none' : 'block'");
+  });
 });

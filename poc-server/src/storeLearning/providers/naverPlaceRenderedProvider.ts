@@ -3,6 +3,7 @@ import type { Page } from 'playwright';
 import type { JsonValue } from '../../repositories/base.js';
 import type { JsonRecord, ParsedNaverPlaceUrl, PlaceImportResult, ProviderEnv } from './placeImportTypes.js';
 import { configuredPlaceProvider, sourceMetadata } from './ownerSourcePolicy.js';
+import { extractExternalChannelLinks, type StoreExternalChannel } from './placeExternalChannels.js';
 
 export type RenderedPlaceSnapshot = {
   finalUrl: string;
@@ -64,6 +65,7 @@ export type RenderedPlaceProfile = {
   keywords: string[];
   bookingUrl: string | null;
   externalLinks: Array<{ type: string | null; url: string }>;
+  externalChannelLinks: StoreExternalChannel[];
   routeUrl: string | null;
   coordinates: { x: string | null; y: string | null; mapZoomLevel: number | null } | null;
   transitInfo: string[];
@@ -891,6 +893,14 @@ export function extractRenderedPlaceProfile(input: {
   const homepageInfo = homepageFromDetail(apolloDetail);
   const facilities = stringsFromRefs(apolloState, informationTab(apolloDetail)?.facilities, asStringArray(apolloBase?.conveniences));
   const menuItems = menuItemsFromDetail(apolloState, apolloDetail);
+  const externalLinks = externalLinksFromDetail(apolloDetail);
+  const homepage = homepageInfo.homepageUrl ?? lineAfter(lines, '홈페이지', (line) => /^https?:\/\//i.test(line));
+  const externalChannelLinks = extractExternalChannelLinks([
+    homepageInfo.homepageUrl,
+    homepage,
+    apolloDetail?.homepages,
+    externalLinks
+  ]);
   const reviewStats = {
     rating: asNumber(apolloBase?.visitorReviewsScore) ?? stats.rating,
     visitorReviewCount: asNumber(apolloBase?.visitorReviewsTotal) ?? stats.visitorReviewCount,
@@ -933,14 +943,15 @@ export function extractRenderedPlaceProfile(input: {
     broadcastInfos: broadcastInfosFromDetail(apolloDetail),
     keywords: keywordsFromDetail(apolloDetail),
     bookingUrl: bookingUrlFromDetail(apolloDetail),
-    externalLinks: externalLinksFromDetail(apolloDetail),
+    externalLinks,
+    externalChannelLinks,
     routeUrl: cleanText(apolloBase?.routeUrl),
     coordinates: coordinatesFromBase(apolloBase),
     transitInfo: transitInfoFromDetail(apolloState, apolloDetail),
     hospitalInfo: hospitalInfoFromDetail(apolloDetail),
     directions,
     businessHours: businessHourLinesFromApollo.length > 0 ? businessHourLinesFromApollo : hours,
-    homepage: homepageInfo.homepageUrl ?? lineAfter(lines, '홈페이지', (line) => /^https?:\/\//i.test(line)),
+    homepage,
     convenience: cleanText(convenience),
     rating: reviewStats.rating,
     visitorReviewCount: reviewStats.visitorReviewCount,
@@ -1198,6 +1209,7 @@ export async function importWithNaverPlaceRenderedProvider(
     keywords: profile.keywords,
     bookingUrl: profile.bookingUrl,
     externalLinks: profile.externalLinks,
+    externalChannelLinks: profile.externalChannelLinks,
     routeUrl: profile.routeUrl,
     coordinates: profile.coordinates,
     transitInfo: profile.transitInfo,
@@ -1254,6 +1266,7 @@ export async function importWithNaverPlaceRenderedProvider(
     keywords: profile.keywords,
     bookingUrl: profile.bookingUrl,
     externalLinks: profile.externalLinks,
+    externalChannelLinks: profile.externalChannelLinks,
     routeUrl: profile.routeUrl,
     coordinates: profile.coordinates,
     transitInfo: profile.transitInfo,
