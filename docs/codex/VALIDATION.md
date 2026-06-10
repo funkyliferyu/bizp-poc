@@ -22,6 +22,10 @@ Place profile fingerprinting called `trim()` on non-string metadata and raised
 - Focused regression
   `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts`:
   passed, 27 tests.
+- Final regression:
+  `npm run typecheck`, `npm test`, `npm run demo:store-learning`, and
+  `git diff --check` passed. Full test count: 209 passed and 6 skipped
+  live-provider tests across 39 files.
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 13 Commands
 

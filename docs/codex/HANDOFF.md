@@ -90,8 +90,8 @@ Latest feature-branch validation recorded:
 - `npm test -- collectionItemIdentity.test.ts naverPlaceRenderedCollectionProvider.test.ts collectionProgressApi.test.ts analysisExecutionApi.test.ts selectionApi.test.ts`:
   passed, 27 tests after collection fingerprint metadata type hardening.
 - `npm run typecheck`: passed.
-- `npm test`: passed, 207 tests and 6 skipped live-provider tests across
-  38 files.
+- `npm test`: passed, 209 tests and 6 skipped live-provider tests across
+  39 files.
 - `npm run demo:store-learning`: passed and seeded
   `poc-server/data/store-learning.sqlite`.
 - `git diff --check`: passed.
