@@ -72,6 +72,25 @@ function parkingValue(...values: Array<JsonValue | null | undefined>) {
   return value;
 }
 
+function representativeTreatmentSubjectsValue(metadata: Record<string, JsonValue>, parsed: Record<string, JsonValue>) {
+  const metadataHospital = asRecord(metadata.hospitalInfo);
+  const parsedHospital = asRecord(parsed.hospitalInfo);
+  return firstDisplayValue(
+    metadata.representativeTreatmentSubjects,
+    parsed.representativeTreatmentSubjects,
+    metadata.treatmentSubjects,
+    parsed.treatmentSubjects,
+    metadata.medicalSubjects,
+    parsed.medicalSubjects,
+    metadataHospital.subjects,
+    parsedHospital.subjects,
+    metadataHospital.sortedSubjects,
+    parsedHospital.sortedSubjects,
+    metadataHospital.processedSubjects,
+    parsedHospital.processedSubjects
+  );
+}
+
 function excerpt(value: string | null | undefined, maxLength = 160) {
   const trimmed = value?.replace(/\s+/g, ' ').trim();
   if (!trimmed) return null;
@@ -124,7 +143,8 @@ function serializeStoreFacts(store: StoreRecord) {
       parsed.hours
     ),
     closedDays: firstDisplayValue(metadata.closedDays, parsed.closedDays),
-    parking: parkingValue(metadata.parkingNote, parsed.parkingNote, metadata.parking, parsed.parking)
+    parking: parkingValue(metadata.parkingNote, parsed.parkingNote, metadata.parking, parsed.parking),
+    representativeTreatmentSubjects: representativeTreatmentSubjectsValue(metadata, parsed)
   };
 }
 
@@ -297,6 +317,33 @@ function itemPayload(item: CollectionItem, analysisSummary: string | null, score
   };
 }
 
+function unique(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+function fieldSpecificAnalysisSummary(metadata: JsonValue, candidateFieldKeys: string[]) {
+  const metadataRecord = asRecord(metadata);
+  const fieldEvidence = asRecord(metadataRecord.fieldEvidence);
+  for (const fieldKey of candidateFieldKeys) {
+    const evidence = asRecord(fieldEvidence[fieldKey]);
+    const summary = asString(evidence.summary);
+    if (summary) return summary;
+  }
+  return null;
+}
+
+function fallbackFieldSpecificSummary(field: RulesetField, requestedFieldKey: string, baseSummary: string | null | undefined) {
+  if (!baseSummary) return null;
+  const label = sourceMatrixForFieldKey(requestedFieldKey)?.label
+    ?? sourceMatrixForFieldKey(field.fieldKey)?.label
+    ?? requestedFieldKey;
+  const fieldValue = excerpt(field.finalValue || field.aiValue || field.fieldValue, 120);
+  const separator = fieldValue && /[.!?。？！.]$/.test(fieldValue) ? ' ' : '. ';
+  return fieldValue
+    ? `${label} 산출 근거: ${fieldValue}${separator}수집 근거: ${baseSummary}`
+    : `${label} 산출 근거: ${baseSummary}`;
+}
+
 export function buildRulesetFieldEvidence(repos: Repositories, storeId: string, fieldKey: string) {
   const context = rulesetFieldContext(repos, storeId, fieldKey);
   if (!context) return null;
@@ -309,13 +356,23 @@ export function buildRulesetFieldEvidence(repos: Repositories, storeId: string, 
       .filter((item) => item.collectionItemId)
       .map((item) => [item.collectionItemId as string, item])
   );
+  const candidateFieldKeys = unique([
+    fieldKey,
+    context.field.fieldKey,
+    canonicalRulesetFieldKey(fieldKey),
+    canonicalRulesetFieldKey(context.field.fieldKey)
+  ]);
 
   const evidence = evidenceItemIds
     .map((itemId) => {
       const item = repos.collectionItems.findById(itemId);
       if (!item) return null;
       const analysisEvidence = evidenceByItemId.get(item.id);
-      return itemPayload(item, analysisEvidence?.summary ?? null, analysisEvidence?.score ?? null);
+      const analysisSummary = analysisEvidence
+        ? fieldSpecificAnalysisSummary(analysisEvidence.metadata, candidateFieldKeys)
+          ?? fallbackFieldSpecificSummary(context.field, fieldKey, analysisEvidence.summary)
+        : null;
+      return itemPayload(item, analysisSummary, analysisEvidence?.score ?? null);
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 

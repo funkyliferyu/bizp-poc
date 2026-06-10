@@ -336,6 +336,87 @@ describe('marketing ruleset API', () => {
     });
   });
 
+  it('returns real healthcare representative treatment subjects before mock menu values', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.create({
+      id: 'store_healthcare_subjects',
+      name: '서구연세정형외과의원',
+      naverPlaceUrl: 'https://m.place.naver.com/place/12841526/home',
+      naverPlaceId: '12841526',
+      category: '의료/건강 > 병원/클리닉 > 정형외과',
+      address: '인천 서구 가정로394번길 1 백천빌딩',
+      phone: '032-582-7582',
+      description: null,
+      metadata: {
+        naverPlaceParsed: {
+          hospitalInfo: {
+            subjects: ['정형외과', '내과', '신경외과', '재활의학과']
+          }
+        }
+      }
+    });
+    repos.collectionRuns.create({
+      id: 'collection_run_healthcare_subjects',
+      storeId: 'store_healthcare_subjects',
+      status: 'completed',
+      mode: 'mock',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {}
+    });
+    repos.analysisRuns.create({
+      id: 'analysis_run_healthcare_subjects',
+      storeId: 'store_healthcare_subjects',
+      collectionRunId: 'collection_run_healthcare_subjects',
+      status: 'completed',
+      startedAt: '2026-06-10T00:00:01.000Z',
+      completedAt: '2026-06-10T00:00:02.000Z',
+      result: {},
+      error: null
+    });
+    repos.learningSnapshots.create({
+      id: 'learning_snapshot_healthcare_subjects',
+      storeId: 'store_healthcare_subjects',
+      analysisRunId: 'analysis_run_healthcare_subjects',
+      status: 'active',
+      snapshot: {}
+    });
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_healthcare_subjects',
+      storeId: 'store_healthcare_subjects',
+      learningSnapshotId: 'learning_snapshot_healthcare_subjects',
+      status: 'draft',
+      version: 1,
+      ruleset: {}
+    });
+    repos.rulesetFields.create({
+      id: 'ruleset_field_healthcare_mock_menu',
+      rulesetId: 'marketing_ruleset_healthcare_subjects',
+      fieldKey: 'representativeMenu',
+      fieldValue: '커스텀 레터링 케이크, 딸기 생크림 케이크',
+      aiValue: '커스텀 레터링 케이크, 딸기 생크림 케이크',
+      userValue: null,
+      finalValue: '커스텀 레터링 케이크, 딸기 생크림 케이크',
+      source: 'mock_analyzer',
+      locked: 0,
+      evidenceItemIds: [],
+      confidence: 0.5
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_healthcare_subjects/strategy-ruleset`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.storeFacts).toMatchObject({
+      representativeTreatmentSubjects: '정형외과, 내과, 신경외과, 재활의학과'
+    });
+    expect(body.sourceMatrix.find((row: { fieldKey: string }) => row.fieldKey === 'representativeTreatmentSubjects')).toMatchObject({
+      label: '대표 진료과목',
+      currentValue: '정형외과, 내과, 신경외과, 재활의학과'
+    });
+    expect(body.storeFacts.representativeTreatmentSubjects).not.toContain('커스텀 레터링 케이크');
+  });
+
   it('persists user edits, locks the field, and can reset to the AI value', async () => {
     const editedValue = '분당 기념일 레터링 케이크 예약 전문점';
     const editResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/positioning`, {
@@ -398,8 +479,11 @@ describe('marketing ruleset API', () => {
   it('returns linked evidence with short collection item excerpts', async () => {
     const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/positioning/evidence`);
     const body = await readJson(response);
+    const weaknessResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/reviewWeakness/evidence`);
+    const weaknessBody = await readJson(weaknessResponse);
 
     expect(response.status).toBe(200);
+    expect(weaknessResponse.status).toBe(200);
     expect(body.field).toMatchObject({
       fieldKey: 'positioning'
     });
@@ -417,10 +501,121 @@ describe('marketing ruleset API', () => {
           channel: 'place',
           sourceType: 'review',
           title: '플레이스 리뷰 요약',
-          analysisSummary: expect.stringContaining('친절한 상담')
+          analysisSummary: expect.stringContaining('포지셔닝')
         })
       ])
     );
+    expect(weaknessBody.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          collectionItemId: 'collection_item_demo_place_review',
+          analysisSummary: expect.stringContaining('리뷰 약점')
+        })
+      ])
+    );
+    expect(weaknessBody.evidence[0].analysisSummary).not.toBe(body.evidence[0].analysisSummary);
     expect(body.evidence[0]).not.toHaveProperty('bodyText');
+  });
+
+  it('synthesizes field-specific evidence copy for legacy evidence without field metadata', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.create({
+      id: 'store_legacy_evidence',
+      name: '레거시 근거 매장',
+      naverPlaceUrl: null,
+      naverPlaceId: null,
+      category: 'bakery',
+      address: '서울 중구',
+      phone: null,
+      description: null,
+      metadata: {}
+    });
+    repos.collectionRuns.create({
+      id: 'collection_run_legacy_evidence',
+      storeId: 'store_legacy_evidence',
+      status: 'completed',
+      mode: 'mock',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {}
+    });
+    repos.collectionItems.create({
+      id: 'collection_item_legacy_shared',
+      runId: 'collection_run_legacy_evidence',
+      storeId: 'store_legacy_evidence',
+      channel: 'place',
+      sourceType: 'review',
+      status: 'collected',
+      sourceUrl: null,
+      title: '공통 리뷰 근거',
+      bodyText: '상담은 친절하지만 주차 안내가 부족하다는 리뷰가 함께 존재합니다.',
+      selectedForAnalysis: 1,
+      selectionReason: 'shared legacy evidence',
+      selectedAt: '2026-06-10T00:00:01.000Z',
+      metadata: {}
+    });
+    repos.analysisRuns.create({
+      id: 'analysis_run_legacy_evidence',
+      storeId: 'store_legacy_evidence',
+      collectionRunId: 'collection_run_legacy_evidence',
+      status: 'completed',
+      startedAt: '2026-06-10T00:00:01.000Z',
+      completedAt: '2026-06-10T00:00:02.000Z',
+      result: {},
+      error: null
+    });
+    repos.analysisEvidence.create({
+      id: 'analysis_evidence_legacy_shared',
+      analysisRunId: 'analysis_run_legacy_evidence',
+      collectionItemId: 'collection_item_legacy_shared',
+      evidenceType: 'review',
+      summary: '상담 친절도와 주차 안내 이슈가 함께 언급됩니다.',
+      score: 0.81,
+      metadata: {}
+    });
+    repos.learningSnapshots.create({
+      id: 'learning_snapshot_legacy_evidence',
+      storeId: 'store_legacy_evidence',
+      analysisRunId: 'analysis_run_legacy_evidence',
+      status: 'active',
+      snapshot: {}
+    });
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_legacy_evidence',
+      storeId: 'store_legacy_evidence',
+      learningSnapshotId: 'learning_snapshot_legacy_evidence',
+      status: 'draft',
+      version: 1,
+      ruleset: {}
+    });
+    for (const [fieldKey, value] of [
+      ['storePositioning', '서울 중구 예약 상담형 케이크 전문점'],
+      ['reviewWeakness', '주차 안내를 더 명확히 제공해야 함']
+    ]) {
+      repos.rulesetFields.create({
+        id: `ruleset_field_legacy_${fieldKey}`,
+        rulesetId: 'marketing_ruleset_legacy_evidence',
+        fieldKey,
+        fieldValue: value,
+        aiValue: value,
+        userValue: null,
+        finalValue: value,
+        source: 'analysis',
+        locked: 0,
+        evidenceItemIds: ['collection_item_legacy_shared'],
+        confidence: 0.8
+      });
+    }
+
+    const positioningResponse = await fetch(`${baseUrl}/api/stores/store_legacy_evidence/strategy-ruleset/fields/storePositioning/evidence`);
+    const weaknessResponse = await fetch(`${baseUrl}/api/stores/store_legacy_evidence/strategy-ruleset/fields/reviewWeakness/evidence`);
+    const positioning = await readJson(positioningResponse);
+    const weakness = await readJson(weaknessResponse);
+
+    expect(positioningResponse.status).toBe(200);
+    expect(weaknessResponse.status).toBe(200);
+    expect(positioning.evidence[0].analysisSummary).toContain('포지셔닝 산출 근거');
+    expect(weakness.evidence[0].analysisSummary).toContain('리뷰 약점 산출 근거');
+    expect(positioning.evidence[0].analysisSummary).not.toBe(weakness.evidence[0].analysisSummary);
   });
 });

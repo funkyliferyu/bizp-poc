@@ -145,6 +145,23 @@ const DIRECT_SOURCE_MATRIX = [
     automationStatus: 'ai_processing',
     futureSuggestion: 'Show direct intro in store tab and use AI only for shorter positioning copy.',
     notes: 'Preserve owner-written intro before AI summary.'
+  }),
+  row({
+    fieldKey: 'representativeTreatmentSubjects',
+    label: '대표 진료과목',
+    section: 'brand',
+    valueKind: 'list',
+    sourceTier: 'place_direct',
+    currentImplementation: 'Returned from healthcare Place/store metadata before generic representativeMenu ruleset values.',
+    inputSources: [
+      'metadata.naverPlaceParsed.hospitalInfo.subjects',
+      'metadata.hospitalInfo.subjects',
+      'metadata.naverPlaceParsed.representativeTreatmentSubjects'
+    ],
+    requiresAi: false,
+    automationStatus: 'available_now',
+    futureSuggestion: 'Keep healthcare treatment subjects as direct facts and use AI only for prioritization copy.',
+    notes: 'Healthcare-specific replacement for representativeMenu in the brand analysis tab.'
   })
 ] as const;
 

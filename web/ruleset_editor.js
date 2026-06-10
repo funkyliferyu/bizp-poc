@@ -156,6 +156,7 @@
     const label = element.querySelector('.ruleset-label');
     if (!label) return;
     label.querySelectorAll('.src-ai,.src-edited,.ruleset-lock-badge').forEach((badge) => badge.remove());
+    if (isBrandAnalysisRulesetField(element)) return;
     const source = sourceLabel(rulesetField.source, rulesetField.locked);
     const sourceBadge = document.createElement('span');
     sourceBadge.className = source.className;
@@ -176,7 +177,7 @@
     row.className = 'ruleset-action-row';
     row.innerHTML = [
       '<button type="button" class="ruleset-action-btn" data-ruleset-action="save">저장</button>',
-      '<button type="button" class="ruleset-action-btn" data-ruleset-action="reset">AI 원값</button>',
+      '<button type="button" class="ruleset-action-btn" data-ruleset-action="reset">초기화</button>',
       '<button type="button" class="ruleset-action-btn" data-ruleset-action="evidence">근거 보기</button>',
       '<span class="ruleset-field-state" data-ruleset-state>수정 가능</span>'
     ].join('');
@@ -211,7 +212,7 @@
 
     const row = ensureActionRow(element);
     const state = row.querySelector('[data-ruleset-state]');
-    if (state) state.textContent = rulesetField.locked ? '수정값 고정' : 'AI 원값';
+    if (state) state.textContent = rulesetField.locked ? '수정값 고정' : '초기화';
     renderRulesetSourceNote(element, rulesetField.sourceMatrix || matrixForFieldKey(rulesetField.fieldKey));
   }
 
@@ -236,6 +237,10 @@
     return Boolean(element?.closest('#sec-write') && element.dataset.rulesetField);
   }
 
+  function isBrandAnalysisRulesetField(element) {
+    return Boolean(element?.closest('#sec-brand') && element.dataset.rulesetField);
+  }
+
   function isImageStyleRulesetField(element) {
     return Boolean(element?.closest('#sec-img') && element.dataset.rulesetField);
   }
@@ -243,12 +248,16 @@
   function shouldRenderRulesetSourceNote(element) {
     const fieldKey = element?.dataset.rulesetField;
     if (isStoreInfoRulesetField(element) && APPLIED_STORE_INFO_FIELDS.has(fieldKey)) return false;
-    return !isStoreInfoRulesetField(element) && !isWritingStyleRulesetField(element) && !isImageStyleRulesetField(element);
+    return !isStoreInfoRulesetField(element) && !isBrandAnalysisRulesetField(element) && !isWritingStyleRulesetField(element) && !isImageStyleRulesetField(element);
   }
 
   function directFactValue(storeFacts, fieldKey) {
     if (!storeFacts || !fieldKey) return null;
     return storeFacts[fieldKey] ?? null;
+  }
+
+  function representativeTreatmentSubjectsValue(storeFacts) {
+    return storeFacts.representativeTreatmentSubjects ?? null;
   }
 
   function normalizeParkingRulesetValue(value) {
@@ -282,6 +291,9 @@
   function preferredCurrentValue(payload, fieldKey, existingValue) {
     const matrix = matrixForFieldKey(fieldKey);
     const matrixCurrentValue = matrix ? matrix.currentValue : null;
+    if (fieldKey === 'representativeTreatmentSubjects') {
+      return representativeTreatmentSubjectsValue(payload.storeFacts || {}) ?? matrixCurrentValue ?? existingValue;
+    }
     if (APPLIED_STORE_INFO_FIELDS.has(fieldKey)) {
       const nextValue = directFactValue(payload.storeFacts, fieldKey) ?? matrixCurrentValue ?? existingValue;
       return fieldKey === 'parking' ? normalizeParkingRulesetValue(nextValue) : nextValue;
@@ -331,7 +343,7 @@
       const label = field.querySelector('[data-industry-label]');
       const button = field.querySelector('[data-reference-key]');
       field.dataset.rulesetField = isHealthcare ? 'representativeTreatmentSubjects' : 'representativeMenu';
-      field.dataset.rulesetAliases = isHealthcare ? 'representativeMenu' : '';
+      field.dataset.rulesetAliases = '';
       if (label) label.textContent = isHealthcare ? '대표 진료과목' : '대표 메뉴';
       if (button) {
         button.dataset.referenceKey = isHealthcare ? 'treatmentSubject' : 'menu';
@@ -513,12 +525,13 @@
     const payload = await resetRulesetField(storeId, fieldKey);
     updateFieldInMemory(payload.field);
     renderRulesetField(element, payload.field);
-    setState(element, 'AI 원값');
+    setState(element, '초기화');
   }
 
   function showEvidenceModal(payload) {
-    field('benchmarkEvidenceTitle').textContent = `${payload.field.fieldKey} 근거 보기`;
-    field('benchmarkEvidenceDesc').textContent = '룰셋 필드와 연결된 수집 콘텐츠 근거입니다.';
+    const label = payload.field.sourceMatrix?.label || payload.field.fieldKey;
+    field('benchmarkEvidenceTitle').textContent = `${label} 근거 보기`;
+    field('benchmarkEvidenceDesc').textContent = '이 항목을 산출할 때 연결된 수집 콘텐츠 근거입니다.';
     field('benchmarkEvidenceList').innerHTML = (payload.evidence || [])
       .map((item) => {
         const summary = item.analysisSummary || item.excerpt || '-';

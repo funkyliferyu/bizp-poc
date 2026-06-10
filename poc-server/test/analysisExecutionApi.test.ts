@@ -98,6 +98,16 @@ describe('analysis execution API', () => {
         'collection_item_demo_place_review'
       ])
     );
+    expect(evidence.find((item) => item.collectionItemId === 'collection_item_demo_place_review')?.metadata).toMatchObject({
+      fieldEvidence: {
+        reviewWeakness: {
+          summary: expect.stringContaining('리뷰 약점')
+        },
+        storePositioning: {
+          summary: expect.stringContaining('포지셔닝')
+        }
+      }
+    });
     expect(fields.map((field) => field.fieldKey)).toEqual(
       expect.arrayContaining([
         'storePositioning',

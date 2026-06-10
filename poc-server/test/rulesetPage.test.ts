@@ -39,7 +39,7 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).not.toContain('NAVER_CLIENT');
   });
 
-  it('renders remaining source matrix containers and field hooks for currently static ruleset rows', () => {
+  it('renders API-backed field hooks without visible automatic-input matrices in cleaned tabs', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
     const writeSection = extractSection(html, '<!-- 글쓰기 스타일 -->', '<!-- 이미지 스타일 -->');
@@ -62,7 +62,7 @@ describe('marketing ruleset static page API wiring', () => {
     ];
 
     expect(html).not.toContain('data-source-matrix-section="store"');
-    expect(html).toContain('data-source-matrix-section="brand"');
+    expect(html).not.toContain('data-source-matrix-section="brand"');
     expect(html).not.toContain('data-source-matrix-section="image_common,image_instagram,image_blog"');
     expect(writeSection).not.toContain('data-source-matrix-section="write_common,write_instagram,write_blog"');
     expect(writeSection).not.toContain('자동 입력 기준');
@@ -73,8 +73,23 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).toContain('payload.sourceMatrix');
     expect(js).toContain('payload.storeFacts');
     expect(js).toContain('matrix.currentValue');
-    expect(js).toContain('currentImplementation');
-    expect(js).toContain('futureSuggestion');
+  });
+
+  it('cleans up the our-store-analysis tab for product-facing editing', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
+    const brandSection = extractSection(html, '<!-- 우리 매장 분석 -->', '<!-- 글쓰기 스타일 -->');
+
+    expect(brandSection).toContain('우리 매장 분석');
+    expect(brandSection).not.toContain('data-source-matrix-section="brand"');
+    expect(brandSection).not.toContain('자동 입력 기준');
+    expect(brandSection).not.toContain('AI 처리');
+    expect(brandSection).not.toContain('AI 판단');
+    expect(brandSection).not.toContain('개선 제안');
+    expect(js).toContain('function isBrandAnalysisRulesetField');
+    expect(js).toContain('!isBrandAnalysisRulesetField(element)');
+    expect(js).not.toContain('AI 원값');
+    expect(js).toContain('초기화');
   });
 
   it('renders image style as a red common example without visible source notes or matrix', () => {
@@ -258,6 +273,9 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).toContain('function isHealthcareStore');
     expect(js).toContain('function configureIndustryFields');
     expect(js).toContain("field.dataset.rulesetField = isHealthcare ? 'representativeTreatmentSubjects' : 'representativeMenu';");
+    expect(js).toContain('function representativeTreatmentSubjectsValue');
+    expect(js).toContain('storeFacts.representativeTreatmentSubjects');
+    expect(js).not.toContain("field.dataset.rulesetAliases = isHealthcare ? 'representativeMenu' : '';");
     expect(js).toContain("button.dataset.referenceKey = isHealthcare ? 'treatmentSubject' : 'menu';");
     expect(js).toContain("label.textContent = isHealthcare ? '대표 진료과목' : '대표 메뉴';");
   });

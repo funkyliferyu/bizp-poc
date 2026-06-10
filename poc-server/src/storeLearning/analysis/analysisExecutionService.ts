@@ -6,9 +6,11 @@ import type { LearningSnapshot } from '../../repositories/learning_snapshots.js'
 import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import { canonicalRulesetFieldKey, sourceMatrixForFieldKey } from '../rulesets/rulesetSourceMatrix.js';
 import { createMockAnalysisProvider, type AnalysisProvider, validateAnalyzerOutput } from './analyzer.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
+type ValidatedAnalyzerOutput = ReturnType<typeof validateAnalyzerOutput>;
 export type AnalysisArtifacts = {
   analysisRun: AnalysisRun;
   analysisEvidence: AnalysisEvidence[];
@@ -176,6 +178,47 @@ function rulesetFieldId(marketingRulesetId: string, fieldKey: string) {
   return `ruleset_field_${marketingRulesetId}_${sanitizeIdPart(fieldKey)}`;
 }
 
+function compactText(value: unknown, maxLength = 140) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+function rulesetFieldLabel(fieldKey: string) {
+  return sourceMatrixForFieldKey(fieldKey)?.label ?? fieldKey;
+}
+
+function rulesetFieldEvidenceAliases(fieldKey: string) {
+  const aliases = new Set([fieldKey, canonicalRulesetFieldKey(fieldKey)]);
+  if (fieldKey === 'storePositioning') aliases.add('positioning');
+  return Array.from(aliases);
+}
+
+function fieldEvidenceByCollectionItemId(output: ValidatedAnalyzerOutput) {
+  const evidenceSummaryByItemId = new Map(
+    output.evidence.map((evidence) => [evidence.collectionItemId, evidence.summary])
+  );
+  const result = new Map<string, Record<string, { summary: string }>>();
+
+  for (const field of output.rulesetFields) {
+    const label = rulesetFieldLabel(field.fieldKey);
+    const fieldValue = compactText(field.finalValue || field.aiValue);
+    if (!fieldValue) continue;
+    const aliases = rulesetFieldEvidenceAliases(field.fieldKey);
+    for (const collectionItemId of field.evidenceItemIds) {
+      const baseSummary = compactText(evidenceSummaryByItemId.get(collectionItemId));
+      const summary = `${label} 산출 근거: ${fieldValue}${baseSummary ? `. 수집 근거: ${baseSummary}` : ''}`;
+      const existing = result.get(collectionItemId) ?? {};
+      for (const alias of aliases) {
+        existing[alias] = { summary };
+      }
+      result.set(collectionItemId, existing);
+    }
+  }
+
+  return result;
+}
+
 export function getAnalysisArtifacts(repos: Repositories, analysisRunId: string): AnalysisArtifacts | null {
   const analysisRun = repos.analysisRuns.findById(analysisRunId);
   if (!analysisRun) return null;
@@ -253,6 +296,7 @@ export async function startAnalysisRun(
     updateAnalysisProgress(repos, analysisRun.id, 'validating', 'running');
     validateAnalyzerReferences(output, selectedItems);
     updateAnalysisProgress(repos, analysisRun.id, 'evidence', 'running');
+    const fieldEvidenceByItemId = fieldEvidenceByCollectionItemId(output);
     const evidenceRows = output.evidence.map((evidence, index) =>
       repos.analysisEvidence.upsert({
         id: evidenceId(analysisRun.id, index),
@@ -263,7 +307,8 @@ export async function startAnalysisRun(
         score: evidence.score,
         metadata: {
           provider: provider.name,
-          mode: provider.mode
+          mode: provider.mode,
+          fieldEvidence: fieldEvidenceByItemId.get(evidence.collectionItemId) ?? {}
         }
       })
     );

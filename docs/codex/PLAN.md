@@ -55,15 +55,10 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. Execute milestone 12 Task 13 from
-   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` on
-   `codex/collection-delta-plan`.
-2. Re-run feature-branch validation after Task 13 is complete.
-3. Hold PR #38 until Task 13 is implemented and validated.
-4. Merge PR #38 to `develop` once the base branch policy requirement is
+1. Merge PR #38 to `develop` once the base branch policy requirement is
    satisfied by an authorized reviewer/admin.
-5. Run final develop validation after the CR follow-up work is merged.
-6. Prepare the `develop` -> `main` promotion path only after validation passes
+2. Run final develop validation after the CR follow-up work is merged.
+3. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 ## Milestone Ledger
@@ -81,7 +76,7 @@ Current next todo as of 2026-06-10:
 | 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
 | 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
 | 11 | 실등록 Store E2E 하드닝 | Merged to develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Awaiting post-CR final validation |
-| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | New Task 13 planned; execute before merge |
+| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Task 13 implemented and feature-branch validated; merge pending authorized reviewer |
 | 13 | 최종 문서/검증 정리 | Not started | - | Run after CR follow-up merges |
 
 ## Sequential Checklist
@@ -180,7 +175,7 @@ Status:
 - [x] Feature-branch validation is recorded in `docs/codex/VALIDATION.md`.
 - [x] Task 12 parking manual-input CTA is implemented and feature-branch
       validated.
-- [ ] Task 13 our-store-analysis cleanup is implemented and feature-branch
+- [x] Task 13 our-store-analysis cleanup is implemented and feature-branch
       validated.
 - [ ] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
@@ -475,11 +470,10 @@ The current implementation stack should be integrated in this order:
 #26 -> #27 -> #28 -> #29 -> #30 -> #31 -> #32 -> #33 -> #34 -> #36 -> #37 -> CR follow-up
 ```
 
-PRs #26-#34, #36, and #37 have been merged to `develop`. Milestone 12 has new
-our-store-analysis CR follow-up planned as Task 13 on
-`codex/collection-delta-plan`; the next todo is Task 13 execution,
-feature-branch validation, PR review/merge to `develop`, and final develop
-validation.
+PRs #26-#34, #36, and #37 have been merged to `develop`. Milestone 12
+our-store-analysis CR follow-up is implemented as Task 13 on
+`codex/collection-delta-plan`; the next todo is PR #38 review/merge to
+`develop`, then final develop validation.
 
 ## Validation Commands
 
