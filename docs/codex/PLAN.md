@@ -55,10 +55,14 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-10:
 
-1. Merge PR #38 to `develop` once the base branch policy requirement is
-   satisfied by an authorized reviewer/admin.
-2. Run final develop validation after the CR follow-up work is merged.
-3. Prepare the `develop` -> `main` promotion path only after validation passes
+1. Implement Task 17 in
+   `docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md` on
+   `codex/collection-delta-plan` when the user says to proceed.
+2. Merge PR #38 to `develop` after Task 17 is implemented and validated, once
+   the base branch policy requirement is satisfied by an authorized
+   reviewer/admin.
+3. Run final develop validation after the CR follow-up work is merged.
+4. Prepare the `develop` -> `main` promotion path only after validation passes
    and the user approves publication timing.
 
 ## Milestone Ledger
@@ -76,7 +80,7 @@ Current next todo as of 2026-06-10:
 | 9 | 블로그 관리/콘텐츠 상세 후속 정리 | Merged to develop | [#34](https://github.com/funkyliferyu/bizp-poc/pull/34) | Awaiting final validation |
 | 10 | 마케팅 전략 룰셋 API 계약 후속 | Merged to develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Awaiting final validation |
 | 11 | 실등록 Store E2E 하드닝 | Merged to develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Awaiting post-CR final validation |
-| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Task 16 feature-branch validation passed; merge PR #38 then validate on develop |
+| 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Implementation PR open | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), branch `codex/collection-delta-plan` | Task 17 planned; implement/validate before PR #38 merge |
 | 13 | 최종 문서/검증 정리 | Not started | - | Run after CR follow-up merges |
 
 ## Sequential Checklist
@@ -183,6 +187,8 @@ Status:
       feature-branch validated.
 - [x] Task 16 review-weakness legacy backfill is implemented and
       feature-branch validated.
+- [ ] Task 17 required-footer store-name/action-state cleanup is implemented
+      and feature-branch validated.
 - [ ] PR is merged to `develop`.
 - [ ] Develop validation is recorded in `docs/codex/VALIDATION.md`.
 

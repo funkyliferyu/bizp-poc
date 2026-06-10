@@ -10,6 +10,11 @@ https://github.com/funkyliferyu/bizp-poc/pull/38
 Non-admin merge attempts are currently blocked by the `develop` base branch
 policy, and repository auto-merge is disabled.
 
+Task 17 is now planned and pending implementation before PR #38 merge:
+required medical Blog footer copy must replace example-only `테라스의원` with
+the current store/hospital name, and action rows should keep the `초기화`
+button but remove the redundant trailing `초기화` state text.
+
 Task 14 completed for the marketing strategy ruleset > 글쓰기 스타일 tab:
 save/reset actions are rendered for editable rows, `근거 보기` is omitted from
 the writing-style tab, `writingStyleInsights` supplies server-derived
@@ -215,8 +220,10 @@ Latest feature-branch validation recorded:
   writing-tab evidence buttons, API-backed `개선 제안`/`현행유지` suggestion
   states, and placeholder rows marked with `data-placeholder-value="true"`.
 
-Next step: have an authorized reviewer/admin satisfy the PR #38 `develop` base
-branch policy and merge it to `develop`; after merge, run develop validation.
+Next step: implement and validate Task 17 from
+`docs/codex/MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md`, then have an
+authorized reviewer/admin satisfy the PR #38 `develop` base branch policy and
+merge it to `develop`; after merge, run develop validation.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 
