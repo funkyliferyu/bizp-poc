@@ -22,13 +22,24 @@ live analysis runs.
 
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR
 
-Milestone 12 follow-up is implemented through Task 18 on
-`codex/collection-delta-plan`.
-PR #38 is open and ready for review against `develop`:
+Milestone 12 follow-up is implemented through Task 18, merged to `develop`,
+and validated on `develop`.
+
+PR #38:
 https://github.com/funkyliferyu/bizp-poc/pull/38
 
-Non-admin merge attempts are currently blocked by the `develop` base branch
-policy, and repository auto-merge is disabled.
+Merge commit: `204f964`
+
+Develop validation after the PR #38 merge passed on 2026-06-10:
+
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test`
+- `cd poc-server && npm run demo:store-learning`
+- `git diff --check`
+- localhost smoke for `web/llm호출.html`
+
+Next implementation track:
+`docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
 
 Task 17 completed for the 글쓰기 스타일 required footer/action row cleanup:
 required medical Blog footer copy replaces example-only `테라스의원` with the
@@ -252,8 +263,10 @@ Latest feature-branch validation recorded:
   재사용합니다.` for a run whose Place delta is `new: 0`, `duplicate: 50`,
   `unchanged: 1`.
 
-Next step: have an authorized reviewer/admin satisfy the PR #38 `develop` base
-branch policy and merge it to `develop`; after merge, run develop validation.
+Next step: start the LLM call audit and analysis prompt-budget follow-up from
+`docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md` on a new `codex/*` branch
+from latest `develop`, unless the user explicitly chooses publication or final
+cleanup first.
 
 ## MILESTONE-07-FOLLOWUP-RULESET-CONTRACT
 

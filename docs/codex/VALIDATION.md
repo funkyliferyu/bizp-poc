@@ -1,5 +1,56 @@
 # Validation
 
+## PR #38 Develop Validation
+
+PR #38, `[codex] Handle collection delta relearning follow-up`, was merged to
+`develop` on 2026-06-10.
+
+- PR: https://github.com/funkyliferyu/bizp-poc/pull/38
+- Merge commit: `204f964`
+- Validation worktree: `/tmp/bizp-pr38-develop-validate`
+- Validation basis: `origin/develop` at merge commit `204f964`
+
+Commands:
+
+```bash
+cd poc-server
+npm ci
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+git diff --check
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
+  "http://localhost:5177/llm%ED%98%B8%EC%B6%9C.html"
+```
+
+Result:
+
+- PASS, `npm ci` installed 252 packages in the clean develop validation
+  worktree.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 36 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 216 tests passed and 6 live-provider tests skipped by default.
+- PASS, Store Learning demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 3
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `git diff --check`.
+- PASS, localhost smoke for the temporary LLM call audit page:
+  `200 text/html; charset=UTF-8`.
+
+Notes:
+
+- The primary worktree still has the existing out-of-scope `.DS_Store`
+  modification; it was not staged.
+- The clean validation worktree created ignored local artifacts such as
+  `node_modules` and `poc-server/data/store-learning.sqlite`.
+- The next planned implementation is
+  `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
+
 ## MILESTONE-12-COLLECTION-DELTA-RELEARNING-CR Task 16 Final Validation
 
 Task 16 fixes the 우리 매장 분석 `리뷰 약점` legacy fallback issue:
