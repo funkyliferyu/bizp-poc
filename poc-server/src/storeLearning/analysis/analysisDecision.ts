@@ -105,6 +105,10 @@ function itemDeltaState(item: AnalysisDecisionItem) {
   return asString(asRecord(item.metadata).collectionDelta);
 }
 
+function itemRulesetEvidenceState(item: AnalysisDecisionItem) {
+  return asString(asRecord(item.metadata).rulesetEvidenceState);
+}
+
 function isBlogPost(item: AnalysisDecisionItem) {
   return item.channel === 'blog' && item.sourceType === 'post';
 }
@@ -123,7 +127,7 @@ function hasNewOrChangedDelta(item: AnalysisDecisionItem) {
 }
 
 function hasNewDelta(item: AnalysisDecisionItem) {
-  return itemDeltaState(item) === 'new';
+  return itemRulesetEvidenceState(item) !== 'already_learned' && itemDeltaState(item) === 'new';
 }
 
 function selectedCounts(items: readonly AnalysisDecisionItem[]): AnalysisSelectedCounts {

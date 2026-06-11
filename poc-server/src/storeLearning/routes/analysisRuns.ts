@@ -11,6 +11,7 @@ import {
 import { getAnalysisArtifacts, getLatestAnalysisArtifacts, startAnalysisRun } from '../analysis/analysisExecutionService.js';
 import type { AnalysisProvider } from '../analysis/analyzer.js';
 import { createAnalysisProvider } from '../analysis/openAIAnalysisProvider.js';
+import { createRulesetEvidenceClassifier } from '../learning/rulesetEvidenceState.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 import { backfillRulesetContractFields } from '../rulesets/rulesetContractBackfill.js';
 
@@ -195,13 +196,26 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
         return;
       }
 
-      const collectedItems = repos.collectionItems
+      const runCollectedItems = repos.collectionItems
         .listByRunId(collectionRun.id)
         .filter((item) => item.storeId === store.id && item.status === 'collected');
-      const collectedById = new Map(collectedItems.map((item) => [item.id, item]));
       const selectedIdSet = new Set(body.selectedItemIds);
+      const storeCollectedItemsById = new Map(
+        repos.collectionItems
+          .listByStoreId(store.id)
+          .filter((item) => item.status === 'collected')
+          .map((item) => [item.id, item])
+      );
+      const selectedOutsideRunItems = Array.from(selectedIdSet)
+        .map((itemId) => storeCollectedItemsById.get(itemId))
+        .filter((item): item is CollectionItem => Boolean(item));
+      const collectedItems = [
+        ...runCollectedItems,
+        ...selectedOutsideRunItems.filter((item) => !runCollectedItems.some((runItem) => runItem.id === item.id))
+      ];
+      const collectedById = new Map(collectedItems.map((item) => [item.id, item]));
 
-      for (const item of collectedItems) {
+      for (const item of runCollectedItems) {
         if (item.sourceType === 'profile') selectedIdSet.add(item.id);
       }
 
@@ -211,7 +225,8 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
         return;
       }
 
-      const selectedItems = Array.from(selectedIdSet).map((itemId) => collectedById.get(itemId) as CollectionItem);
+      const classifier = createRulesetEvidenceClassifier(repos, store.id);
+      const selectedItems = Array.from(selectedIdSet).map((itemId) => classifier.withState(collectedById.get(itemId) as CollectionItem));
       const latestArtifacts = getLatestAnalysisArtifacts(repos, store.id);
       const analysisDecision = decideAnalysisExecution({
         collectionSummary: collectionRun.summary,

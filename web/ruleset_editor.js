@@ -554,21 +554,22 @@
       .join(' · ');
   }
 
-  function renderRulesetVersionDetail(payload) {
-    const detail = field('ruleset-version-detail');
-    if (!detail) return;
+  function renderRulesetVersionPreview(payload) {
+    const preview = field('ruleset-version-preview');
+    if (!preview) return;
     const ruleset = payload?.ruleset;
     if (!ruleset) {
-      detail.innerHTML = '<strong>버전 상세</strong>조회할 버전을 선택하세요.';
+      preview.innerHTML = '<div class="ruleset-version-preview-head"><div class="ruleset-version-preview-copy"><strong>버전 미리보기</strong>조회할 버전을 선택하세요.</div></div>';
       return;
     }
     const fields = payload.fields || [];
     const restored = ruleset.restoredFromVersion ? ` · v${ruleset.restoredFromVersion}에서 원복` : '';
-    detail.innerHTML = [
+    const canRestore = ruleset.isCurrent === false;
+    const body = [
       `<strong>v${escapeHtml(ruleset.version)} · ${escapeHtml(ruleset.status)}${escapeHtml(restored)}</strong>`,
-      `필드 ${fields.length}개`,
-      payload.analysis?.id ? `<br>분석 ${escapeHtml(payload.analysis.id)}` : '',
-      payload.learningSnapshot?.id ? `<br>스냅샷 ${escapeHtml(payload.learningSnapshot.id)}` : '',
+      `<span class="ruleset-version-meta">필드 ${fields.length}개</span>`,
+      payload.analysis?.id ? `<br><span class="ruleset-version-meta">분석 ${escapeHtml(payload.analysis.id)}</span>` : '',
+      payload.learningSnapshot?.id ? `<br><span class="ruleset-version-meta">스냅샷 ${escapeHtml(payload.learningSnapshot.id)}</span>` : '',
       '<div style="margin-top:6px">',
       fields
         .slice(0, 3)
@@ -576,26 +577,30 @@
         .join('<br>'),
       '</div>'
     ].join('');
+    preview.innerHTML = `<div class="ruleset-version-preview-head">
+      <div class="ruleset-version-preview-copy">${body}</div>
+      ${canRestore ? `<button type="button" class="ruleset-version-btn restore" data-ruleset-version-action="restore-preview" data-ruleset-id="${escapeHtml(ruleset.id)}">원복</button>` : ''}
+    </div>`;
   }
 
-  function renderRulesetVersions(versions) {
-    const list = field('ruleset-version-list');
-    if (!list) return;
+  function renderRulesetVersionSelect(versions, selectedRulesetId) {
+    const select = field('ruleset-version-select');
+    if (!select) return;
     const safeVersions = Array.isArray(versions) ? versions : [];
     if (safeVersions.length === 0) {
-      list.innerHTML = '<span class="ruleset-version-meta">생성된 버전 없음</span>';
+      select.innerHTML = '<option value="">버전 없음</option>';
+      select.disabled = true;
       return;
     }
-    list.innerHTML = safeVersions
+    select.disabled = false;
+    select.innerHTML = safeVersions
       .map((version) => {
         const restored = version.restoredFromVersion ? ` · restored v${version.restoredFromVersion}` : '';
-        return `<div class="ruleset-version-item ${version.isCurrent ? 'current' : ''}" data-ruleset-version-id="${escapeHtml(version.id)}">
-          <span class="ruleset-version-meta">v${escapeHtml(version.version)} · ${escapeHtml(version.status)}${escapeHtml(restored)} · ${escapeHtml(versionSourceSummary(version.sourceCounts))}</span>
-          <button type="button" class="ruleset-version-btn" data-ruleset-version-action="view" data-ruleset-id="${escapeHtml(version.id)}">조회</button>
-          ${version.isCurrent ? '' : `<button type="button" class="ruleset-version-btn restore" data-ruleset-version-action="restore" data-ruleset-id="${escapeHtml(version.id)}">원복</button>`}
-        </div>`;
+        const current = version.isCurrent ? ' · 현재' : '';
+        return `<option value="${escapeHtml(version.id)}">v${escapeHtml(version.version)}${current} · ${escapeHtml(version.status)}${escapeHtml(restored)} · ${escapeHtml(versionSourceSummary(version.sourceCounts))}</option>`;
       })
       .join('');
+    select.value = selectedRulesetId || safeVersions.find((version) => version.isCurrent)?.id || safeVersions[0].id;
   }
 
   function removeEmptyRulesetGuidance() {
@@ -794,25 +799,33 @@
       const rulesetId = button.dataset.rulesetId;
       if (!rulesetId) return;
       try {
-        if (button.dataset.rulesetVersionAction === 'view') {
-          renderRulesetVersionDetail(await loadRulesetVersion(storeId, rulesetId));
-          return;
-        }
-        if (button.dataset.rulesetVersionAction === 'restore') {
+        if (button.dataset.rulesetVersionAction === 'restore-preview') {
           button.disabled = true;
           button.textContent = '원복 중';
           const restored = await restoreRulesetVersion(storeId, rulesetId);
           renderRuleset(restored);
-          renderRulesetVersionDetail(restored);
+          renderRulesetVersionPreview(restored);
           const versions = await loadRulesetVersions(storeId);
-          renderRulesetVersions(versions.versions || []);
+          renderRulesetVersionSelect(versions.versions || [], restored.ruleset?.id);
         }
       } catch (error) {
         console.warn(error);
-        const detail = field('ruleset-version-detail');
-        if (detail) detail.innerHTML = '<strong>버전 처리 실패</strong>잠시 후 다시 시도해주세요.';
+        const preview = field('ruleset-version-preview');
+        if (preview) preview.innerHTML = '<div class="ruleset-version-preview-head"><div class="ruleset-version-preview-copy"><strong>버전 처리 실패</strong>잠시 후 다시 시도해주세요.</div></div>';
       } finally {
         button.disabled = false;
+      }
+    });
+
+    field('ruleset-version-select')?.addEventListener('change', async (event) => {
+      const rulesetId = event.target.value;
+      if (!rulesetId) return;
+      try {
+        renderRulesetVersionPreview(await loadRulesetVersion(storeId, rulesetId));
+      } catch (error) {
+        console.warn(error);
+        const preview = field('ruleset-version-preview');
+        if (preview) preview.innerHTML = '<div class="ruleset-version-preview-head"><div class="ruleset-version-preview-copy"><strong>버전 조회 실패</strong>잠시 후 다시 시도해주세요.</div></div>';
       }
     });
   }
@@ -831,8 +844,8 @@
         loadRulesetVersions(storeId)
       ]);
       renderRuleset(ruleset);
-      renderRulesetVersions(versions.versions || []);
-      renderRulesetVersionDetail(ruleset);
+      renderRulesetVersionSelect(versions.versions || [], ruleset.ruleset?.id);
+      renderRulesetVersionPreview(ruleset);
     } catch (error) {
       console.warn(error);
       const status = field('ruleset-status');

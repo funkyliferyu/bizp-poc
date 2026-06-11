@@ -128,6 +128,71 @@ describe('selection API', () => {
     expect(body.items).toEqual([]);
   });
 
+  it('returns cached unlearned content for no-new collection runs so the selection screen decides analysis', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.upsert({
+      id: 'collection_run_cached_previous',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-09T00:00:00.000Z',
+      completedAt: '2026-06-09T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 1, duplicate: 0, unchanged: 0, changed: 0 }
+        }
+      }
+    });
+    repos.collectionItems.upsert({
+      id: 'collection_item_cached_unlearned_blog',
+      runId: 'collection_run_cached_previous',
+      storeId: 'store_demo_cake',
+      channel: 'blog',
+      sourceType: 'post',
+      status: 'collected',
+      sourceUrl: 'https://blog.naver.com/demo-cake/cached-unlearned',
+      title: '아직 룰셋에 반영되지 않은 기존 블로그',
+      bodyText: '이전에 수집됐지만 마케팅 룰셋 생성에는 쓰이지 않은 블로그입니다.',
+      selectedForAnalysis: 0,
+      selectionReason: null,
+      selectedAt: null,
+      metadata: {
+        provider: 'naverBlogRenderedCollectionProvider',
+        publishedAt: '2026.06.01'
+      },
+      createdAt: '2026-06-09T00:00:00.000Z',
+      updatedAt: '2026-06-09T00:00:00.000Z'
+    });
+    repos.collectionRuns.upsert({
+      id: 'collection_run_cached_no_new',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: false,
+          counts: { new: 0, duplicate: 40, unchanged: 1, changed: 0 }
+        },
+        collectedCounts: { blogPosts: 0, placeProfiles: 1, placeReviews: 0 }
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/collection-runs/collection_run_cached_no_new/selectable-items`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.collectionRun.summary.collectionDelta.hasMeaningfulChanges).toBe(false);
+    expect(body.items.map((item: { id: string }) => item.id)).toContain('collection_item_cached_unlearned_blog');
+    expect(body.items.map((item: { id: string }) => item.id)).not.toContain('collection_item_demo_blog');
+    expect(body.items.find((item: { id: string }) => item.id === 'collection_item_cached_unlearned_blog')).toMatchObject({
+      selectedForAnalysis: 1,
+      defaultIncluded: true
+    });
+  });
+
   it('persists item selection and creates a queued analysis run', async () => {
     const patchResponse = await fetch(`${baseUrl}/api/collection-items/collection_item_demo_blog/selection`, {
       method: 'PATCH',

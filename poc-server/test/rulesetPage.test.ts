@@ -40,23 +40,27 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).not.toContain('NAVER_CLIENT');
   });
 
-  it('wires ruleset version list, lookup, and restore controls through poc-server APIs', () => {
+  it('renders a compact title-level ruleset version selector and restores only from the preview', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
 
-    expect(html).toContain('id="ruleset-version-panel"');
-    expect(html).toContain('id="ruleset-version-list"');
-    expect(html).toContain('id="ruleset-version-detail"');
+    expect(html).toContain('id="ruleset-status"');
+    expect(html).toContain('id="ruleset-version-select"');
+    expect(html).toContain('id="ruleset-version-preview"');
+    expect(html).not.toContain('id="ruleset-version-panel"');
+    expect(html).not.toContain('룰셋 버전</div>');
 
     expect(js).toContain('function loadRulesetVersions');
     expect(js).toContain('function loadRulesetVersion');
     expect(js).toContain('function restoreRulesetVersion');
-    expect(js).toContain('function renderRulesetVersions');
+    expect(js).toContain('function renderRulesetVersionSelect');
+    expect(js).toContain('function renderRulesetVersionPreview');
     expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/versions`)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/versions/${rulesetId}`)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/versions/${rulesetId}/restore`');
-    expect(js).toContain('data-ruleset-version-action="view"');
-    expect(js).toContain('data-ruleset-version-action="restore"');
+    expect(js).toContain("field('ruleset-version-select')");
+    expect(js).toContain('data-ruleset-version-action="restore-preview"');
+    expect(js).not.toContain('data-ruleset-version-action="view"');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
