@@ -1,9 +1,9 @@
 import type { JsonValue } from '../../repositories/base.js';
 import type { AnalysisEvidence } from '../../repositories/analysis_evidence.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
+import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
-import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
 import {
   canonicalRulesetFieldKey,
   serializeRulesetSourceMatrix,
@@ -127,6 +127,10 @@ const REVIEW_WEAKNESS_SIGNALS = [
 
 function latestByUpdatedAt<T extends { updatedAt: string }>(records: T[]) {
   return records.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).at(-1) ?? null;
+}
+
+function nowIso() {
+  return new Date().toISOString();
 }
 
 function asRecord(value: JsonValue | null | undefined): Record<string, JsonValue> {
@@ -306,6 +310,10 @@ function serializeStoreFacts(store: StoreRecord) {
 
 function rulesetFieldId(rulesetId: string, fieldKey: string) {
   return `ruleset_field_${rulesetId}_${fieldKey.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+}
+
+function sanitizeIdPart(value: string) {
+  return value.replace(/[^0-9A-Za-z_-]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
 }
 
 function collectionItemSearchText(item: CollectionItem) {
@@ -511,14 +519,60 @@ function buildWritingStyleFieldInsights(
   });
 }
 
-function latestRulesetContext(repos: Repositories, storeId: string) {
+function latestRulesetForStore(repos: Repositories, storeId: string) {
+  return repos.marketingRulesets
+    .listByStoreId(storeId)
+    .sort((a, b) => {
+      if (a.version !== b.version) return a.version - b.version;
+      return a.updatedAt.localeCompare(b.updatedAt);
+    })
+    .at(-1) ?? null;
+}
+
+function rulesetMetadataNumber(ruleset: MarketingRuleset, key: string) {
+  const value = asRecord(ruleset.ruleset)[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function rulesetMetadataString(ruleset: MarketingRuleset, key: string) {
+  return asString(asRecord(ruleset.ruleset)[key]);
+}
+
+function rulesetSummary(repos: Repositories, ruleset: MarketingRuleset, currentRulesetId: string | null) {
+  const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
+  const learningSnapshot = ruleset.learningSnapshotId ? repos.learningSnapshots.findById(ruleset.learningSnapshotId) : null;
+  const analysisRun = learningSnapshot ? repos.analysisRuns.findById(learningSnapshot.analysisRunId) : null;
+  const sourceCounts = fields.reduce<Record<string, number>>((counts, field) => {
+    counts[field.source] = (counts[field.source] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  return {
+    id: ruleset.id,
+    version: ruleset.version,
+    status: ruleset.status,
+    learningSnapshotId: ruleset.learningSnapshotId,
+    analysisRunId: analysisRun?.id ?? null,
+    createdAt: ruleset.createdAt,
+    updatedAt: ruleset.updatedAt,
+    fieldCount: fields.length,
+    sourceCounts,
+    restoredFromRulesetId: rulesetMetadataString(ruleset, 'restoredFromRulesetId'),
+    restoredFromVersion: rulesetMetadataNumber(ruleset, 'restoredFromVersion'),
+    isCurrent: currentRulesetId === ruleset.id
+  };
+}
+
+function rulesetContext(
+  repos: Repositories,
+  storeId: string,
+  marketingRuleset: MarketingRuleset | null,
+  options: { allowBackfill: boolean }
+) {
   const store = repos.stores.findById(storeId);
   if (!store) return null;
-
-  const latestArtifacts = getLatestAnalysisArtifacts(repos, store.id);
-  const marketingRuleset =
-    latestArtifacts?.marketingRuleset ?? latestByUpdatedAt(repos.marketingRulesets.listByStoreId(store.id));
   if (!marketingRuleset) return { store, marketingRuleset: null, learningSnapshot: null, analysisRun: null, fields: [] };
+  if (marketingRuleset.storeId !== store.id) return null;
 
   const learningSnapshot = marketingRuleset.learningSnapshotId
     ? repos.learningSnapshots.findById(marketingRuleset.learningSnapshotId)
@@ -527,7 +581,9 @@ function latestRulesetContext(repos: Repositories, storeId: string) {
   let fields = repos.rulesetFields
     .listByRulesetId(marketingRuleset.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const backfilledReviewWeakness = ensureReviewWeaknessBackfill(repos, store, marketingRuleset.id, fields);
+  const backfilledReviewWeakness = options.allowBackfill
+    ? ensureReviewWeaknessBackfill(repos, store, marketingRuleset.id, fields)
+    : null;
   if (backfilledReviewWeakness) {
     fields = [...fields, backfilledReviewWeakness].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
@@ -541,6 +597,14 @@ function latestRulesetContext(repos: Repositories, storeId: string) {
   };
 }
 
+function latestRulesetContext(repos: Repositories, storeId: string) {
+  return rulesetContext(repos, storeId, latestRulesetForStore(repos, storeId), { allowBackfill: true });
+}
+
+function rulesetVersionContext(repos: Repositories, storeId: string, rulesetId: string) {
+  return rulesetContext(repos, storeId, repos.marketingRulesets.findById(rulesetId), { allowBackfill: false });
+}
+
 function rulesetFieldContext(repos: Repositories, storeId: string, fieldKey: string) {
   const context = latestRulesetContext(repos, storeId);
   if (!context?.marketingRuleset) return null;
@@ -552,9 +616,11 @@ function rulesetFieldContext(repos: Repositories, storeId: string, fieldKey: str
   return { ...context, field };
 }
 
-export function buildMarketingRulesetPayload(repos: Repositories, storeId: string) {
-  const context = latestRulesetContext(repos, storeId);
-  if (!context) return null;
+function marketingRulesetPayloadFromContext(
+  repos: Repositories,
+  context: NonNullable<ReturnType<typeof latestRulesetContext>>,
+  isCurrent: boolean
+) {
   const { store, marketingRuleset, learningSnapshot, analysisRun, fields } = context;
   if (!marketingRuleset) {
     const storeFacts = serializeStoreFacts(store);
@@ -578,6 +644,8 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
   const storeFacts = serializeStoreFacts(store);
   const serializedFields = fields.map((field) => serializeFieldForStore(field, storeFacts));
   const evidenceRows = analysisRun ? repos.analysisEvidence.listByAnalysisRunId(analysisRun.id) : [];
+  const restoredFromRulesetId = rulesetMetadataString(marketingRuleset, 'restoredFromRulesetId');
+  const restoredFromVersion = rulesetMetadataNumber(marketingRuleset, 'restoredFromVersion');
 
   return {
     store: {
@@ -591,7 +659,12 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
       id: marketingRuleset.id,
       status: marketingRuleset.status,
       version: marketingRuleset.version,
-      updatedAt: marketingRuleset.updatedAt
+      updatedAt: marketingRuleset.updatedAt,
+      createdAt: marketingRuleset.createdAt,
+      learningSnapshotId: marketingRuleset.learningSnapshotId,
+      restoredFromRulesetId,
+      restoredFromVersion,
+      isCurrent
     },
     learningSnapshot: learningSnapshot
       ? {
@@ -612,6 +685,83 @@ export function buildMarketingRulesetPayload(repos: Repositories, storeId: strin
     sourceMatrix: sourceMatrixWithCurrentValues(storeFacts, serializedFields),
     writingStyleInsights: buildWritingStyleFieldInsights(storeFacts, serializedFields, evidenceRows)
   };
+}
+
+export function buildMarketingRulesetPayload(repos: Repositories, storeId: string) {
+  const context = latestRulesetContext(repos, storeId);
+  if (!context) return null;
+  return marketingRulesetPayloadFromContext(repos, context, true);
+}
+
+export function buildRulesetVersionsPayload(repos: Repositories, storeId: string) {
+  const store = repos.stores.findById(storeId);
+  if (!store) return null;
+  const currentRuleset = latestRulesetForStore(repos, store.id);
+  const versions = repos.marketingRulesets
+    .listByStoreId(store.id)
+    .sort((a, b) => {
+      if (a.version !== b.version) return b.version - a.version;
+      return b.updatedAt.localeCompare(a.updatedAt);
+    })
+    .map((ruleset) => rulesetSummary(repos, ruleset, currentRuleset?.id ?? null));
+  return {
+    storeId: store.id,
+    currentRulesetId: currentRuleset?.id ?? null,
+    versions
+  };
+}
+
+export function buildMarketingRulesetVersionPayload(repos: Repositories, storeId: string, rulesetId: string) {
+  const context = rulesetVersionContext(repos, storeId, rulesetId);
+  if (!context?.marketingRuleset) return context ? { ruleset: null } : null;
+  const currentRuleset = latestRulesetForStore(repos, storeId);
+  return marketingRulesetPayloadFromContext(repos, context, currentRuleset?.id === context.marketingRuleset.id);
+}
+
+export function restoreMarketingRulesetVersion(repos: Repositories, storeId: string, rulesetId: string) {
+  const context = rulesetVersionContext(repos, storeId, rulesetId);
+  if (!context?.marketingRuleset) return context ? { ruleset: null } : null;
+  const versions = repos.marketingRulesets.listByStoreId(storeId);
+  const nextVersion = Math.max(0, ...versions.map((ruleset) => ruleset.version)) + 1;
+  const timestamp = nowIso();
+  const restoredRulesetId = `marketing_ruleset_${sanitizeIdPart(storeId)}_restored_v${nextVersion}_${Date.now()}`;
+  const sourceRuleset = context.marketingRuleset;
+  const restoredRuleset = repos.marketingRulesets.create({
+    id: restoredRulesetId,
+    storeId,
+    learningSnapshotId: sourceRuleset.learningSnapshotId,
+    status: 'draft',
+    version: nextVersion,
+    ruleset: {
+      ...asRecord(sourceRuleset.ruleset),
+      restoredFromRulesetId: sourceRuleset.id,
+      restoredFromVersion: sourceRuleset.version,
+      restoredAt: timestamp,
+      restoreSource: 'ruleset_version_restore'
+    },
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+
+  for (const field of context.fields) {
+    repos.rulesetFields.create({
+      id: rulesetFieldId(restoredRuleset.id, field.fieldKey),
+      rulesetId: restoredRuleset.id,
+      fieldKey: field.fieldKey,
+      fieldValue: field.fieldValue,
+      aiValue: field.aiValue,
+      userValue: field.userValue,
+      finalValue: field.finalValue,
+      source: field.source,
+      locked: field.locked,
+      evidenceItemIds: field.evidenceItemIds,
+      confidence: field.confidence,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+  }
+
+  return buildMarketingRulesetVersionPayload(repos, storeId, restoredRuleset.id);
 }
 
 export function updateRulesetFieldValue(

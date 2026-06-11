@@ -8,10 +8,10 @@
 
 **Current OpenAI client path:** `poc-server/src/ai/openaiClient.ts`
 
-**Not LLM calls:** ruleset preview regeneration, similar-company benchmark
-fixture, image prompt regeneration, RAG document generation, review-weakness
-backfill, and static/server-derived writing-style suggestions do not call
-OpenAI in the current implementation.
+**Not LLM calls:** ruleset preview regeneration, ruleset version restore,
+similar-company benchmark fixture, image prompt regeneration, RAG document
+generation, review-weakness backfill, and static/server-derived writing-style
+suggestions do not call OpenAI in the current implementation.
 
 ---
 
@@ -26,6 +26,61 @@ OpenAI in the current implementation.
 | RT-P1 | Runtime model probe | Runtime health | `POST /api/runtime/openai-probe` | `client.models.retrieve` | No prompt / no generated content |
 | LEG-M1 | Legacy structured extraction | Event-to-Operation legacy | `POST /api/memory/build` | `client.beta.chat.completions.parse` | `BusinessMemorySchema.omit({ generationTrace: true })` |
 | LEG-C1 | Legacy structured channel generation | Event-to-Operation legacy | `POST /api/events/:eventId/run` | `client.beta.chat.completions.parse` | `ChannelOutputsSchema` |
+
+---
+
+## Server-Side LLM Audit Logs
+
+Store Learning OpenAI paths now write server-side rows to
+`llm_audit_logs`. This is an internal SQLite inspection table, not a
+customer-facing browser surface. Browser pages still call only `poc-server`
+APIs, and OpenAI credentials stay server-side.
+
+Each row records:
+
+- `store_id`
+- `related_entity_type`: `analysis_run`, `content_generation`, `blog_post`,
+  or `seo_score`
+- `related_entity_id` when an artifact exists; failed pre-artifact Blog/SEO
+  calls may store `NULL`
+- `provider`, `mode`, `model`, and action
+- `request_started_at`, `response_completed_at`, and `duration_ms`
+- `input_budget_json`
+- `prompt_input_json`: the exact compact/budgeted server prompt input
+- `response_format_json`: compact schema metadata such as response format name
+  and strict mode
+- `parsed_output_json`: validated structured output or compact parsed output
+- `status`: `completed` or `failed`
+- `error_json`: sanitized product/developer metadata only
+
+For local debugging, inspect the latest rows with SQLite, for example:
+
+```sql
+SELECT
+  created_at,
+  store_id,
+  related_entity_type,
+  related_entity_id,
+  provider,
+  model,
+  action,
+  status,
+  duration_ms
+FROM llm_audit_logs
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+`prompt_input_json` can include collected Blog/review text after server-side
+budgeting. Do not expose this table through customer-facing HTML, screenshots,
+query strings, or localStorage. The table must not store API keys, OpenAI raw
+HTTP headers, or raw SDK response objects.
+
+Ruleset version restore is intentionally absent from `llm_audit_logs`: it
+copies a selected historical `marketing_rulesets` row and its `ruleset_fields`
+into a new `draft` version, records restore metadata in
+`marketing_rulesets.ruleset`, and does not call OpenAI or create an
+`analysis_run`.
 
 ---
 
@@ -52,9 +107,21 @@ learning snapshot, evidence rows, marketing ruleset, and ruleset fields.
 - Blog body is capped at 1,200 characters per item.
 - Place review body is capped at 500 characters per item.
 - Place profile body is excluded; normalized facts are used instead.
-- Current development version sends at most 10 latest Blog sources.
+- Current development version sends at most 3 latest Blog sources and 10 latest
+  Place review sources.
 - Prompt JSON is capped by `DEFAULT_PROMPT_CHARACTER_BUDGET = 60000`.
 - Aggregate body text is capped by `DEFAULT_BODY_CHARACTER_BUDGET = 32000`.
+
+**Ruleset regeneration gate:** for stores that already have a learning
+snapshot and marketing ruleset, `SL-A1` full analyzer regeneration is allowed
+only when the current explicit meaningful-change collection contains at least
+3 new Blog post assets and 10 new Place review assets. If either threshold is
+missing, the server creates a completed skipped analysis run with
+`skippedReason = "insufficient_new_evidence_for_ruleset_regeneration"`,
+required/new evidence counts, `reusedAnalysisRunId`, `learningSnapshotId`, and
+`marketingRulesetId`; it reuses the latest artifacts and does not call OpenAI
+or create a new `llm_audit_logs` row. Initial learning, no-change reuse, and
+Place profile-only reuse/backfill paths remain separate.
 
 ```mermaid
 flowchart TD

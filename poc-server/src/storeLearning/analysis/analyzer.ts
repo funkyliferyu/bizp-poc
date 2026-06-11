@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import type { Store } from '../../repositories/stores.js';
+import type { LlmAuditMetadataProvider } from '../llmAudit/llmAuditMetadata.js';
 import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
 
 const EvidenceSchema = z.object({
@@ -42,7 +43,7 @@ export type AnalyzerInput = {
   selectedItems: CollectionItem[];
 };
 
-export type AnalysisProvider = {
+export type AnalysisProvider = LlmAuditMetadataProvider & {
   name: string;
   mode: 'mock' | 'openai';
   model?: string | null;

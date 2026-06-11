@@ -2,6 +2,7 @@
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
   const PLACE_REVIEW_COLLAPSED_LIMIT = 5;
   const PLACE_REVIEW_EXPANDED_LIMIT = 20;
+  const RELEARN_EVIDENCE_GUIDANCE = '재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.';
   let latestPlaceReviews = [];
   let placeReviewsExpanded = false;
   let placeReviewPage = 0;
@@ -111,6 +112,15 @@
     next.searchParams.set('storeId', storeId);
     next.searchParams.set('runId', runId);
     window.location.href = `${next.pathname}${next.search}`;
+  }
+
+  function applyRelearnEligibility(eligibility) {
+    const button = field('learning-relearn-btn');
+    if (!button || !eligibility) return;
+    button.disabled = !eligibility.allowed;
+    button.classList.toggle('is-disabled', !eligibility.allowed);
+    button.title = eligibility.allowed ? '지금 재학습' : (eligibility.message || RELEARN_EVIDENCE_GUIDANCE);
+    button.textContent = eligibility.allowed ? '지금 재학습' : '재학습 대기';
   }
 
   async function startRelearn(storeId, button) {
@@ -291,6 +301,7 @@
     renderCompletion(status.completion);
     renderAnalysisProvenance(status.analysis?.provenance);
     renderRulesetEntry(status, storeId);
+    applyRelearnEligibility(status.relearnEligibility);
     field('learning-blog-count').textContent = status.channels.blog.collectedCount;
     field('learning-place-count').textContent = status.channels.place.collectedCount;
     field('learning-instagram-count').textContent = status.channels.instagram.collectedCount;

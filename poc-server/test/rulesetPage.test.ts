@@ -40,6 +40,28 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).not.toContain('NAVER_CLIENT');
   });
 
+  it('wires ruleset version list, lookup, and restore controls through poc-server APIs', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
+
+    expect(html).toContain('id="ruleset-version-panel"');
+    expect(html).toContain('id="ruleset-version-list"');
+    expect(html).toContain('id="ruleset-version-detail"');
+
+    expect(js).toContain('function loadRulesetVersions');
+    expect(js).toContain('function loadRulesetVersion');
+    expect(js).toContain('function restoreRulesetVersion');
+    expect(js).toContain('function renderRulesetVersions');
+    expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/versions`)');
+    expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/versions/${rulesetId}`)');
+    expect(js).toContain('fetch(`/api/stores/${storeId}/strategy-ruleset/versions/${rulesetId}/restore`');
+    expect(js).toContain('data-ruleset-version-action="view"');
+    expect(js).toContain('data-ruleset-version-action="restore"');
+    expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
+
   it('renders API-backed field hooks without visible automatic-input matrices in cleaned tabs', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');

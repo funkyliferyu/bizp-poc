@@ -53,6 +53,36 @@ function fullAnalyzerRulesetFields(
   );
 }
 
+function createNewEvidenceItem(
+  repos: ReturnType<typeof createStoreLearningRepositories>,
+  input: {
+    id: string;
+    runId: string;
+    storeId?: string;
+    channel: 'blog' | 'place';
+    sourceType: 'post' | 'review' | 'profile';
+    selected?: boolean;
+  }
+) {
+  return repos.collectionItems.create({
+    id: input.id,
+    runId: input.runId,
+    storeId: input.storeId ?? 'store_demo_cake',
+    channel: input.channel,
+    sourceType: input.sourceType,
+    status: 'collected',
+    sourceUrl: `https://example.com/${input.id}`,
+    title: input.id,
+    bodyText: `${input.id} body`,
+    selectedForAnalysis: input.selected === false ? 0 : 1,
+    selectionReason: input.selected === false ? null : 'test_selected',
+    selectedAt: input.selected === false ? null : '2026-06-11T00:00:00.000Z',
+    metadata: { collectionDelta: 'new' },
+    createdAt: '2026-06-11T00:00:00.000Z',
+    updatedAt: '2026-06-11T00:00:00.000Z'
+  });
+}
+
 function openAIParsedRulesetFieldsByKey(
   overridesByFieldKey: Record<string, Partial<AnalyzerOutput['rulesetFields'][number]>> = {}
 ) {
@@ -472,6 +502,145 @@ describe('analysis execution API', () => {
     expect(started.marketingRuleset.id).toBe('marketing_ruleset_latest_complete_v99');
   });
 
+  it('reuses latest learning without an LLM audit log when existing learned stores have insufficient new evidence', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.upsert({
+      id: 'collection_run_insufficient_new_evidence',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-11T00:00:00.000Z',
+      completedAt: '2026-06-11T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 10, duplicate: 0, unchanged: 0, changed: 0 }
+        },
+        collectedCounts: { blogPosts: 1, placeProfiles: 1, placeReviews: 9 }
+      }
+    });
+    createNewEvidenceItem(repos, {
+      id: 'collection_item_insufficient_profile',
+      runId: 'collection_run_insufficient_new_evidence',
+      channel: 'place',
+      sourceType: 'profile'
+    });
+    createNewEvidenceItem(repos, {
+      id: 'collection_item_insufficient_blog_1',
+      runId: 'collection_run_insufficient_new_evidence',
+      channel: 'blog',
+      sourceType: 'post'
+    });
+    for (let index = 0; index < 9; index += 1) {
+      createNewEvidenceItem(repos, {
+        id: `collection_item_insufficient_review_${index + 1}`,
+        runId: 'collection_run_insufficient_new_evidence',
+        channel: 'place',
+        sourceType: 'review'
+      });
+    }
+
+    const createResponse = await fetch(`${baseUrl}/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId: 'store_demo_cake',
+        collectionRunId: 'collection_run_insufficient_new_evidence',
+        selectedItemIds: [
+          'collection_item_insufficient_blog_1',
+          ...Array.from({ length: 9 }, (_, index) => `collection_item_insufficient_review_${index + 1}`)
+        ]
+      })
+    });
+    const created = await readJson(createResponse);
+
+    expect(createResponse.status).toBe(200);
+    expect(created.analysisRun.status).toBe('completed');
+    expect(created.analysisRun.result).toMatchObject({
+      skippedReason: 'insufficient_new_evidence_for_ruleset_regeneration',
+      requiredNewBlogPostCount: 3,
+      requiredNewPlaceReviewCount: 10,
+      newBlogPostCount: 1,
+      newPlaceReviewCount: 9,
+      reusedAnalysisRunId: 'analysis_run_demo_store_learning',
+      learningSnapshotId: 'learning_snapshot_demo_store_learning',
+      marketingRulesetId: 'marketing_ruleset_demo_v1',
+      analysisDecision: expect.objectContaining({
+        action: 'reuse_latest_learning',
+        reason: 'insufficient_new_evidence_for_ruleset_regeneration'
+      })
+    });
+    expect(repos.llmAuditLogs.all()).toHaveLength(0);
+  });
+
+  it('queues analyzer execution for existing learned stores when new evidence thresholds are met', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.upsert({
+      id: 'collection_run_sufficient_new_evidence',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-11T00:00:00.000Z',
+      completedAt: '2026-06-11T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 13, duplicate: 0, unchanged: 0, changed: 0 }
+        },
+        collectedCounts: { blogPosts: 3, placeProfiles: 1, placeReviews: 10 }
+      }
+    });
+    createNewEvidenceItem(repos, {
+      id: 'collection_item_sufficient_profile',
+      runId: 'collection_run_sufficient_new_evidence',
+      channel: 'place',
+      sourceType: 'profile'
+    });
+    for (let index = 0; index < 3; index += 1) {
+      createNewEvidenceItem(repos, {
+        id: `collection_item_sufficient_blog_${index + 1}`,
+        runId: 'collection_run_sufficient_new_evidence',
+        channel: 'blog',
+        sourceType: 'post'
+      });
+    }
+    for (let index = 0; index < 10; index += 1) {
+      createNewEvidenceItem(repos, {
+        id: `collection_item_sufficient_review_${index + 1}`,
+        runId: 'collection_run_sufficient_new_evidence',
+        channel: 'place',
+        sourceType: 'review'
+      });
+    }
+
+    const createResponse = await fetch(`${baseUrl}/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId: 'store_demo_cake',
+        collectionRunId: 'collection_run_sufficient_new_evidence',
+        selectedItemIds: [
+          ...Array.from({ length: 3 }, (_, index) => `collection_item_sufficient_blog_${index + 1}`),
+          ...Array.from({ length: 10 }, (_, index) => `collection_item_sufficient_review_${index + 1}`)
+        ]
+      })
+    });
+    const created = await readJson(createResponse);
+
+    expect(createResponse.status).toBe(200);
+    expect(created.analysisRun.status).toBe('queued');
+    expect(created.analysisRun.result.analysisDecision).toMatchObject({
+      action: 'run_analyzer',
+      reason: 'new_selected_evidence',
+      newEvidenceCounts: {
+        blogPosts: 3,
+        placeReviews: 10,
+        requiredBlogPosts: 3,
+        requiredPlaceReviews: 10
+      }
+    });
+  });
+
   it('backfills missing required ruleset fields before reusing profile-only changes', async () => {
     const repos = createStoreLearningRepositories(connection);
     repos.collectionRuns.upsert({
@@ -593,7 +762,7 @@ describe('analysis execution API', () => {
     });
   });
 
-  it('persists OpenAI analyzer output with validated evidence links', async () => {
+  it('persists OpenAI analyzer output with validated evidence links and an LLM audit log', async () => {
     const repos = createStoreLearningRepositories(connection);
     const analysisRun = repos.analysisRuns.create({
       id: 'analysis_run_openai_test',
@@ -695,6 +864,7 @@ describe('analysis execution API', () => {
     const evidence = repos.analysisEvidence.listByAnalysisRunId(analysisRun.id);
     const ruleset = artifacts?.marketingRuleset;
     const fields = ruleset ? repos.rulesetFields.listByRulesetId(ruleset.id) : [];
+    const auditLogs = repos.llmAuditLogs.listByRelatedEntity('analysis_run', analysisRun.id);
 
     expect(parseCalls).toHaveLength(1);
     const parsePayload = JSON.stringify(parseCalls[0]);
@@ -798,6 +968,45 @@ describe('analysis execution API', () => {
       source: 'openai_analysis',
       evidenceItemIds: expect.arrayContaining(['collection_item_demo_place_profile'])
     });
+    expect(auditLogs).toHaveLength(1);
+    expect(auditLogs[0]).toMatchObject({
+      storeId: 'store_demo_cake',
+      relatedEntityType: 'analysis_run',
+      relatedEntityId: analysisRun.id,
+      provider: 'openAIAnalysisProvider',
+      mode: 'openai',
+      model: 'test-openai-model',
+      action: 'analyze_store_learning',
+      status: 'completed',
+      inputBudget: expect.objectContaining({
+        promptItemCount: 3,
+        promptCharacterCount: expect.any(Number),
+        promptBudgetReason: 'body_truncated_to_budget'
+      }),
+      promptInputJson: expect.objectContaining({
+        store: expect.objectContaining({ id: 'store_demo_cake' }),
+        promptItemIds: [
+          'collection_item_demo_place_profile',
+          'collection_item_demo_place_review',
+          'collection_item_demo_blog'
+        ]
+      }),
+      responseFormatJson: expect.objectContaining({
+        name: 'store_learning_analysis',
+        strict: true
+      }),
+      parsedOutputJson: expect.objectContaining({
+        storePositioning: '분당 레터링 케이크 예약 전문점',
+        rulesetFields: expect.any(Array)
+      }),
+      errorJson: null
+    });
+    expect(auditLogs[0].durationMs).toBeGreaterThanOrEqual(0);
+    expect(auditLogs[0].requestStartedAt).toEqual(expect.any(String));
+    expect(auditLogs[0].responseCompletedAt).toEqual(expect.any(String));
+    expect(JSON.stringify(auditLogs[0])).not.toContain('test-key');
+    expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('rawProviderPayload');
+    expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('https://cdn.example.com');
   });
 
   it('returns current failed run diagnostics from the start API when analysis fails', async () => {
@@ -921,7 +1130,7 @@ describe('analysis execution API', () => {
       expectedIssue: 'invalid_openai_ruleset_source',
       rawLeak: 'ctaStyle'
     }
-  ])('fails analysis with a sanitized product error when OpenAI returns $name', async ({ rulesetFields, expectedIssue, rawLeak }) => {
+  ])('fails analysis with a sanitized product error and an LLM audit log when OpenAI returns $name', async ({ rulesetFields, expectedIssue, rawLeak }) => {
     const repos = createStoreLearningRepositories(connection);
     const analysisRun = repos.analysisRuns.create({
       id: `analysis_run_invalid_ruleset_${expectedIssue}`,
@@ -983,6 +1192,24 @@ describe('analysis execution API', () => {
     expect(repos.marketingRulesets.listByStoreId('store_demo_cake')).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ learningSnapshotId: `learning_snapshot_${analysisRun.id}` })])
     );
+    const auditLogs = repos.llmAuditLogs.listByRelatedEntity('analysis_run', analysisRun.id);
+    expect(auditLogs).toHaveLength(1);
+    expect(auditLogs[0]).toMatchObject({
+      storeId: 'store_demo_cake',
+      relatedEntityType: 'analysis_run',
+      relatedEntityId: analysisRun.id,
+      provider: 'openAIAnalysisProvider',
+      mode: 'openai',
+      action: 'analyze_store_learning',
+      status: 'failed',
+      errorJson: expect.objectContaining({
+        errorType: 'analysis_contract_invalid',
+        message: 'AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다. 다시 실행해주세요.',
+        contractIssue: expectedIssue
+      })
+    });
+    expect(JSON.stringify(auditLogs[0].errorJson)).not.toContain(rawLeak);
+    expect(JSON.stringify(auditLogs[0].errorJson)).not.toContain('Analyzer output');
   });
 
   it('fails analysis before saving artifacts when analyzer evidence references unavailable items', async () => {
@@ -1042,7 +1269,7 @@ describe('analysis execution API', () => {
     expect(repos.learningSnapshots.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
   });
 
-  it('stores a sanitized context overflow error when OpenAI rejects an oversized analysis prompt', async () => {
+  it('stores a sanitized context overflow error and an LLM audit log when OpenAI rejects an oversized analysis prompt', async () => {
     const repos = createStoreLearningRepositories(connection);
     const analysisRun = repos.analysisRuns.create({
       id: 'analysis_run_context_overflow_test',
@@ -1099,5 +1326,27 @@ describe('analysis execution API', () => {
     );
     expect(JSON.stringify(failedRun?.error)).not.toContain('179181');
     expect(repos.analysisEvidence.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
+    const auditLogs = repos.llmAuditLogs.listByRelatedEntity('analysis_run', analysisRun.id);
+    expect(auditLogs).toHaveLength(1);
+    expect(auditLogs[0]).toMatchObject({
+      storeId: 'store_demo_cake',
+      relatedEntityType: 'analysis_run',
+      relatedEntityId: analysisRun.id,
+      provider: 'openAIAnalysisProvider',
+      mode: 'openai',
+      model: 'test-openai-model',
+      action: 'analyze_store_learning',
+      status: 'failed',
+      inputBudget: expect.objectContaining({
+        promptItemCount: 31,
+        promptCharacterCount: 61000,
+        promptBudgetReason: 'prompt_character_budget_exceeded'
+      }),
+      errorJson: expect.objectContaining({
+        errorType: 'analysis_context_too_large',
+        message: '선택한 콘텐츠가 많아 분석 입력 한도를 초과했습니다. 일부 콘텐츠를 제외하거나 다시 수집 후 실행해주세요.'
+      })
+    });
+    expect(JSON.stringify(auditLogs[0].errorJson)).not.toContain('179181');
   });
 });

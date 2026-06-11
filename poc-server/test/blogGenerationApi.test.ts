@@ -140,7 +140,7 @@ describe('ruleset based blog generation API', () => {
     });
   });
 
-  it('generates an approval-pending blog post through the OpenAI blog provider when configured', async () => {
+  it('generates an approval-pending blog post through the OpenAI blog provider with an LLM audit log when configured', async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     connection.close();
 
@@ -259,6 +259,7 @@ describe('ruleset based blog generation API', () => {
     const generation = repos.contentGenerations.findById(body.contentGeneration.id);
     const mediaAssets = repos.mediaAssets.listByBlogPostId(body.blogPost.id);
     const seoScores = repos.seoScores.listByBlogPostId(body.blogPost.id);
+    const auditLogs = repos.llmAuditLogs.listByRelatedEntity('content_generation', body.contentGeneration.id);
 
     expect(response.status).toBe(200);
     expect(parseCalls).toHaveLength(1);
@@ -318,9 +319,40 @@ describe('ruleset based blog generation API', () => {
         titleKeyword: expect.any(Object)
       })
     });
+    expect(auditLogs).toHaveLength(1);
+    expect(auditLogs[0]).toMatchObject({
+      storeId: 'store_demo_cake',
+      relatedEntityType: 'content_generation',
+      relatedEntityId: body.contentGeneration.id,
+      provider: 'openAIBlogProvider',
+      mode: 'openai',
+      model: 'test-blog-model',
+      action: 'generate_blog_post',
+      status: 'completed',
+      inputBudget: expect.objectContaining({
+        action: 'generate_blog_post',
+        promptCharacterCount: expect.any(Number),
+        promptCharacterBudget: expect.any(Number)
+      }),
+      promptInputJson: expect.objectContaining({
+        store: expect.objectContaining({ id: 'store_demo_cake' }),
+        ruleset: expect.objectContaining({ id: body.blogPost.generatedFromRulesetId })
+      }),
+      responseFormatJson: expect.objectContaining({
+        name: 'store_learning_blog_draft',
+        strict: true
+      }),
+      parsedOutputJson: expect.objectContaining({
+        title: 'OpenAI 분당 레터링 케이크 예약 가이드',
+        seoScore: expect.objectContaining({ totalScore: 91 })
+      }),
+      errorJson: null
+    });
+    expect(auditLogs[0].durationMs).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(auditLogs[0])).not.toContain('test-key');
   });
 
-  it('sanitizes OpenAI context length errors during blog draft generation', async () => {
+  it('sanitizes OpenAI context length errors during blog draft generation and records a failed LLM audit log', async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     connection.close();
 
@@ -362,10 +394,32 @@ describe('ruleset based blog generation API', () => {
       method: 'POST'
     });
     const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const auditLogs = repos.llmAuditLogs.listByStoreId('store_demo_cake');
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('블로그 생성 입력이 커서 AI 처리 한도를 초과했습니다. 룰셋 또는 기존 글 내용을 줄인 뒤 다시 시도해주세요.');
     expect(JSON.stringify(body)).not.toContain('179181');
     expect(JSON.stringify(body)).not.toContain('maximum context length');
+    expect(auditLogs).toHaveLength(1);
+    expect(auditLogs[0]).toMatchObject({
+      storeId: 'store_demo_cake',
+      relatedEntityType: 'content_generation',
+      relatedEntityId: null,
+      provider: 'openAIBlogProvider',
+      mode: 'openai',
+      model: 'test-blog-model',
+      action: 'generate_blog_post',
+      status: 'failed',
+      inputBudget: expect.objectContaining({
+        action: 'generate_blog_post',
+        promptCharacterCount: expect.any(Number)
+      }),
+      errorJson: expect.objectContaining({
+        message: '블로그 생성 입력이 커서 AI 처리 한도를 초과했습니다. 룰셋 또는 기존 글 내용을 줄인 뒤 다시 시도해주세요.'
+      })
+    });
+    expect(JSON.stringify(auditLogs[0].errorJson)).not.toContain('179181');
+    expect(JSON.stringify(auditLogs[0].errorJson)).not.toContain('maximum context length');
   });
 });

@@ -223,3 +223,30 @@ CREATE TABLE IF NOT EXISTS audit_events (
 
 CREATE INDEX IF NOT EXISTS idx_audit_events_store_id ON audit_events(store_id);
 CREATE INDEX IF NOT EXISTS idx_audit_events_entity ON audit_events(entity_type, entity_id);
+
+CREATE TABLE IF NOT EXISTS llm_audit_logs (
+  id TEXT PRIMARY KEY,
+  store_id TEXT REFERENCES stores(id) ON DELETE SET NULL,
+  related_entity_type TEXT NOT NULL,
+  related_entity_id TEXT,
+  provider TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  model TEXT,
+  action TEXT NOT NULL,
+  request_started_at TEXT NOT NULL,
+  response_completed_at TEXT,
+  duration_ms INTEGER,
+  input_budget_json TEXT NOT NULL DEFAULT 'null',
+  prompt_input_json TEXT NOT NULL DEFAULT 'null',
+  response_format_json TEXT NOT NULL DEFAULT 'null',
+  parsed_output_json TEXT NOT NULL DEFAULT 'null',
+  status TEXT NOT NULL,
+  error_json TEXT NOT NULL DEFAULT 'null',
+  provider_metadata_json TEXT NOT NULL DEFAULT 'null',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_llm_audit_logs_store_id ON llm_audit_logs(store_id);
+CREATE INDEX IF NOT EXISTS idx_llm_audit_logs_entity ON llm_audit_logs(related_entity_type, related_entity_id);
+CREATE INDEX IF NOT EXISTS idx_llm_audit_logs_created_at ON llm_audit_logs(created_at);

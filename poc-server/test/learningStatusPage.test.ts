@@ -84,6 +84,16 @@ describe('learning status static page API wiring', () => {
     expect(js).toContain("window.localStorage.setItem(STORE_ID_KEY, storeId)");
   });
 
+  it('dims the relearn button when new evidence thresholds are not met', () => {
+    const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
+
+    expect(js).toContain('function applyRelearnEligibility');
+    expect(js).toContain('status.relearnEligibility');
+    expect(js).toContain('재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.');
+    expect(js).toContain('button.disabled = !eligibility.allowed');
+    expect(js).toContain('button.classList.toggle(\'is-disabled\', !eligibility.allowed)');
+  });
+
   it('renders Blog rows as source links with published date and view count fields', () => {
     const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
 

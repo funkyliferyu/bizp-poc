@@ -1,5 +1,248 @@
 # Validation
 
+## Task 6 Server-Side LLM Audit Logs Validation
+
+Date: 2026-06-11
+
+Branch:
+
+- `codex/llm-audit-relearn-ruleset-restore`
+
+Scope:
+
+- Added server-side `llm_audit_logs` SQLite persistence behind a repository.
+- Recorded completed and failed Store Learning OpenAI calls for:
+  - SL-A1 analysis runs;
+  - SL-B1 Blog draft generation;
+  - SL-B2 Blog text regeneration;
+  - SL-S1 Blog SEO rescoring.
+- Stored compact/budgeted prompt input, prompt budget metadata, compact
+  response format metadata, parsed structured output, timing, provider/action,
+  related artifact IDs, and sanitized error metadata.
+- Documented local SQLite inspection in `docs/codex/LLM_CALL_STRUCTURES.md`
+  and `web/llm호출.html`.
+
+TDD evidence:
+
+- RED `npm test -- --run test/analysisExecutionApi.test.ts -t "LLM audit"`:
+  failed because `repos.llmAuditLogs` did not exist.
+- RED `npm test -- --run test/blogGenerationApi.test.ts -t "LLM audit"`:
+  failed because Blog generation had no audit repository/log row.
+- RED `npm test -- --run test/contentDetailApi.test.ts -t "LLM audit"`:
+  failed because regenerate-text and SEO rescore had no audit repository/log
+  row.
+- GREEN same focused commands after adding `llm_audit_logs`, OpenAI provider
+  audit metadata, and service/generator-side log recording.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/analysisExecutionApi.test.ts -t "LLM audit"
+npm test -- --run test/blogGenerationApi.test.ts -t "LLM audit"
+npm test -- --run test/contentDetailApi.test.ts -t "LLM audit"
+npm run typecheck
+npm test -- --run test/analysisExecutionApi.test.ts
+npm test -- --run test/blogGenerationApi.test.ts
+npm test -- --run test/contentDetailApi.test.ts
+npm test -- --run test/storeLearningRepositories.test.ts
+npm test
+npm run demo:store-learning
+git diff --check
+```
+
+Result:
+
+- PASS, focused LLM audit tests: analysis 6 passed, Blog generation 2 passed,
+  content detail 3 passed.
+- PASS, related API/repository tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 39 files passed, 3 live-provider files skipped by
+  default; 241 tests passed, 6 skipped.
+- PASS, demo seed completed with `blogPostStatus=pending_approval` and
+  `seoScore=86`.
+- PASS, `git diff --check`.
+
+Boundary checks:
+
+- `.DS_Store` remained an existing local out-of-scope modification and was not
+  staged or edited for this task.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser pages still call only `poc-server` APIs; no browser-side Naver or
+  OpenAI calls were added.
+- Audit rows are server-side SQLite data only and must not expose API keys,
+  raw OpenAI HTTP headers, or raw SDK response objects.
+
+## Task 7 Evidence-Threshold Ruleset Regeneration Gate Validation
+
+Date: 2026-06-11
+
+Branch:
+
+- `codex/llm-audit-relearn-ruleset-restore`
+
+Scope:
+
+- Existing learned stores can run full SL-A1 ruleset regeneration only when an
+  explicit meaningful-change collection contains at least 3 new Blog post
+  assets and 10 new Place review assets.
+- Below threshold, analysis run creation completes as a skipped reuse path with
+  `skippedReason: "insufficient_new_evidence_for_ruleset_regeneration"`,
+  required/new evidence counts, and reused artifact IDs.
+- Below-threshold reuse does not call the analyzer and does not create
+  `llm_audit_logs` rows.
+- Learning status API/UI exposes `relearnEligibility` and dims `지금 재학습`.
+- Content selection blocks `분석 실행` for existing learned stores below
+  threshold with the same guidance copy, while preserving initial learning and
+  no-change reuse behavior.
+
+TDD evidence:
+
+- RED
+  `npm test -- --run test/analysisDecision.test.ts -t "insufficient new evidence"`:
+  failed because existing learned stores with 1 new Blog post and 9 new reviews
+  still returned `run_analyzer/new_selected_evidence`.
+- RED
+  `npm test -- --run test/analysisExecutionApi.test.ts -t "insufficient new evidence"`:
+  failed because the API queued an analyzer run instead of completing skipped
+  reuse.
+- RED
+  `npm test -- --run test/learningStatusApi.test.ts test/learningStatusPage.test.ts -t "relearn"`:
+  failed because `relearnEligibility` and `applyRelearnEligibility` did not
+  exist.
+- RED
+  `npm test -- --run test/selectionPage.test.ts -t "thresholds"`:
+  failed because content selection did not compute selected new evidence or
+  block below threshold.
+- GREEN same focused commands after implementing the decision threshold,
+  skipped metadata, API eligibility payloads, and browser gating.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/analysisDecision.test.ts -t "insufficient new evidence"
+npm test -- --run test/analysisExecutionApi.test.ts -t "insufficient new evidence"
+npm test -- --run test/learningStatusApi.test.ts test/learningStatusPage.test.ts -t "relearn"
+npm test -- --run test/selectionPage.test.ts -t "thresholds|no-change"
+npm test -- --run test/analysisDecision.test.ts
+npm test -- --run test/analysisExecutionApi.test.ts
+npm test -- --run test/learningStatusApi.test.ts test/learningStatusPage.test.ts test/selectionPage.test.ts test/selectionApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/content_selection.js
+node --check web/learning_status.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused RED/GREEN regressions for analysis decision, analysis
+  execution, learning status, and content selection.
+- PASS, related analysis/learning/selection API and static page tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 39 files passed, 3 live-provider files skipped by
+  default; 248 tests passed, 6 skipped.
+- PASS, Store Learning demo seed completed with
+  `blogPostStatus=pending_approval` and `seoScore=86`.
+- PASS, `node --check web/content_selection.js`.
+- PASS, `node --check web/learning_status.js`.
+- PASS, `git diff --check`.
+
+Boundary checks:
+
+- `.DS_Store` remains an out-of-scope local modification and was not edited or
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser changes use existing `poc-server` APIs only; no browser-side
+  Naver/OpenAI calls were added.
+
+## Task 8 Ruleset Version History And Restore Validation
+
+Date: 2026-06-11
+
+Branch:
+
+- `codex/llm-audit-relearn-ruleset-restore`
+
+Scope:
+
+- Added first-class marketing strategy ruleset version list, historical
+  version lookup, and restore-as-new-version APIs.
+- Restore copies the selected historical ruleset and fields into a new `draft`
+  version, preserving user-edited and locked field values.
+- Restore records `restoredFromRulesetId`, `restoredFromVersion`,
+  `restoredAt`, and `restoreSource` in `marketing_rulesets.ruleset`.
+- Restore does not create analysis runs or LLM audit rows.
+- Marketing strategy ruleset UI exposes current version, historical lookup,
+  and restore controls through `poc-server` APIs only.
+- Learning status ruleset summary reads the newest marketing ruleset version
+  after restore.
+
+TDD evidence:
+
+- RED
+  `npm test -- --run test/rulesetApi.test.ts -t "ruleset version|historical ruleset|restores a historical"`:
+  failed because the version endpoints did not exist and Express returned an
+  HTML 404 page.
+- RED
+  `npm test -- --run test/rulesetPage.test.ts -t "version"`:
+  failed because `ruleset-version-panel` and version action wiring did not
+  exist.
+- RED
+  `npm test -- --run test/learningStatusApi.test.ts -t "newest marketing ruleset version"`:
+  failed because learning status still reported `marketing_ruleset_demo_v1`
+  after a newer restored version existed.
+- GREEN same focused commands after adding version APIs, restore service, UI
+  wiring, and latest-version learning status lookup.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/rulesetApi.test.ts -t "ruleset version|historical ruleset|restores a historical"
+npm test -- --run test/rulesetPage.test.ts -t "version"
+npm test -- --run test/learningStatusApi.test.ts -t "newest marketing ruleset version"
+npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts test/learningStatusApi.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/content_selection.js
+node --check web/learning_status.js
+node --check web/ruleset_editor.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused ruleset version API regressions: 3 passed.
+- PASS, focused ruleset version page wiring regression: 1 passed.
+- PASS, focused learning status latest-version regression: 1 passed.
+- PASS, related ruleset/learning status suite: 43 tests passed.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 39 files passed, 3 live-provider files skipped by
+  default; 253 tests passed, 6 skipped.
+- PASS, Store Learning demo seed completed with
+  `blogPostStatus=pending_approval` and `seoScore=86`.
+- PASS, `node --check web/content_selection.js`.
+- PASS, `node --check web/learning_status.js`.
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, `git diff --check`.
+
+Boundary checks:
+
+- `.DS_Store` remains an out-of-scope local modification and was not edited or
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser changes use existing `poc-server` APIs only; no browser-side
+  Naver/OpenAI calls were added.
+
 ## POST-PR43-LLM-CALL-AUDIT Follow-up Branch Validation
 
 Branch `codex/llm-call-audit-post43` was created from latest `develop` after

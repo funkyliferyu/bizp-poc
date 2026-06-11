@@ -1,5 +1,13 @@
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { getOpenAIClient } from '../../ai/openaiClient.js';
+import {
+  durationMs,
+  nowIso,
+  sanitizedProviderError,
+  summarizeResponseFormat,
+  toJsonValue,
+  type LlmCallAuditMetadata
+} from '../llmAudit/llmAuditMetadata.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 import {
   buildBlogDraftPromptInput,
@@ -53,12 +61,14 @@ async function parseWithSanitizedProviderError(
 export function createOpenAIBlogProvider(options: OpenAIBlogProviderOptions = {}): BlogContentProvider {
   const model = options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
   let lastRunMetadata: BlogPromptBudgetMetadata | null = null;
+  let lastAuditMetadata: LlmCallAuditMetadata | null = null;
 
   return {
     name: 'openAIBlogProvider',
     mode: 'openai',
     model,
     getLastRunMetadata: () => lastRunMetadata,
+    getLastAuditMetadata: () => lastAuditMetadata,
     async generateDraft(input) {
       const client = 'client' in options ? options.client : getOpenAIClient();
       if (!client) {
@@ -66,25 +76,57 @@ export function createOpenAIBlogProvider(options: OpenAIBlogProviderOptions = {}
       }
       const prompt = buildBlogDraftPromptInput(input);
       lastRunMetadata = prompt.metadata;
+      lastAuditMetadata = null;
+      const responseFormat = zodResponseFormat(BlogProviderDraftOutputSchema, 'store_learning_blog_draft');
+      const requestStartedAt = nowIso();
+      let parsedOutput: unknown = null;
 
-      const completion = await parseWithSanitizedProviderError(client as OpenAIBlogParseClient, {
-        model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a Korean local-store blog content strategist. Return validated structured blog draft data only. ' +
-              'Follow the ruleset, keep claims evidence-safe, and produce image prompts instead of image assets.'
-          },
-          {
-            role: 'user',
-            content: JSON.stringify(prompt.promptInput, null, 2)
-          }
-        ],
-        response_format: zodResponseFormat(BlogProviderDraftOutputSchema, 'store_learning_blog_draft')
-      });
+      try {
+        const completion = await parseWithSanitizedProviderError(client as OpenAIBlogParseClient, {
+          model,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a Korean local-store blog content strategist. Return validated structured blog draft data only. ' +
+                'Follow the ruleset, keep claims evidence-safe, and produce image prompts instead of image assets.'
+            },
+            {
+              role: 'user',
+              content: JSON.stringify(prompt.promptInput, null, 2)
+            }
+          ],
+          response_format: responseFormat
+        });
 
-      return BlogProviderDraftOutputSchema.parse(completion.choices[0]?.message.parsed);
+        parsedOutput = completion.choices[0]?.message.parsed ?? null;
+        const output = BlogProviderDraftOutputSchema.parse(parsedOutput);
+        const responseCompletedAt = nowIso();
+        lastAuditMetadata = {
+          requestStartedAt,
+          responseCompletedAt,
+          durationMs: durationMs(requestStartedAt, responseCompletedAt),
+          inputBudget: toJsonValue(prompt.metadata),
+          promptInputJson: toJsonValue(prompt.promptInput),
+          responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_blog_draft'),
+          parsedOutputJson: toJsonValue(output),
+          errorJson: null
+        };
+        return output;
+      } catch (error) {
+        const responseCompletedAt = nowIso();
+        lastAuditMetadata = {
+          requestStartedAt,
+          responseCompletedAt,
+          durationMs: durationMs(requestStartedAt, responseCompletedAt),
+          inputBudget: toJsonValue(prompt.metadata),
+          promptInputJson: toJsonValue(prompt.promptInput),
+          responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_blog_draft'),
+          parsedOutputJson: toJsonValue(parsedOutput),
+          errorJson: sanitizedProviderError(error)
+        };
+        throw error;
+      }
     },
     async scoreSeo(input) {
       const client = 'client' in options ? options.client : getOpenAIClient();
@@ -93,25 +135,57 @@ export function createOpenAIBlogProvider(options: OpenAIBlogProviderOptions = {}
       }
       const prompt = buildBlogSeoPromptInput(input);
       lastRunMetadata = prompt.metadata;
+      lastAuditMetadata = null;
+      const responseFormat = zodResponseFormat(SeoScoreOutputSchema, 'store_learning_blog_seo_score');
+      const requestStartedAt = nowIso();
+      let parsedOutput: unknown = null;
 
-      const completion = await parseWithSanitizedProviderError(client as OpenAIBlogParseClient, {
-        model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring only. ' +
-              'Use the rubric fields exactly and do not rewrite the article.'
-          },
-          {
-            role: 'user',
-            content: JSON.stringify(prompt.promptInput, null, 2)
-          }
-        ],
-        response_format: zodResponseFormat(SeoScoreOutputSchema, 'store_learning_blog_seo_score')
-      });
+      try {
+        const completion = await parseWithSanitizedProviderError(client as OpenAIBlogParseClient, {
+          model,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring only. ' +
+                'Use the rubric fields exactly and do not rewrite the article.'
+            },
+            {
+              role: 'user',
+              content: JSON.stringify(prompt.promptInput, null, 2)
+            }
+          ],
+          response_format: responseFormat
+        });
 
-      return SeoScoreOutputSchema.parse(completion.choices[0]?.message.parsed);
+        parsedOutput = completion.choices[0]?.message.parsed ?? null;
+        const output = SeoScoreOutputSchema.parse(parsedOutput);
+        const responseCompletedAt = nowIso();
+        lastAuditMetadata = {
+          requestStartedAt,
+          responseCompletedAt,
+          durationMs: durationMs(requestStartedAt, responseCompletedAt),
+          inputBudget: toJsonValue(prompt.metadata),
+          promptInputJson: toJsonValue(prompt.promptInput),
+          responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_blog_seo_score'),
+          parsedOutputJson: toJsonValue(output),
+          errorJson: null
+        };
+        return output;
+      } catch (error) {
+        const responseCompletedAt = nowIso();
+        lastAuditMetadata = {
+          requestStartedAt,
+          responseCompletedAt,
+          durationMs: durationMs(requestStartedAt, responseCompletedAt),
+          inputBudget: toJsonValue(prompt.metadata),
+          promptInputJson: toJsonValue(prompt.promptInput),
+          responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_blog_seo_score'),
+          parsedOutputJson: toJsonValue(parsedOutput),
+          errorJson: sanitizedProviderError(error)
+        };
+        throw error;
+      }
     }
   };
 }

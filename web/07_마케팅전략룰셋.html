@@ -126,6 +126,18 @@
 .writing-preview-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .writing-preview-tag{font-size:11px;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;font-weight:700}
 .ruleset-status-badge{font-size:11px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;margin-left:8px;vertical-align:middle}
+.ruleset-version-panel{display:grid;grid-template-columns:1fr 320px;gap:12px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:12px;margin:0 0 16px}
+.ruleset-version-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.ruleset-version-title{font-size:12px;font-weight:800;color:#1A1A2E}
+.ruleset-version-list{display:flex;flex-wrap:wrap;gap:8px}
+.ruleset-version-item{display:flex;align-items:center;gap:6px;border:1px solid #D8E0EC;border-radius:8px;background:#FAFBFC;padding:7px 8px}
+.ruleset-version-item.current{border-color:#3B5BDB;background:#EEF2FF}
+.ruleset-version-meta{font-size:11px;color:#4A5568;font-weight:700;white-space:nowrap}
+.ruleset-version-btn{height:24px;padding:0 7px;border:1px solid #D8E0EC;border-radius:6px;background:#fff;color:#4A5568;font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:800;cursor:pointer}
+.ruleset-version-btn:hover{border-color:#3B5BDB;color:#3B5BDB;background:#fff}
+.ruleset-version-btn.restore{border-color:#BAC8FF;color:#3B5BDB}
+.ruleset-version-detail{border-left:1px solid #E2E8F0;padding-left:12px;font-size:11px;line-height:1.55;color:#4A5568}
+.ruleset-version-detail strong{display:block;color:#1A1A2E;font-size:12px;margin-bottom:4px}
 .src-place{background:#EBFBEE;color:#2F9E44;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600}
 .ruleset-val[contenteditable="true"]{outline:none}
 .ruleset-val[contenteditable="true"]:focus{border-color:#3B5BDB;background:#fff}
@@ -169,6 +181,8 @@
   .reference-panel{position:static}
   .writing-style-row{grid-template-columns:1fr}
   .writing-preview-layout{grid-template-columns:1fr}
+  .ruleset-version-panel{grid-template-columns:1fr}
+  .ruleset-version-detail{border-left:0;border-top:1px solid #E2E8F0;padding:10px 0 0}
 }
 </style>
 </head>
@@ -182,6 +196,19 @@
 </div>
 <div class="main-content">
   <div class="page-title">마케팅 전략 룰셋 <span class="ruleset-status-badge" id="ruleset-status">불러오는 중</span></div>
+
+  <section class="ruleset-version-panel" id="ruleset-version-panel" aria-label="룰셋 버전 관리">
+    <div>
+      <div class="ruleset-version-head">
+        <div class="ruleset-version-title">룰셋 버전</div>
+      </div>
+      <div class="ruleset-version-list" id="ruleset-version-list">버전을 불러오는 중입니다.</div>
+    </div>
+    <div class="ruleset-version-detail" id="ruleset-version-detail">
+      <strong>버전 상세</strong>
+      버전을 선택하면 생성 시점, 필드 수, 산출 소스를 확인할 수 있습니다.
+    </div>
+  </section>
 
   <!-- 상위 탭 -->
   <div class="top-tab-row">

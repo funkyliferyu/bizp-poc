@@ -21,6 +21,14 @@ function latestLearning(fieldKeys: readonly string[] = REQUIRED_ANALYZER_RULESET
   };
 }
 
+function blogPost(id: string, delta = 'new') {
+  return item({ id, channel: 'blog', sourceType: 'post', metadata: { collectionDelta: delta } });
+}
+
+function placeReview(id: string, delta = 'new') {
+  return item({ id, channel: 'place', sourceType: 'review', metadata: { collectionDelta: delta } });
+}
+
 describe('analysis execution decision', () => {
   it('reuses complete previous learning when the collection run has no meaningful changes', () => {
     const decision = decideAnalysisExecution({
@@ -111,6 +119,65 @@ describe('analysis execution decision', () => {
       hasPreviousLearning: false,
       hasNewBlogOrReviewEvidence: true,
       selectedCounts: { blogPosts: 1, placeProfiles: 1, placeReviews: 1, total: 3 }
+    });
+  });
+
+  it('reuses previous learning when existing learned stores have insufficient new evidence for ruleset regeneration', () => {
+    const decision = decideAnalysisExecution({
+      collectionSummary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 10, duplicate: 0, unchanged: 0, changed: 0 }
+        }
+      },
+      selectedItems: [
+        item({ id: 'profile_changed', sourceType: 'profile', metadata: { collectionDelta: 'changed' } }),
+        blogPost('blog_new_1'),
+        ...Array.from({ length: 9 }, (_, index) => placeReview(`review_new_${index + 1}`))
+      ],
+      latestLearning: latestLearning()
+    });
+
+    expect(decision).toMatchObject({
+      action: 'reuse_latest_learning',
+      reason: 'insufficient_new_evidence_for_ruleset_regeneration',
+      hasPreviousLearning: true,
+      hasNewBlogOrReviewEvidence: true,
+      newEvidenceCounts: {
+        blogPosts: 1,
+        placeReviews: 9,
+        requiredBlogPosts: 3,
+        requiredPlaceReviews: 10
+      }
+    });
+  });
+
+  it('runs the analyzer for existing learned stores when new Blog and review thresholds are met', () => {
+    const decision = decideAnalysisExecution({
+      collectionSummary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 13, duplicate: 0, unchanged: 0, changed: 0 }
+        }
+      },
+      selectedItems: [
+        item({ id: 'profile_changed', sourceType: 'profile', metadata: { collectionDelta: 'changed' } }),
+        ...Array.from({ length: 3 }, (_, index) => blogPost(`blog_new_${index + 1}`)),
+        ...Array.from({ length: 10 }, (_, index) => placeReview(`review_new_${index + 1}`))
+      ],
+      latestLearning: latestLearning()
+    });
+
+    expect(decision).toMatchObject({
+      action: 'run_analyzer',
+      reason: 'new_selected_evidence',
+      hasPreviousLearning: true,
+      newEvidenceCounts: {
+        blogPosts: 3,
+        placeReviews: 10,
+        requiredBlogPosts: 3,
+        requiredPlaceReviews: 10
+      }
     });
   });
 

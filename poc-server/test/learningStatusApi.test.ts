@@ -12,6 +12,34 @@ async function readJson(response: Response) {
   return text ? JSON.parse(text) : null;
 }
 
+function createNewEvidenceItem(
+  repos: ReturnType<typeof createStoreLearningRepositories>,
+  input: {
+    id: string;
+    runId: string;
+    channel: 'blog' | 'place';
+    sourceType: 'post' | 'review' | 'profile';
+  }
+) {
+  repos.collectionItems.create({
+    id: input.id,
+    runId: input.runId,
+    storeId: 'store_demo_cake',
+    channel: input.channel,
+    sourceType: input.sourceType,
+    status: 'collected',
+    sourceUrl: `https://example.com/${input.id}`,
+    title: input.id,
+    bodyText: `${input.id} body`,
+    selectedForAnalysis: 1,
+    selectionReason: 'test_selected',
+    selectedAt: '2026-06-11T00:00:00.000Z',
+    metadata: { collectionDelta: 'new' },
+    createdAt: '2026-06-11T00:00:00.000Z',
+    updatedAt: '2026-06-11T00:00:00.000Z'
+  });
+}
+
 describe('learning status API', () => {
   let connection: DbConnection;
   let server: ReturnType<express.Express['listen']>;
@@ -120,6 +148,104 @@ describe('learning status API', () => {
     });
     expect(body.completion.message).toContain('블로그 수집');
     expect(body.completion.message).toContain('마케팅 전략 룰셋');
+  });
+
+  it('returns relearn eligibility blocked until enough new Blog and review assets exist', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.create({
+      id: 'collection_run_learning_status_insufficient_new_evidence',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-11T00:00:00.000Z',
+      completedAt: '2026-06-11T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 10, duplicate: 0, unchanged: 0, changed: 0 }
+        }
+      },
+      createdAt: '2026-06-11T00:00:00.000Z',
+      updatedAt: '2026-06-11T00:00:01.000Z'
+    });
+    createNewEvidenceItem(repos, {
+      id: 'learning_status_profile_new',
+      runId: 'collection_run_learning_status_insufficient_new_evidence',
+      channel: 'place',
+      sourceType: 'profile'
+    });
+    createNewEvidenceItem(repos, {
+      id: 'learning_status_blog_new_1',
+      runId: 'collection_run_learning_status_insufficient_new_evidence',
+      channel: 'blog',
+      sourceType: 'post'
+    });
+    for (let index = 0; index < 9; index += 1) {
+      createNewEvidenceItem(repos, {
+        id: `learning_status_review_new_${index + 1}`,
+        runId: 'collection_run_learning_status_insufficient_new_evidence',
+        channel: 'place',
+        sourceType: 'review'
+      });
+    }
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/learning-status`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.relearnEligibility).toMatchObject({
+      allowed: false,
+      reason: 'insufficient_new_evidence_for_ruleset_regeneration',
+      message: '재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.',
+      requiredNewBlogPostCount: 3,
+      requiredNewPlaceReviewCount: 10,
+      newBlogPostCount: 1,
+      newPlaceReviewCount: 9,
+      latestCollectionRunId: 'collection_run_learning_status_insufficient_new_evidence'
+    });
+  });
+
+  it('returns the newest marketing ruleset version after a restored version is created', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_demo_restored_v2',
+      storeId: 'store_demo_cake',
+      learningSnapshotId: 'learning_snapshot_demo_store_learning',
+      status: 'draft',
+      version: 2,
+      ruleset: {
+        restoredFromRulesetId: 'marketing_ruleset_demo_v1',
+        restoredFromVersion: 1
+      },
+      createdAt: '2026-06-11T00:00:00.000Z',
+      updatedAt: '2026-06-11T00:00:00.000Z'
+    });
+    repos.rulesetFields.create({
+      id: 'ruleset_field_demo_restored_v2_storePositioning',
+      rulesetId: 'marketing_ruleset_demo_restored_v2',
+      fieldKey: 'storePositioning',
+      fieldValue: '복원된 포지셔닝',
+      aiValue: '복원된 포지셔닝',
+      userValue: null,
+      finalValue: '복원된 포지셔닝',
+      source: 'openai_analysis',
+      locked: 0,
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.8
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/learning-status`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.ruleset).toMatchObject({
+      id: 'marketing_ruleset_demo_restored_v2',
+      version: 2
+    });
+    expect(body.completion.criteria.marketingRuleset).toMatchObject({
+      rulesetId: 'marketing_ruleset_demo_restored_v2',
+      version: 2
+    });
   });
 
   it('returns blog, place, and instagram tab data without raw collection item rows', async () => {

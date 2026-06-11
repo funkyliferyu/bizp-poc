@@ -6,6 +6,7 @@ import type { LearningSnapshot } from '../../repositories/learning_snapshots.js'
 import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import { recordLlmAuditLog } from '../llmAudit/llmAuditRecorder.js';
 import {
   REQUIRED_ANALYZER_RULESET_FIELD_KEYS,
   canonicalRulesetFieldKey,
@@ -521,10 +522,22 @@ export async function startAnalysisRun(
       },
       error: null
     });
+    recordLlmAuditLog(repos, {
+      storeId: analysisRun.storeId,
+      relatedEntityType: 'analysis_run',
+      relatedEntityId: analysisRun.id,
+      provider,
+      model: runMetadata.analyzerModel,
+      action: 'analyze_store_learning',
+      status: 'completed',
+      inputBudget: runMetadata,
+      parsedOutputJson: output
+    });
 
     return getAnalysisArtifacts(repos, analysisRun.id);
   } catch (error) {
     const storedError = analysisErrorMetadata(error, provider, selectedItems);
+    const runMetadata = providerRunMetadata(provider, selectedItems);
     updateAnalysisProgress(
       repos,
       analysisRun.id,
@@ -536,6 +549,17 @@ export async function startAnalysisRun(
       status: 'failed',
       completedAt: nowIso(),
       error: storedError
+    });
+    recordLlmAuditLog(repos, {
+      storeId: analysisRun.storeId,
+      relatedEntityType: 'analysis_run',
+      relatedEntityId: analysisRun.id,
+      provider,
+      model: runMetadata.analyzerModel,
+      action: 'analyze_store_learning',
+      status: 'failed',
+      inputBudget: runMetadata,
+      errorJson: storedError
     });
     if (asString(asRecord(storedError).errorType) === 'analysis_context_too_large') {
       throw new Error(contextTooLargeMessage);

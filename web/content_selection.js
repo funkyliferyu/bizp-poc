@@ -1,9 +1,13 @@
 (function () {
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
+  const REQUIRED_NEW_BLOG_POST_COUNT = 3;
+  const REQUIRED_NEW_PLACE_REVIEW_COUNT = 10;
+  const NEW_EVIDENCE_GUIDANCE = '재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.';
   let latestItems = [];
   let latestStoreId = null;
   let latestRunId = null;
   let latestCollectionRun = null;
+  let latestRelearnEligibility = null;
   let analysisInFlight = false;
   let analysisElapsedTimer = null;
   let analysisElapsedStartedAt = null;
@@ -104,6 +108,32 @@
     return Number(item.selectedForAnalysis) === 1;
   }
 
+  function isNewEvidence(item) {
+    return asRecord(item?.metadata).collectionDelta === 'new';
+  }
+
+  function selectedNewEvidenceCounts() {
+    const selectedNewItems = latestItems.filter(isSelected).filter(isNewEvidence);
+    return {
+      blogPosts: selectedNewItems.filter((item) => item.channel === 'blog' && item.sourceType === 'post').length,
+      placeReviews: selectedNewItems.filter((item) => item.channel === 'place' && item.sourceType === 'review').length
+    };
+  }
+
+  function requiresNewEvidenceForRegeneration() {
+    if (hasNoMeaningfulChanges()) return false;
+    return Boolean(latestRelearnEligibility?.hasPreviousLearning && latestRelearnEligibility?.requiresNewEvidence);
+  }
+
+  function insufficientNewEvidenceMessage() {
+    if (!requiresNewEvidenceForRegeneration()) return '';
+    const counts = selectedNewEvidenceCounts();
+    const requiredBlogPosts = Number(latestRelearnEligibility?.requiredNewBlogPostCount || REQUIRED_NEW_BLOG_POST_COUNT);
+    const requiredPlaceReviews = Number(latestRelearnEligibility?.requiredNewPlaceReviewCount || REQUIRED_NEW_PLACE_REVIEW_COUNT);
+    if (counts.blogPosts >= requiredBlogPosts && counts.placeReviews >= requiredPlaceReviews) return '';
+    return latestRelearnEligibility?.message || NEW_EVIDENCE_GUIDANCE;
+  }
+
   function checkMarkup(item) {
     const checked = isSelected(item);
     return `<button type="button" class="fake-check${checked ? ' on' : ''}" data-item-id="${escapeHtml(item.id)}" aria-label="선택" aria-pressed="${checked}" style="margin:0 auto;padding:0;background:${checked ? '#3B5BDB' : '#fff'}">${checked ? '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>`;
@@ -193,6 +223,7 @@
     const placeItems = latestItems.filter((item) => item.channel === 'place');
     const selectedCount = latestItems.filter(isSelected).length;
     const canReusePreviousLearning = hasNoMeaningfulChanges();
+    const insufficientNewEvidence = insufficientNewEvidenceMessage();
 
     field('selection-blog-count').textContent = `· ${blogItems.length}개 수집`;
     field('selection-place-count').textContent = `· ${placeItems.length}개 수집`;
@@ -200,6 +231,8 @@
       ? `${selectedCount}개 선택됨`
       : canReusePreviousLearning ? '기존 학습 결과 재사용' : '0개 선택됨';
     field('selection-analysis-btn').disabled = analysisInFlight || (selectedCount === 0 && !canReusePreviousLearning);
+    field('selection-analysis-btn').disabled = analysisInFlight || Boolean(insufficientNewEvidence) || (selectedCount === 0 && !canReusePreviousLearning);
+    setAnalysisError(insufficientNewEvidence || '');
     field('selection-blog-raw-button').disabled = !latestRunId;
   }
 
@@ -214,6 +247,7 @@
     const payload = await readResponse(response);
     latestStoreId = payload.storeId || latestStoreId;
     latestCollectionRun = payload.collectionRun || latestCollectionRun;
+    latestRelearnEligibility = payload.relearnEligibility || null;
     latestItems = payload.items || [];
     render();
   }
@@ -430,6 +464,9 @@
   }
 
   async function runAnalysisFlow() {
+    const insufficientMessage = insufficientNewEvidenceMessage();
+    setAnalysisError(insufficientMessage || '');
+    if (insufficientMessage) throw new Error(insufficientMessage);
     analysisInFlight = true;
     renderCounts();
     setAnalysisError('');
