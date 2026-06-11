@@ -1,11 +1,12 @@
 # LLM Call Audit And Analysis Budget Plan
 
-> **For agentic workers:** Start this plan only after confirming the current
-> branch and PR #38 status. Use `docs/codex/PLAN.md` as the ledger source of
+> **For agentic workers:** Start or continue this plan only after confirming
+> the current branch and latest LLM-audit PR status. Use `docs/codex/PLAN.md` as the ledger source of
 > truth. Do not stage `.DS_Store`.
 
 **Goal:** Make every Store Learning "AI/LLM" behavior auditable, prove which
-paths actually call OpenAI, and fix the current analysis context overflow.
+paths actually call OpenAI, and keep analysis/blog/SEO prompt inputs within
+safe server-side budgets.
 
 **Architecture:** Keep all OpenAI calls server-side in `poc-server`. Add
 observable provider/mode/model/fallback metadata to generated artifacts and API
@@ -28,7 +29,7 @@ git branch --show-current
 git status --short --branch
 git fetch origin --prune
 git log --oneline --decorate -5
-gh pr view 38 --json number,state,mergedAt,mergeCommit,baseRefName,headRefName,url
+gh pr view 43 --json number,state,mergedAt,mergeCommit,baseRefName,headRefName,url,mergeStateStatus
 gh pr list --base develop --state open
 ```
 
@@ -36,13 +37,14 @@ Expected repository context:
 
 - Worktree root:
   `/Users/1004182/Documents/bizplanet-work/bizp-store-learning-poc`
-- Current branch for the existing CR work:
-  `codex/collection-delta-plan`
-- Existing PR:
-  #38 from `codex/collection-delta-plan` to `develop`
-- Known blocker:
-  PR #38 merge is blocked by the `develop` base branch policy unless an
-  authorized reviewer/admin satisfies the policy.
+- Latest validated LLM-audit baseline:
+  PR #43 from `codex/blog-seo-budget-tuning` to `develop`, squash merge
+  commit `3c8bbb9676008863d0f0dfa1887b93b69e14b28c`.
+- Current branch for new follow-up work:
+  create a fresh `codex/*` branch from latest `develop`.
+- Expected develop PR state:
+  no open PR targeting `develop` before starting a new follow-up, unless the
+  user explicitly chooses stacked work.
 - Keep `.DS_Store` untracked/unstaged.
 
 Forbidden areas remain unchanged:
@@ -168,6 +170,11 @@ Implementation status:
   reduces media asset count, article section/body length, and ruleset field
   value length to stay under the configured prompt character budget where
   possible.
+- Done: post-PR #43 audit tightened SL-B1 response symmetry so blog generation
+  responses expose `contentProvenance` and `seoScore.provenance`, matching
+  content detail and SEO rescore responses.
+- Done: content detail provenance UI now renders provider, model, action, and
+  prompt input character budget for Blog/SEO outputs.
 
 ## Task 1: Add LLM Call Trace Contract
 
@@ -249,10 +256,14 @@ Implementation requirements:
   - Blog post: first 1,200 characters until aggregate budget is reached
   - Place review: first 500 characters
   - Place profile: normalized facts only
+- Current development prompt item caps:
+  - Blog post: newest/date-ordered maximum 3 items
+  - Place review: newest/date-ordered maximum 10 items
 - Add aggregate guard:
   - If prompt JSON exceeds a conservative character budget, reduce selected
     Blog items by newest/date order and keep profile/review evidence first.
-  - Persist or return `omittedItemCount` and `promptBudgetReason`.
+  - Persist or return `omittedItemCount`, Blog/review limit/counts, and
+    `promptBudgetReason`.
 
 Suggested tests:
 
@@ -321,19 +332,52 @@ the nearest existing static-page test file.
 - Test: `poc-server/test/analysisExecutionApi.test.ts`
 
 **Purpose:** If OpenAI still rejects a prompt, the UI should show a product
-message rather than a raw API error.
+message rather than a raw API/contract error.
 
 Implementation requirements:
 
 - Detect OpenAI context-length errors by message pattern.
+- Detect SL-A1 ruleset field contract failures after structured parsing.
 - Store a sanitized error shape:
   - `errorType: "analysis_context_too_large"`
+  - `errorType: "analysis_contract_invalid"` with `contractIssue` for
+    missing/duplicate/unknown/source contract issues
   - original provider name/mode/model
   - selected item count
   - prompt budget summary if available
+- Do not store or return raw fieldKey lists such as missing ruleset field names
+  in `analysis_runs.error`.
 - Browser message:
   - `선택한 콘텐츠가 많아 분석 입력 한도를 초과했습니다. 일부 콘텐츠를 제외하거나 다시 수집 후 실행해주세요.`
+  - `AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다. 다시 실행해주세요.`
 - Do not leak API keys or raw provider payloads.
+
+Implementation status:
+
+- Done: SL-A1 context-length failures are stored as
+  `analysis_context_too_large` with a product-safe Korean message.
+- Done: SL-A1 ruleset field contract failures are stored as
+  `analysis_contract_invalid` with safe `contractIssue` metadata; raw
+  missing/duplicate/unknown field-key lists are not stored or returned.
+- Done: SL-A1 OpenAI response format now uses `rulesetFieldsByKey` instead of
+  a loose array, and evidence references are constrained to `promptItemIds`
+  from the budgeted prompt payload.
+- Done: regression coverage now inspects the actual OpenAI `response_format`
+  payload sent by SL-A1, including strict `rulesetFieldsByKey`, all required
+  ruleset keys, and evidence ID enums derived from `promptItemIds`.
+- Done: failed SL-A1 start responses now return current-run diagnostics
+  (`analysisRunId`, failed `analysisRun`, and safe `analysisFailure` metadata),
+  and the content-selection UI includes that current run ID in the visible
+  failure message so stale failed runs are easier to distinguish.
+- Done: in-app Browser smoke used the real `content_selection.js` with a local
+  failure harness and confirmed the visible inline failure message includes
+  the current `analysisRunId`.
+- Done: localhost live smoke completed first learning for
+  `store_36372611` (`남대문명동정형외과의원`) with 38/38 OpenAI ruleset
+  fields; overlay step 2 took about 138 seconds.
+- Done: localhost smoke for `store_1020864025` (`테라스의원`) confirmed the
+  profile-only rerun reuses/backfills the latest learning artifacts instead of
+  calling the analyzer.
 
 Suggested tests:
 
@@ -362,6 +406,12 @@ Implementation requirements:
 curl -s http://localhost:5177/api/runtime
 curl -s http://localhost:5177/api/store-learning/provider-readiness
 ```
+
+Implementation status:
+
+- Done: `web/llm호출.html` reflects the post-PR #43 Blog/SEO provenance
+  response shape, SL-A1 3 Blog / 10 review development prompt caps, and
+  sanitized context/contract failure handling.
 
 ## Validation Commands
 
@@ -402,26 +452,13 @@ Manual browser smoke:
 
 ## PR And Merge Handoff
 
-If this work continues on PR #38:
+For the current follow-up branch:
 
-1. Commit only relevant files. Do not stage `.DS_Store`.
-2. Push `codex/collection-delta-plan`.
-3. Update PR #38 summary/test plan if new runtime behavior changes.
-4. Ask an authorized reviewer/admin to satisfy the `develop` base branch
+1. Commit only relevant files from `codex/llm-call-audit-post43`.
+2. Do not stage `.DS_Store`.
+3. Push the branch and open a draft PR targeting `develop`.
+4. Use the PR summary/test plan from `docs/codex/HANDOFF.md`.
+5. Ask an authorized reviewer/admin to satisfy the `develop` base branch
    policy and merge.
-5. After merge, switch to `develop`, pull latest, run validation, and record it
+6. After merge, switch to `develop`, pull latest, run validation, and record it
    in `docs/codex/VALIDATION.md` and `docs/codex/HANDOFF.md`.
-
-If PR #38 is already merged before the next session:
-
-1. Switch to `develop`.
-2. Pull latest.
-3. Create a new branch from latest `develop`:
-
-```bash
-git switch develop
-git pull --ff-only origin develop
-git switch -c codex/llm-call-audit-budget
-```
-
-4. Implement this plan there.

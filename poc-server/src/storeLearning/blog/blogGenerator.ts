@@ -550,7 +550,8 @@ export async function generateApprovalPendingBlogPost(
     contentGeneration,
     blogPost: serializeBlogPost(repos, blogPost.id),
     mediaAssets,
-    seoScore
+    contentProvenance: contentGenerationProvenance(contentGeneration),
+    seoScore: serializeSeoScore(seoScore, blogPost, mediaAssets)
   };
 }
 

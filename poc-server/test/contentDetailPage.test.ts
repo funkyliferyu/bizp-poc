@@ -34,6 +34,8 @@ describe('AI content detail page API wiring', () => {
     expect(js).toContain('fetch(`/api/blog-posts/${postId}/preview`)');
     expect(js).toContain('fetch(`/api/blog-posts/${postId}/request-publish`');
     expect(js).toContain('function renderContentProvenance');
+    expect(js).toContain('provenance.action');
+    expect(js).toContain('provenance.inputBudget');
     expect(js).toContain('content-provenance-line');
     expect(js).toContain('payload.contentProvenance');
     expect(js).toContain('payload.seoScore?.provenance');

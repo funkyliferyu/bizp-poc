@@ -1,13 +1,14 @@
 import express from 'express';
 import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
-import type { JsonValue } from '../../repositories/base.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import { decideAnalysisExecution, type AnalysisExecutionDecision } from '../analysis/analysisDecision.js';
 import { getAnalysisArtifacts, getLatestAnalysisArtifacts, startAnalysisRun } from '../analysis/analysisExecutionService.js';
 import type { AnalysisProvider } from '../analysis/analyzer.js';
 import { createAnalysisProvider } from '../analysis/openAIAnalysisProvider.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
+import { backfillRulesetContractFields } from '../rulesets/rulesetContractBackfill.js';
 
 type AnalysisRunRoutesOptions = {
   connection: DbConnection;
@@ -25,6 +26,15 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 function analysisRunId(storeId: string) {
   return `analysis_run_${storeId}_${Date.now()}`;
 }
@@ -38,32 +48,101 @@ function selectedCounts(items: CollectionItem[]) {
   };
 }
 
-function emptySelectedCounts() {
-  return { blogPosts: 0, placeProfiles: 0, placeReviews: 0, total: 0 };
+function reuseProgressMessage(reason: AnalysisExecutionDecision['reason']) {
+  if (reason === 'latest_ruleset_contract_incomplete') {
+    return '기존 룰셋 항목 보정이 필요한 상태로 기존 학습 결과를 재사용했습니다.';
+  }
+  if (reason === 'place_profile_fact_change_only') {
+    return '매장 기본정보만 갱신되어 기존 학습 결과를 재사용했습니다.';
+  }
+  return '이전 수집 결과와 동일해 기존 학습 결과를 재사용했습니다.';
 }
 
-function asRecord(value: JsonValue | unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  return value as Record<string, unknown>;
-}
-
-function isNoMeaningfulChangeRun(summary: JsonValue) {
-  const collectionDelta = asRecord(asRecord(summary).collectionDelta);
-  return collectionDelta.hasMeaningfulChanges === false;
-}
-
-function skippedAnalysisProgress(now: string) {
+function skippedAnalysisProgress(now: string, reason: AnalysisExecutionDecision['reason']) {
   const entry = {
     step: 'completed',
     label: '분석 완료',
     state: 'done',
-    message: '이전 수집 결과와 동일해 기존 학습 결과를 재사용했습니다.',
+    message: reuseProgressMessage(reason),
     updatedAt: now
   };
   return {
     ...entry,
     startedAt: now,
     timeline: [entry]
+  };
+}
+
+function latestLearningDecisionInput(latestArtifacts: ReturnType<typeof getLatestAnalysisArtifacts>) {
+  if (!latestArtifacts?.learningSnapshot || !latestArtifacts.marketingRuleset) return null;
+  return {
+    analysisRunId: latestArtifacts.analysisRun.id,
+    learningSnapshotId: latestArtifacts.learningSnapshot.id,
+    marketingRulesetId: latestArtifacts.marketingRuleset.id,
+    rulesetFieldKeys: latestArtifacts.rulesetFields.map((field) => field.fieldKey)
+  };
+}
+
+function blockedDecisionMessage(decision: AnalysisExecutionDecision) {
+  if (decision.reason === 'latest_ruleset_contract_incomplete') {
+    return '기존 학습 결과의 룰셋 항목 보정이 필요합니다. 보정 후 다시 실행해주세요.';
+  }
+  if (decision.reason === 'no_previous_learning_to_reuse') {
+    return '재사용할 이전 학습 결과가 없습니다. 분석할 블로그 또는 리뷰 콘텐츠를 선택해주세요.';
+  }
+  if (decision.reason === 'no_collected_selected_items') {
+    return '분석할 수집 콘텐츠가 없습니다.';
+  }
+  return '현재 선택 조합으로는 분석을 시작할 수 없습니다.';
+}
+
+function markSelectedItems(repos: ReturnType<typeof createStoreLearningRepositories>, collectedItems: CollectionItem[], selectedIdSet: Set<string>) {
+  const selectedAt = nowIso();
+  for (const item of collectedItems) {
+    const selected = selectedIdSet.has(item.id);
+    repos.collectionItems.update(item.id, {
+      selectedForAnalysis: selected ? 1 : 0,
+      selectionReason: selected ? 'selected_for_queued_analysis' : 'not_selected_for_queued_analysis',
+      selectedAt
+    });
+  }
+}
+
+function reuseSkippedReason(collectionSummary: unknown, decision: AnalysisExecutionDecision) {
+  if (decision.reason !== 'latest_ruleset_contract_incomplete') return decision.reason;
+  const collectionDelta = asRecord(asRecord(collectionSummary).collectionDelta);
+  if (collectionDelta.hasMeaningfulChanges === false) return 'no_meaningful_collection_changes';
+  return 'place_profile_fact_change_only';
+}
+
+function failedAnalysisResponse(artifacts: NonNullable<ReturnType<typeof getAnalysisArtifacts>>, fallbackError: unknown) {
+  const analysisRun = artifacts.analysisRun;
+  const error = asRecord(analysisRun.error);
+  const message =
+    asString(error.message) ??
+    (fallbackError instanceof Error ? fallbackError.message : null) ??
+    '분석 실행을 시작하지 못했습니다.';
+
+  return {
+    error: message,
+    analysisRunId: analysisRun.id,
+    analysisRun,
+    analysisFailure: {
+      analysisRunId: analysisRun.id,
+      status: analysisRun.status,
+      isCurrentRun: true,
+      failedAt: analysisRun.completedAt ?? analysisRun.updatedAt,
+      message,
+      errorType: asString(error.errorType),
+      contractIssue: asString(error.contractIssue),
+      analyzerProvider: asString(error.analyzerProvider),
+      analyzerMode: asString(error.analyzerMode),
+      analyzerModel: asString(error.analyzerModel),
+      selectedItemCount: error.selectedItemCount,
+      promptItemCount: error.promptItemCount,
+      omittedItemCount: error.omittedItemCount,
+      promptBudgetReason: asString(error.promptBudgetReason)
+    }
   };
 }
 
@@ -85,6 +164,11 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
       const artifacts = await startAnalysisRun(repos, req.params.analysisRunId, provider ?? createAnalysisProvider(env));
       res.json(artifacts);
     } catch (error) {
+      const artifacts = getAnalysisArtifacts(repos, req.params.analysisRunId);
+      if (artifacts?.analysisRun.status === 'failed') {
+        res.status(400).json(failedAnalysisResponse(artifacts, error));
+        return;
+      }
       next(error);
     }
   });
@@ -110,36 +194,6 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
       const collectedById = new Map(collectedItems.map((item) => [item.id, item]));
       const selectedIdSet = new Set(body.selectedItemIds);
 
-      if (selectedIdSet.size === 0 && isNoMeaningfulChangeRun(collectionRun.summary)) {
-        const latestArtifacts = getLatestAnalysisArtifacts(repos, store.id);
-        if (!latestArtifacts?.learningSnapshot || !latestArtifacts.marketingRuleset) {
-          res.status(400).json({ error: 'No previous completed learning result is available to reuse.' });
-          return;
-        }
-        const completedAt = nowIso();
-        const analysisRun = repos.analysisRuns.create({
-          id: analysisRunId(store.id),
-          storeId: store.id,
-          collectionRunId: collectionRun.id,
-          status: 'completed',
-          startedAt: completedAt,
-          completedAt,
-          result: {
-            selectedItemIds: [],
-            selectedCounts: emptySelectedCounts(),
-            skippedReason: 'no_meaningful_collection_changes',
-            reusedAnalysisRunId: latestArtifacts.analysisRun.id,
-            learningSnapshotId: latestArtifacts.learningSnapshot.id,
-            marketingRulesetId: latestArtifacts.marketingRuleset.id,
-            analysisProgress: skippedAnalysisProgress(completedAt)
-          },
-          error: null
-        });
-
-        res.json({ analysisRunId: analysisRun.id, analysisRun });
-        return;
-      }
-
       for (const item of collectedItems) {
         if (item.sourceType === 'profile') selectedIdSet.add(item.id);
       }
@@ -151,20 +205,76 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
       }
 
       const selectedItems = Array.from(selectedIdSet).map((itemId) => collectedById.get(itemId) as CollectionItem);
-      if (selectedItems.length === 0) {
-        res.status(400).json({ error: 'Select at least one collected item for analysis.' });
+      const latestArtifacts = getLatestAnalysisArtifacts(repos, store.id);
+      const analysisDecision = decideAnalysisExecution({
+        collectionSummary: collectionRun.summary,
+        selectedItems,
+        latestLearning: latestLearningDecisionInput(latestArtifacts)
+      });
+
+      if (analysisDecision.action === 'block') {
+        res.status(400).json({
+          error: blockedDecisionMessage(analysisDecision),
+          analysisDecision
+        });
         return;
       }
-      const selectedAt = nowIso();
-      for (const item of collectedItems) {
-        const selected = selectedIdSet.has(item.id);
-        repos.collectionItems.update(item.id, {
-          selectedForAnalysis: selected ? 1 : 0,
-          selectionReason: selected ? 'selected_for_queued_analysis' : 'not_selected_for_queued_analysis',
-          selectedAt
+
+      if (analysisDecision.action === 'reuse_latest_learning' || analysisDecision.action === 'backfill_latest_ruleset') {
+        if (!latestArtifacts?.learningSnapshot || !latestArtifacts.marketingRuleset) {
+          res.status(400).json({
+            error: blockedDecisionMessage({
+              ...analysisDecision,
+              reason: 'no_previous_learning_to_reuse'
+            }),
+            analysisDecision
+          });
+          return;
+        }
+        const backfillResult =
+          analysisDecision.action === 'backfill_latest_ruleset'
+            ? backfillRulesetContractFields(repos, {
+                store,
+                rulesetId: latestArtifacts.marketingRuleset.id,
+                missingFieldKeys: analysisDecision.missingRulesetFieldKeys,
+                selectedItems
+              })
+            : null;
+        markSelectedItems(repos, collectedItems, selectedIdSet);
+        const selectedItemIds = selectedItems.map((item) => item.id);
+        const completedAt = nowIso();
+        const skippedReason = reuseSkippedReason(collectionRun.summary, analysisDecision);
+        const analysisRun = repos.analysisRuns.create({
+          id: analysisRunId(store.id),
+          storeId: store.id,
+          collectionRunId: collectionRun.id,
+          status: 'completed',
+          startedAt: completedAt,
+          completedAt,
+          result: {
+            selectedItemIds,
+            selectedCounts: selectedCounts(selectedItems),
+            skippedReason,
+            pendingRulesetBackfill: analysisDecision.action === 'backfill_latest_ruleset' && !backfillResult?.applied,
+            rulesetBackfillApplied: backfillResult?.applied ?? false,
+            rulesetBackfillSource: backfillResult?.source ?? null,
+            rulesetBackfillMissingFieldKeys: backfillResult ? analysisDecision.missingRulesetFieldKeys : [],
+            rulesetBackfillFieldIds: backfillResult?.fieldIds ?? [],
+            rulesetBackfillFieldKeys: backfillResult?.fieldKeys ?? [],
+            analysisDecision,
+            reusedAnalysisRunId: latestArtifacts.analysisRun.id,
+            learningSnapshotId: latestArtifacts.learningSnapshot.id,
+            marketingRulesetId: latestArtifacts.marketingRuleset.id,
+            analysisProgress: skippedAnalysisProgress(completedAt, analysisDecision.reason)
+          },
+          error: null
         });
+
+        res.json({ analysisRunId: analysisRun.id, analysisRun });
+        return;
       }
 
+      markSelectedItems(repos, collectedItems, selectedIdSet);
       const selectedItemIds = selectedItems.map((item) => item.id);
       const analysisRun = repos.analysisRuns.create({
         id: analysisRunId(store.id),
@@ -175,7 +285,8 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
         completedAt: null,
         result: {
           selectedItemIds,
-          selectedCounts: selectedCounts(selectedItems)
+          selectedCounts: selectedCounts(selectedItems),
+          analysisDecision
         },
         error: null
       });

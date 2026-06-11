@@ -125,7 +125,7 @@ describe('analysis prompt budget', () => {
     expect((promptInput.selectedItems.find((item) => item.id === 'review_1')?.bodyText ?? '').length).toBeLessThanOrEqual(500);
   });
 
-  it('limits blog sources to 10 even when the prompt budget allows more', () => {
+  it('limits blog sources to 3 even when the prompt budget allows more', () => {
     const selectedItems = [
       baseItem({
         id: 'profile_1',
@@ -164,15 +164,79 @@ describe('analysis prompt budget', () => {
     );
     const promptBlogIds = promptInput.selectedItems.filter((item) => item.channel === 'blog').map((item) => item.id);
 
-    expect(promptBlogIds).toHaveLength(10);
-    expect(promptBlogIds).toEqual(['blog_12', 'blog_11', 'blog_10', 'blog_9', 'blog_8', 'blog_7', 'blog_6', 'blog_5', 'blog_4', 'blog_3']);
+    expect(promptBlogIds).toHaveLength(3);
+    expect(promptBlogIds).toEqual(['blog_12', 'blog_11', 'blog_10']);
+    expect(promptInput.promptItemIds).toEqual(['profile_1', 'review_1', 'blog_12', 'blog_11', 'blog_10']);
+    expect(promptInput.promptItemIds).not.toContain('blog_1');
     expect(promptInput.selectedItems.map((item) => item.id)).toContain('profile_1');
     expect(promptInput.selectedItems.map((item) => item.id)).toContain('review_1');
-    expect(metadata.omittedItemCount).toBe(2);
-    expect(metadata.blogItemLimit).toBe(10);
-    expect(metadata.promptBlogItemCount).toBe(10);
-    expect(metadata.omittedBlogItemCount).toBe(2);
+    expect(metadata.omittedItemCount).toBe(9);
+    expect(metadata.blogItemLimit).toBe(3);
+    expect(metadata.promptBlogItemCount).toBe(3);
+    expect(metadata.omittedBlogItemCount).toBe(9);
     expect(metadata.promptBudgetReason).toBe('blog_item_limit_exceeded');
+  });
+
+  it('limits place review sources to 10 even when the prompt budget allows more', () => {
+    const selectedItems = [
+      baseItem({
+        id: 'profile_1',
+        channel: 'place',
+        sourceType: 'profile',
+        bodyText: '프로필 본문',
+        metadata: { businessHours: '월-금 10:00-19:00' }
+      }),
+      ...Array.from({ length: 12 }, (_, index) => {
+        const day = index + 1;
+        return baseItem({
+          id: `review_${day}`,
+          channel: 'place',
+          sourceType: 'review',
+          title: `리뷰 ${day}`,
+          bodyText: `리뷰 본문 ${day}`,
+          metadata: {
+            reviewDate: `2026-06-${String(day).padStart(2, '0')}`,
+            rating: 5
+          }
+        });
+      }),
+      baseItem({
+        id: 'blog_1',
+        channel: 'blog',
+        sourceType: 'post',
+        title: '블로그 1',
+        bodyText: '블로그 본문 1'
+      })
+    ];
+
+    const { promptInput, metadata } = buildAnalysisPromptInput(
+      { store: baseStore(), selectedItems },
+      { promptCharacterBudget: 100000, bodyCharacterBudget: 100000 }
+    );
+    const promptReviewIds = promptInput.selectedItems
+      .filter((item) => item.sourceType === 'review')
+      .map((item) => item.id);
+
+    expect(promptReviewIds).toHaveLength(10);
+    expect(promptReviewIds).toEqual([
+      'review_12',
+      'review_11',
+      'review_10',
+      'review_9',
+      'review_8',
+      'review_7',
+      'review_6',
+      'review_5',
+      'review_4',
+      'review_3'
+    ]);
+    expect(promptInput.selectedItems.map((item) => item.id)).toContain('profile_1');
+    expect(promptInput.selectedItems.map((item) => item.id)).toContain('blog_1');
+    expect(metadata.omittedItemCount).toBe(2);
+    expect(metadata.reviewItemLimit).toBe(10);
+    expect(metadata.promptReviewItemCount).toBe(10);
+    expect(metadata.omittedReviewItemCount).toBe(2);
+    expect(metadata.promptBudgetReason).toBe('review_item_limit_exceeded');
   });
 
   it('sends structured guidance for every SL-A1 ruleset field that requires AI interpretation', () => {

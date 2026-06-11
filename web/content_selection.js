@@ -49,11 +49,17 @@
       .replace(/'/g, '&#039;');
   }
 
+  function createResponseError(body) {
+    const error = new Error(body.error || '요청을 처리하지 못했습니다.');
+    error.details = body;
+    return error;
+  }
+
   async function readResponse(response) {
     const text = await response.text();
     const body = text ? JSON.parse(text) : {};
     if (!response.ok) {
-      throw new Error(body.error || '요청을 처리하지 못했습니다.');
+      throw createResponseError(body);
     }
     return body;
   }
@@ -69,6 +75,23 @@
   function asRecord(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return value;
+  }
+
+  function formatAnalysisFailureMessage(error, fallbackAnalysisRunId) {
+    const details = asRecord(error?.details);
+    const failure = asRecord(details.analysisFailure);
+    const analysisRun = asRecord(details.analysisRun);
+    const analysisRunId =
+      failure.analysisRunId || details.analysisRunId || analysisRun.id || fallbackAnalysisRunId;
+    const baseMessage =
+      failure.message ||
+      details.error ||
+      (error instanceof Error ? error.message : '분석 실행을 시작하지 못했습니다.');
+    const failedAt = failure.failedAt || analysisRun.completedAt || analysisRun.updatedAt;
+    const failedAtText = failedAt ? ` 실패 시각: ${failedAt}` : '';
+
+    if (!analysisRunId) return baseMessage;
+    return `현재 분석 실행(${analysisRunId})에서 실패했습니다. ${baseMessage}${failedAtText}`;
   }
 
   function hasNoMeaningfulChanges() {
@@ -247,12 +270,17 @@
 
     const omittedItemCount = Number(result.omittedItemCount ?? error.omittedItemCount ?? 0);
     const omittedBlogItemCount = Number(result.omittedBlogItemCount ?? error.omittedBlogItemCount ?? 0);
+    const omittedReviewItemCount = Number(result.omittedReviewItemCount ?? error.omittedReviewItemCount ?? 0);
     const blogItemLimit = Number(result.blogItemLimit ?? error.blogItemLimit ?? 0);
+    const reviewItemLimit = Number(result.reviewItemLimit ?? error.reviewItemLimit ?? 0);
     const promptBudgetReason = result.promptBudgetReason || error.promptBudgetReason;
     const hasBudgetNote = omittedItemCount > 0 || promptBudgetReason === 'body_truncated_to_budget';
+    const limitParts = [];
+    if (omittedBlogItemCount > 0 && blogItemLimit > 0) limitParts.push(`블로그 소스 최대 ${blogItemLimit}개`);
+    if (omittedReviewItemCount > 0 && reviewItemLimit > 0) limitParts.push(`리뷰 최대 ${reviewItemLimit}개`);
     const budgetNote =
-      omittedBlogItemCount > 0 && blogItemLimit > 0
-        ? `개발 버전에서는 블로그 소스 최대 ${blogItemLimit}개만 분석 입력에 포함됩니다.`
+      limitParts.length > 0
+        ? `개발 버전에서는 ${limitParts.join(', ')}만 분석 입력에 포함됩니다.`
         : '분석 입력 예산에 맞춰 일부 본문은 요약/제외되었습니다.';
     setOptionalText(
       'selection-analysis-budget-note',
@@ -410,10 +438,12 @@
     startAnalysisElapsedTimer();
     setAnalysisStep('ready', hasNoMeaningfulChanges() ? '이전과 동일해 학습을 종료합니다' : '준비 중');
     let stopProgressPolling = null;
+    let activeAnalysisRunId = null;
 
     try {
       const payload = await createAnalysisRun();
       const analysisRunId = payload.analysisRunId;
+      activeAnalysisRunId = analysisRunId;
       setAnalysisStep('queued', hasNoMeaningfulChanges() ? '기존 학습 결과 재사용' : '선택 저장 완료');
       stopProgressPolling = startAnalysisProgressPolling(analysisRunId);
       if (hasNoMeaningfulChanges()) {
@@ -442,9 +472,9 @@
       setAnalysisOverlayVisible(false);
       stopAnalysisElapsedTimer();
       stopProgressPolling?.();
-      const message = error instanceof Error ? error.message : '분석 실행을 시작하지 못했습니다.';
+      const message = formatAnalysisFailureMessage(error, activeAnalysisRunId);
       setAnalysisError(message);
-      throw error;
+      throw new Error(message);
     }
   }
 

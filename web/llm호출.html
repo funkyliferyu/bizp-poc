@@ -217,13 +217,16 @@
               <li><code>OPENAI_API_KEY</code> 있음: OpenAI 호출</li>
               <li>없음: <code>mockDeterministicAnalyzer</code></li>
               <li>선택 항목 0개 + 의미 있는 변경 없음: 이전 분석 결과 재사용</li>
+              <li>profile-only 재수집 + 기존 학습 있음: analyzer 재호출 없이 최신 학습/룰셋 재사용 또는 백필</li>
+              <li>OpenAI ruleset field 계약 오류는 <code>analysis_contract_invalid</code>로 sanitize</li>
             </ul>
           </td>
           <td>
             <ul class="mono-list">
               <li><code>store</code>: id, name, category, address, description, allowlist profile facts</li>
               <li><code>selectedItemIds</code></li>
-              <li><code>selectedItems</code>: id, channel, sourceType, title, sourceUrl, budgeted bodyText. 개발 버전에서는 Blog 소스가 몇 개든 최신순 최대 10개만 포함</li>
+              <li><code>promptItemIds</code>: budget 적용 후 실제 prompt에 포함된 항목 ID. OpenAI evidence id enum도 이 목록으로 제한</li>
+              <li><code>selectedItems</code>: id, channel, sourceType, title, sourceUrl, budgeted bodyText. 개발 버전에서는 Blog 최대 3개, Place review 최대 10개만 포함</li>
               <li><code>metadata</code>: publishedAt, reviewDate, rating, reviewerName, blogId, logNo, tags, Place profile facts 등 allowlist만 포함</li>
               <li><code>requiredRulesetFieldKeys</code></li>
               <li><code>requiredRulesetFields</code>: AI 산출 대상 fieldKey, label, section, valueKind, sourceTier, inputSources, expectedOutput, evidenceGuidance. 운영시간/휴무일/주차/대표 진료과목 같은 direct Place/manual facts는 제외</li>
@@ -239,13 +242,14 @@ JSON.stringify({
   constraints,
   store,
   selectedItemIds,
+  promptItemIds,
   selectedItems,
   requiredRulesetFieldKeys,
   requiredRulesetFields
 })</td>
           <td>
-            <code>zodResponseFormat(AnalyzerOutputSchema, 'store_learning_analysis')</code><br>
-            이후 <code>validateAnalyzerOutput()</code>, <code>validateAnalyzerRulesetFieldContract()</code>, <code>validateAnalyzerReferences()</code>로 재검증.
+            <code>zodResponseFormat(OpenAIAnalyzerOutputSchema, 'store_learning_analysis')</code><br>
+            OpenAI 응답은 <code>rulesetFieldsByKey</code>로 받고 서버에서 내부 <code>rulesetFields[]</code>로 정규화. 이후 <code>validateAnalyzerOutput()</code>, <code>validateAnalyzerRulesetFieldContract()</code>, <code>validateAnalyzerReferences()</code>로 재검증.
           </td>
           <td>
             <ul class="mono-list">
@@ -257,6 +261,7 @@ JSON.stringify({
               <li><code>analysis_runs.result</code>(DB <code>result_json</code>)에 원 출력 저장</li>
               <li><code>analysis_runs.result</code>에 analyzerProvider, analyzerMode, analyzerModel, selected/prompt/omitted item count 저장</li>
               <li><code>analysis_runs.result</code>에 blogItemLimit, selectedBlogItemCount, promptBlogItemCount, omittedBlogItemCount 저장</li>
+              <li><code>analysis_runs.result</code>에 reviewItemLimit, selectedReviewItemCount, promptReviewItemCount, omittedReviewItemCount 저장</li>
               <li><code>analysis_runs.result</code>에 promptCharacterCount, promptCharacterBudget, bodyCharacterBudget, promptBudgetReason 저장</li>
             </ul>
           </td>
@@ -310,6 +315,7 @@ JSON.stringify(buildBlogDraftPromptInput(input).promptInput)</td>
               <li><code>media_assets</code>는 실제 이미지가 아니라 image_prompt placeholder 생성</li>
               <li><code>seo_scores</code>는 provider seoScore가 있으면 사용, 없으면 로컬 점수 사용</li>
               <li><code>content_generations.prompt</code>(DB <code>prompt_json</code>)에 mode, provider, model, action, providerSeoScoreReturned, inputBudget 저장</li>
+              <li>생성 API 응답은 <code>contentProvenance</code>와 <code>seoScore.provenance</code>로 provider/model/action/inputBudget을 분리해 노출</li>
             </ul>
           </td>
           <td>
@@ -355,7 +361,7 @@ compact currentPost, compact mediaAssets</td>
               <li><code>blog_posts.article</code> 업데이트</li>
               <li>revision 기록 추가</li>
               <li><code>seo_scores</code> 새로 생성</li>
-              <li>본문/SEO provenance와 inputBudget은 콘텐츠 상세 화면의 compact line/API payload에서 확인 가능</li>
+              <li>본문/SEO provider, model, action, inputBudget은 콘텐츠 상세 화면의 compact line/API payload에서 확인 가능</li>
             </ul>
           </td>
           <td>
@@ -629,10 +635,11 @@ user:
   <ul>
     <li>분석 prompt는 <code>analysisPromptBudget.ts</code>에서 생성하며, raw provider payload, rendered HTML, image URL 배열, GraphQL snapshot, 중복 body copy는 제외합니다.</li>
     <li>Blog body는 항목당 최대 1,200자, Place review body는 최대 500자, Place profile은 normalized facts 중심으로 compact합니다.</li>
-    <li>현재 개발 버전에서는 선택된 Blog 소스가 몇 개든 날짜 기준 최신순 최대 10개만 LLM 분석 prompt에 포함합니다.</li>
+    <li>현재 개발 버전에서는 선택된 Blog 소스가 몇 개든 날짜 기준 최신순 최대 3개만 LLM 분석 prompt에 포함하고, Place review는 최신순 최대 10개만 포함합니다.</li>
     <li>prompt JSON이 character budget을 넘으면 profile/review evidence를 우선 보존하고 Blog 항목을 날짜 기준 최신순으로 남기며 초과분은 제외합니다.</li>
-    <li>분석 run 결과에는 <code>selectedItemCount</code>, <code>promptItemCount</code>, <code>omittedItemCount</code>, <code>blogItemLimit</code>, <code>selectedBlogItemCount</code>, <code>promptBlogItemCount</code>, <code>omittedBlogItemCount</code>, <code>promptCharacterCount</code>, <code>promptCharacterBudget</code>, <code>bodyCharacterBudget</code>, <code>promptBudgetReason</code>이 저장됩니다.</li>
+    <li>분석 run 결과에는 <code>selectedItemCount</code>, <code>promptItemCount</code>, <code>omittedItemCount</code>, Blog/review limit/counts, <code>promptCharacterCount</code>, <code>promptCharacterBudget</code>, <code>bodyCharacterBudget</code>, <code>promptBudgetReason</code>이 저장됩니다.</li>
     <li>그래도 context length 오류가 발생하면 <code>analysis_context_too_large</code>로 sanitize되어 제품용 메시지만 브라우저에 노출됩니다.</li>
+    <li>OpenAI가 필수 ruleset field를 누락하거나 unknown/duplicate/source 오류를 반환하면 <code>analysis_contract_invalid</code>로 sanitize되어 fieldKey 목록 같은 내부 계약 정보는 브라우저에 노출하지 않습니다.</li>
   </ul>
 
   <h2>블로그/SEO 입력 예산 규칙</h2>
@@ -658,8 +665,8 @@ user:
   <ul>
     <li>현재 로컬 runtime: <code>{"mode":"openai","openaiConfigured":true,"model":"gpt-4o-mini"}</code>.</li>
     <li>provider readiness 기준 Store Learning의 <code>analysis</code>와 <code>blogGeneration</code>은 모두 <code>mode=openai</code>, <code>status=ready</code>.</li>
-    <li>과거 AI 학습 분석 실패는 OpenAI가 반환한 context length 400 에러였고, 이번 작업으로 분석 prompt budget과 sanitize된 실패 처리를 추가했음.</li>
-    <li>분석 경로는 현재 예산화됐지만, 블로그 초안/본문 재생성/SEO 재평가 경로는 아직 full payload 리스크가 남아 다음 적용 대상으로 분리함.</li>
+    <li>과거 AI 학습 분석 실패는 OpenAI가 반환한 context length 400 에러였고, 분석 prompt budget과 sanitize된 실패 처리를 추가했음.</li>
+    <li>블로그 초안/본문 재생성/SEO 재평가 경로도 <code>blogPromptBudget.ts</code>를 통해 compact prompt와 progressive fit loop를 사용하며, 생성/상세/SEO 응답에서 provider/model/action/inputBudget provenance를 확인할 수 있음.</li>
     <li>UI의 “서버 산출 제안”, “다시 생성하기”, “이미지 재생성” 중 일부는 LLM/API 호출이 아닌 local/mock 처리이므로 provider provenance 표시로 구분해야 함.</li>
   </ul>
 </main>

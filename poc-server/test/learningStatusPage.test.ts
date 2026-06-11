@@ -53,9 +53,12 @@ describe('learning status static page API wiring', () => {
     expect(js).toContain('status.analysis?.provenance');
     expect(js).toContain('learning-analysis-provenance');
     expect(js).toContain('분석 입력 예산에 맞춰 일부 본문은 요약/제외되었습니다.');
-    expect(js).toContain('개발 버전에서는 블로그 소스 최대 ${blogItemLimit}개만 분석 입력에 포함됩니다.');
+    expect(js).toContain('개발 버전에서는 ${limitParts.join');
+    expect(js).toContain('리뷰 최대 ${reviewItemLimit}개');
     expect(js).toContain('omittedBlogItemCount');
+    expect(js).toContain('omittedReviewItemCount');
     expect(js).toContain('blogItemLimit');
+    expect(js).toContain('reviewItemLimit');
     expect(js).toContain('status.completion');
     expect(js).toContain('learning-completion-checklist');
     expect(js).toContain('learning-next-collection');

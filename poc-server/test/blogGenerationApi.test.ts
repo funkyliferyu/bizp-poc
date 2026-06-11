@@ -269,7 +269,36 @@ describe('ruleset based blog generation API', () => {
       provider: 'openAIBlogProvider',
       model: 'test-blog-model',
       action: 'generate_blog_post',
-      providerSeoScoreReturned: true
+      providerSeoScoreReturned: true,
+      inputBudget: expect.objectContaining({
+        action: 'generate_blog_post',
+        promptCharacterCount: expect.any(Number),
+        promptCharacterBudget: expect.any(Number)
+      })
+    });
+    expect(body.contentProvenance).toMatchObject({
+      mode: 'openai',
+      provider: 'openAIBlogProvider',
+      model: 'test-blog-model',
+      action: 'generate_blog_post',
+      providerSeoScoreReturned: true,
+      inputBudget: expect.objectContaining({
+        action: 'generate_blog_post',
+        promptCharacterCount: expect.any(Number),
+        promptCharacterBudget: expect.any(Number)
+      })
+    });
+    expect(body.seoScore.provenance).toMatchObject({
+      mode: 'openai',
+      provider: 'openAIBlogProvider',
+      model: 'test-blog-model',
+      action: 'generate_blog_post',
+      providerSeoScoreReturned: true,
+      inputBudget: expect.objectContaining({
+        action: 'generate_blog_post',
+        promptCharacterCount: expect.any(Number),
+        promptCharacterBudget: expect.any(Number)
+      })
     });
     expect(generation?.output).toMatchObject({
       generator: 'openai_blog_provider',

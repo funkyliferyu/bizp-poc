@@ -149,6 +149,10 @@ function analysisPayload(repos: Repositories, storeId: string) {
       selectedBlogItemCount: asNumber(result.selectedBlogItemCount) ?? asNumber(error.selectedBlogItemCount),
       promptBlogItemCount: asNumber(result.promptBlogItemCount) ?? asNumber(error.promptBlogItemCount),
       omittedBlogItemCount: asNumber(result.omittedBlogItemCount) ?? asNumber(error.omittedBlogItemCount),
+      reviewItemLimit: asNumber(result.reviewItemLimit) ?? asNumber(error.reviewItemLimit),
+      selectedReviewItemCount: asNumber(result.selectedReviewItemCount) ?? asNumber(error.selectedReviewItemCount),
+      promptReviewItemCount: asNumber(result.promptReviewItemCount) ?? asNumber(error.promptReviewItemCount),
+      omittedReviewItemCount: asNumber(result.omittedReviewItemCount) ?? asNumber(error.omittedReviewItemCount),
       promptBudgetReason: asString(result.promptBudgetReason) ?? asString(error.promptBudgetReason)
     }
   };

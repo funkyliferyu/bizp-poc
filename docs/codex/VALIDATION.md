@@ -1,5 +1,193 @@
 # Validation
 
+## POST-PR43-LLM-CALL-AUDIT Follow-up Branch Validation
+
+Branch `codex/llm-call-audit-post43` was created from latest `develop` after
+PR #43 was squash-merged.
+
+- PR #43 merge commit:
+  `3c8bbb9676008863d0f0dfa1887b93b69e14b28c`
+- Validation date: 2026-06-11
+- Validation worktree:
+  `/Users/1004182/Documents/bizplanet-work/bizp-store-learning-poc`
+
+Scope:
+
+- SL-B1 Blog generation API response provenance symmetry:
+  `contentProvenance` and `seoScore.provenance`.
+- Content detail provenance UI display for provider, model, action, and
+  prompt input character budget.
+- SL-A1 analysis rerun decision handling for no-meaningful-change collection
+  runs, including latest-ruleset reuse and required-field backfill.
+- SL-A1 analysis prompt budgeting with development caps of 3 Blog items and
+  10 Place review items.
+- SL-A1 OpenAI provider response hardening with `rulesetFieldsByKey` and
+  `promptItemIds` evidence ID constraints.
+- SL-A1 failed-run sanitize handling for OpenAI context-length errors and
+  analyzer ruleset contract errors.
+- SL-A1 failed-run diagnostics that identify the current analysis run in
+  `/start` API failures and content-selection UI messages.
+- Temporary LLM call audit docs/table refresh for the post-PR #43
+  Blog/SEO prompt-budget state.
+
+TDD evidence:
+
+- RED `npm test -- --run test/contentDetailPage.test.ts`: failed because
+  `web/content_detail.js` did not read `provenance.action` or
+  `provenance.inputBudget`.
+- GREEN same command: passed after expanding the compact provenance line.
+- RED
+  `npm test -- --run test/blogGenerationApi.test.ts -t "OpenAI blog provider"`:
+  failed because SL-B1 generation responses did not expose
+  `contentProvenance`.
+- GREEN same command: passed after serializing SL-B1 generation responses with
+  `contentProvenance` and separated `seoScore.provenance`.
+- RED `npm test -- --run test/analysisExecutionApi.test.ts`: failed while
+  OpenAI analyzer ruleset contract errors stored raw field-key details such as
+  missing/duplicate/unknown field names.
+- GREEN full suite passed after storing
+  `errorType: "analysis_contract_invalid"` with safe `contractIssue` metadata
+  and returning a Korean product message.
+- RED
+  `npm test -- --run test/analysisExecutionApi.test.ts -t "OpenAI analyzer output"`:
+  failed because the provider still returned a loose `rulesetFields[]` array
+  and could not normalize the desired `rulesetFieldsByKey` response shape.
+- GREEN same command after OpenAI analysis output was normalized from
+  `rulesetFieldsByKey` to internal `rulesetFields[]`.
+- RED
+  `npm test -- --run test/analysisPromptBudget.test.ts -t "limits blog sources"`:
+  failed because the prompt did not expose a dedicated `promptItemIds` list.
+- GREEN same command after the prompt contract exposed budgeted prompt item IDs
+  separately from selected/audit IDs.
+- GREEN
+  `npm test -- --run test/analysisExecutionApi.test.ts -t "OpenAI analyzer output"`:
+  confirmed the mocked OpenAI `parse()` request now carries strict
+  `json_schema` response format with `rulesetFieldsByKey`, all 38 required
+  ruleset keys, prompt item ID evidence enums, and no loose `rulesetFields`
+  output slot.
+- RED
+  `npm test -- --run test/analysisExecutionApi.test.ts test/selectionPage.test.ts -t "current failed run diagnostics|current analysis run diagnostics"`:
+  failed because `/api/analysis-runs/:id/start` returned only an error string
+  and `web/content_selection.js` discarded response body diagnostics.
+- GREEN same command after the start route returned safe current-run failure
+  metadata and the browser error path preserved `details` for the visible
+  message.
+
+Commands:
+
+```bash
+cd poc-server
+npm test -- --run test/analysisExecutionApi.test.ts -t "OpenAI analyzer output"
+npm test -- --run test/analysisExecutionApi.test.ts test/selectionPage.test.ts -t "current failed run diagnostics|current analysis run diagnostics"
+npm test -- --run test/analysisExecutionApi.test.ts test/selectionPage.test.ts
+npm test -- --run test/blogGenerationApi.test.ts test/contentDetailApi.test.ts test/contentDetailPage.test.ts test/openAIBlogProviderBudget.test.ts
+npm run typecheck
+npm test
+npm run demo:store-learning
+cd ..
+node --check web/content_detail.js
+node --check web/content_selection.js
+node --check web/learning_status.js
+git diff --check
+# searched poc-server/src, web, and docs for removed raw analyzer contract
+# error strings; expected result is no matches.
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
+  "http://localhost:5177/llm%ED%98%B8%EC%B6%9C.html"
+curl -s http://localhost:5177/api/runtime
+# in-app Browser smoke:
+# - opened http://localhost:5177/
+# - opened a temporary localhost harness that loads the real content_selection.js
+#   and mocks only the API responses needed for a current-run /start failure
+```
+
+Result:
+
+- PASS, SL-A1 OpenAI schema payload regression:
+  `analysisExecutionApi.test.ts` targeted run passed 1 test and skipped 12
+  unrelated tests in the file.
+- PASS, SL-A1 failed-run diagnostics RED/GREEN:
+  targeted run passed 2 tests and skipped 19 unrelated tests across
+  `analysisExecutionApi.test.ts` and `selectionPage.test.ts`.
+- PASS, focused analysis execution and selection-page regression suite:
+  2 files, 21 tests.
+- PASS, focused Blog/SEO provenance and budget suite: 4 files, 19 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite after the latest SL-A1 diagnostics update: 39 files
+  passed and 3 live-provider files skipped by default.
+- PASS, 241 tests passed and 6 live-provider tests skipped by default.
+- PASS, Store Learning demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 4
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+- PASS, `node --check web/content_detail.js`.
+- PASS, `node --check web/content_selection.js`.
+- PASS, `node --check web/learning_status.js`.
+- PASS, `git diff --check`.
+- PASS, raw analyzer contract error string search returned no matches in
+  `poc-server/src`, `web`, or `docs`.
+- PASS, localhost live OpenAI smoke for `store_36372611`
+  (`남대문명동정형외과의원`):
+  `analysis_run_store_36372611_1781139580900` completed, 38/38 ruleset fields
+  saved from `openai_analysis`, selected item count 12, prompt item count 5,
+  Blog prompt cap 3, and overlay step 2 took 137,983 ms.
+- PASS, localhost learning status API for `store_36372611` returned
+  `analysis.status=completed`, provider `openAIAnalysisProvider`, model
+  `gpt-4o-mini`, and ruleset
+  `marketing_ruleset_analysis_run_store_36372611_1781139580900_v1`.
+- PASS, localhost reuse/backfill smoke for `store_1020864025`
+  (`테라스의원`): `analysis_run_store_1020864025_1781139728971` completed
+  immediately without analyzer execution, reused
+  `analysis_run_store_1020864025_1781067108343`, and backfilled latest ruleset
+  fields to 38 total.
+- PASS, localhost smoke for the temporary LLM call audit page:
+  `200 text/html; charset=UTF-8`.
+- PASS, `/api/runtime` responded with OpenAI mode and model `gpt-4o-mini` on
+  the already-running local server.
+- PASS, in-app Browser smoke for current-run failure diagnostics:
+  - `http://localhost:5177/` responded with title
+    `BizPlanet — 마케팅 채널관리 시안`.
+  - Temporary localhost harness loaded the real `content_selection.js`.
+  - Clicking `분석 실행` rendered
+    `현재 분석 실행(analysis_run_current_failure)에서 실패했습니다...`
+    in `#selection-analysis-error`.
+  - The failure overlay closed and browser console error/warn logs were empty.
+- PASS, final branch review on 2026-06-11:
+  - changed-file scan found no `admin/`, `pc-web/`, `README_POC.md`, or
+    `web/event_operation_poc.html` changes;
+  - touched browser scripts use relative `poc-server` API calls only;
+  - `OPENAI_API_KEY` appears in `web/llm호출.html` as documentation text only,
+    with no browser-side OpenAI/Naver credentials or provider API calls;
+  - `.DS_Store` remains an unstaged out-of-scope local modification.
+
+Rendered smoke:
+
+- Browser plugin tooling was not callable in this session, so Playwright was
+  used as fallback.
+- The in-app Browser tab was later in a localhost crash-page state, so it was
+  not used as pass/fail evidence for the SL-A1 live smoke. API and static HTTP
+  checks on port `5177` were used instead.
+- Target flow:
+  `09_AI콘텐츠생성_상세.html?postId=blog_post_demo_pending_approval` -> page
+  load -> SEO rescore -> compact provenance line update.
+- Mock validation server:
+  `PORT=5187 OPENAI_API_KEY= STORE_LEARNING_MOCK_MODE=true npm run dev`.
+- PASS, page was not blank and rendered Blog detail content.
+- PASS, compact provenance line rendered provider/action information before
+  interaction and updated after SEO rescore.
+- PASS, no browser console warnings or errors were captured.
+- Screenshot evidence was saved outside the repo:
+  `/tmp/bizp-content-detail-provenance.png` and
+  `/tmp/bizp-content-detail-seo-provenance.png`.
+
+Notes:
+
+- The existing out-of-scope `.DS_Store` modification remains unstaged.
+- The first interaction attempt against port `5177` was not used as pass/fail
+  evidence because that server was in live OpenAI mode and the SEO action
+  waited on the real provider path.
+
 ## PR #38 Develop Validation
 
 PR #38, `[codex] Handle collection delta relearning follow-up`, was merged to

@@ -1,5 +1,98 @@
 # Codex Handoff
 
+## POST-PR43-LLM-CALL-AUDIT-FOLLOW-UP
+
+Branch `codex/llm-call-audit-post43` continues the LLM call audit after PR
+#43 (`3c8bbb9676008863d0f0dfa1887b93b69e14b28c`) was merged to `develop`.
+
+Implemented follow-up:
+
+- SL-B1 Blog generation responses now expose `contentProvenance` and
+  `seoScore.provenance`, matching the content detail and SEO rescore response
+  shape.
+- `09_AI콘텐츠생성_상세.html` / `web/content_detail.js` now render provider,
+  model, action, and prompt input character budget in the compact provenance
+  line when those values are present.
+- SL-A1 analysis execution now chooses between latest-artifact reuse,
+  latest-ruleset backfill, and a new analyzer run based on collection delta
+  and latest ruleset completeness.
+- Legacy or incomplete latest rulesets can be backfilled with conservative
+  required-field values instead of failing the rerun path.
+- SL-A1 analysis prompt budgeting now limits development prompts to at most 3
+  Blog items and 10 Place review items, with review budget counts surfaced in
+  run metadata and provenance.
+- SL-A1 OpenAI analysis now asks for a field-keyed
+  `rulesetFieldsByKey` object and constrains evidence IDs to `promptItemIds`,
+  so first-learning runs cannot omit expanded ruleset keys or invent collection
+  item IDs such as synthetic Blog aliases.
+- SL-A1 analyzer regression coverage now inspects the actual OpenAI
+  `response_format` request payload, proving the strict schema includes all 38
+  required ruleset keys and prompt-item evidence enums.
+- OpenAI analyzer ruleset contract failures are sanitized as
+  `analysis_contract_invalid` with safe `contractIssue` metadata, so raw
+  missing/duplicate/unknown field-key lists are not returned to the browser.
+- Failed SL-A1 start responses now return current-run diagnostics, and
+  `web/content_selection.js` keeps those details so the visible failure message
+  names the current `analysisRunId` instead of looking like a stale failed-run
+  popup.
+- `docs/codex/LLM_CALL_STRUCTURES.md`,
+  `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`, and `web/llm호출.html`
+  were refreshed for the post-PR #43 Blog/SEO budget/provenance state.
+
+Validation on 2026-06-11:
+
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test -- --run test/analysisExecutionApi.test.ts -t "OpenAI analyzer output"`
+- `cd poc-server && npm test -- --run test/analysisExecutionApi.test.ts test/selectionPage.test.ts`
+- `cd poc-server && npm test`
+- `cd poc-server && npm run demo:store-learning`
+- `node --check web/content_detail.js`
+- `node --check web/content_selection.js`
+- `node --check web/learning_status.js`
+- `git diff --check`
+- raw analyzer contract error string search across `poc-server/src`, `web`,
+  and `docs`
+- localhost smoke for `web/llm호출.html`
+- Localhost live OpenAI smoke for `store_36372611`
+  (`남대문명동정형외과의원`) completed first learning:
+  `analysis_run_store_36372611_1781139580900`, 38/38 ruleset fields from
+  `openai_analysis`, prompt budget 5 items from 12 selected items, and analysis
+  overlay step 2 took about 138 seconds.
+- Localhost smoke for `store_1020864025` (`테라스의원`) profile-only rerun
+  created `analysis_run_store_1020864025_1781139728971` as completed without
+  calling the analyzer; it reused
+  `analysis_run_store_1020864025_1781067108343` and backfilled the latest
+  ruleset to 38 fields.
+- In-app Browser smoke loaded a temporary localhost harness with the real
+  `content_selection.js` and confirmed the visible failure message includes
+  the current `analysisRunId`; console error/warn logs were empty.
+- Playwright fallback smoke for the content detail provenance line on mock
+  server port `5187` because the in-app Browser tool was unavailable in this
+  session.
+
+Keep the existing out-of-scope `.DS_Store` change unstaged.
+
+Draft PR summary:
+
+- Hardened SL-A1 analysis routing after PR #43 with reuse/backfill decisions
+  for no-op and profile-only reruns.
+- Added SL-A1 prompt budgeting, strict OpenAI `rulesetFieldsByKey` response
+  schema coverage, and sanitized context/contract failure handling.
+- Brought Blog/SEO provenance responses and UI/docs in line with analysis
+  provenance, including prompt input budget metadata.
+
+Draft PR test plan:
+
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test`
+- `cd poc-server && npm run demo:store-learning`
+- `node --check web/content_detail.js`
+- `node --check web/content_selection.js`
+- `node --check web/learning_status.js`
+- `git diff --check`
+- Localhost smoke for `/api/runtime`, `web/llm호출.html`, and current-run
+  analysis failure diagnostics.
+
 ## NEXT-SESSION-LLM-CALL-AUDIT
 
 Temporary LLM-call verification table was added at `web/llm호출.html`.

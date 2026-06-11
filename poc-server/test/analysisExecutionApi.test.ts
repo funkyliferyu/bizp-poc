@@ -18,6 +18,15 @@ async function readJson(response: Response) {
   return text ? JSON.parse(text) : null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function asStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
 function analyzerRulesetField(
   fieldKey: string,
   overrides: Partial<AnalyzerOutput['rulesetFields'][number]> = {}
@@ -41,6 +50,22 @@ function fullAnalyzerRulesetFields(
 ) {
   return REQUIRED_ANALYZER_RULESET_FIELD_KEYS.map((fieldKey) =>
     analyzerRulesetField(fieldKey, overridesByFieldKey[fieldKey])
+  );
+}
+
+function openAIParsedRulesetFieldsByKey(
+  overridesByFieldKey: Record<string, Partial<AnalyzerOutput['rulesetFields'][number]>> = {}
+) {
+  return Object.fromEntries(
+    fullAnalyzerRulesetFields(overridesByFieldKey).map((field) => [
+      field.fieldKey,
+      {
+        aiValue: field.aiValue,
+        finalValue: field.finalValue,
+        evidenceItemIds: field.evidenceItemIds,
+        confidence: field.confidence
+      }
+    ])
   );
 }
 
@@ -320,6 +345,254 @@ describe('analysis execution API', () => {
     expect(started.rulesetFields.length).toBeGreaterThan(0);
   });
 
+  it('reuses latest learning artifacts when only Place profile facts changed', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.analysisRuns.create({
+      id: 'analysis_run_latest_complete_ruleset',
+      storeId: 'store_demo_cake',
+      collectionRunId: 'collection_run_demo_store_learning',
+      status: 'completed',
+      startedAt: '2026-06-11T00:00:02.000Z',
+      completedAt: '2026-06-11T00:00:03.000Z',
+      createdAt: '2026-06-11T00:00:02.000Z',
+      updatedAt: '2026-06-11T00:00:03.000Z',
+      result: {},
+      error: null
+    });
+    repos.learningSnapshots.create({
+      id: 'learning_snapshot_latest_complete_ruleset',
+      storeId: 'store_demo_cake',
+      analysisRunId: 'analysis_run_latest_complete_ruleset',
+      status: 'active',
+      snapshot: {},
+      createdAt: '2026-06-11T00:00:02.000Z',
+      updatedAt: '2026-06-11T00:00:03.000Z'
+    });
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_latest_complete_v99',
+      storeId: 'store_demo_cake',
+      learningSnapshotId: 'learning_snapshot_latest_complete_ruleset',
+      status: 'draft',
+      version: 99,
+      ruleset: {},
+      createdAt: '2026-06-11T00:00:02.000Z',
+      updatedAt: '2026-06-11T00:00:03.000Z'
+    });
+    for (const field of fullAnalyzerRulesetFields()) {
+      repos.rulesetFields.create({
+        id: `ruleset_field_latest_complete_${field.fieldKey}`,
+        rulesetId: 'marketing_ruleset_latest_complete_v99',
+        fieldKey: field.fieldKey,
+        fieldValue: field.finalValue,
+        aiValue: field.aiValue,
+        userValue: field.userValue,
+        finalValue: field.finalValue,
+        source: field.source,
+        locked: field.locked ? 1 : 0,
+        evidenceItemIds: field.evidenceItemIds,
+        confidence: field.confidence,
+        createdAt: '2026-06-11T00:00:02.000Z',
+        updatedAt: '2026-06-11T00:00:03.000Z'
+      });
+    }
+    repos.collectionRuns.upsert({
+      id: 'collection_run_profile_fact_change_only',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 0, duplicate: 50, unchanged: 0, changed: 1 },
+          byChannel: {
+            place: { new: 0, duplicate: 50, unchanged: 0, changed: 1 }
+          }
+        },
+        collectedCounts: { blogPosts: 0, placeProfiles: 1, placeReviews: 0 }
+      }
+    });
+    repos.collectionItems.upsert({
+      id: 'collection_item_profile_fact_change_only',
+      runId: 'collection_run_profile_fact_change_only',
+      storeId: 'store_demo_cake',
+      channel: 'place',
+      sourceType: 'profile',
+      status: 'collected',
+      sourceUrl: 'https://m.place.naver.com/place/1020864025/home',
+      title: '분당 케이크하우스',
+      bodyText: null,
+      selectedForAnalysis: 1,
+      selectionReason: null,
+      selectedAt: null,
+      metadata: {
+        collectionDelta: 'changed',
+        profileFingerprint: 'profile-fingerprint-after-hours-change'
+      }
+    });
+
+    const createResponse = await fetch(`${baseUrl}/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId: 'store_demo_cake',
+        collectionRunId: 'collection_run_profile_fact_change_only',
+        selectedItemIds: ['collection_item_profile_fact_change_only']
+      })
+    });
+    const created = await readJson(createResponse);
+
+    expect(createResponse.status).toBe(200);
+    expect(created.analysisRun.status).toBe('completed');
+    expect(created.analysisRun.result).toEqual(
+      expect.objectContaining({
+        skippedReason: 'place_profile_fact_change_only',
+        reusedAnalysisRunId: 'analysis_run_latest_complete_ruleset',
+        learningSnapshotId: 'learning_snapshot_latest_complete_ruleset',
+        marketingRulesetId: 'marketing_ruleset_latest_complete_v99',
+        pendingRulesetBackfill: false,
+        analysisDecision: expect.objectContaining({
+          action: 'reuse_latest_learning',
+          reason: 'place_profile_fact_change_only'
+        })
+      })
+    );
+    expect(created.analysisRun.result.selectedItemIds).toEqual(['collection_item_profile_fact_change_only']);
+
+    const startResponse = await fetch(`${baseUrl}/api/analysis-runs/${created.analysisRunId}/start`, {
+      method: 'POST'
+    });
+    const started = await readJson(startResponse);
+
+    expect(startResponse.status).toBe(200);
+    expect(started.analysisRun.id).toBe(created.analysisRunId);
+    expect(started.analysisRun.status).toBe('completed');
+    expect(started.learningSnapshot.id).toBe('learning_snapshot_latest_complete_ruleset');
+    expect(started.marketingRuleset.id).toBe('marketing_ruleset_latest_complete_v99');
+  });
+
+  it('backfills missing required ruleset fields before reusing profile-only changes', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.upsert({
+      id: 'collection_run_profile_fact_change_incomplete_ruleset',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-11T00:00:00.000Z',
+      completedAt: '2026-06-11T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 0, duplicate: 50, unchanged: 0, changed: 1 }
+        },
+        collectedCounts: { blogPosts: 0, placeProfiles: 1, placeReviews: 0 }
+      }
+    });
+    repos.collectionItems.upsert({
+      id: 'collection_item_profile_fact_change_incomplete_ruleset',
+      runId: 'collection_run_profile_fact_change_incomplete_ruleset',
+      storeId: 'store_demo_cake',
+      channel: 'place',
+      sourceType: 'profile',
+      status: 'collected',
+      sourceUrl: 'https://m.place.naver.com/place/1020864025/home',
+      title: '분당 케이크하우스',
+      bodyText: null,
+      selectedForAnalysis: 1,
+      selectionReason: null,
+      selectedAt: null,
+      metadata: {
+        collectionDelta: 'changed',
+        profileFingerprint: 'profile-fingerprint-after-hours-change'
+      }
+    });
+    repos.analysisRuns.create({
+      id: 'analysis_run_latest_incomplete_ruleset',
+      storeId: 'store_demo_cake',
+      collectionRunId: 'collection_run_demo_store_learning',
+      status: 'completed',
+      startedAt: '2026-06-11T00:00:02.000Z',
+      completedAt: '2026-06-11T00:00:03.000Z',
+      createdAt: '2026-06-11T00:00:02.000Z',
+      updatedAt: '2026-06-11T00:00:03.000Z',
+      result: {},
+      error: null
+    });
+    repos.learningSnapshots.create({
+      id: 'learning_snapshot_latest_incomplete_ruleset',
+      storeId: 'store_demo_cake',
+      analysisRunId: 'analysis_run_latest_incomplete_ruleset',
+      status: 'active',
+      snapshot: {},
+      createdAt: '2026-06-11T00:00:02.000Z',
+      updatedAt: '2026-06-11T00:00:03.000Z'
+    });
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_latest_incomplete_v99',
+      storeId: 'store_demo_cake',
+      learningSnapshotId: 'learning_snapshot_latest_incomplete_ruleset',
+      status: 'draft',
+      version: 99,
+      ruleset: {},
+      createdAt: '2026-06-11T00:00:02.000Z',
+      updatedAt: '2026-06-11T00:00:03.000Z'
+    });
+    repos.rulesetFields.create({
+      id: 'ruleset_field_latest_incomplete_storePositioning',
+      rulesetId: 'marketing_ruleset_latest_incomplete_v99',
+      fieldKey: 'storePositioning',
+      fieldValue: '분당 케이크하우스 포지셔닝',
+      aiValue: '분당 케이크하우스 포지셔닝',
+      userValue: null,
+      finalValue: '분당 케이크하우스 포지셔닝',
+      source: 'openai_analysis',
+      locked: 0,
+      evidenceItemIds: ['collection_item_demo_place_profile'],
+      confidence: 0.8,
+      createdAt: '2026-06-11T00:00:02.000Z',
+      updatedAt: '2026-06-11T00:00:03.000Z'
+    });
+
+    const createResponse = await fetch(`${baseUrl}/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId: 'store_demo_cake',
+        collectionRunId: 'collection_run_profile_fact_change_incomplete_ruleset',
+        selectedItemIds: ['collection_item_profile_fact_change_incomplete_ruleset']
+      })
+    });
+    const created = await readJson(createResponse);
+
+    expect(createResponse.status).toBe(200);
+    expect(created.analysisRun.status).toBe('completed');
+    expect(created.analysisRun.result).toEqual(
+      expect.objectContaining({
+        skippedReason: 'place_profile_fact_change_only',
+        pendingRulesetBackfill: false,
+        rulesetBackfillApplied: true,
+        rulesetBackfillMissingFieldKeys: expect.arrayContaining(['reviewWeakness']),
+        reusedAnalysisRunId: 'analysis_run_latest_incomplete_ruleset',
+        learningSnapshotId: 'learning_snapshot_latest_incomplete_ruleset',
+        marketingRulesetId: 'marketing_ruleset_latest_incomplete_v99',
+        analysisDecision: expect.objectContaining({
+          action: 'backfill_latest_ruleset',
+          reason: 'latest_ruleset_contract_incomplete',
+          missingRulesetFieldKeys: expect.arrayContaining(['reviewWeakness'])
+        })
+      })
+    );
+    const backfilledFields = repos.rulesetFields.listByRulesetId('marketing_ruleset_latest_incomplete_v99');
+    const backfilledFieldKeys = backfilledFields.map((field) => field.fieldKey);
+    expect(backfilledFieldKeys).toEqual(expect.arrayContaining(REQUIRED_ANALYZER_RULESET_FIELD_KEYS));
+    expect(backfilledFields.find((field) => field.fieldKey === 'reviewWeakness')).toMatchObject({
+      source: 'ruleset_contract_backfill',
+      evidenceItemIds: ['collection_item_profile_fact_change_incomplete_ruleset'],
+      confidence: 0.35
+    });
+  });
+
   it('persists OpenAI analyzer output with validated evidence links', async () => {
     const repos = createStoreLearningRepositories(connection);
     const analysisRun = repos.analysisRuns.create({
@@ -360,7 +633,7 @@ describe('analysis execution API', () => {
         }
       }
     });
-    const parsedOutput: AnalyzerOutput = {
+    const parsedOutput = {
       storePositioning: '분당 레터링 케이크 예약 전문점',
       keyStrengths: ['상담형 주문 제작', '정자동 픽업 동선', '기념일 케이크 후기'],
       targetCustomers: ['기념일 케이크 고객', '레터링 케이크 예약 고객'],
@@ -384,7 +657,7 @@ describe('analysis execution API', () => {
           score: 0.89
         }
       ],
-      rulesetFields: fullAnalyzerRulesetFields({
+      rulesetFieldsByKey: openAIParsedRulesetFieldsByKey({
         storePositioning: {
           aiValue: '분당 레터링 케이크 예약 전문점',
           finalValue: '분당 레터링 케이크 예약 전문점',
@@ -427,6 +700,7 @@ describe('analysis execution API', () => {
     const parsePayload = JSON.stringify(parseCalls[0]);
     expect(parsePayload).toContain('test-openai-model');
     expect(parsePayload).toContain('collection_item_demo_blog');
+    expect(parsePayload).toContain('rulesetFieldsByKey');
     expect(parsePayload).toContain('reviewWeakness');
     expect(parsePayload).toContain('blogImageFormat');
     expect(parsePayload).toContain('representativeMenu');
@@ -434,6 +708,53 @@ describe('analysis execution API', () => {
     expect(parsePayload).toContain('건물 뒤편 2대 주차 가능');
     expect(parsePayload).not.toContain('rawProviderPayload');
     expect(parsePayload).not.toContain('https://cdn.example.com');
+
+    const parseCall = asRecord(parseCalls[0]);
+    const responseFormat = asRecord(parseCall.response_format);
+    const jsonSchema = asRecord(responseFormat.json_schema);
+    const schema = asRecord(jsonSchema.schema);
+    const schemaProperties = asRecord(schema.properties);
+    const schemaRequired = asStringArray(schema.required);
+    const rulesetFieldsByKeySchema = asRecord(schemaProperties.rulesetFieldsByKey);
+    const rulesetFieldProperties = asRecord(rulesetFieldsByKeySchema.properties);
+    const rulesetFieldRequired = asStringArray(rulesetFieldsByKeySchema.required);
+    const evidenceSchema = asRecord(schemaProperties.evidence);
+    const evidenceItemSchema = asRecord(evidenceSchema.items);
+    const evidenceProperties = asRecord(evidenceItemSchema.properties);
+    const evidenceItemIdSchema = asRecord(evidenceProperties.collectionItemId);
+    const messages = Array.isArray(parseCall.messages) ? parseCall.messages : [];
+    const userMessage = messages.find((message) => asRecord(message).role === 'user');
+    const promptInput = JSON.parse(String(asRecord(userMessage).content));
+
+    expect(responseFormat.type).toBe('json_schema');
+    expect(jsonSchema).toEqual(
+      expect.objectContaining({
+        name: 'store_learning_analysis',
+        strict: true
+      })
+    );
+    expect(schema.additionalProperties).toBe(false);
+    expect(schemaRequired).toContain('rulesetFieldsByKey');
+    expect(schemaRequired).not.toContain('rulesetFields');
+    expect(schemaProperties.rulesetFields).toBeUndefined();
+    expect(rulesetFieldsByKeySchema.additionalProperties).toBe(false);
+    expect(rulesetFieldRequired).toHaveLength(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
+    expect(rulesetFieldRequired).toEqual(expect.arrayContaining(REQUIRED_ANALYZER_RULESET_FIELD_KEYS));
+    expect(Object.keys(rulesetFieldProperties)).toEqual(expect.arrayContaining(REQUIRED_ANALYZER_RULESET_FIELD_KEYS));
+    expect(evidenceItemIdSchema.enum).toEqual(
+      expect.arrayContaining([
+        'collection_item_demo_blog',
+        'collection_item_demo_place_profile',
+        'collection_item_demo_place_review'
+      ])
+    );
+    expect(promptInput.promptItemIds).toEqual([
+      'collection_item_demo_place_profile',
+      'collection_item_demo_place_review',
+      'collection_item_demo_blog'
+    ]);
+    expect(promptInput.requiredRulesetFields).toHaveLength(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
+
     expect(persistedRun?.status).toBe('completed');
     expect(persistedRun?.result).toEqual(
       expect.objectContaining({
@@ -443,10 +764,14 @@ describe('analysis execution API', () => {
         selectedItemCount: 3,
         promptItemCount: 3,
         omittedItemCount: 0,
-        blogItemLimit: 10,
+        blogItemLimit: 3,
         selectedBlogItemCount: 1,
         promptBlogItemCount: 1,
         omittedBlogItemCount: 0,
+        reviewItemLimit: 10,
+        selectedReviewItemCount: 1,
+        promptReviewItemCount: 1,
+        omittedReviewItemCount: 0,
         promptCharacterCount: expect.any(Number),
         promptBudgetReason: 'body_truncated_to_budget'
       })
@@ -475,31 +800,131 @@ describe('analysis execution API', () => {
     });
   });
 
+  it('returns current failed run diagnostics from the start API when analysis fails', async () => {
+    const diagnosticApp = express();
+    diagnosticApp.use(express.json());
+    diagnosticApp.use(
+      '/api/analysis-runs',
+      createAnalysisRunRoutes({
+        connection,
+        env: {},
+        provider: {
+          name: 'openAIAnalysisProvider',
+          mode: 'openai',
+          model: 'test-openai-model',
+          async analyze() {
+            return {
+              storePositioning: '분당 레터링 케이크 예약 전문점',
+              keyStrengths: ['상담형 주문 제작'],
+              targetCustomers: ['기념일 케이크 고객'],
+              toneAndManner: '친절한 안내형',
+              blogWritingStyle: '후기 근거 중심',
+              seoKeywords: ['분당 케이크'],
+              ctaStyle: '예약 문의 유도',
+              imageDirection: '케이크 디테일 이미지',
+              negativeExpressions: ['전국 최고'],
+              evidence: [
+                {
+                  collectionItemId: 'collection_item_demo_blog',
+                  evidenceType: 'blog_post',
+                  summary: '블로그 근거',
+                  score: 0.8
+                }
+              ],
+              rulesetFields: fullAnalyzerRulesetFields().filter((field) => field.fieldKey !== 'reviewWeakness')
+            };
+          }
+        }
+      })
+    );
+    diagnosticApp.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    const diagnosticServer = diagnosticApp.listen(0);
+    const diagnosticAddress = diagnosticServer.address() as AddressInfo;
+    const diagnosticBaseUrl = `http://127.0.0.1:${diagnosticAddress.port}`;
+
+    try {
+      const createResponse = await fetch(`${diagnosticBaseUrl}/api/analysis-runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storeId: 'store_demo_cake',
+          collectionRunId: 'collection_run_demo_store_learning',
+          selectedItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile']
+        })
+      });
+      const created = await readJson(createResponse);
+
+      const startResponse = await fetch(`${diagnosticBaseUrl}/api/analysis-runs/${created.analysisRunId}/start`, {
+        method: 'POST'
+      });
+      const failed = await readJson(startResponse);
+
+      expect(startResponse.status).toBe(400);
+      expect(failed.error).toBe('AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다. 다시 실행해주세요.');
+      expect(failed.analysisRunId).toBe(created.analysisRunId);
+      expect(failed.analysisRun).toEqual(
+        expect.objectContaining({
+          id: created.analysisRunId,
+          status: 'failed',
+          error: expect.objectContaining({
+            errorType: 'analysis_contract_invalid',
+            contractIssue: 'missing_required_ruleset_fields'
+          })
+        })
+      );
+      expect(failed.analysisFailure).toEqual(
+        expect.objectContaining({
+          analysisRunId: created.analysisRunId,
+          status: 'failed',
+          isCurrentRun: true,
+          errorType: 'analysis_contract_invalid',
+          contractIssue: 'missing_required_ruleset_fields',
+          analyzerProvider: 'openAIAnalysisProvider',
+          analyzerMode: 'openai',
+          analyzerModel: 'test-openai-model',
+          message: 'AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다. 다시 실행해주세요.',
+          failedAt: expect.any(String)
+        })
+      );
+      expect(JSON.stringify(failed)).not.toContain('reviewWeakness');
+      expect(JSON.stringify(failed)).not.toContain('Analyzer output');
+    } finally {
+      await new Promise<void>((resolve) => diagnosticServer.close(() => resolve()));
+    }
+  });
+
   it.each([
     {
       name: 'missing required field',
       rulesetFields: fullAnalyzerRulesetFields().filter((field) => field.fieldKey !== 'reviewWeakness'),
-      expectedError: 'Analyzer output missing required ruleset fields: reviewWeakness'
+      expectedIssue: 'missing_required_ruleset_fields',
+      rawLeak: 'reviewWeakness'
     },
     {
       name: 'duplicate required field',
       rulesetFields: [...fullAnalyzerRulesetFields(), analyzerRulesetField('seoKeywords')],
-      expectedError: 'Analyzer output has duplicate ruleset fields: seoKeywords'
+      expectedIssue: 'duplicate_ruleset_fields',
+      rawLeak: 'seoKeywords'
     },
     {
       name: 'unknown field',
       rulesetFields: [...fullAnalyzerRulesetFields(), analyzerRulesetField('unknownField')],
-      expectedError: 'Analyzer output has unknown ruleset fields: unknownField'
+      expectedIssue: 'unknown_ruleset_fields',
+      rawLeak: 'unknownField'
     },
     {
       name: 'invalid OpenAI source',
       rulesetFields: fullAnalyzerRulesetFields({ ctaStyle: { source: 'mock_analyzer' } }),
-      expectedError: 'OpenAI analyzer output must use source=openai_analysis for ruleset fields: ctaStyle'
+      expectedIssue: 'invalid_openai_ruleset_source',
+      rawLeak: 'ctaStyle'
     }
-  ])('fails analysis before saving artifacts when OpenAI returns $name', async ({ rulesetFields, expectedError }) => {
+  ])('fails analysis with a sanitized product error when OpenAI returns $name', async ({ rulesetFields, expectedIssue, rawLeak }) => {
     const repos = createStoreLearningRepositories(connection);
     const analysisRun = repos.analysisRuns.create({
-      id: `analysis_run_invalid_ruleset_${expectedError.replace(/[^a-zA-Z0-9]+/g, '_')}`,
+      id: `analysis_run_invalid_ruleset_${expectedIssue}`,
       storeId: 'store_demo_cake',
       collectionRunId: 'collection_run_demo_store_learning',
       status: 'queued',
@@ -538,10 +963,21 @@ describe('analysis execution API', () => {
           };
         }
       })
-    ).rejects.toThrow(expectedError);
+    ).rejects.toThrow('AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다.');
 
     const failedRun = repos.analysisRuns.findById(analysisRun.id);
     expect(failedRun?.status).toBe('failed');
+    expect(failedRun?.error).toEqual(
+      expect.objectContaining({
+        errorType: 'analysis_contract_invalid',
+        message: 'AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다. 다시 실행해주세요.',
+        contractIssue: expectedIssue,
+        analyzerProvider: 'openAIAnalysisProvider',
+        analyzerMode: 'openai'
+      })
+    );
+    expect(JSON.stringify(failedRun?.error)).not.toContain(rawLeak);
+    expect(JSON.stringify(failedRun?.error)).not.toContain('Analyzer output');
     expect(repos.analysisEvidence.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
     expect(repos.learningSnapshots.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
     expect(repos.marketingRulesets.listByStoreId('store_demo_cake')).not.toEqual(

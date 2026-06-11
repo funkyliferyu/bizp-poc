@@ -150,7 +150,26 @@
 
   function provenanceText(label, provenance) {
     if (!provenance) return '';
-    const parts = [provenance.provider || provenance.mode, provenance.model].filter(Boolean);
+    const actionLabels = {
+      generate_blog_post: '초안 생성',
+      regenerate_text: '본문 재생성',
+      seo_rescore: 'SEO 재평가',
+      initial_score: '초기 점수',
+      regenerate_images_rescore: '이미지 재생성 후 점수'
+    };
+    const inputBudget = provenance.inputBudget || {};
+    const promptCharacterCount = Number(inputBudget.promptCharacterCount);
+    const promptCharacterBudget = Number(inputBudget.promptCharacterBudget);
+    const budgetText =
+      Number.isFinite(promptCharacterCount) && Number.isFinite(promptCharacterBudget)
+        ? `입력 ${promptCharacterCount.toLocaleString('ko-KR')}/${promptCharacterBudget.toLocaleString('ko-KR')}자`
+        : '';
+    const parts = [
+      provenance.provider || provenance.mode,
+      provenance.model,
+      actionLabels[provenance.action] || provenance.action,
+      budgetText
+    ].filter(Boolean);
     if (parts.length === 0) return '';
     return `<strong>${escapeHtml(label)}</strong> ${escapeHtml(parts.join(' · '))}`;
   }

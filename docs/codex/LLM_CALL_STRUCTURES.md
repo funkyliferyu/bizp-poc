@@ -83,11 +83,11 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
   task: "Analyze selected collected content for Store Learning & Blog Content Automation PoC.",
   constraints: [
     "Return Korean marketing strategy analysis only.",
-    "Every evidence.collectionItemId must be one of the provided selected item IDs.",
-    "Every rulesetFields[].evidenceItemIds entry must be one of the provided selected item IDs.",
+    "Every evidence.collectionItemId must be one of the provided promptItemIds.",
+    "Every ruleset field evidenceItemIds entry must be one of the provided promptItemIds.",
     "Do not invent customer reviews or collection items.",
     "Keep claims conservative and evidence-linked.",
-    "Use source=openai_analysis for generated ruleset fields."
+    "Populate every required ruleset field once."
   ],
   store: {
     id,
@@ -103,6 +103,7 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
     }
   },
   selectedItemIds: string[],
+  promptItemIds: string[],
   selectedItems: [
     {
       id,
@@ -153,19 +154,28 @@ flowchart LR
   ReferenceValidation --> Fields[ruleset_fields]
 ```
 
-Before persistence, `SL-A1` enforces that every
-`REQUIRED_ANALYZER_RULESET_FIELD_KEYS` field appears exactly once in
-`rulesetFields`, unknown field keys are rejected, OpenAI provider outputs use
-`source = "openai_analysis"`, and all evidence item references point to the
-selected collection items. A failure at this stage marks the analysis run as
-failed and saves no evidence, snapshot, marketing ruleset, or ruleset fields.
+The OpenAI provider requests `rulesetFieldsByKey`, a field-keyed object where
+every `REQUIRED_ANALYZER_RULESET_FIELD_KEYS` key is present exactly once.
+Evidence IDs in the structured response are constrained to `promptItemIds`,
+the IDs that actually appear in the budgeted prompt payload. The provider then
+normalizes this object to internal `rulesetFields[]` with
+`source = "openai_analysis"`. Before persistence, `SL-A1` rejects
+duplicate/unknown/source mismatches and revalidates all evidence item
+references. A failure at this stage marks the analysis run as failed and saves
+no evidence, snapshot, marketing ruleset, or ruleset fields.
 
 **Stored metadata:** `analysis_runs.result` stores
 `analyzerProvider`, `analyzerMode`, `analyzerModel`, selected/prompt/omitted
-counts, Blog limit/counts, character budgets, and `promptBudgetReason`.
+counts, Blog limit/counts, review limit/counts, character budgets, and
+`promptBudgetReason`. Current development defaults include at most 3 Blog
+items and at most 10 Place review items in the SL-A1 prompt.
 
 **Failure handling:** context-length errors are sanitized as
 `errorType: "analysis_context_too_large"` with a Korean product message.
+Ruleset field contract failures are sanitized as
+`errorType: "analysis_contract_invalid"` with `contractIssue` metadata, and
+raw fieldKey lists are not stored in `analysis_runs.error` or returned to the
+browser.
 
 ---
 
@@ -270,7 +280,9 @@ You are a Korean local-store blog content strategist. Return validated structure
 
 **Stored provenance:** `content_generations.prompt` stores mode, provider,
 model, action, providerSeoScoreReturned, `inputBudget`, generator, rulesetId,
-and fieldKeys. The database column is `prompt_json`.
+and fieldKeys. The database column is `prompt_json`. The generation API
+response also exposes the same content metadata as `contentProvenance`, and
+the initial SEO score separates provider metadata into `seoScore.provenance`.
 
 **Fallback:** if no provider is created, `buildDraft()` creates a deterministic
 mock draft. Context-length provider errors are sanitized to a Korean product
@@ -387,7 +399,8 @@ You are a Korean local-store blog content strategist. Return validated structure
 `contentType = "blog_post_text_revision"`. `inputBudget` is stored in
 `content_generations.prompt` and exposed through `contentProvenance`.
 SEO provenance is stored under `seo_scores.rubric._provenance` and serialized
-as `seoScore.provenance`.
+as `seoScore.provenance`. The content detail UI renders provider, model,
+action, and prompt input character budget in its compact provenance line.
 
 **Fallback:** if no provider is created, local mock revision content is built.
 Context-length provider errors are sanitized to a Korean product message.
@@ -509,7 +522,8 @@ You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring o
 
 **Stored provenance:** provider/mode/model/action and `inputBudget` are stored
 in `seo_scores.rubric._provenance`, then separated into `seoScore.provenance`
-in API responses.
+in API responses. The content detail UI renders the SEO provider, model,
+action, and prompt input character budget in its compact provenance line.
 
 **Fallback:** if no provider is created, `scoreBlogPost()` computes a
 deterministic local score. Context-length provider errors are sanitized to a

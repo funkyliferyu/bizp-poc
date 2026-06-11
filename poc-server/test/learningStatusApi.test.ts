@@ -77,10 +77,14 @@ describe('learning status API', () => {
         selectedItemCount: 3,
         promptItemCount: 3,
         omittedItemCount: 0,
-        blogItemLimit: 10,
+        blogItemLimit: 3,
         selectedBlogItemCount: 1,
         promptBlogItemCount: 1,
-        omittedBlogItemCount: 0
+        omittedBlogItemCount: 0,
+        reviewItemLimit: 10,
+        selectedReviewItemCount: 1,
+        promptReviewItemCount: 1,
+        omittedReviewItemCount: 0
       }
     });
   });

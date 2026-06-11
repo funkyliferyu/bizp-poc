@@ -9,6 +9,7 @@ type AnalysisPromptBudgetOptions = {
   promptCharacterBudget?: number;
   bodyCharacterBudget?: number;
   blogItemLimit?: number;
+  reviewItemLimit?: number;
 };
 
 type CompactAnalysisItem = {
@@ -29,11 +30,17 @@ export type AnalysisPromptBudgetMetadata = {
   selectedBlogItemCount: number;
   promptBlogItemCount: number;
   omittedBlogItemCount: number;
+  reviewItemLimit: number;
+  selectedReviewItemCount: number;
+  promptReviewItemCount: number;
+  omittedReviewItemCount: number;
   promptCharacterCount: number;
   promptCharacterBudget: number;
   bodyCharacterBudget: number;
   promptBudgetReason:
+    | 'item_limit_exceeded'
     | 'blog_item_limit_exceeded'
+    | 'review_item_limit_exceeded'
     | 'body_truncated_to_budget'
     | 'prompt_character_budget_exceeded'
     | null;
@@ -51,6 +58,7 @@ export type AnalysisPromptInput = {
     metadata: Record<string, unknown>;
   };
   selectedItemIds: string[];
+  promptItemIds: string[];
   selectedItems: CompactAnalysisItem[];
   requiredRulesetFieldKeys: readonly string[];
   requiredRulesetFields: AnalyzerRulesetFieldContract[];
@@ -58,7 +66,8 @@ export type AnalysisPromptInput = {
 
 const DEFAULT_PROMPT_CHARACTER_BUDGET = 60000;
 const DEFAULT_BODY_CHARACTER_BUDGET = 32000;
-const DEFAULT_BLOG_ITEM_LIMIT = 10;
+const DEFAULT_BLOG_ITEM_LIMIT = 3;
+const DEFAULT_REVIEW_ITEM_LIMIT = 10;
 const STORE_METADATA_CONTAINERS = [
   'storeMetadata',
   'profile',
@@ -190,30 +199,39 @@ function isBlogInputItem(item: AnalyzerInput['selectedItems'][number]) {
   return item.channel === 'blog' || item.sourceType === 'post';
 }
 
-function blogItemLimitValue(value: number | undefined) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_BLOG_ITEM_LIMIT;
+function isReviewInputItem(item: AnalyzerInput['selectedItems'][number]) {
+  return item.sourceType === 'review';
+}
+
+function itemLimitValue(value: number | undefined, fallback: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.max(0, Math.floor(value));
 }
 
-function limitBlogItems(items: AnalyzerInput['selectedItems'], blogItemLimit: number) {
-  let selectedBlogItemCount = 0;
-  let promptBlogItemCount = 0;
-  let omittedBlogItemCount = 0;
+function limitItems(
+  items: AnalyzerInput['selectedItems'],
+  itemLimit: number,
+  predicate: (item: AnalyzerInput['selectedItems'][number]) => boolean
+) {
+  let selectedItemCount = 0;
+  let promptItemCount = 0;
+  let omittedItemCount = 0;
   const limitedItems = items.filter((item) => {
-    if (!isBlogInputItem(item)) return true;
-    selectedBlogItemCount += 1;
-    if (promptBlogItemCount >= blogItemLimit) {
-      omittedBlogItemCount += 1;
+    if (!predicate(item)) return true;
+    selectedItemCount += 1;
+    if (promptItemCount >= itemLimit) {
+      omittedItemCount += 1;
       return false;
     }
-    promptBlogItemCount += 1;
+    promptItemCount += 1;
     return true;
   });
 
   return {
     limitedItems,
-    selectedBlogItemCount,
-    omittedBlogItemCount
+    selectedItemCount,
+    promptItemCount,
+    omittedItemCount
   };
 }
 
@@ -251,11 +269,11 @@ function buildPrompt(input: AnalyzerInput, selectedItems: CompactAnalysisItem[])
     task: 'Analyze selected collected content for Store Learning & Blog Content Automation PoC.',
     constraints: [
       'Return Korean marketing strategy analysis only.',
-      'Every evidence.collectionItemId must be one of the provided selected item IDs.',
-      'Every rulesetFields[].evidenceItemIds entry must be one of the provided selected item IDs.',
+      'Every evidence.collectionItemId must be one of the provided promptItemIds.',
+      'Every ruleset field evidenceItemIds entry must be one of the provided promptItemIds.',
       'Do not invent customer reviews or collection items.',
       'Keep claims conservative and evidence-linked.',
-      'Use source=openai_analysis for generated ruleset fields.'
+      'Populate every required ruleset field once.'
     ],
     store: {
       id: input.store.id,
@@ -266,6 +284,7 @@ function buildPrompt(input: AnalyzerInput, selectedItems: CompactAnalysisItem[])
       metadata: storeMetadataSummary(input.store.metadata)
     },
     selectedItemIds: selectedItems.map((item) => item.id),
+    promptItemIds: selectedItems.map((item) => item.id),
     selectedItems,
     requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS,
     requiredRulesetFields: serializeAnalyzerRulesetFieldContract()
@@ -280,6 +299,21 @@ function isBlogPromptItem(item: CompactAnalysisItem) {
   return item.channel === 'blog' || item.sourceType === 'post';
 }
 
+function isReviewPromptItem(item: CompactAnalysisItem) {
+  return item.sourceType === 'review';
+}
+
+function promptBudgetReasonForLimits(
+  blogOmittedItemCount: number,
+  reviewOmittedItemCount: number,
+  bodyTruncated: boolean
+): AnalysisPromptBudgetMetadata['promptBudgetReason'] {
+  if (blogOmittedItemCount > 0 && reviewOmittedItemCount > 0) return 'item_limit_exceeded';
+  if (blogOmittedItemCount > 0) return 'blog_item_limit_exceeded';
+  if (reviewOmittedItemCount > 0) return 'review_item_limit_exceeded';
+  return bodyTruncated ? 'body_truncated_to_budget' : null;
+}
+
 function lastRemovableBlogIndex(items: CompactAnalysisItem[]) {
   for (let index = items.length - 1; index >= 0; index -= 1) {
     if (isBlogPromptItem(items[index])) return index;
@@ -290,19 +324,20 @@ function lastRemovableBlogIndex(items: CompactAnalysisItem[]) {
 export function buildAnalysisPromptInput(input: AnalyzerInput, options: AnalysisPromptBudgetOptions = {}) {
   const promptCharacterBudget = options.promptCharacterBudget ?? DEFAULT_PROMPT_CHARACTER_BUDGET;
   const bodyCharacterBudget = options.bodyCharacterBudget ?? DEFAULT_BODY_CHARACTER_BUDGET;
-  const blogItemLimit = blogItemLimitValue(options.blogItemLimit);
+  const blogItemLimit = itemLimitValue(options.blogItemLimit, DEFAULT_BLOG_ITEM_LIMIT);
+  const reviewItemLimit = itemLimitValue(options.reviewItemLimit, DEFAULT_REVIEW_ITEM_LIMIT);
   const bodyBudget = { remaining: bodyCharacterBudget, truncated: false };
-  const limitedInput = limitBlogItems(orderedSelectedItems(input.selectedItems), blogItemLimit);
-  let selectedItems = limitedInput.limitedItems.map((item) => compactItem(item, bodyBudget));
+  const blogLimitedInput = limitItems(orderedSelectedItems(input.selectedItems), blogItemLimit, isBlogInputItem);
+  const reviewLimitedInput = limitItems(blogLimitedInput.limitedItems, reviewItemLimit, isReviewInputItem);
+  let selectedItems = reviewLimitedInput.limitedItems.map((item) => compactItem(item, bodyBudget));
   let promptInput = buildPrompt(input, selectedItems);
   let promptCharacterCountValue = promptCharacterCount(promptInput);
-  let omittedItemCount = limitedInput.omittedBlogItemCount;
-  let promptBudgetReason: AnalysisPromptBudgetMetadata['promptBudgetReason'] = bodyBudget.truncated
-    ? 'body_truncated_to_budget'
-    : null;
-  if (limitedInput.omittedBlogItemCount > 0) {
-    promptBudgetReason = 'blog_item_limit_exceeded';
-  }
+  let omittedItemCount = blogLimitedInput.omittedItemCount + reviewLimitedInput.omittedItemCount;
+  let promptBudgetReason: AnalysisPromptBudgetMetadata['promptBudgetReason'] = promptBudgetReasonForLimits(
+    blogLimitedInput.omittedItemCount,
+    reviewLimitedInput.omittedItemCount,
+    bodyBudget.truncated
+  );
 
   while (promptCharacterCountValue > promptCharacterBudget) {
     const removableIndex = lastRemovableBlogIndex(selectedItems);
@@ -315,6 +350,7 @@ export function buildAnalysisPromptInput(input: AnalyzerInput, options: Analysis
   }
 
   const promptBlogItemCount = selectedItems.filter((item) => isBlogPromptItem(item)).length;
+  const promptReviewItemCount = selectedItems.filter((item) => isReviewPromptItem(item)).length;
 
   return {
     promptInput,
@@ -323,9 +359,13 @@ export function buildAnalysisPromptInput(input: AnalyzerInput, options: Analysis
       promptItemCount: selectedItems.length,
       omittedItemCount,
       blogItemLimit,
-      selectedBlogItemCount: limitedInput.selectedBlogItemCount,
+      selectedBlogItemCount: blogLimitedInput.selectedItemCount,
       promptBlogItemCount,
-      omittedBlogItemCount: limitedInput.selectedBlogItemCount - promptBlogItemCount,
+      omittedBlogItemCount: blogLimitedInput.selectedItemCount - promptBlogItemCount,
+      reviewItemLimit,
+      selectedReviewItemCount: reviewLimitedInput.selectedItemCount,
+      promptReviewItemCount,
+      omittedReviewItemCount: reviewLimitedInput.selectedItemCount - promptReviewItemCount,
       promptCharacterCount: promptCharacterCountValue,
       promptCharacterBudget,
       bodyCharacterBudget,

@@ -68,6 +68,10 @@ function providerRunMetadata(provider: AnalysisProvider, selectedItems: Collecti
     selectedBlogItemCount: asNumber(metadata.selectedBlogItemCount),
     promptBlogItemCount: asNumber(metadata.promptBlogItemCount),
     omittedBlogItemCount: asNumber(metadata.omittedBlogItemCount),
+    reviewItemLimit: asNumber(metadata.reviewItemLimit),
+    selectedReviewItemCount: asNumber(metadata.selectedReviewItemCount),
+    promptReviewItemCount: asNumber(metadata.promptReviewItemCount),
+    omittedReviewItemCount: asNumber(metadata.omittedReviewItemCount),
     promptCharacterCount: asNumber(metadata.promptCharacterCount),
     promptCharacterBudget: asNumber(metadata.promptCharacterBudget),
     bodyCharacterBudget: asNumber(metadata.bodyCharacterBudget),
@@ -77,6 +81,25 @@ function providerRunMetadata(provider: AnalysisProvider, selectedItems: Collecti
 
 const contextTooLargeMessage =
   '선택한 콘텐츠가 많아 분석 입력 한도를 초과했습니다. 일부 콘텐츠를 제외하거나 다시 수집 후 실행해주세요.';
+const analysisContractMessage = 'AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다. 다시 실행해주세요.';
+
+type AnalysisContractIssue =
+  | 'missing_required_ruleset_fields'
+  | 'duplicate_ruleset_fields'
+  | 'unknown_ruleset_fields'
+  | 'invalid_openai_ruleset_source';
+
+class AnalysisContractError extends Error {
+  readonly issue: AnalysisContractIssue;
+  readonly fieldCount: number;
+
+  constructor(issue: AnalysisContractIssue, fieldCount: number) {
+    super(analysisContractMessage);
+    this.name = 'AnalysisContractError';
+    this.issue = issue;
+    this.fieldCount = fieldCount;
+  }
+}
 
 function isContextLengthError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -84,6 +107,16 @@ function isContextLengthError(error: unknown) {
 }
 
 function analysisErrorMetadata(error: unknown, provider: AnalysisProvider, selectedItems: CollectionItem[]) {
+  if (error instanceof AnalysisContractError) {
+    return {
+      errorType: 'analysis_contract_invalid',
+      message: analysisContractMessage,
+      contractIssue: error.issue,
+      contractFieldCount: error.fieldCount,
+      ...providerRunMetadata(provider, selectedItems)
+    };
+  }
+
   if (!isContextLengthError(error)) {
     return {
       message: error instanceof Error ? error.message : String(error)
@@ -231,18 +264,16 @@ function validateAnalyzerRulesetFieldContract(
 
   const missingFieldKeys = REQUIRED_ANALYZER_RULESET_FIELD_KEYS.filter((fieldKey) => !seenFieldKeys.has(fieldKey));
   if (missingFieldKeys.length > 0) {
-    throw new Error(`Analyzer output missing required ruleset fields: ${missingFieldKeys.join(', ')}`);
+    throw new AnalysisContractError('missing_required_ruleset_fields', missingFieldKeys.length);
   }
   if (duplicateFieldKeys.size > 0) {
-    throw new Error(`Analyzer output has duplicate ruleset fields: ${Array.from(duplicateFieldKeys).join(', ')}`);
+    throw new AnalysisContractError('duplicate_ruleset_fields', duplicateFieldKeys.size);
   }
   if (unknownFieldKeys.size > 0) {
-    throw new Error(`Analyzer output has unknown ruleset fields: ${Array.from(unknownFieldKeys).join(', ')}`);
+    throw new AnalysisContractError('unknown_ruleset_fields', unknownFieldKeys.size);
   }
   if (invalidOpenAISourceFieldKeys.size > 0) {
-    throw new Error(
-      `OpenAI analyzer output must use source=openai_analysis for ruleset fields: ${Array.from(invalidOpenAISourceFieldKeys).join(', ')}`
-    );
+    throw new AnalysisContractError('invalid_openai_ruleset_source', invalidOpenAISourceFieldKeys.size);
   }
 }
 
@@ -430,6 +461,9 @@ export async function startAnalysisRun(
         blogItemLimit: runMetadata.blogItemLimit,
         promptBlogItemCount: runMetadata.promptBlogItemCount,
         omittedBlogItemCount: runMetadata.omittedBlogItemCount,
+        reviewItemLimit: runMetadata.reviewItemLimit,
+        promptReviewItemCount: runMetadata.promptReviewItemCount,
+        omittedReviewItemCount: runMetadata.omittedReviewItemCount,
         promptBudgetReason: runMetadata.promptBudgetReason
       }
     });
@@ -505,6 +539,9 @@ export async function startAnalysisRun(
     });
     if (asString(asRecord(storedError).errorType) === 'analysis_context_too_large') {
       throw new Error(contextTooLargeMessage);
+    }
+    if (asString(asRecord(storedError).errorType) === 'analysis_contract_invalid') {
+      throw new Error(analysisContractMessage);
     }
     throw error;
   }

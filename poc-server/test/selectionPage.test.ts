@@ -80,17 +80,32 @@ describe('content selection static page API wiring', () => {
     expect(js).toContain('selection-analysis-provider');
     expect(js).toContain('selection-analysis-budget-note');
     expect(js).toContain('분석 입력 예산에 맞춰 일부 본문은 요약/제외되었습니다.');
-    expect(js).toContain('개발 버전에서는 블로그 소스 최대 ${blogItemLimit}개만 분석 입력에 포함됩니다.');
+    expect(js).toContain('개발 버전에서는 ${limitParts.join');
+    expect(js).toContain('리뷰 최대 ${reviewItemLimit}개');
     expect(js).toContain('analyzerProvider');
     expect(js).toContain('analyzerModel');
     expect(js).toContain('omittedItemCount');
     expect(js).toContain('omittedBlogItemCount');
+    expect(js).toContain('omittedReviewItemCount');
     expect(js).toContain('blogItemLimit');
+    expect(js).toContain('reviewItemLimit');
     expect(js).toContain('selection-analysis-overlay-elapsed');
     expect(js).toContain('setAnalysisOverlayVisible(true)');
     expect(js).toContain('setAnalysisOverlayStatus(stateText');
     expect(js).toContain("setAnalysisStep('started', 'AI 분석 중')");
     expect(js).toContain('setAnalysisOverlayVisible(false)');
+  });
+
+  it('keeps current analysis run diagnostics when showing a failed analysis message', () => {
+    const js = readFileSync(path.join(webRoot, 'content_selection.js'), 'utf8');
+
+    expect(js).toContain('function createResponseError');
+    expect(js).toContain('error.details = body');
+    expect(js).toContain('function formatAnalysisFailureMessage');
+    expect(js).toContain('details.analysisFailure');
+    expect(js).toContain('현재 분석 실행');
+    expect(js).toContain('activeAnalysisRunId');
+    expect(js).toContain('throw new Error(message)');
   });
 
   it('allows no-change collection runs to reuse the previous learning result', () => {
