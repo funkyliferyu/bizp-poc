@@ -7,6 +7,7 @@ import { createCollectionItemsRepository } from './collection_items.js';
 import { createCollectionRunsRepository } from './collection_runs.js';
 import { createContentGenerationsRepository } from './content_generations.js';
 import { createLearningSnapshotsRepository } from './learning_snapshots.js';
+import { createLlmAuditLogsRepository } from './llm_audit_logs.js';
 import { createMarketingRulesetsRepository } from './marketing_rulesets.js';
 import { createMediaAssetsRepository } from './media_assets.js';
 import { createRulesetFieldsRepository } from './ruleset_fields.js';
@@ -25,6 +26,7 @@ export function createStoreLearningRepositories(connection: DbConnection) {
     analysisRuns: createAnalysisRunsRepository(connection),
     analysisEvidence: createAnalysisEvidenceRepository(connection),
     learningSnapshots: createLearningSnapshotsRepository(connection),
+    llmAuditLogs: createLlmAuditLogsRepository(connection),
     marketingRulesets: createMarketingRulesetsRepository(connection),
     rulesetFields: createRulesetFieldsRepository(connection),
     contentGenerations: createContentGenerationsRepository(connection),

@@ -1,5 +1,10 @@
 import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
 
+export const REQUIRED_NEW_BLOG_POST_COUNT = 3;
+export const REQUIRED_NEW_PLACE_REVIEW_COUNT = 10;
+export const INSUFFICIENT_NEW_EVIDENCE_MESSAGE =
+  '재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.';
+
 export type AnalysisDecisionAction =
   | 'reuse_latest_learning'
   | 'backfill_latest_ruleset'
@@ -13,6 +18,7 @@ export type AnalysisDecisionReason =
   | 'initial_learning_with_selected_evidence'
   | 'initial_profile_only_analysis'
   | 'new_selected_evidence'
+  | 'insufficient_new_evidence_for_ruleset_regeneration'
   | 'no_previous_learning_to_reuse'
   | 'no_collected_selected_items'
   | 'unsupported_selected_items';
@@ -46,6 +52,13 @@ export type AnalysisSelectedCounts = {
   failed: number;
 };
 
+export type AnalysisNewEvidenceCounts = {
+  blogPosts: number;
+  placeReviews: number;
+  requiredBlogPosts: number;
+  requiredPlaceReviews: number;
+};
+
 export type AnalysisExecutionDecision = {
   action: AnalysisDecisionAction;
   reason: AnalysisDecisionReason;
@@ -54,6 +67,7 @@ export type AnalysisExecutionDecision = {
   missingRulesetFieldKeys: string[];
   hasNewBlogOrReviewEvidence: boolean;
   selectedCounts: AnalysisSelectedCounts;
+  newEvidenceCounts: AnalysisNewEvidenceCounts;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -108,6 +122,10 @@ function hasNewOrChangedDelta(item: AnalysisDecisionItem) {
   return !deltaState || deltaState === 'new' || deltaState === 'changed';
 }
 
+function hasNewDelta(item: AnalysisDecisionItem) {
+  return itemDeltaState(item) === 'new';
+}
+
 function selectedCounts(items: readonly AnalysisDecisionItem[]): AnalysisSelectedCounts {
   const collected = items.filter(isCollected);
   return {
@@ -119,9 +137,23 @@ function selectedCounts(items: readonly AnalysisDecisionItem[]): AnalysisSelecte
   };
 }
 
-function collectionHasMeaningfulChanges(collectionSummary: unknown) {
+export function collectionHasMeaningfulChanges(collectionSummary: unknown) {
   const collectionDelta = asRecord(asRecord(collectionSummary).collectionDelta);
   return collectionDelta.hasMeaningfulChanges === false ? false : collectionDelta.hasMeaningfulChanges === true ? true : null;
+}
+
+export function newEvidenceCounts(items: readonly AnalysisDecisionItem[]): AnalysisNewEvidenceCounts {
+  const collected = items.filter(isCollected).filter(hasNewDelta);
+  return {
+    blogPosts: collected.filter(isBlogPost).length,
+    placeReviews: collected.filter(isPlaceReview).length,
+    requiredBlogPosts: REQUIRED_NEW_BLOG_POST_COUNT,
+    requiredPlaceReviews: REQUIRED_NEW_PLACE_REVIEW_COUNT
+  };
+}
+
+export function hasSufficientNewEvidence(counts: AnalysisNewEvidenceCounts) {
+  return counts.blogPosts >= counts.requiredBlogPosts && counts.placeReviews >= counts.requiredPlaceReviews;
 }
 
 function decision(
@@ -133,6 +165,7 @@ function decision(
     missingRulesetFieldKeysValue: string[];
     hasNewBlogOrReviewEvidence: boolean;
     counts: AnalysisSelectedCounts;
+    newCounts: AnalysisNewEvidenceCounts;
   }
 ): AnalysisExecutionDecision {
   return {
@@ -142,7 +175,8 @@ function decision(
     rulesetContractComplete: input.rulesetContractComplete,
     missingRulesetFieldKeys: input.missingRulesetFieldKeysValue,
     hasNewBlogOrReviewEvidence: input.hasNewBlogOrReviewEvidence,
-    selectedCounts: input.counts
+    selectedCounts: input.counts,
+    newEvidenceCounts: input.newCounts
   };
 }
 
@@ -150,6 +184,7 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
   const selectedItems = input.selectedItems;
   const collectedItems = selectedItems.filter(isCollected);
   const counts = selectedCounts(selectedItems);
+  const newCounts = newEvidenceCounts(selectedItems);
   const hasPreviousLearningValue = hasPreviousLearning(input.latestLearning ?? null);
   const missingRulesetFieldKeysValue = hasPreviousLearningValue ? missingRulesetFieldKeys(input.latestLearning ?? null) : [];
   const rulesetContractComplete = hasPreviousLearningValue && missingRulesetFieldKeysValue.length === 0;
@@ -160,6 +195,8 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
   const hasChangedPlaceProfile = collectedItems.some((item) => isPlaceProfile(item) && itemDeltaState(item) === 'changed');
   const meaningfulChanges = collectionHasMeaningfulChanges(input.collectionSummary);
   const canReusePath = meaningfulChanges === false || (meaningfulChanges === true && hasOnlyPlaceProfiles && hasChangedPlaceProfile);
+  const requiresNewEvidenceForRegeneration =
+    hasPreviousLearningValue && meaningfulChanges === true && hasNewBlogOrReviewEvidence;
 
   if (canReusePath) {
     if (!hasPreviousLearningValue) {
@@ -168,7 +205,8 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
         rulesetContractComplete,
         missingRulesetFieldKeysValue,
         hasNewBlogOrReviewEvidence,
-        counts
+        counts,
+        newCounts
       });
     }
     if (!rulesetContractComplete) {
@@ -177,7 +215,8 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
         rulesetContractComplete,
         missingRulesetFieldKeysValue,
         hasNewBlogOrReviewEvidence,
-        counts
+        counts,
+        newCounts
       });
     }
     return decision(
@@ -188,7 +227,8 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
         rulesetContractComplete,
         missingRulesetFieldKeysValue,
         hasNewBlogOrReviewEvidence,
-        counts
+        counts,
+        newCounts
       }
     );
   }
@@ -199,7 +239,19 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
       rulesetContractComplete,
       missingRulesetFieldKeysValue,
       hasNewBlogOrReviewEvidence,
-      counts
+      counts,
+      newCounts
+    });
+  }
+
+  if (requiresNewEvidenceForRegeneration && !hasSufficientNewEvidence(newCounts)) {
+    return decision('reuse_latest_learning', 'insufficient_new_evidence_for_ruleset_regeneration', {
+      hasPreviousLearningValue,
+      rulesetContractComplete,
+      missingRulesetFieldKeysValue,
+      hasNewBlogOrReviewEvidence,
+      counts,
+      newCounts
     });
   }
 
@@ -212,7 +264,8 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
         rulesetContractComplete,
         missingRulesetFieldKeysValue,
         hasNewBlogOrReviewEvidence,
-        counts
+        counts,
+        newCounts
       }
     );
   }
@@ -223,7 +276,8 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
       rulesetContractComplete,
       missingRulesetFieldKeysValue,
       hasNewBlogOrReviewEvidence,
-      counts
+      counts,
+      newCounts
     });
   }
 
@@ -232,6 +286,7 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
     rulesetContractComplete,
     missingRulesetFieldKeysValue,
     hasNewBlogOrReviewEvidence,
-    counts
+    counts,
+    newCounts
   });
 }

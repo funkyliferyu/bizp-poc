@@ -2,6 +2,14 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { getOpenAIClient } from '../../ai/openaiClient.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
+import {
+  durationMs,
+  nowIso,
+  sanitizedProviderError,
+  summarizeResponseFormat,
+  toJsonValue,
+  type LlmCallAuditMetadata
+} from '../llmAudit/llmAuditMetadata.js';
 import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
 import { buildAnalysisPromptInput, type AnalysisPromptBudgetMetadata } from './analysisPromptBudget.js';
 import { AnalyzerOutputSchema, createMockAnalysisProvider, type AnalysisProvider } from './analyzer.js';
@@ -78,12 +86,14 @@ function normalizeOpenAIAnalyzerOutput(parsed: unknown, promptItemIds: readonly 
 export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOptions = {}): AnalysisProvider {
   const model = options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
   let lastRunMetadata: AnalysisPromptBudgetMetadata | null = null;
+  let lastAuditMetadata: LlmCallAuditMetadata | null = null;
 
   return {
     name: 'openAIAnalysisProvider',
     mode: 'openai',
     model,
     getLastRunMetadata: () => lastRunMetadata,
+    getLastAuditMetadata: () => lastAuditMetadata,
     async analyze(input) {
       const client = 'client' in options ? options.client : getOpenAIClient();
       if (!client) {
@@ -91,26 +101,61 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
       }
       const prompt = buildAnalysisPromptInput(input);
       lastRunMetadata = prompt.metadata;
+      lastAuditMetadata = null;
+      const responseFormat = zodResponseFormat(
+        createOpenAIAnalyzerOutputSchema(prompt.promptInput.promptItemIds),
+        'store_learning_analysis'
+      );
+      const requestStartedAt = nowIso();
+      let parsedOutput: unknown = null;
 
-      const completion = await client.beta.chat.completions.parse({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a Korean local-store marketing strategist. Analyze collected blog/place evidence and return a strict JSON ruleset. ' +
-              'Use only provided collection items as evidence. Avoid unsupported superlatives and medical/legal/guarantee claims. ' +
-              'Populate every required ruleset field in rulesetFieldsByKey exactly once.'
-          },
-          {
-            role: 'user',
-            content: JSON.stringify(prompt.promptInput, null, 2)
-          }
-        ],
-        response_format: zodResponseFormat(createOpenAIAnalyzerOutputSchema(prompt.promptInput.promptItemIds), 'store_learning_analysis')
-      });
+      try {
+        const completion = await client.beta.chat.completions.parse({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a Korean local-store marketing strategist. Analyze collected blog/place evidence and return a strict JSON ruleset. ' +
+                'Use only provided collection items as evidence. Avoid unsupported superlatives and medical/legal/guarantee claims. ' +
+                'Populate every required ruleset field in rulesetFieldsByKey exactly once.'
+            },
+            {
+              role: 'user',
+              content: JSON.stringify(prompt.promptInput, null, 2)
+            }
+          ],
+          response_format: responseFormat
+        });
 
-      return normalizeOpenAIAnalyzerOutput(completion.choices[0]?.message.parsed, prompt.promptInput.promptItemIds);
+        parsedOutput = completion.choices[0]?.message.parsed ?? null;
+        const output = normalizeOpenAIAnalyzerOutput(parsedOutput, prompt.promptInput.promptItemIds);
+        const responseCompletedAt = nowIso();
+        lastAuditMetadata = {
+          requestStartedAt,
+          responseCompletedAt,
+          durationMs: durationMs(requestStartedAt, responseCompletedAt),
+          inputBudget: toJsonValue(prompt.metadata),
+          promptInputJson: toJsonValue(prompt.promptInput),
+          responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_analysis'),
+          parsedOutputJson: toJsonValue(output),
+          errorJson: null
+        };
+        return output;
+      } catch (error) {
+        const responseCompletedAt = nowIso();
+        lastAuditMetadata = {
+          requestStartedAt,
+          responseCompletedAt,
+          durationMs: durationMs(requestStartedAt, responseCompletedAt),
+          inputBudget: toJsonValue(prompt.metadata),
+          promptInputJson: toJsonValue(prompt.promptInput),
+          responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_analysis'),
+          parsedOutputJson: toJsonValue(parsedOutput),
+          errorJson: sanitizedProviderError(error)
+        };
+        throw error;
+      }
     }
   };
 }

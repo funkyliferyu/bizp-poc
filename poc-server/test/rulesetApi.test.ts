@@ -12,6 +12,84 @@ async function readJson(response: Response) {
   return text ? JSON.parse(text) : null;
 }
 
+function createRulesetVersion(
+  repos: ReturnType<typeof createStoreLearningRepositories>,
+  input: {
+    version: number;
+    fieldValue: string;
+    source?: string;
+    userValue?: string | null;
+    locked?: number;
+  }
+) {
+  const timestamp = `2026-06-11T00:00:${String(input.version).padStart(2, '0')}.000Z`;
+  const collectionRunId = `collection_run_ruleset_version_${input.version}`;
+  const analysisRunId = `analysis_run_ruleset_version_${input.version}`;
+  const learningSnapshotId = `learning_snapshot_ruleset_version_${input.version}`;
+  const rulesetId = `marketing_ruleset_version_${input.version}`;
+  repos.collectionRuns.create({
+    id: collectionRunId,
+    storeId: 'store_demo_cake',
+    status: 'completed',
+    mode: 'mock',
+    startedAt: timestamp,
+    completedAt: timestamp,
+    summary: {}
+  });
+  repos.analysisRuns.create({
+    id: analysisRunId,
+    storeId: 'store_demo_cake',
+    collectionRunId,
+    status: 'completed',
+    startedAt: timestamp,
+    completedAt: timestamp,
+    result: {},
+    error: null
+  });
+  repos.learningSnapshots.create({
+    id: learningSnapshotId,
+    storeId: 'store_demo_cake',
+    analysisRunId,
+    status: 'active',
+    snapshot: {},
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+  repos.marketingRulesets.create({
+    id: rulesetId,
+    storeId: 'store_demo_cake',
+    learningSnapshotId,
+    status: 'draft',
+    version: input.version,
+    ruleset: {
+      generatedBy: `test_version_${input.version}`
+    },
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+  repos.rulesetFields.create({
+    id: `ruleset_field_version_${input.version}_storePositioning`,
+    rulesetId,
+    fieldKey: 'storePositioning',
+    fieldValue: input.fieldValue,
+    aiValue: input.fieldValue,
+    userValue: input.userValue ?? null,
+    finalValue: input.userValue ?? input.fieldValue,
+    source: input.source ?? 'openai_analysis',
+    locked: input.locked ?? 0,
+    evidenceItemIds: ['collection_item_demo_blog'],
+    confidence: 0.7,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+  return {
+    collectionRunId,
+    analysisRunId,
+    learningSnapshotId,
+    rulesetId
+  };
+}
+
 describe('marketing ruleset API', () => {
   let connection: DbConnection;
   let server: ReturnType<express.Express['listen']>;
@@ -66,6 +144,143 @@ describe('marketing ruleset API', () => {
       ])
     );
     expect(body.fields[0]).not.toHaveProperty('fieldValue');
+  });
+
+  it('lists ruleset versions in descending version order with summary metadata', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const v2 = createRulesetVersion(repos, {
+      version: 2,
+      fieldValue: 'v2 포지셔닝',
+      source: 'openai_analysis'
+    });
+    const v3 = createRulesetVersion(repos, {
+      version: 3,
+      fieldValue: 'v3 포지셔닝',
+      source: 'analysis_backfill'
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/versions`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.storeId).toBe('store_demo_cake');
+    expect(body.versions.map((version: { version: number }) => version.version)).toEqual([3, 2, 1]);
+    expect(body.versions[0]).toMatchObject({
+      id: v3.rulesetId,
+      version: 3,
+      status: 'draft',
+      learningSnapshotId: v3.learningSnapshotId,
+      analysisRunId: v3.analysisRunId,
+      fieldCount: 1,
+      sourceCounts: {
+        analysis_backfill: 1
+      },
+      isCurrent: true
+    });
+    expect(body.versions[1]).toMatchObject({
+      id: v2.rulesetId,
+      version: 2,
+      sourceCounts: {
+        openai_analysis: 1
+      },
+      isCurrent: false
+    });
+  });
+
+  it('fetches a historical ruleset version without returning latest fields', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const v2 = createRulesetVersion(repos, {
+      version: 2,
+      fieldValue: 'v2 복원 후보 포지셔닝',
+      source: 'openai_analysis'
+    });
+    createRulesetVersion(repos, {
+      version: 3,
+      fieldValue: 'v3 최신 포지셔닝',
+      source: 'openai_analysis'
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/versions/${v2.rulesetId}`);
+    const body = await readJson(response);
+    const positioningField = body.fields.find((field: { fieldKey: string }) => field.fieldKey === 'storePositioning');
+
+    expect(response.status).toBe(200);
+    expect(body.ruleset).toMatchObject({
+      id: v2.rulesetId,
+      version: 2,
+      isCurrent: false
+    });
+    expect(body.analysis).toMatchObject({
+      id: v2.analysisRunId
+    });
+    expect(positioningField).toMatchObject({
+      fieldKey: 'storePositioning',
+      finalValue: 'v2 복원 후보 포지셔닝'
+    });
+    expect(positioningField.finalValue).not.toBe('v3 최신 포지셔닝');
+  });
+
+  it('restores a historical ruleset as a new latest version without analysis or LLM audit rows', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const v2 = createRulesetVersion(repos, {
+      version: 2,
+      fieldValue: 'v2 원복 포지셔닝',
+      source: 'openai_analysis',
+      userValue: 'v2 사용자 수정 포지셔닝',
+      locked: 1
+    });
+    createRulesetVersion(repos, {
+      version: 3,
+      fieldValue: 'v3 포지셔닝',
+      source: 'analysis_backfill'
+    });
+    createRulesetVersion(repos, {
+      version: 4,
+      fieldValue: 'v4 최신 포지셔닝',
+      source: 'openai_analysis'
+    });
+    const analysisRunCountBefore = repos.analysisRuns.listByStoreId('store_demo_cake').length;
+    const auditLogCountBefore = repos.llmAuditLogs.all().length;
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset/versions/${v2.rulesetId}/restore`, {
+      method: 'POST'
+    });
+    const restored = await readJson(response);
+
+    const latestResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/strategy-ruleset`);
+    const latest = await readJson(latestResponse);
+    const latestField = latest.fields.find((field: { fieldKey: string }) => field.fieldKey === 'storePositioning');
+    const historicalField = repos.rulesetFields.findById('ruleset_field_version_2_storePositioning');
+
+    expect(response.status).toBe(200);
+    expect(restored.ruleset).toMatchObject({
+      version: 5,
+      status: 'draft',
+      restoredFromRulesetId: v2.rulesetId,
+      restoredFromVersion: 2,
+      isCurrent: true
+    });
+    expect(restored.fields.find((field: { fieldKey: string }) => field.fieldKey === 'storePositioning')).toMatchObject({
+      finalValue: 'v2 사용자 수정 포지셔닝',
+      userValue: 'v2 사용자 수정 포지셔닝',
+      source: 'openai_analysis',
+      locked: true
+    });
+    expect(latestResponse.status).toBe(200);
+    expect(latest.ruleset).toMatchObject({
+      id: restored.ruleset.id,
+      version: 5
+    });
+    expect(latestField).toMatchObject({
+      finalValue: 'v2 사용자 수정 포지셔닝',
+      locked: true
+    });
+    expect(historicalField).toMatchObject({
+      finalValue: 'v2 사용자 수정 포지셔닝',
+      locked: 1
+    });
+    expect(repos.analysisRuns.listByStoreId('store_demo_cake')).toHaveLength(analysisRunCountBefore);
+    expect(repos.llmAuditLogs.all()).toHaveLength(auditLogCountBefore);
   });
 
   it('returns a field source matrix for direct Place/manual rows and AI ruleset rows', async () => {

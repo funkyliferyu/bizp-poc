@@ -3,7 +3,11 @@ import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
-import { decideAnalysisExecution, type AnalysisExecutionDecision } from '../analysis/analysisDecision.js';
+import {
+  INSUFFICIENT_NEW_EVIDENCE_MESSAGE,
+  decideAnalysisExecution,
+  type AnalysisExecutionDecision
+} from '../analysis/analysisDecision.js';
 import { getAnalysisArtifacts, getLatestAnalysisArtifacts, startAnalysisRun } from '../analysis/analysisExecutionService.js';
 import type { AnalysisProvider } from '../analysis/analyzer.js';
 import { createAnalysisProvider } from '../analysis/openAIAnalysisProvider.js';
@@ -49,6 +53,9 @@ function selectedCounts(items: CollectionItem[]) {
 }
 
 function reuseProgressMessage(reason: AnalysisExecutionDecision['reason']) {
+  if (reason === 'insufficient_new_evidence_for_ruleset_regeneration') {
+    return INSUFFICIENT_NEW_EVIDENCE_MESSAGE;
+  }
   if (reason === 'latest_ruleset_contract_incomplete') {
     return '기존 룰셋 항목 보정이 필요한 상태로 기존 학습 결과를 재사용했습니다.';
   }
@@ -244,6 +251,7 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
         const selectedItemIds = selectedItems.map((item) => item.id);
         const completedAt = nowIso();
         const skippedReason = reuseSkippedReason(collectionRun.summary, analysisDecision);
+        const newEvidenceCounts = analysisDecision.newEvidenceCounts;
         const analysisRun = repos.analysisRuns.create({
           id: analysisRunId(store.id),
           storeId: store.id,
@@ -255,6 +263,10 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
             selectedItemIds,
             selectedCounts: selectedCounts(selectedItems),
             skippedReason,
+            requiredNewBlogPostCount: newEvidenceCounts.requiredBlogPosts,
+            requiredNewPlaceReviewCount: newEvidenceCounts.requiredPlaceReviews,
+            newBlogPostCount: newEvidenceCounts.blogPosts,
+            newPlaceReviewCount: newEvidenceCounts.placeReviews,
             pendingRulesetBackfill: analysisDecision.action === 'backfill_latest_ruleset' && !backfillResult?.applied,
             rulesetBackfillApplied: backfillResult?.applied ?? false,
             rulesetBackfillSource: backfillResult?.source ?? null,

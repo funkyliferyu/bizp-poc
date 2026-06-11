@@ -550,6 +550,25 @@ Policy:
   learned store when selected/new evidence is below threshold, using the same
   message, unless the route is initial learning with no prior ruleset.
 
+Implementation status:
+
+- Done: `analysisDecision.ts` now counts strictly new Blog post and Place
+  review evidence, requires 3 new Blog posts plus 10 new Place reviews for
+  existing learned stores when the current collection summary has meaningful
+  changes, and preserves initial-learning/no-change/profile-only behavior.
+- Done: insufficient evidence creates a completed skipped analysis run with
+  `skippedReason: "insufficient_new_evidence_for_ruleset_regeneration"`,
+  required/new evidence counts, and reused analysis/snapshot/ruleset IDs.
+- Done: skipped insufficient-evidence runs do not call the analyzer and do not
+  create `llm_audit_logs` rows.
+- Done: learning status API returns `relearnEligibility`, and
+  `web/learning_status.js` disables/dims `지금 재학습` with the exact guidance
+  copy when the latest explicit collection delta is below threshold.
+- Done: selectable-items API returns the same eligibility context, and
+  `web/content_selection.js` blocks `분석 실행` for existing learned stores
+  below threshold while leaving initial learning and no-change reuse paths
+  available.
+
 Suggested tests:
 
 ```bash
@@ -637,6 +656,27 @@ Implementation requirements:
   - either `marketing_rulesets.ruleset` metadata, or
   - existing `audit_events`, or
   - both if already convenient.
+
+Implementation status:
+
+- Done: `GET /api/stores/:storeId/strategy-ruleset/versions` lists ruleset
+  versions in descending version order with field count, source counts,
+  `analysisRunId`, current-version marker, and restore metadata.
+- Done: `GET /api/stores/:storeId/strategy-ruleset/versions/:rulesetId`
+  returns a historical ruleset payload using the same store/facts/fields shape
+  as the latest strategy-ruleset endpoint.
+- Done: `POST /api/stores/:storeId/strategy-ruleset/versions/:rulesetId/restore`
+  creates a new `draft` version, copies all fields from the selected
+  historical version, preserves user-edited/locked values, and stores
+  `restoredFromRulesetId`, `restoredFromVersion`, `restoredAt`, and
+  `restoreSource` in `marketing_rulesets.ruleset`.
+- Done: restore does not create `analysis_runs` and does not create
+  `llm_audit_logs` rows.
+- Done: latest strategy ruleset and learning status ruleset summaries now use
+  the newest marketing ruleset version after restore.
+- Done: `web/07_마케팅전략룰셋.html` and `web/ruleset_editor.js` expose a compact
+  version list, historical version lookup, and restore action for non-current
+  versions through `poc-server` APIs only.
 
 Suggested tests:
 

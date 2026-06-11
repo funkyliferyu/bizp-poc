@@ -1,5 +1,157 @@
 # Codex Handoff
 
+## TASK 6 SERVER-SIDE LLM AUDIT LOGS
+
+Branch `codex/llm-audit-relearn-ruleset-restore` was created from latest
+`develop` (`3344cf2 docs: plan llm audit follow-up`).
+
+Implemented:
+
+- Added `llm_audit_logs` SQLite table and repository.
+- Added optional OpenAI provider audit metadata for compact prompt input,
+  response format summary, parsed output, sanitized errors, and timing.
+- Recorded completed/failed audit rows for Store Learning OpenAI analysis,
+  Blog generation, Blog text regeneration, and SEO rescoring.
+- Linked successful rows to `analysis_run`, `content_generation`,
+  `blog_post`, or `seo_score` artifacts. Pre-artifact Blog/SEO failures store
+  `related_entity_id = NULL`.
+- Updated `docs/codex/LLM_CALL_STRUCTURES.md` and `web/llm호출.html` with the
+  SQLite inspection query and server-side-only handling notes.
+
+Validation on 2026-06-11:
+
+- `cd poc-server && npm test -- --run test/analysisExecutionApi.test.ts -t "LLM audit"`
+- `cd poc-server && npm test -- --run test/blogGenerationApi.test.ts -t "LLM audit"`
+- `cd poc-server && npm test -- --run test/contentDetailApi.test.ts -t "LLM audit"`
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test -- --run test/analysisExecutionApi.test.ts`
+- `cd poc-server && npm test -- --run test/blogGenerationApi.test.ts`
+- `cd poc-server && npm test -- --run test/contentDetailApi.test.ts`
+- `cd poc-server && npm test -- --run test/storeLearningRepositories.test.ts`
+- `cd poc-server && npm test`
+- `cd poc-server && npm run demo:store-learning`
+- `git diff --check`
+
+Result:
+
+- Focused and full validation passed.
+- Full suite: 39 files passed, 3 live-provider files skipped by default; 241
+  tests passed, 6 skipped.
+- Demo seed completed with `blogPostStatus=pending_approval` and `seoScore=86`.
+
+Next execution briefing:
+
+- Task 7 should now use the audit log as a guardrail: existing learned stores
+  with fewer than 3 new Blog post assets or fewer than 10 new Place review
+  assets must reuse latest learning and must not create a new
+  `llm_audit_logs` row.
+- Start Task 7 in `analysisDecision.ts`, then propagate the decision metadata
+  through `analysisRuns.ts`, `learningStatusService.ts`,
+  `web/learning_status.js`, and `web/content_selection.js`.
+- Preserve initial-learning behavior for stores with no previous ruleset.
+- Use the exact guidance copy:
+  `재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.`
+
+Keep the existing out-of-scope `.DS_Store` change unstaged.
+
+## TASK 7 EVIDENCE-THRESHOLD RULESET REGENERATION GATE
+
+Branch `codex/llm-audit-relearn-ruleset-restore` continues from Task 6.
+
+Implemented:
+
+- Added strict new-evidence counts to `analysisDecision.ts`:
+  3 new Blog post assets and 10 new Place review assets are required before
+  an existing learned store can run full SL-A1 analyzer regeneration when the
+  current collection has meaningful changes.
+- Preserved initial learning, no-meaningful-change reuse, and Place
+  profile-only reuse/backfill behavior.
+- Added skipped analysis-run metadata for insufficient evidence:
+  `skippedReason`, required/new evidence counts, reused analysis run ID,
+  learning snapshot ID, and marketing ruleset ID.
+- Confirmed insufficient-evidence reuse does not create a new
+  `llm_audit_logs` row.
+- Added `relearnEligibility` to the learning status API and selectable-items
+  API.
+- Disabled/dimmed `지금 재학습` in `web/learning_status.js` and blocked
+  `분석 실행` in `web/content_selection.js` with:
+  `재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.`
+- Updated `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`,
+  `docs/codex/PLAN.md`, `docs/codex/LLM_CALL_STRUCTURES.md`, and
+  `web/llm호출.html` for the Task 7 state.
+
+Validation on 2026-06-11:
+
+- `cd poc-server && npm test -- --run test/analysisDecision.test.ts -t "insufficient new evidence"`
+- `cd poc-server && npm test -- --run test/analysisExecutionApi.test.ts -t "insufficient new evidence"`
+- `cd poc-server && npm test -- --run test/learningStatusApi.test.ts test/learningStatusPage.test.ts -t "relearn"`
+- `cd poc-server && npm test -- --run test/selectionPage.test.ts -t "thresholds|no-change"`
+- `cd poc-server && npm test -- --run test/analysisDecision.test.ts`
+- `cd poc-server && npm test -- --run test/analysisExecutionApi.test.ts`
+- `cd poc-server && npm test -- --run test/learningStatusApi.test.ts test/learningStatusPage.test.ts test/selectionPage.test.ts test/selectionApi.test.ts`
+- `cd poc-server && npm run typecheck`
+
+Current next execution briefing:
+
+- Task 8 should add first-class marketing strategy ruleset version list,
+  historical version lookup, and restore-as-new-version APIs/UI.
+- Start with `rulesetService.ts` and `stores.ts` API tests so restore never
+  mutates/deletes historical rulesets.
+- Then wire `web/ruleset_editor.js` / `07_마케팅전략룰셋.html` with a compact
+  version selector/list and restore action.
+- Keep the out-of-scope `.DS_Store` modification unstaged.
+
+## TASK 8 RULESET VERSION HISTORY AND RESTORE
+
+Branch `codex/llm-audit-relearn-ruleset-restore` continues from Task 7.
+
+Implemented:
+
+- Added ruleset version list API:
+  `GET /api/stores/:storeId/strategy-ruleset/versions`.
+- Added historical ruleset lookup API:
+  `GET /api/stores/:storeId/strategy-ruleset/versions/:rulesetId`.
+- Added restore API:
+  `POST /api/stores/:storeId/strategy-ruleset/versions/:rulesetId/restore`.
+- Restore creates a new `draft` ruleset version, copies all selected
+  historical fields, preserves user-edited/locked values, and stores
+  `restoredFromRulesetId`, `restoredFromVersion`, `restoredAt`, and
+  `restoreSource` in `marketing_rulesets.ruleset`.
+- Restore does not create an `analysis_run` and does not create an
+  `llm_audit_logs` row.
+- Latest strategy ruleset API and learning status ruleset summaries now use
+  the newest marketing ruleset version after restore.
+- `web/07_마케팅전략룰셋.html` and `web/ruleset_editor.js` now render a compact
+  version panel with current-version marker, historical lookup, and restore
+  controls for non-current versions.
+- Updated `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`,
+  `docs/codex/PLAN.md`, `docs/codex/LLM_CALL_STRUCTURES.md`, and
+  `web/llm호출.html` for the Task 8 state.
+
+Validation on 2026-06-11:
+
+- RED/GREEN:
+  `cd poc-server && npm test -- --run test/rulesetApi.test.ts -t "ruleset version|historical ruleset|restores a historical"`
+- RED/GREEN:
+  `cd poc-server && npm test -- --run test/rulesetPage.test.ts -t "version"`
+- RED/GREEN:
+  `cd poc-server && npm test -- --run test/learningStatusApi.test.ts -t "newest marketing ruleset version"`
+- Related GREEN:
+  `cd poc-server && npm test -- --run test/rulesetApi.test.ts test/rulesetPage.test.ts test/learningStatusApi.test.ts`
+- `cd poc-server && npm run typecheck`
+- `node --check web/ruleset_editor.js`
+
+Current next execution briefing:
+
+- Run final branch verification across Task 6/7/8: typecheck, full tests,
+  demo seed, JS syntax checks for touched browser scripts, and `git diff
+  --check`.
+- Review changed-file boundaries before staging: keep `.DS_Store` unstaged and
+  keep `admin/`, `pc-web/`, `README_POC.md`, and
+  `web/event_operation_poc.html` untouched.
+- Then prepare the PR summary/test plan for
+  `codex/llm-audit-relearn-ruleset-restore` targeting `develop`.
+
 ## POST-PR43-LLM-CALL-AUDIT-FOLLOW-UP
 
 Branch `codex/llm-call-audit-post43` continues the LLM call audit after PR

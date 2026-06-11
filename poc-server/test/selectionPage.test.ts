@@ -119,6 +119,18 @@ describe('content selection static page API wiring', () => {
     expect(js).toContain('기존 학습 결과 재사용');
   });
 
+  it('blocks analysis when selected new evidence is below relearn thresholds', () => {
+    const js = readFileSync(path.join(webRoot, 'content_selection.js'), 'utf8');
+
+    expect(js).toContain('function selectedNewEvidenceCounts');
+    expect(js).toContain('function insufficientNewEvidenceMessage');
+    expect(js).toContain('재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.');
+    expect(js).toContain('const insufficientNewEvidence = insufficientNewEvidenceMessage()');
+    expect(js).toContain('field(\'selection-analysis-btn\').disabled = analysisInFlight || Boolean(insufficientNewEvidence) || (selectedCount === 0 && !canReusePreviousLearning)');
+    expect(js).toContain('setAnalysisError(insufficientNewEvidence || \'\')');
+    expect(js).toContain('if (insufficientMessage) throw new Error(insufficientMessage)');
+  });
+
   it('renders Blog publication dates from provider metadata instead of collection time', () => {
     const js = readFileSync(path.join(webRoot, 'content_selection.js'), 'utf8');
 

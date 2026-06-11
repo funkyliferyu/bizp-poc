@@ -173,7 +173,7 @@
     <section class="summary-card">
       <div class="summary-label">LLM처럼 보이나 로컬 처리</div>
       <div class="summary-value">여러 화면 존재</div>
-      <p>글쓰기 서버 산출 제안, 룰셋 미리보기, 유사업체비교, 이미지 재생성은 현재 런타임 LLM 호출이 아님.</p>
+      <p>글쓰기 서버 산출 제안, 룰셋 미리보기/버전 원복, 유사업체비교, 이미지 재생성은 현재 런타임 LLM 호출이 아님.</p>
     </section>
     <section class="summary-card">
       <div class="summary-label">입력 예산 상태</div>
@@ -218,6 +218,7 @@
               <li>없음: <code>mockDeterministicAnalyzer</code></li>
               <li>선택 항목 0개 + 의미 있는 변경 없음: 이전 분석 결과 재사용</li>
               <li>profile-only 재수집 + 기존 학습 있음: analyzer 재호출 없이 최신 학습/룰셋 재사용 또는 백필</li>
+              <li>기존 학습이 있고 명시적 의미 변화가 있는 수집에서 신규 Blog 3개 + 신규 Place review 10개 미만이면 <code>insufficient_new_evidence_for_ruleset_regeneration</code>으로 최신 학습/룰셋 재사용. 이 경우 OpenAI 호출과 감사 row 생성 없음</li>
               <li>OpenAI ruleset field 계약 오류는 <code>analysis_contract_invalid</code>로 sanitize</li>
             </ul>
           </td>
@@ -451,6 +452,24 @@ JSON.stringify(buildBlogSeoPromptInput(input).promptInput)</td>
         </tr>
 
         <tr>
+          <td>룰셋 버전 조회/원복</td>
+          <td>
+            <code>07_마케팅전략룰셋.html</code><br>
+            <code>GET /api/stores/:storeId/strategy-ruleset/versions</code><br>
+            <code>GET /api/stores/:storeId/strategy-ruleset/versions/:rulesetId</code><br>
+            <code>POST /api/stores/:storeId/strategy-ruleset/versions/:rulesetId/restore</code>
+          </td>
+          <td><span class="badge no">LLM 호출 아님</span><br>저장된 historical ruleset/field를 조회하거나 새 draft version으로 복사.</td>
+          <td><span class="badge local">서버 DB 처리</span><br>OpenAI, 분석 실행, 감사 로그 생성 없음.</td>
+          <td>원복 시 <code>marketing_rulesets.ruleset</code>에 <code>restoredFromRulesetId</code>, <code>restoredFromVersion</code>, <code>restoredAt</code>, <code>restoreSource</code> 기록.</td>
+          <td>기존 <code>marketing_rulesets</code>, <code>ruleset_fields</code> row만 사용.</td>
+          <td>프롬프트 없음.</td>
+          <td>없음. LLM 응답 파싱 없음.</td>
+          <td>선택한 과거 버전을 새 <code>draft</code> version으로 복사하고, latest ruleset 화면/학습 현황에서 최신 version으로 표시.</td>
+          <td><code>rulesetService.restoreMarketingRulesetVersion()</code>, <code>ruleset_editor.js</code></td>
+        </tr>
+
+        <tr>
           <td>리뷰 약점 backfill</td>
           <td>
             <code>07_마케팅전략룰셋.html</code><br>
@@ -636,6 +655,7 @@ user:
     <li>분석 prompt는 <code>analysisPromptBudget.ts</code>에서 생성하며, raw provider payload, rendered HTML, image URL 배열, GraphQL snapshot, 중복 body copy는 제외합니다.</li>
     <li>Blog body는 항목당 최대 1,200자, Place review body는 최대 500자, Place profile은 normalized facts 중심으로 compact합니다.</li>
     <li>현재 개발 버전에서는 선택된 Blog 소스가 몇 개든 날짜 기준 최신순 최대 3개만 LLM 분석 prompt에 포함하고, Place review는 최신순 최대 10개만 포함합니다.</li>
+    <li>기존 학습/룰셋이 있는 매장은 신규 Blog 3개와 신규 Place review 10개 이상이 모두 충족될 때만 전체 룰셋 재생성 LLM 분석을 실행합니다. 미달 시 <code>analysis_runs.result.skippedReason</code>에 <code>insufficient_new_evidence_for_ruleset_regeneration</code>을 저장하고 최신 학습/룰셋을 재사용합니다.</li>
     <li>prompt JSON이 character budget을 넘으면 profile/review evidence를 우선 보존하고 Blog 항목을 날짜 기준 최신순으로 남기며 초과분은 제외합니다.</li>
     <li>분석 run 결과에는 <code>selectedItemCount</code>, <code>promptItemCount</code>, <code>omittedItemCount</code>, Blog/review limit/counts, <code>promptCharacterCount</code>, <code>promptCharacterBudget</code>, <code>bodyCharacterBudget</code>, <code>promptBudgetReason</code>이 저장됩니다.</li>
     <li>그래도 context length 오류가 발생하면 <code>analysis_context_too_large</code>로 sanitize되어 제품용 메시지만 브라우저에 노출됩니다.</li>
@@ -651,6 +671,16 @@ user:
     <li>media asset metadata는 prompt, alt, placement, generator만 포함하며 CDN 응답/raw provider payload는 제외합니다.</li>
     <li><code>content_generations.prompt</code>, <code>contentProvenance</code>, <code>seoScore.provenance</code>에서 provider/model/action/inputBudget을 확인할 수 있습니다.</li>
     <li>Blog/SEO context-length 오류는 원문 token count를 브라우저에 노출하지 않고 한국어 제품 메시지로 sanitize합니다.</li>
+  </ul>
+
+  <h2>서버 사이드 감사 로그 확인</h2>
+  <ul>
+    <li>Store Learning OpenAI 분석, 블로그 초안/본문 재생성, SEO 재평가는 서버 DB의 <code>llm_audit_logs</code>에 내부 감사 row를 남깁니다.</li>
+    <li>각 row는 <code>store_id</code>, <code>related_entity_type</code>, <code>related_entity_id</code>, <code>provider</code>, <code>mode</code>, <code>model</code>, <code>action</code>, <code>status</code>, <code>duration_ms</code>, <code>input_budget_json</code>, <code>prompt_input_json</code>, <code>response_format_json</code>, <code>parsed_output_json</code>, <code>error_json</code>을 저장합니다.</li>
+    <li>실패한 블로그 초안 생성 또는 SEO 재평가처럼 artifact 생성 전 실패한 호출은 <code>related_entity_id</code>가 <code>NULL</code>일 수 있습니다.</li>
+    <li><code>prompt_input_json</code>은 서버에서 budget 처리된 입력이며 수집된 블로그/리뷰 본문 일부를 포함할 수 있으므로 고객 화면, query string, localStorage, 스크린샷으로 노출하지 않습니다.</li>
+    <li>최신 row 확인 SQL 예시: <code>SELECT created_at, store_id, related_entity_type, related_entity_id, provider, model, action, status, duration_ms FROM llm_audit_logs ORDER BY created_at DESC LIMIT 10;</code></li>
+    <li>감사 로그에는 OpenAI API key, raw HTTP header, raw SDK response object를 저장하지 않습니다.</li>
   </ul>
 
   <h2>라이브 모드 확인</h2>

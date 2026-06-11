@@ -8,6 +8,7 @@ import type { SeoScore } from '../../repositories/seo_scores.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import type { Store } from '../../repositories/stores.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
+import { recordLlmAuditLog } from '../llmAudit/llmAuditRecorder.js';
 import type { BlogPromptBudgetMetadata } from './blogPromptBudget.js';
 import {
   BlogDraftSectionSchema,
@@ -446,8 +447,10 @@ export async function generateApprovalPendingBlogPost(
   if (!ruleset) throw new Error(`Marketing ruleset not found for store: ${store.id}`);
   const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
   let providerInputBudget: BlogPromptBudgetMetadata | null = null;
-  const providerDraft = provider
-    ? providerDraftFromOutput(
+  let providerDraft: ProviderDraft | null = null;
+  if (provider) {
+    try {
+      providerDraft = providerDraftFromOutput(
         await provider.generateDraft({
           action: 'generate_blog_post',
           store,
@@ -455,10 +458,22 @@ export async function generateApprovalPendingBlogPost(
           rulesetFields: fields
         }),
         ruleset.id
-      )
-    : null;
-  if (provider) {
-    providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+      );
+      providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+    } catch (error) {
+      providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+      recordLlmAuditLog(repos, {
+        storeId: store.id,
+        relatedEntityType: 'content_generation',
+        relatedEntityId: null,
+        provider,
+        action: 'generate_blog_post',
+        status: 'failed',
+        inputBudget: providerInputBudget,
+        errorJson: { message: error instanceof Error ? error.message : String(error) }
+      });
+      throw error;
+    }
   }
   const draft = providerDraft?.draft ?? buildDraft(store, ruleset, fields);
   const providerSeoScore = providerDraft?.seoScore ?? null;
@@ -489,6 +504,16 @@ export async function generateApprovalPendingBlogPost(
     output: providerSeoScore ? { ...draft, seoScore: providerSeoScore } : draft,
     createdAt: timestamp,
     updatedAt: timestamp
+  });
+  recordLlmAuditLog(repos, {
+    storeId: store.id,
+    relatedEntityType: 'content_generation',
+    relatedEntityId: contentGeneration.id,
+    provider: provider ?? { name: 'mock_ruleset_blog_generator', mode: 'mock' },
+    action: 'generate_blog_post',
+    status: 'completed',
+    inputBudget: providerInputBudget,
+    parsedOutputJson: providerSeoScore ? { ...draft, seoScore: providerSeoScore } : draft
   });
   const blogPost = repos.blogPosts.create({
     id: blogPostId,
@@ -668,8 +693,10 @@ export async function regenerateBlogPostText(
   const fields = repos.rulesetFields.listByRulesetId(ruleset.id);
   const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
   let providerInputBudget: BlogPromptBudgetMetadata | null = null;
-  const providerDraft = provider
-    ? providerDraftFromOutput(
+  let providerDraft: ProviderDraft | null = null;
+  if (provider) {
+    try {
+      providerDraft = providerDraftFromOutput(
         await provider.generateDraft({
           action: 'regenerate_text',
           store,
@@ -680,10 +707,22 @@ export async function regenerateBlogPostText(
           mediaAssets
         }),
         ruleset.id
-      )
-    : null;
-  if (provider) {
-    providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+      );
+      providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+    } catch (error) {
+      providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+      recordLlmAuditLog(repos, {
+        storeId: post.storeId,
+        relatedEntityType: 'blog_post',
+        relatedEntityId: post.id,
+        provider,
+        action: 'regenerate_blog_text',
+        status: 'failed',
+        inputBudget: providerInputBudget,
+        errorJson: { message: error instanceof Error ? error.message : String(error) }
+      });
+      throw error;
+    }
   }
   const draft = providerDraft?.draft ?? buildDraft(store, ruleset, fields);
   const providerSeoScore = providerDraft?.seoScore ?? null;
@@ -728,6 +767,16 @@ export async function regenerateBlogPostText(
     output: providerSeoScore ? { ...revisedDraft, seoScore: providerSeoScore } : revisedDraft,
     createdAt: timestamp,
     updatedAt: timestamp
+  });
+  recordLlmAuditLog(repos, {
+    storeId: post.storeId,
+    relatedEntityType: 'blog_post',
+    relatedEntityId: post.id,
+    provider: provider ?? { name: 'mock_ruleset_blog_generator', mode: 'mock' },
+    action: 'regenerate_blog_text',
+    status: 'completed',
+    inputBudget: providerInputBudget,
+    parsedOutputJson: providerSeoScore ? { ...revisedDraft, seoScore: providerSeoScore } : revisedDraft
   });
   repos.blogPosts.update(post.id, {
     contentGenerationId: contentGeneration.id,
@@ -841,8 +890,10 @@ export async function rescoreBlogPostSeo(repos: Repositories, postId: string, pr
   const fields = ruleset ? repos.rulesetFields.listByRulesetId(ruleset.id) : [];
   const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
   let providerInputBudget: BlogPromptBudgetMetadata | null = null;
-  const providerSeoScore = provider
-    ? SeoScoreOutputSchema.parse(
+  let providerSeoScore: SeoScoreOutput | null = null;
+  if (provider) {
+    try {
+      providerSeoScore = SeoScoreOutputSchema.parse(
         await provider.scoreSeo({
           store,
           ruleset,
@@ -851,10 +902,22 @@ export async function rescoreBlogPostSeo(repos: Repositories, postId: string, pr
           article: post.article,
           mediaAssets
         })
-      )
-    : null;
-  if (provider) {
-    providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+      );
+      providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+    } catch (error) {
+      providerInputBudget = provider.getLastRunMetadata?.() ?? null;
+      recordLlmAuditLog(repos, {
+        storeId: post.storeId,
+        relatedEntityType: 'seo_score',
+        relatedEntityId: null,
+        provider,
+        action: 'score_blog_seo',
+        status: 'failed',
+        inputBudget: providerInputBudget,
+        errorJson: { message: error instanceof Error ? error.message : String(error) }
+      });
+      throw error;
+    }
   }
   const seoScore = createSeoScore(repos, post, mediaAssets, providerSeoScore, {
     mode: provider?.mode ?? 'mock',
@@ -863,6 +926,16 @@ export async function rescoreBlogPostSeo(repos: Repositories, postId: string, pr
     action: 'seo_rescore',
     providerSeoScoreReturned: Boolean(providerSeoScore),
     inputBudget: providerInputBudget
+  });
+  recordLlmAuditLog(repos, {
+    storeId: post.storeId,
+    relatedEntityType: 'seo_score',
+    relatedEntityId: seoScore.id,
+    provider: provider ?? { name: 'localSeoScorer', mode: 'mock' },
+    action: 'score_blog_seo',
+    status: 'completed',
+    inputBudget: providerInputBudget,
+    parsedOutputJson: providerSeoScore
   });
   return {
     blogPost: serializeBlogPost(repos, post.id),

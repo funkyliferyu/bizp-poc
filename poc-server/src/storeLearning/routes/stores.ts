@@ -19,9 +19,12 @@ import {
   buildPlaceLearningStatus
 } from '../learning/learningStatusService.js';
 import {
+  buildMarketingRulesetVersionPayload,
   buildMarketingRulesetPayload,
   buildRulesetFieldEvidence,
+  buildRulesetVersionsPayload,
   resetRulesetFieldValue,
+  restoreMarketingRulesetVersion,
   updateRulesetFieldValue
 } from '../rulesets/rulesetService.js';
 import { buildRulesetBenchmarkPayload } from '../rulesets/rulesetBenchmarkService.js';
@@ -512,6 +515,46 @@ export function createStoreRoutes({
     res.json(payload);
   }
 
+  function sendRulesetVersions(req: express.Request, res: express.Response) {
+    const storeId = routeParam(req, 'storeId');
+    const payload = buildRulesetVersionsPayload(repos, storeId);
+    if (!payload) {
+      res.status(404).json({ error: `Store not found: ${storeId}` });
+      return;
+    }
+    res.json(payload);
+  }
+
+  function sendRulesetVersion(req: express.Request, res: express.Response) {
+    const storeId = routeParam(req, 'storeId');
+    const rulesetId = routeParam(req, 'rulesetId');
+    const payload = buildMarketingRulesetVersionPayload(repos, storeId, rulesetId);
+    if (!payload) {
+      res.status(404).json({ error: `Store or ruleset not found: ${storeId}` });
+      return;
+    }
+    if (!payload.ruleset) {
+      res.status(404).json({ error: `Ruleset not found: ${rulesetId}` });
+      return;
+    }
+    res.json(payload);
+  }
+
+  function restoreRulesetVersion(req: express.Request, res: express.Response) {
+    const storeId = routeParam(req, 'storeId');
+    const rulesetId = routeParam(req, 'rulesetId');
+    const payload = restoreMarketingRulesetVersion(repos, storeId, rulesetId);
+    if (!payload) {
+      res.status(404).json({ error: `Store or ruleset not found: ${storeId}` });
+      return;
+    }
+    if (!payload.ruleset) {
+      res.status(404).json({ error: `Ruleset not found: ${rulesetId}` });
+      return;
+    }
+    res.json(payload);
+  }
+
   function patchRulesetField(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
       const storeId = routeParam(req, 'storeId');
@@ -663,6 +706,10 @@ export function createStoreRoutes({
 
   router.get('/:storeId/strategy-ruleset', sendRuleset);
   router.get('/:storeId/ruleset', sendRuleset);
+
+  router.get('/:storeId/strategy-ruleset/versions', sendRulesetVersions);
+  router.get('/:storeId/strategy-ruleset/versions/:rulesetId', sendRulesetVersion);
+  router.post('/:storeId/strategy-ruleset/versions/:rulesetId/restore', restoreRulesetVersion);
 
   router.patch('/:storeId/strategy-ruleset/fields/:fieldKey', patchRulesetField);
   router.patch('/:storeId/ruleset/fields/:fieldKey', patchRulesetField);

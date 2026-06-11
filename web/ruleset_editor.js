@@ -65,6 +65,23 @@
     return readResponse(response);
   }
 
+  async function loadRulesetVersions(storeId) {
+    const response = await fetch(`/api/stores/${storeId}/strategy-ruleset/versions`);
+    return readResponse(response);
+  }
+
+  async function loadRulesetVersion(storeId, rulesetId) {
+    const response = await fetch(`/api/stores/${storeId}/strategy-ruleset/versions/${rulesetId}`);
+    return readResponse(response);
+  }
+
+  async function restoreRulesetVersion(storeId, rulesetId) {
+    const response = await fetch(`/api/stores/${storeId}/strategy-ruleset/versions/${rulesetId}/restore`, {
+      method: 'POST'
+    });
+    return readResponse(response);
+  }
+
   async function saveRulesetField(storeId, fieldKey, userValue) {
     const response = await fetch(`/api/stores/${storeId}/strategy-ruleset/fields/${fieldKey}`, {
       method: 'PATCH',
@@ -528,6 +545,59 @@
     status.textContent = `v${payload.ruleset.version} · ${payload.ruleset.status}`;
   }
 
+  function versionSourceSummary(sourceCounts) {
+    const entries = Object.entries(sourceCounts || {});
+    if (entries.length === 0) return '필드 없음';
+    return entries
+      .slice(0, 3)
+      .map(([source, count]) => `${source} ${count}`)
+      .join(' · ');
+  }
+
+  function renderRulesetVersionDetail(payload) {
+    const detail = field('ruleset-version-detail');
+    if (!detail) return;
+    const ruleset = payload?.ruleset;
+    if (!ruleset) {
+      detail.innerHTML = '<strong>버전 상세</strong>조회할 버전을 선택하세요.';
+      return;
+    }
+    const fields = payload.fields || [];
+    const restored = ruleset.restoredFromVersion ? ` · v${ruleset.restoredFromVersion}에서 원복` : '';
+    detail.innerHTML = [
+      `<strong>v${escapeHtml(ruleset.version)} · ${escapeHtml(ruleset.status)}${escapeHtml(restored)}</strong>`,
+      `필드 ${fields.length}개`,
+      payload.analysis?.id ? `<br>분석 ${escapeHtml(payload.analysis.id)}` : '',
+      payload.learningSnapshot?.id ? `<br>스냅샷 ${escapeHtml(payload.learningSnapshot.id)}` : '',
+      '<div style="margin-top:6px">',
+      fields
+        .slice(0, 3)
+        .map((item) => `${escapeHtml(item.fieldKey)}: ${escapeHtml(item.finalValue || item.aiValue || '-')}`)
+        .join('<br>'),
+      '</div>'
+    ].join('');
+  }
+
+  function renderRulesetVersions(versions) {
+    const list = field('ruleset-version-list');
+    if (!list) return;
+    const safeVersions = Array.isArray(versions) ? versions : [];
+    if (safeVersions.length === 0) {
+      list.innerHTML = '<span class="ruleset-version-meta">생성된 버전 없음</span>';
+      return;
+    }
+    list.innerHTML = safeVersions
+      .map((version) => {
+        const restored = version.restoredFromVersion ? ` · restored v${version.restoredFromVersion}` : '';
+        return `<div class="ruleset-version-item ${version.isCurrent ? 'current' : ''}" data-ruleset-version-id="${escapeHtml(version.id)}">
+          <span class="ruleset-version-meta">v${escapeHtml(version.version)} · ${escapeHtml(version.status)}${escapeHtml(restored)} · ${escapeHtml(versionSourceSummary(version.sourceCounts))}</span>
+          <button type="button" class="ruleset-version-btn" data-ruleset-version-action="view" data-ruleset-id="${escapeHtml(version.id)}">조회</button>
+          ${version.isCurrent ? '' : `<button type="button" class="ruleset-version-btn restore" data-ruleset-version-action="restore" data-ruleset-id="${escapeHtml(version.id)}">원복</button>`}
+        </div>`;
+      })
+      .join('');
+  }
+
   function removeEmptyRulesetGuidance() {
     const existing = field('ruleset-empty-guidance');
     if (existing) existing.remove();
@@ -717,15 +787,52 @@
     });
   }
 
+  function wireRulesetVersionActions(storeId) {
+    document.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-ruleset-version-action]');
+      if (!button) return;
+      const rulesetId = button.dataset.rulesetId;
+      if (!rulesetId) return;
+      try {
+        if (button.dataset.rulesetVersionAction === 'view') {
+          renderRulesetVersionDetail(await loadRulesetVersion(storeId, rulesetId));
+          return;
+        }
+        if (button.dataset.rulesetVersionAction === 'restore') {
+          button.disabled = true;
+          button.textContent = '원복 중';
+          const restored = await restoreRulesetVersion(storeId, rulesetId);
+          renderRuleset(restored);
+          renderRulesetVersionDetail(restored);
+          const versions = await loadRulesetVersions(storeId);
+          renderRulesetVersions(versions.versions || []);
+        }
+      } catch (error) {
+        console.warn(error);
+        const detail = field('ruleset-version-detail');
+        if (detail) detail.innerHTML = '<strong>버전 처리 실패</strong>잠시 후 다시 시도해주세요.';
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
   window.goToStoreRegistrationParking = goToStoreRegistrationParking;
 
   document.addEventListener('DOMContentLoaded', async () => {
     const storeId = currentStoreId();
     window.localStorage.setItem(STORE_ID_KEY, storeId);
     wireActions(storeId);
+    wireRulesetVersionActions(storeId);
     wirePlaceholderEditing();
     try {
-      renderRuleset(await loadRuleset(storeId));
+      const [ruleset, versions] = await Promise.all([
+        loadRuleset(storeId),
+        loadRulesetVersions(storeId)
+      ]);
+      renderRuleset(ruleset);
+      renderRulesetVersions(versions.versions || []);
+      renderRulesetVersionDetail(ruleset);
     } catch (error) {
       console.warn(error);
       const status = field('ruleset-status');

@@ -1,7 +1,16 @@
 import type { JsonValue } from '../../repositories/base.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
+import type { CollectionRun } from '../../repositories/collection_runs.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import {
+  INSUFFICIENT_NEW_EVIDENCE_MESSAGE,
+  REQUIRED_NEW_BLOG_POST_COUNT,
+  REQUIRED_NEW_PLACE_REVIEW_COUNT,
+  collectionHasMeaningfulChanges,
+  hasSufficientNewEvidence,
+  newEvidenceCounts
+} from '../analysis/analysisDecision.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
 import { collectionItemIdentity } from '../collection/collectionItemIdentity.js';
 import {
@@ -92,6 +101,10 @@ function latestAnalysisRun(repos: Repositories, storeId: string) {
   return latestByUpdatedAt(repos.analysisRuns.listByStoreId(storeId));
 }
 
+function latestCollectionRun(repos: Repositories, storeId: string) {
+  return latestByUpdatedAt(repos.collectionRuns.listByStoreId(storeId));
+}
+
 function channelStatus(collectedCount: number, analysisStatus: string | null, connected = true) {
   if (!connected) return 'not_connected';
   if (analysisStatus === 'completed' || analysisStatus === 'succeeded') return collectedCount > 0 ? 'analyzed' : 'empty';
@@ -100,6 +113,58 @@ function channelStatus(collectedCount: number, analysisStatus: string | null, co
 
 function latestArtifacts(repos: Repositories, storeId: string) {
   return getLatestAnalysisArtifacts(repos, storeId);
+}
+
+function latestMarketingRuleset(repos: Repositories, storeId: string) {
+  return repos.marketingRulesets
+    .listByStoreId(storeId)
+    .sort((a, b) => {
+      if (a.version !== b.version) return a.version - b.version;
+      return a.updatedAt.localeCompare(b.updatedAt);
+    })
+    .at(-1) ?? null;
+}
+
+function hasPreviousLearningArtifacts(repos: Repositories, storeId: string) {
+  const artifacts = latestArtifacts(repos, storeId);
+  return Boolean(artifacts?.analysisRun && artifacts.learningSnapshot && artifacts.marketingRuleset);
+}
+
+function relearnCountsForRun(repos: Repositories, collectionRun: CollectionRun | null) {
+  if (!collectionRun) {
+    return {
+      blogPosts: 0,
+      placeReviews: 0,
+      requiredBlogPosts: REQUIRED_NEW_BLOG_POST_COUNT,
+      requiredPlaceReviews: REQUIRED_NEW_PLACE_REVIEW_COUNT
+    };
+  }
+  return newEvidenceCounts(repos.collectionItems.listByRunId(collectionRun.id));
+}
+
+export function buildRelearnEligibility(repos: Repositories, storeId: string, collectionRun?: CollectionRun | null) {
+  const latestRun = collectionRun === undefined ? latestCollectionRun(repos, storeId) : collectionRun;
+  const counts = relearnCountsForRun(repos, latestRun);
+  const hasPreviousLearning = hasPreviousLearningArtifacts(repos, storeId);
+  const requiresNewEvidence = hasPreviousLearning && collectionHasMeaningfulChanges(latestRun?.summary) === true;
+  const allowed = !requiresNewEvidence || hasSufficientNewEvidence(counts);
+
+  return {
+    allowed,
+    reason: allowed
+      ? requiresNewEvidence
+        ? 'sufficient_new_evidence_for_ruleset_regeneration'
+        : 'new_evidence_threshold_not_required'
+      : 'insufficient_new_evidence_for_ruleset_regeneration',
+    message: allowed ? null : INSUFFICIENT_NEW_EVIDENCE_MESSAGE,
+    hasPreviousLearning,
+    requiresNewEvidence,
+    requiredNewBlogPostCount: counts.requiredBlogPosts,
+    requiredNewPlaceReviewCount: counts.requiredPlaceReviews,
+    newBlogPostCount: counts.blogPosts,
+    newPlaceReviewCount: counts.placeReviews,
+    latestCollectionRunId: latestRun?.id ?? null
+  };
 }
 
 function snapshotPayload(repos: Repositories, storeId: string) {
@@ -116,7 +181,7 @@ function snapshotPayload(repos: Repositories, storeId: string) {
 
 function rulesetPayload(repos: Repositories, storeId: string) {
   const artifacts = latestArtifacts(repos, storeId);
-  const ruleset = artifacts?.marketingRuleset;
+  const ruleset = latestMarketingRuleset(repos, storeId) ?? artifacts?.marketingRuleset;
   if (!ruleset) return null;
   return {
     id: ruleset.id,
@@ -195,8 +260,8 @@ function criterionStatus(done: boolean, failed = false) {
 function completionPayload(repos: Repositories, storeId: string, items: CollectionItem[]) {
   const artifacts = latestArtifacts(repos, storeId);
   const run = artifacts?.analysisRun ?? latestAnalysisRun(repos, storeId);
-  const ruleset = artifacts?.marketingRuleset ?? null;
-  const rulesetFields = artifacts?.rulesetFields ?? [];
+  const ruleset = latestMarketingRuleset(repos, storeId) ?? artifacts?.marketingRuleset ?? null;
+  const rulesetFields = ruleset ? repos.rulesetFields.listByRulesetId(ruleset.id) : artifacts?.rulesetFields ?? [];
   const blogItems = items.filter((item) => item.channel === 'blog' && item.sourceType === 'post');
   const placeProfiles = items.filter((item) => item.channel === 'place' && item.sourceType === 'profile');
   const latestPlaceProfile = latestByUpdatedAt([...placeProfiles]);
@@ -294,6 +359,7 @@ export function buildLearningStatus(repos: Repositories, storeId: string) {
     analysis,
     snapshot,
     ruleset,
+    relearnEligibility: buildRelearnEligibility(repos, store.id),
     completion: completionPayload(repos, store.id, items),
     channels: {
       blog: {

@@ -3,6 +3,7 @@ import type { DbConnection } from '../../db/connection.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { startCollectionRun } from '../collection/collectionRunner.js';
+import { buildRelearnEligibility } from '../learning/learningStatusService.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type CollectionRunRoutesOptions = {
@@ -75,6 +76,7 @@ export function createCollectionRunRoutes({ connection, env = process.env, stepD
         collectionRunId: collectionRun.id,
         storeId: collectionRun.storeId,
         collectionRun,
+        relearnEligibility: buildRelearnEligibility(repos, collectionRun.storeId, collectionRun),
         items: []
       });
       return;
@@ -87,6 +89,7 @@ export function createCollectionRunRoutes({ connection, env = process.env, stepD
       collectionRunId: collectionRun.id,
       storeId: collectionRun.storeId,
       collectionRun,
+      relearnEligibility: buildRelearnEligibility(repos, collectionRun.storeId, collectionRun),
       items
     });
   });
