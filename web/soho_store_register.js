@@ -873,7 +873,7 @@
   }
 
   function clearRagDocuments(message) {
-    setRagStatus(message || '아직 생성된 RAG 문서가 없습니다.');
+    setRagStatus(message || '업체에 최적화된 응답을 제공하기 위해 RAG 용 문서를 생성해주세요.');
     setRagLink('rag-info-download', null);
     setRagLink('rag-reviews-download', null);
     setRagLink('rag-doc-source-info', null);
@@ -892,7 +892,7 @@
     const generatedLabel = generatedAt ? new Date(generatedAt).toLocaleString('ko-KR') : '생성 완료';
     const warnings = asArray(manifest.warnings).map(cleanText).filter(Boolean);
     const warningText = warnings.length ? ` · ${warnings.join(' ')}` : '';
-    setRagStatus(`RAG 문서 생성 완료 · 리뷰 ${reviewCount}개 포함 · ${generatedLabel}${warningText}`);
+    setRagStatus(`챗봇용 RAG 문서 생성 완료 · 리뷰 ${reviewCount}개 포함 · ${generatedLabel}${warningText}`);
     setRagLink('rag-info-download', manifest.files?.info);
     setRagLink('rag-reviews-download', manifest.files?.reviews);
     setRagLink('rag-doc-source-info', manifest.files?.info);

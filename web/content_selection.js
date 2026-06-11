@@ -112,8 +112,12 @@
     return asRecord(item?.metadata).collectionDelta === 'new';
   }
 
+  function isAlreadyLearnedRulesetEvidence(item) {
+    return asRecord(item?.metadata).rulesetEvidenceState === 'already_learned';
+  }
+
   function selectedNewEvidenceCounts() {
-    const selectedNewItems = latestItems.filter(isSelected).filter(isNewEvidence);
+    const selectedNewItems = latestItems.filter(isSelected).filter(isNewEvidence).filter((item) => !isAlreadyLearnedRulesetEvidence(item));
     return {
       blogPosts: selectedNewItems.filter((item) => item.channel === 'blog' && item.sourceType === 'post').length,
       placeReviews: selectedNewItems.filter((item) => item.channel === 'place' && item.sourceType === 'review').length

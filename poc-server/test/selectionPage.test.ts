@@ -131,6 +131,15 @@ describe('content selection static page API wiring', () => {
     expect(js).toContain('if (insufficientMessage) throw new Error(insufficientMessage)');
   });
 
+  it('excludes already ruleset-learned content from selected new evidence counts', () => {
+    const js = readFileSync(path.join(webRoot, 'content_selection.js'), 'utf8');
+
+    expect(js).toContain('function isAlreadyLearnedRulesetEvidence');
+    expect(js).toContain('rulesetEvidenceState');
+    expect(js).toContain('already_learned');
+    expect(js).toContain('!isAlreadyLearnedRulesetEvidence(item)');
+  });
+
   it('renders Blog publication dates from provider metadata instead of collection time', () => {
     const js = readFileSync(path.join(webRoot, 'content_selection.js'), 'utf8');
 

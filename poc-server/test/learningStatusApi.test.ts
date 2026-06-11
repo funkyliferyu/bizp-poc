@@ -205,6 +205,72 @@ describe('learning status API', () => {
     });
   });
 
+  it('excludes content already used by the current marketing ruleset from relearn evidence thresholds', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const runId = 'collection_run_learning_status_ruleset_used_evidence';
+    repos.collectionRuns.create({
+      id: runId,
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-11T00:00:00.000Z',
+      completedAt: '2026-06-11T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 13, duplicate: 0, unchanged: 0, changed: 0 }
+        }
+      },
+      createdAt: '2026-06-11T00:00:00.000Z',
+      updatedAt: '2026-06-11T00:00:01.000Z'
+    });
+    const learnedBlog = repos.collectionItems.findById('collection_item_demo_blog');
+    const learnedReview = repos.collectionItems.findById('collection_item_demo_place_review');
+    if (!learnedBlog || !learnedReview) throw new Error('Expected seeded ruleset evidence items');
+    repos.collectionItems.upsert({
+      ...learnedBlog,
+      runId,
+      metadata: { collectionDelta: 'new', provider: 'naverBlogRenderedCollectionProvider' },
+      updatedAt: '2026-06-11T00:00:00.000Z'
+    });
+    repos.collectionItems.upsert({
+      ...learnedReview,
+      runId,
+      metadata: { collectionDelta: 'new', provider: 'naverPlaceRenderedCollectionProvider' },
+      updatedAt: '2026-06-11T00:00:00.000Z'
+    });
+    for (let index = 0; index < 2; index += 1) {
+      createNewEvidenceItem(repos, {
+        id: `learning_status_ruleset_unused_blog_${index + 1}`,
+        runId,
+        channel: 'blog',
+        sourceType: 'post'
+      });
+    }
+    for (let index = 0; index < 9; index += 1) {
+      createNewEvidenceItem(repos, {
+        id: `learning_status_ruleset_unused_review_${index + 1}`,
+        runId,
+        channel: 'place',
+        sourceType: 'review'
+      });
+    }
+
+    const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/learning-status`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.relearnEligibility).toMatchObject({
+      allowed: false,
+      reason: 'insufficient_new_evidence_for_ruleset_regeneration',
+      requiredNewBlogPostCount: 3,
+      requiredNewPlaceReviewCount: 10,
+      newBlogPostCount: 2,
+      newPlaceReviewCount: 9,
+      latestCollectionRunId: runId
+    });
+  });
+
   it('returns the newest marketing ruleset version after a restored version is created', async () => {
     const repos = createStoreLearningRepositories(connection);
     repos.marketingRulesets.create({

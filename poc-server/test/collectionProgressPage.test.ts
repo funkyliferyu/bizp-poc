@@ -90,8 +90,10 @@ describe('collection progress static page API wiring', () => {
     expect(js).toContain('function hasNoMeaningfulChanges');
     expect(js).toContain('신규 수집 0개');
     expect(js).toContain('새로 가져올 항목이 존재하지 않습니다.');
-    expect(js).toContain('새로 분석할 콘텐츠가 없습니다.');
-    expect(js).toContain("field('collection-next-btn').disabled = !terminal || noMeaningfulChanges");
+    expect(js).toContain('분석할 콘텐츠 선택 화면에서 기존 수집 콘텐츠를 확인하세요.');
+    expect(js).toContain("field('collection-next-btn').disabled = !terminal;");
+    expect(js).not.toContain('새로 분석할 콘텐츠가 없습니다.');
+    expect(js).not.toContain("field('collection-next-btn').disabled = !terminal || noMeaningfulChanges");
   });
 
   it('shows channel-level no-new guidance when only one provider has cached duplicate content', () => {
@@ -104,5 +106,14 @@ describe('collection progress static page API wiring', () => {
     expect(js).toContain('기존 블로그 글을 재사용합니다.');
     expect(js).toContain("channelHasNoNewItems(run, channel)");
     expect(js).toContain("return '신규 0개'");
+  });
+
+  it('does not fall back to collection time for missing Blog publication dates', () => {
+    const js = readFileSync(path.join(webRoot, 'collection_progress.js'), 'utf8');
+
+    expect(js).toContain('function itemDate');
+    expect(js).toContain('function blogPublishedDate');
+    expect(js).toContain('metadata.publishedAt || metadata.postDate || metadata.postdate || metadata.publishedDate || metadata.datePublished');
+    expect(js).not.toContain('metadata.publishedAt || metadata.postDate || metadata.postdate || metadata.reviewDate || item.createdAt');
   });
 });

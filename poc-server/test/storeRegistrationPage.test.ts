@@ -292,4 +292,17 @@ describe('store registration static page API wiring', () => {
     expect(js).toContain('ragPhaseTimer');
     expect(js).toContain('manifest.warnings');
   });
+
+  it('labels generated RAG documents as chatbot-ready materials with action-oriented empty guidance', () => {
+    const html = readFileSync(path.join(webRoot, 'soho_store_register.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
+    const emptyMessage = '업체에 최적화된 응답을 제공하기 위해 RAG 용 문서를 생성해주세요.';
+
+    expect(html).toContain('챗봇용 RAG 문서 생성');
+    expect(html).toContain(emptyMessage);
+    expect(js).toContain(emptyMessage);
+    expect(html).not.toMatch(/>\s*RAG 문서 생성\s*</);
+    expect(html).not.toContain('아직 생성된 RAG 문서가 없습니다.');
+    expect(js).not.toContain('아직 생성된 RAG 문서가 없습니다.');
+  });
 });

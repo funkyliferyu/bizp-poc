@@ -4,6 +4,7 @@ import type { CollectionItem } from '../../repositories/collection_items.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { startCollectionRun } from '../collection/collectionRunner.js';
 import { buildRelearnEligibility } from '../learning/learningStatusService.js';
+import { ALREADY_LEARNED_RULESET_EVIDENCE, createRulesetEvidenceClassifier } from '../learning/rulesetEvidenceState.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 
 type CollectionRunRoutesOptions = {
@@ -39,17 +40,37 @@ function hasNoMeaningfulChanges(summary: unknown) {
   return delta.hasMeaningfulChanges === false;
 }
 
-function serializeSelectableItem(item: CollectionItem) {
+function serializeSelectableItem(item: CollectionItem, classifier?: ReturnType<typeof createRulesetEvidenceClassifier>) {
+  const itemWithState = classifier ? classifier.withState(item) : item;
   const includeByDefault = defaultIncluded(item);
   const hasExplicitSelection = item.selectedAt !== null || item.selectedForAnalysis === 1;
   const selectedForAnalysis = hasExplicitSelection ? item.selectedForAnalysis : includeByDefault ? 1 : 0;
 
   return {
-    ...item,
+    ...itemWithState,
     selectedForAnalysis,
     defaultIncluded: includeByDefault,
     qualityFlags: qualityFlagsFor(item)
   };
+}
+
+function cachedUnlearnedSelectableItems(repos: ReturnType<typeof createStoreLearningRepositories>, storeId: string) {
+  const classifier = createRulesetEvidenceClassifier(repos, storeId);
+  const seenKeys = new Set<string>();
+  return repos.collectionItems
+    .listByStoreId(storeId)
+    .filter((item) => item.status === 'collected')
+    .filter((item) => item.sourceType !== 'profile')
+    .filter((item) => defaultIncluded(item))
+    .filter((item) => classifier.stateFor(item) !== ALREADY_LEARNED_RULESET_EVIDENCE)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .filter((item) => {
+      const key = `${item.channel}:${item.sourceType}:${item.sourceUrl ?? item.title ?? item.id}`;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    })
+    .map((item) => serializeSelectableItem(item, classifier));
 }
 
 export function createCollectionRunRoutes({ connection, env = process.env, stepDelayMs }: CollectionRunRoutesOptions) {
@@ -77,14 +98,15 @@ export function createCollectionRunRoutes({ connection, env = process.env, stepD
         storeId: collectionRun.storeId,
         collectionRun,
         relearnEligibility: buildRelearnEligibility(repos, collectionRun.storeId, collectionRun),
-        items: []
+        items: cachedUnlearnedSelectableItems(repos, collectionRun.storeId)
       });
       return;
     }
+    const classifier = createRulesetEvidenceClassifier(repos, collectionRun.storeId);
     const items = repos.collectionItems
       .listByRunId(collectionRun.id)
       .filter((item) => item.status === 'collected')
-      .map((item) => serializeSelectableItem(item));
+      .map((item) => serializeSelectableItem(item, classifier));
     res.json({
       collectionRunId: collectionRun.id,
       storeId: collectionRun.storeId,

@@ -21,6 +21,7 @@ import {
   presentPlaceProfile,
   presentPlaceReview
 } from './learningStatusPresenters.js';
+import { createRulesetEvidenceClassifier } from './rulesetEvidenceState.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
 
@@ -139,7 +140,8 @@ function relearnCountsForRun(repos: Repositories, collectionRun: CollectionRun |
       requiredPlaceReviews: REQUIRED_NEW_PLACE_REVIEW_COUNT
     };
   }
-  return newEvidenceCounts(repos.collectionItems.listByRunId(collectionRun.id));
+  const classifier = createRulesetEvidenceClassifier(repos, collectionRun.storeId);
+  return newEvidenceCounts(repos.collectionItems.listByRunId(collectionRun.id).map((item) => classifier.withState(item)));
 }
 
 export function buildRelearnEligibility(repos: Repositories, storeId: string, collectionRun?: CollectionRun | null) {

@@ -329,7 +329,7 @@
       progressCard.style.background = '#EBFBEE';
       progressCard.style.borderColor = '#8CE99A';
       status.innerHTML = '수집 완료 <span class="progress-meta" id="collection-progress-meta">신규 수집 0개</span>';
-      guidance.innerHTML = '<strong>새로 가져올 항목이 존재하지 않습니다.</strong> 기존 수집 콘텐츠와 플레이스 정보가 최신 상태입니다. 새로 분석할 콘텐츠가 없습니다.';
+      guidance.innerHTML = '<strong>새로 가져올 항목이 존재하지 않습니다.</strong> 기존 수집 콘텐츠와 플레이스 정보가 최신 상태입니다. 분석할 콘텐츠 선택 화면에서 기존 수집 콘텐츠를 확인하세요.';
     } else if (run.status === 'completed' || allAvailableCollected) {
       progressCard.style.background = '#EBFBEE';
       progressCard.style.borderColor = '#8CE99A';
@@ -360,8 +360,8 @@
         ? '새로 가져올 항목이 존재하지 않습니다.'
         : terminal ? `${counts.collected}개 수집됨` : `수집 중 ${counts.collected} / ${overallTarget}`;
     field('content-select').style.display = terminal ? 'block' : 'none';
-    field('collection-next-btn').disabled = !terminal || noMeaningfulChanges || counts.collected === 0;
-    field('collection-next-btn').title = noMeaningfulChanges ? '새로 분석할 콘텐츠가 없습니다.' : '';
+    field('collection-next-btn').disabled = !terminal;
+    field('collection-next-btn').title = '';
     field('collection-blog-raw-button').disabled = !latestRunId;
   }
 
@@ -383,12 +383,19 @@
 
   function itemDate(item) {
     const metadata = asRecord(item.metadata);
-    const raw = metadata.publishedAt || metadata.postDate || metadata.postdate || metadata.reviewDate || item.createdAt;
+    const raw = item.sourceType === 'post'
+      ? blogPublishedDate(item)
+      : metadata.reviewDate || metadata.createdAt || metadata.updatedAt || null;
     if (!raw) return '-';
     const value = String(raw);
     if (/^\d{8}$/.test(value)) return `${value.slice(0, 4)}.${value.slice(4, 6)}.${value.slice(6, 8)}`;
     if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10).replace(/-/g, '.');
     return value;
+  }
+
+  function blogPublishedDate(item) {
+    const metadata = asRecord(item?.metadata);
+    return metadata.publishedAt || metadata.postDate || metadata.postdate || metadata.publishedDate || metadata.datePublished || null;
   }
 
   function collectedReviewItems() {

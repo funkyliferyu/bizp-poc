@@ -209,9 +209,10 @@ function selectedItemsForRun(repos: Repositories, analysisRunId: string): Collec
   if (!run) throw new Error(`Analysis run not found: ${analysisRunId}`);
 
   const selectedIdSet = new Set(selectedItemIdsFromRun(run.result));
-  const collectedItems = repos.collectionItems
-    .listByRunId(run.collectionRunId)
-    .filter((item) => item.storeId === run.storeId && item.status === 'collected');
+  const collectedItems = (selectedIdSet.size > 0
+    ? repos.collectionItems.listByStoreId(run.storeId)
+    : repos.collectionItems.listByRunId(run.collectionRunId)
+  ).filter((item) => item.storeId === run.storeId && item.status === 'collected');
 
   if (selectedIdSet.size === 0) return collectedItems.filter((item) => item.selectedForAnalysis === 1);
   return collectedItems.filter((item) => selectedIdSet.has(item.id));
