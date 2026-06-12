@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { createOpenAIBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/openAIBlogFormulaProvider.js';
 import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
+import { evaluateBlogFormulaV2Quality } from '../src/storeLearning/blogFormulaV2/formulaQuality.js';
 import { BlogFormulaSetV2Schema } from '../src/storeLearning/blogFormulaV2/types.js';
-import { generationReadyFormulaFixture } from './blogFormulaV2Schema.test.js';
+import { generationReadyFormulaFixture } from './fixtures/blogFormulaV2Fixtures.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -61,7 +62,7 @@ describe('Blog Formula V2 providers', () => {
       mode: 'safe_mock',
       model: 'safe-mock-blog-formula-v2',
       callId: 'SL-F1',
-      promptShapeVersion: 'blog_formula_v2_extraction_input.v1',
+      promptShapeVersion: 'blog_formula_v2_extraction_input.v2',
       noExternalCalls: true
     });
     expect(BlogFormulaSetV2Schema.parse(result.output)).toBeTruthy();
@@ -70,9 +71,26 @@ describe('Blog Formula V2 providers', () => {
       'collection_item_owner_2'
     ]);
     expect(result.inputBudget).toMatchObject({
-      schemaVersion: 'blog_formula_v2_extraction_input.v1',
+      schemaVersion: 'blog_formula_v2_extraction_input.v2',
       sourcePostCount: 2
     });
+  });
+
+  it('extracts a generation-ready v2.1 formula with no quality issues through the safe mock provider', async () => {
+    const provider = createSafeMockBlogFormulaV2Provider();
+
+    const result = await provider.extractFormula(providerInput());
+    const formula = result.output;
+
+    expect(formula.schemaVersion).toBe('blog_formula_v2.1');
+    expect(formula.titleFormula.length).toBeGreaterThanOrEqual(2);
+    expect(formula.titleFormula.every((title) => /\{[^}]+\}/u.test(title.pattern))).toBe(true);
+    expect(formula.introFormula.sequence.length).toBeGreaterThanOrEqual(3);
+    expect(formula.bodyFormula.sequence.length).toBeGreaterThanOrEqual(4);
+    expect(formula.toneAndMannerFormula.preferredPhrases.length).toBeGreaterThan(0);
+    expect(formula.ctaFormula.hardReservationAllowed).toBe(false);
+    expect(formula.medicalSafetyFormula.bannedClaims).toContain('부작용 없음');
+    expect(evaluateBlogFormulaV2Quality(formula)).toEqual([]);
   });
 
   it('keeps the safe mock provider free of OpenAI imports', () => {
@@ -234,7 +252,9 @@ describe('Blog Formula V2 providers', () => {
       }
     };
     const provider = createOpenAIBlogFormulaV2Provider({ client: fakeClient });
-    await expect(provider.extractFormula({ store, ownerBlogPosts: posts })).rejects.toThrow();
+    await expect(provider.extractFormula({ store, ownerBlogPosts: posts })).rejects.toThrow(
+      /invalid|schemaVersion|expected/i
+    );
   });
 
   it('rejects invalid OpenAI output and stores sanitized provider errors', async () => {

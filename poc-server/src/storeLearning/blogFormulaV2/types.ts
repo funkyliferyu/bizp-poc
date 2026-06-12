@@ -106,6 +106,10 @@ export const BlogFormulaSetV2LegacySchema = z.object({
   })
 });
 
+export const DEFAULT_HOURS_POLICY = '운영시간 충돌 가능성이 있으면 구체적 시간을 하드코딩하지 않는다.';
+
+export const DEFAULT_REVIEW_USAGE_POLICY = '방문자 리뷰를 공개 광고 문구나 치료 결과 주장으로 변환하지 않는다.';
+
 export const DEFAULT_BANNED_CLAIMS = [
   '효과보장',
   '100% 효과',
@@ -170,13 +174,13 @@ function upgradeLegacyFormula(legacy: z.infer<typeof BlogFormulaSetV2LegacySchem
     footerFormula: {
       ...evidence(legacy.footerFormula),
       sequence: splitMoves(legacy.footerFormula.pattern),
-      hoursPolicy: '운영시간 충돌 가능성이 있으면 구체적 시간을 하드코딩하지 않는다.'
+      hoursPolicy: DEFAULT_HOURS_POLICY
     },
     medicalSafetyFormula: {
       ...evidence(legacy.medicalSafetyFormula),
       bannedClaims: DEFAULT_BANNED_CLAIMS,
       requiredDisclosures: legacy.medicalSafetyFormula.requiredDisclosures,
-      reviewUsagePolicy: '방문자 리뷰를 공개 광고 문구나 치료 결과 주장으로 변환하지 않는다.'
+      reviewUsagePolicy: DEFAULT_REVIEW_USAGE_POLICY
     }
   });
 }

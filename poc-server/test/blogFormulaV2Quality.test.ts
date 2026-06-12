@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateBlogFormulaV2Quality } from '../src/storeLearning/blogFormulaV2/formulaQuality.js';
-import { generationReadyFormulaFixture } from './blogFormulaV2Schema.test.js';
+import { generationReadyFormulaFixture } from './fixtures/blogFormulaV2Fixtures.js';
 import { BlogFormulaSetV2Schema } from '../src/storeLearning/blogFormulaV2/types.js';
 
 const goodFormula = BlogFormulaSetV2Schema.parse(generationReadyFormulaFixture);

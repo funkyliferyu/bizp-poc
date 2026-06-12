@@ -6,6 +6,7 @@ import { migrateDatabase } from '../src/db/migrate.js';
 import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 import { createBlogFormulaV2Routes } from '../src/storeLearning/routes/blogFormulaV2.js';
 import { BlogFormulaSetV2Schema } from '../src/storeLearning/blogFormulaV2/types.js';
+import { generationReadyFormulaFixture } from './fixtures/blogFormulaV2Fixtures.js';
 import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 
 async function readJson(response: Response) {
@@ -23,63 +24,18 @@ function formulaOutput(sourcePostIds = [
   'collection_item_v2_owner_3',
   'collection_item_v2_owner_4'
 ]) {
-  const common = {
-    sourcePostIds,
-    confidence: 0.84,
-    status: 'confirmed' as const
-  };
+  const evidence = { sourcePostIds, confidence: 0.84, status: 'confirmed' as const };
 
   return BlogFormulaSetV2Schema.parse({
-    schemaVersion: 'blog_formula_v2.0',
-    titleFormula: {
-      ...common,
-      name: '검색 걱정 선반영 제목',
-      description: '주요 키워드와 걱정을 앞에 두는 제목 공식입니다.',
-      pattern: '{메인키워드} 전 확인할 걱정과 기준'
-    },
-    introFormula: {
-      ...common,
-      name: '걱정 공감형 도입',
-      description: '첫 문단에서 검색자의 걱정을 인정하고 확인 기준을 예고합니다.',
-      pattern: '걱정 공감 → 확인 기준 예고'
-    },
-    bodyFormula: {
-      ...common,
-      name: '원리 기준형 본문',
-      description: '원리, 판단 기준, 주의사항 순서로 전개합니다.',
-      pattern: '원리 → 개인별 판단 기준 → 주의사항'
-    },
-    headingFormula: {
-      ...common,
-      name: '질문형 소제목',
-      description: '질문형 소제목으로 독자의 다음 궁금증을 이어갑니다.',
-      pattern: '질문형 소제목 3개'
-    },
-    toneAndMannerFormula: {
-      ...common,
-      name: '차분한 상담 안내 톤',
-      description: '과장 없이 상담 기준을 설명합니다.',
-      pattern: '차분함, 구체성, 보장 회피'
-    },
-    ctaFormula: {
-      ...common,
-      name: '상담 확인형 CTA',
-      description: '본인 상태 확인을 위한 상담을 권합니다.',
-      pattern: '상태 확인 → 상담 권유'
-    },
-    footerFormula: {
-      ...common,
-      name: '안전 고지 푸터',
-      description: '의료정보 목적과 개인차를 반복 고지합니다.',
-      pattern: '의료정보 목적 + 개인차 + 상담'
-    },
-    medicalSafetyFormula: {
-      ...common,
-      name: '의료 안전 공식',
-      description: '효과 보장과 부작용 부정을 피합니다.',
-      pattern: '개인차 → 부작용 가능성 → 의료진 상담',
-      requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담']
-    }
+    ...generationReadyFormulaFixture,
+    titleFormula: generationReadyFormulaFixture.titleFormula.map((title) => ({ ...title, ...evidence })),
+    introFormula: { ...generationReadyFormulaFixture.introFormula, ...evidence },
+    bodyFormula: { ...generationReadyFormulaFixture.bodyFormula, ...evidence },
+    headingFormula: { ...generationReadyFormulaFixture.headingFormula, ...evidence },
+    toneAndMannerFormula: { ...generationReadyFormulaFixture.toneAndMannerFormula, ...evidence },
+    ctaFormula: { ...generationReadyFormulaFixture.ctaFormula, ...evidence },
+    footerFormula: { ...generationReadyFormulaFixture.footerFormula, ...evidence },
+    medicalSafetyFormula: { ...generationReadyFormulaFixture.medicalSafetyFormula, ...evidence }
   });
 }
 
@@ -145,7 +101,7 @@ describe('Blog Formula V2 API', () => {
     expect(extractResponse.status).toBe(200);
     expect(extracted.formulaSet).toMatchObject({
       status: 'generated',
-      version: 'formula_v2.0',
+      version: 'formula_v2.1',
       model: 'deterministic-blog-formula-v2'
     });
     expect(extracted.sourcePosts.every((post: { sourceKind: string }) => post.sourceKind === 'owner_blog_post')).toBe(
@@ -317,7 +273,7 @@ describe('Blog Formula V2 API', () => {
       model: 'gpt-test-formula'
     });
     expect(auditRows[0].promptInputJson).toMatchObject({
-      schemaVersion: 'blog_formula_v2_extraction_input.v1'
+      schemaVersion: 'blog_formula_v2_extraction_input.v2'
     });
     expect(auditRows[0].rawRequestedJson).toEqual(expect.any(Object));
     expect(auditRows[0].rawParsedOutputJson).toEqual(formulaOutput());

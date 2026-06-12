@@ -9,6 +9,8 @@ import {
   retrieveBlogFormulaV2Samples
 } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
 import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
+import { evaluateBlogFormulaV2Quality } from '../src/storeLearning/blogFormulaV2/formulaQuality.js';
+import { parseStoredBlogFormulaV2 } from '../src/storeLearning/blogFormulaV2/types.js';
 import { validateBlogFormulaV2DraftText } from '../src/storeLearning/blogFormulaV2/validator.js';
 import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 
@@ -38,7 +40,7 @@ describe('Blog Formula V2 deterministic services', () => {
 
       expect(result.formulaSet).toMatchObject({
         storeId: BLOG_FORMULA_V2_STORE_ID,
-        version: 'formula_v2.0',
+        version: 'formula_v2.1',
         status: 'generated',
         model: 'deterministic-blog-formula-v2'
       });
@@ -48,6 +50,30 @@ describe('Blog Formula V2 deterministic services', () => {
       expect(result.sourcePosts.every((post) => post.sourceKind === 'owner_blog_post')).toBe(true);
       expect(JSON.stringify(result.formulaSet.formula)).not.toContain('collection_item_v2_place_review');
       expect(JSON.stringify(result.formulaSet.formula)).toContain('의료진 상담');
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('deterministic extraction produces a generation-ready v2.1 formula with no quality issues', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const { formulaSet } = extractBlogFormulaV2(repos, BLOG_FORMULA_V2_STORE_ID);
+      const formula = parseStoredBlogFormulaV2(formulaSet.formula);
+
+      expect(formula.schemaVersion).toBe('blog_formula_v2.1');
+      expect(formula.titleFormula.length).toBeGreaterThanOrEqual(2);
+      expect(formula.titleFormula.every((title) => /\{[^}]+\}/u.test(title.pattern))).toBe(true);
+      expect(formula.introFormula.sequence.length).toBeGreaterThanOrEqual(3);
+      expect(formula.bodyFormula.sequence.length).toBeGreaterThanOrEqual(4);
+      expect(formula.toneAndMannerFormula.preferredPhrases.length).toBeGreaterThan(0);
+      expect(formula.ctaFormula.hardReservationAllowed).toBe(false);
+      expect(formula.medicalSafetyFormula.bannedClaims).toContain('부작용 없음');
+      expect(evaluateBlogFormulaV2Quality(formula)).toEqual([]);
     } finally {
       connection.close();
     }
@@ -79,7 +105,7 @@ describe('Blog Formula V2 deterministic services', () => {
           noExternalCalls: true
         }),
         inputBudget: expect.objectContaining({
-          schemaVersion: 'blog_formula_v2_extraction_input.v1'
+          schemaVersion: 'blog_formula_v2_extraction_input.v2'
         })
       });
       expect(result.run.output).toMatchObject({
