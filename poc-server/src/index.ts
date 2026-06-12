@@ -11,6 +11,7 @@ import { ApprovalPackageSchema } from './schemas/approvalPackage.js';
 import { BusinessMemorySchema } from './schemas/businessMemory.js';
 import { EventSchema } from './schemas/event.js';
 import { createAnalysisRunRoutes } from './storeLearning/routes/analysisRuns.js';
+import { createBlogFormulaV2Routes } from './storeLearning/routes/blogFormulaV2.js';
 import { createBlogPostRoutes } from './storeLearning/routes/blogPosts.js';
 import { createCollectionItemRoutes } from './storeLearning/routes/collectionItems.js';
 import { createCollectionRunRoutes } from './storeLearning/routes/collectionRuns.js';
@@ -36,6 +37,7 @@ app.use(express.json({ limit: '1mb' }));
 
 const storeLearningConnection = createDatabaseConnection();
 migrateDatabase(storeLearningConnection);
+app.use('/api/stores/:storeId/v2/blog-formula', createBlogFormulaV2Routes({ connection: storeLearningConnection }));
 app.use('/api/stores', createStoreRoutes({ connection: storeLearningConnection }));
 app.use('/api/collection-runs', createCollectionRunRoutes({ connection: storeLearningConnection }));
 app.use('/api/collection-items', createCollectionItemRoutes({ connection: storeLearningConnection }));

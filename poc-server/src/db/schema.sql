@@ -254,3 +254,133 @@ CREATE TABLE IF NOT EXISTS llm_audit_logs (
 CREATE INDEX IF NOT EXISTS idx_llm_audit_logs_store_id ON llm_audit_logs(store_id);
 CREATE INDEX IF NOT EXISTS idx_llm_audit_logs_entity ON llm_audit_logs(related_entity_type, related_entity_id);
 CREATE INDEX IF NOT EXISTS idx_llm_audit_logs_created_at ON llm_audit_logs(created_at);
+
+CREATE TABLE IF NOT EXISTS v2_blog_formula_sets (
+  id TEXT PRIMARY KEY,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  version TEXT NOT NULL,
+  status TEXT NOT NULL,
+  formula_json TEXT NOT NULL DEFAULT '{}',
+  source_post_ids_json TEXT NOT NULL DEFAULT '[]',
+  model TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_formula_sets_store_id ON v2_blog_formula_sets(store_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_formula_sets_updated_at ON v2_blog_formula_sets(updated_at);
+
+CREATE TABLE IF NOT EXISTS v2_blog_formula_runs (
+  id TEXT PRIMARY KEY,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  formula_set_id TEXT REFERENCES v2_blog_formula_sets(id) ON DELETE SET NULL,
+  input_json TEXT NOT NULL DEFAULT '{}',
+  output_json TEXT NOT NULL DEFAULT '{}',
+  validation_json TEXT NOT NULL DEFAULT 'null',
+  model TEXT,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_formula_runs_store_id ON v2_blog_formula_runs(store_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_formula_runs_formula_set_id ON v2_blog_formula_runs(formula_set_id);
+
+CREATE TABLE IF NOT EXISTS v2_blog_formula_source_posts (
+  id TEXT PRIMARY KEY,
+  formula_set_id TEXT NOT NULL REFERENCES v2_blog_formula_sets(id) ON DELETE CASCADE,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  collection_item_id TEXT NOT NULL REFERENCES collection_items(id) ON DELETE CASCADE,
+  title TEXT,
+  source_url TEXT,
+  char_count INTEGER NOT NULL DEFAULT 0,
+  is_truncated INTEGER NOT NULL DEFAULT 0,
+  used_for_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_formula_source_posts_formula_set_id ON v2_blog_formula_source_posts(formula_set_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_formula_source_posts_store_id ON v2_blog_formula_source_posts(store_id);
+
+CREATE TABLE IF NOT EXISTS v2_blog_topic_briefs (
+  id TEXT PRIMARY KEY,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  topic TEXT NOT NULL,
+  main_keyword TEXT NOT NULL,
+  secondary_keywords_json TEXT NOT NULL DEFAULT '[]',
+  target_reader TEXT,
+  core_concern TEXT,
+  main_angle TEXT,
+  must_include_json TEXT NOT NULL DEFAULT '[]',
+  must_avoid_json TEXT NOT NULL DEFAULT '[]',
+  cta_direction TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_topic_briefs_store_id ON v2_blog_topic_briefs(store_id);
+
+CREATE TABLE IF NOT EXISTS v2_blog_retrieval_runs (
+  id TEXT PRIMARY KEY,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  topic_brief_id TEXT NOT NULL REFERENCES v2_blog_topic_briefs(id) ON DELETE CASCADE,
+  formula_set_id TEXT REFERENCES v2_blog_formula_sets(id) ON DELETE SET NULL,
+  input_json TEXT NOT NULL DEFAULT '{}',
+  output_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_retrieval_runs_store_id ON v2_blog_retrieval_runs(store_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_retrieval_runs_topic_brief_id ON v2_blog_retrieval_runs(topic_brief_id);
+
+CREATE TABLE IF NOT EXISTS v2_blog_retrieved_samples (
+  id TEXT PRIMARY KEY,
+  retrieval_run_id TEXT NOT NULL REFERENCES v2_blog_retrieval_runs(id) ON DELETE CASCADE,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  collection_item_id TEXT NOT NULL REFERENCES collection_items(id) ON DELETE CASCADE,
+  rank INTEGER NOT NULL,
+  total_score REAL NOT NULL,
+  scoring_json TEXT NOT NULL DEFAULT '{}',
+  why_selected TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_retrieved_samples_retrieval_run_id ON v2_blog_retrieved_samples(retrieval_run_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_retrieved_samples_store_id ON v2_blog_retrieved_samples(store_id);
+
+CREATE TABLE IF NOT EXISTS v2_blog_draft_generations (
+  id TEXT PRIMARY KEY,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  generation_mode TEXT NOT NULL,
+  formula_set_id TEXT REFERENCES v2_blog_formula_sets(id) ON DELETE SET NULL,
+  topic_brief_id TEXT REFERENCES v2_blog_topic_briefs(id) ON DELETE SET NULL,
+  retrieval_run_id TEXT REFERENCES v2_blog_retrieval_runs(id) ON DELETE SET NULL,
+  input_json TEXT NOT NULL DEFAULT '{}',
+  output_json TEXT NOT NULL DEFAULT '{}',
+  selected_title TEXT,
+  blog_draft TEXT,
+  model TEXT,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_draft_generations_store_id ON v2_blog_draft_generations(store_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_draft_generations_topic_brief_id ON v2_blog_draft_generations(topic_brief_id);
+
+CREATE TABLE IF NOT EXISTS v2_blog_draft_validations (
+  id TEXT PRIMARY KEY,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  draft_generation_id TEXT NOT NULL REFERENCES v2_blog_draft_generations(id) ON DELETE CASCADE,
+  validation_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL,
+  risk_level TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_draft_validations_store_id ON v2_blog_draft_validations(store_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_draft_validations_draft_generation_id ON v2_blog_draft_validations(draft_generation_id);

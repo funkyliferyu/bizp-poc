@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "demo": "tsx src/demo.ts",
     "demo:store-learning": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/demoStoreLearning.ts",
+    "demo:blog-formula-v2": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/demoBlogFormulaV2.ts",
     "db:migrate": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/db/migrate.ts",
     "db:seed": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/seedStoreLearning.ts",
     "rag:export": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/exportStoreRagDocuments.ts",
