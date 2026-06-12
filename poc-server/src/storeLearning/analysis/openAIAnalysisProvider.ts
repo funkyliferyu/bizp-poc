@@ -112,27 +112,28 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
         createOpenAIAnalyzerOutputSchema(prompt.promptInput.evidenceItemIds, prompt.promptInput.requestedRulesetFieldKeys),
         'store_learning_analysis'
       );
+      const requestPayload = {
+        model,
+        messages: [
+          {
+            role: 'system' as const,
+            content:
+              'You are a Korean local-store marketing strategist. Analyze collected blog/place evidence and return a strict JSON ruleset. ' +
+              'Use only provided collection items as evidence. Avoid unsupported superlatives and medical/legal/guarantee claims. ' +
+              'Populate every requested ruleset field in rulesetFieldsByKey exactly once. Do not populate blocked fields.'
+          },
+          {
+            role: 'user' as const,
+            content: JSON.stringify(prompt.promptInput, null, 2)
+          }
+        ],
+        response_format: responseFormat
+      };
       const requestStartedAt = nowIso();
       let parsedOutput: unknown = null;
 
       try {
-        const completion = await client.beta.chat.completions.parse({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a Korean local-store marketing strategist. Analyze collected blog/place evidence and return a strict JSON ruleset. ' +
-                'Use only provided collection items as evidence. Avoid unsupported superlatives and medical/legal/guarantee claims. ' +
-                'Populate every requested ruleset field in rulesetFieldsByKey exactly once. Do not populate blocked fields.'
-            },
-            {
-              role: 'user',
-              content: JSON.stringify(prompt.promptInput, null, 2)
-            }
-          ],
-          response_format: responseFormat
-        });
+        const completion = await client.beta.chat.completions.parse(requestPayload);
 
         parsedOutput = completion.choices[0]?.message.parsed ?? null;
         const output = normalizeOpenAIAnalyzerOutput(
@@ -148,6 +149,9 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
           inputBudget: toJsonValue(prompt.metadata),
           promptInputJson: toJsonValue(prompt.promptInput),
           responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_analysis'),
+          rawRequestedJson: toJsonValue(requestPayload),
+          rawParsedOutputJson: toJsonValue(parsedOutput),
+          normalizedOutputJson: toJsonValue(output),
           parsedOutputJson: toJsonValue(output),
           errorJson: null
         };
@@ -161,6 +165,9 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
           inputBudget: toJsonValue(prompt.metadata),
           promptInputJson: toJsonValue(prompt.promptInput),
           responseFormatJson: summarizeResponseFormat(responseFormat, 'store_learning_analysis'),
+          rawRequestedJson: toJsonValue(requestPayload),
+          rawParsedOutputJson: toJsonValue(parsedOutput),
+          normalizedOutputJson: null,
           parsedOutputJson: toJsonValue(parsedOutput),
           errorJson: sanitizedProviderError(error)
         };

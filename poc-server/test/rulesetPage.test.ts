@@ -69,23 +69,13 @@ describe('marketing ruleset static page API wiring', () => {
   it('renders API-backed field hooks without visible automatic-input matrices in cleaned tabs', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
-    const writeSection = extractSection(html, '<!-- 글쓰기 스타일 -->', '<!-- 이미지 스타일 -->');
+    const writeSection = extractSection(html, '<!-- 글쓰기 스타일 -->', '<!-- 유사업체비교 -->');
     const requiredHooks = [
       'operatingHours',
       'closedDays',
       'phone',
       'parking',
-      'storeIntro',
-      'primaryColors',
-      'accentColors',
-      'imageStyle',
-      'imageAvoidStyle',
-      'instagramImageFormat',
-      'instagramImageStyle',
-      'instagramOverlayPolicy',
-      'blogImageFormat',
-      'blogImageStyle',
-      'blogOverlayPolicy'
+      'storeIntro'
     ];
 
     expect(html).not.toContain('data-source-matrix-section="store"');
@@ -119,33 +109,55 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).toContain('초기화');
   });
 
-  it('renders image style as a red common example without visible source notes or matrix', () => {
+  it('keeps static store and brand mock data aligned with the demo cake store', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const storeSection = extractSection(html, '<!-- 매장 정보 -->', '<!-- 우리 매장 분석 -->');
+    const brandSection = extractSection(html, '<!-- 우리 매장 분석 -->', '<!-- 글쓰기 스타일 -->');
+
+    expect(storeSection).toContain('분당 케이크하우스');
+    expect(storeSection).toContain('커스텀 케이크');
+    expect(storeSection).toContain('경기도 성남시 분당구 정자동');
+    expect(storeSection).not.toContain('분당 베이커리');
+    expect(brandSection).toContain('분당 당일 제작 커스텀 케이크 전문점');
+    expect(brandSection).toContain('당일 제작 상담, 커스텀 디자인, 친절한 픽업 안내');
+    expect(brandSection).toContain('레터링 케이크, 딸기 생크림 케이크, 커스텀 기념일 케이크');
+    expect(brandSection).toContain('기념일 케이크 고객, 레터링 케이크 예약 고객, 정자동 픽업 고객');
+    expect(brandSection).toContain('주차 공간이 협소할 수 있어 픽업 시간과 이동 동선을 미리 안내해야 함');
+  });
+
+  it('removes deferred Instagram and image style controls from the active ruleset UI', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
-    const imageSection = extractSection(html, '<!-- 이미지 스타일 -->', '<!-- 유사업체비교 -->');
-    const requiredOrder = [
+    const removedFieldKeys = [
+      'instagramPurpose',
+      'instagramWritingStyle',
+      'instagramPreferredLength',
+      'instagramHashtags',
+      'instagramEmojiPolicy',
       'primaryColors',
       'accentColors',
       'imageDirection',
       'imageStyle',
       'imageAvoidStyle',
+      'instagramImageFormat',
+      'instagramImageStyle',
+      'instagramOverlayPolicy',
       'blogImageFormat',
+      'blogImageStyle',
       'blogOverlayPolicy'
     ];
 
-    expect(imageSection).toContain('(공통예시) 이미지 스타일');
-    expect(imageSection).toContain('common-example-title');
-    expect(html).toContain('.common-example-title{color:#E03131');
-    expect(imageSection).not.toContain('data-source-matrix-section="image_common,image_instagram,image_blog"');
-    expect(imageSection).not.toContain('자동 입력 기준');
-    expect(js).toContain('function isImageStyleRulesetField');
-    expect(js).toContain('!isImageStyleRulesetField(element)');
-
-    let previousIndex = -1;
-    for (const fieldKey of requiredOrder) {
-      const currentIndex = imageSection.indexOf(`data-ruleset-field="${fieldKey}"`);
-      expect(currentIndex).toBeGreaterThan(previousIndex);
-      previousIndex = currentIndex;
+    expect(html).not.toContain('<!-- 이미지 스타일 -->');
+    expect(html).not.toContain('id="top-img"');
+    expect(html).not.toContain('id="sec-img"');
+    expect(html).not.toContain('(공통예시) 이미지 스타일');
+    expect(html).not.toContain('data-source-matrix-section="image_common,image_instagram,image_blog"');
+    expect(html).not.toContain('id="write-insta"');
+    expect(html).not.toContain('인스타그램');
+    expect(js).not.toContain('function isImageStyleRulesetField');
+    expect(js).not.toContain('!isImageStyleRulesetField(element)');
+    for (const fieldKey of removedFieldKeys) {
+      expect(html).not.toContain(`data-ruleset-field="${fieldKey}"`);
     }
   });
 
@@ -166,7 +178,7 @@ describe('marketing ruleset static page API wiring', () => {
   it('adds healthcare industry-common writing rules and required blog copy controls', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
-    const writeSection = html.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 이미지 스타일 -->/)?.[0] ?? '';
+    const writeSection = html.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 유사업체비교 -->/)?.[0] ?? '';
 
     expect(writeSection).toContain('data-writing-style-panel="industry-common-rules"');
     expect(writeSection).toContain('업종공통규칙');
@@ -193,21 +205,34 @@ describe('marketing ruleset static page API wiring', () => {
   it('renders writing style as editable current values with conservative AI suggestions', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
-    const writeSection = html.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 이미지 스타일 -->/)?.[0] ?? '';
+    const writeSection = html.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 유사업체비교 -->/)?.[0] ?? '';
     const requiredFields = [
       ['blogPurpose', '글의 목적'],
+      ['keywordMap', '소재-키워드 맵'],
+      ['titlePatterns', '제목 패턴'],
+      ['introPattern', '도입부 패턴'],
+      ['bodyOutlinePattern', '본문 전개 구조'],
+      ['headingPattern', '소제목 패턴'],
       ['blogWritingStyle', '문장 스타일'],
       ['blogPreferredLength', '선호 길이'],
       ['blogHashtags', '해시태그'],
-      ['blogEmojiPolicy', '이모지 사용'],
+      ['blogEmojiPolicy', '기호/이모지 정책'],
       ['seoKeywords', 'SEO 키워드'],
+      ['seoPlacementPolicy', '키워드 배치 정책'],
       ['ctaStyle', 'CTA'],
+      ['catchphrase', '브랜드 표현 후보'],
+      ['humorLevel', '개그 레벨'],
+      ['trendSensitivity', '트렌드 민감도'],
       ['industryCommonRules', '업종공통규칙'],
       ['blogRequiredIntroCopy', '필수 인트로 문구'],
       ['blogRequiredFooterCopy', '필수 푸터 문구']
     ];
 
     expect(writeSection).toContain('data-writing-style-layout="current-plus-suggestion"');
+    expect(writeSection).toContain('data-writing-channel="blog"');
+    expect(writeSection).toContain('>블로그</div>');
+    expect(writeSection).not.toContain('>공통</div>');
+    expect(writeSection).not.toContain('>인스타그램</div>');
     expect(writeSection).toContain('data-writing-current');
     expect(writeSection).toContain('data-writing-suggestion');
     expect(writeSection).toContain('서버 산출 제안');
@@ -219,6 +244,9 @@ describe('marketing ruleset static page API wiring', () => {
     expect(writeSection).toContain('최소 3개');
     expect(writeSection).toContain('랜덤 선택');
     expect(writeSection).toContain('동일한 문장스타일로 반영');
+    expect(writeSection).not.toContain('공통 캐치프레이즈');
+    expect(writeSection).not.toContain('상위노출 보장');
+    expect(writeSection).not.toContain('네이버 알고리즘 보장');
 
     for (const [fieldKey, label] of requiredFields) {
       expect(writeSection).toContain(`data-ruleset-field="${fieldKey}"`);
@@ -235,8 +263,31 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).not.toContain("state.textContent = '초기화'");
     expect(js).toContain('function renderWritingStyleInsights');
     expect(js).toContain('payload.writingStyleInsights');
+    expect(js).toContain('sourceStatus');
+    expect(js).toContain('서버 산출');
+    expect(js).toContain('근거 부족');
     expect(js).toContain('data-placeholder-value');
     expect(js).toContain('placeholderText');
+  });
+
+  it('keeps static writing-style mock data aligned with the Blog-only LLM contract', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const writeSection = html.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 유사업체비교 -->/)?.[0] ?? '';
+
+    expect(writeSection).toContain('분당 케이크 예약: 분당 케이크, 예약, 픽업');
+    expect(writeSection).toContain('레터링 케이크 주문 전 체크리스트');
+    expect(writeSection).toContain('본문 700-1,000자, 소제목 3-5개, CTA 포함');
+    expect(writeSection).toContain('#분당케이크 #레터링케이크 #커스텀케이크 #당일제작케이크');
+    expect(writeSection).toContain('분당 케이크, 레터링 케이크, 정자동 케이크, 당일 제작 케이크');
+    expect(writeSection).toContain('예약 가능 여부와 픽업 시간을 확인하도록 부드럽게 유도');
+    expect(writeSection).toContain('낮음 — 가벼운 언어 유희만 허용');
+    expect(writeSection).toContain('중간 — 시즌과 기념일 트렌드만 선별 반영');
+    expect(writeSection).toContain('전국 최고, 무조건 가능, 효능 보장, 과장된 원조 표현');
+    expect(writeSection).toContain('검색 유입형 정보 전달 문장 · 키워드 자연 배치 · 예약 CTA');
+    expect(writeSection).not.toContain('#인천정형외과');
+    expect(writeSection).not.toContain('서구정형외과');
+    expect(writeSection).not.toContain('정형외과 진료');
+    expect(writeSection).not.toContain('사진 8장');
   });
 
   it('renders blog evidence for analysis fields and review evidence for review fields', () => {

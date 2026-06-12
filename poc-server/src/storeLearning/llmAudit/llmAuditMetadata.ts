@@ -7,6 +7,9 @@ export type LlmCallAuditMetadata = {
   inputBudget: JsonValue;
   promptInputJson: JsonValue;
   responseFormatJson: JsonValue;
+  rawRequestedJson: JsonValue;
+  rawParsedOutputJson: JsonValue;
+  normalizedOutputJson: JsonValue;
   parsedOutputJson: JsonValue;
   errorJson: JsonValue;
   providerMetadataJson?: JsonValue;

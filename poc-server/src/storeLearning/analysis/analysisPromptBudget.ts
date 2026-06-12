@@ -7,6 +7,12 @@ import {
   type RulesetSourceMatrixRow
 } from '../rulesets/rulesetSourceMatrix.js';
 import type { AnalyzerInput } from './analyzer.js';
+import {
+  buildBlogSopAggregates,
+  buildBlogSopMetrics,
+  type BlogSopAggregates,
+  type BlogSopMetrics
+} from './blogSopMetrics.js';
 
 type AnalysisPromptBudgetOptions = {
   promptCharacterBudget?: number;
@@ -16,10 +22,7 @@ type AnalysisPromptBudgetOptions = {
 };
 
 type PromptContentCompleteness = 'complete' | 'truncated' | 'empty';
-type BlockedRulesetFieldReason =
-  | 'instagram_not_in_scope'
-  | 'image_metadata_unavailable'
-  | 'review_text_unavailable';
+type BlockedRulesetFieldReason = 'review_text_unavailable';
 
 export type BlockedAnalyzerRulesetField = Pick<RulesetSourceMatrixRow, 'fieldKey' | 'label' | 'section'> & {
   reason: BlockedRulesetFieldReason;
@@ -52,6 +55,12 @@ type BlogPromptItem = {
   metadata: Record<string, unknown>;
   content: PromptBodyContent & {
     bodyTextFull: string;
+    blocks: Array<{
+      type: 'heading' | 'paragraph';
+      text: string;
+      index: number;
+    }>;
+    styleMetrics: BlogSopMetrics;
     hasHashtags: boolean;
     questionSentenceCount: number;
     ctaCandidates: string[];
@@ -97,7 +106,7 @@ export type AnalysisPromptBudgetMetadata = {
 
 export type AnalysisPromptInput = {
   task: string;
-  schemaVersion: 'sl_a1_blog_sop_input.v1';
+  schemaVersion: 'sl_a1_blog_sop_input.v2';
   outputSchemaRef: 'store_learning_analysis.v2';
   constraints: string[];
   storeProfile: {
@@ -108,9 +117,9 @@ export type AnalysisPromptInput = {
   evidenceItemIds: string[];
   blogPosts: BlogPromptItem[];
   reviews: ReviewPromptItem[];
+  computedAggregates: BlogSopAggregates;
   unavailableData: {
     reviews: boolean;
-    images: boolean;
   };
   requestedRulesetFieldKeys: string[];
   requestedRulesetFields: AnalyzerRulesetFieldContract[];
@@ -164,16 +173,6 @@ const ITEM_METADATA_KEYS = [
   'tags'
 ] as const;
 const HEALTHCARE_SIGNALS = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'] as const;
-const IMAGE_FIELD_KEYS = new Set([
-  'primaryColors',
-  'accentColors',
-  'imageDirection',
-  'imageStyle',
-  'imageAvoidStyle',
-  'blogImageFormat',
-  'blogImageStyle',
-  'blogOverlayPolicy'
-]);
 const REVIEW_FIELD_KEYS = new Set(['reviewStrength', 'reviewWeakness']);
 const CTA_KEYWORDS = ['예약', '문의', '상담', '전화', '방문', '카카오', '네이버예약', '확인'];
 
@@ -360,11 +359,31 @@ function ctaCandidates(value: string) {
     .slice(0, 5);
 }
 
+function blogBodyBlocks(value: string) {
+  return value
+    .split(/\n+/)
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter(Boolean)
+    .slice(0, 20)
+    .map((text, index) => ({
+      type:
+        /^#{1,6}\s+\S/.test(text) || /^\d+[.)]\s+\S/.test(text) || (/^[가-힣A-Za-z0-9\s]{2,24}$/.test(text) && !/[.!?。！？]$/.test(text))
+          ? ('heading' as const)
+          : ('paragraph' as const),
+      text: text.length > 500 ? text.slice(0, 500) : text,
+      index
+    }));
+}
+
 function compactBlogPost(
   item: AnalyzerInput['selectedItems'][number],
   bodyBudget: { remaining: number; truncated: boolean }
 ): BlogPromptItem {
   const content = compactBodyContent(item, bodyBudget, null);
+  const styleMetrics = buildBlogSopMetrics({
+    title: item.title,
+    bodyText: content.bodyText
+  });
   return {
     id: item.id,
     title: item.title,
@@ -379,6 +398,8 @@ function compactBlogPost(
       contentHash: content.contentHash,
       bodyAvailability: content.bodyAvailability,
       bodyTextFull: content.bodyText,
+      blocks: blogBodyBlocks(content.bodyText),
+      styleMetrics,
       hasHashtags: /#[\p{L}\p{N}_]+/u.test(content.bodyText),
       questionSentenceCount: questionSentenceCount(content.bodyText),
       ctaCandidates: ctaCandidates(content.bodyText)
@@ -435,22 +456,6 @@ function storeProfileFacts(input: AnalyzerInput, items: AnalyzerInput['selectedI
   return facts;
 }
 
-function hasUsableImageMetadataAnalysis(items: AnalyzerInput['selectedItems']) {
-  return items.some((item) => {
-    const metadata = asRecord(item.metadata);
-    const imageAnalysis = asRecord(metadata.imageAnalysis ?? metadata.imageMetadataAnalysis ?? metadata.visualAnalysis);
-    if (Object.keys(imageAnalysis).length === 0) return false;
-    if (imageAnalysis.usable === false) return false;
-    return Boolean(
-      imageAnalysis.primaryColors ??
-        imageAnalysis.accentColors ??
-        imageAnalysis.dominantColors ??
-        imageAnalysis.style ??
-        imageAnalysis.mood
-    );
-  });
-}
-
 function healthcareSignals(input: AnalyzerInput) {
   const haystack = [input.store.name, input.store.category].filter(Boolean).join(' ');
   return HEALTHCARE_SIGNALS.filter((signal) => haystack.includes(signal));
@@ -472,21 +477,12 @@ function blockedField(fieldKey: string, reason: BlockedRulesetFieldReason): Bloc
 
 export function planAnalyzerRulesetFields(input: {
   hasUsableReviewText: boolean;
-  hasUsableImageMetadataAnalysis: boolean;
 }) {
   const blockedByKey = new Map<string, BlockedAnalyzerRulesetField>();
 
   for (const fieldKey of REQUIRED_ANALYZER_RULESET_FIELD_KEYS) {
     const row = sourceMatrixForFieldKey(fieldKey);
     if (!row) continue;
-    if (row.section === 'write_instagram' || row.section === 'image_instagram') {
-      blockedByKey.set(fieldKey, blockedField(fieldKey, 'instagram_not_in_scope'));
-      continue;
-    }
-    if (!input.hasUsableImageMetadataAnalysis && IMAGE_FIELD_KEYS.has(fieldKey)) {
-      blockedByKey.set(fieldKey, blockedField(fieldKey, 'image_metadata_unavailable'));
-      continue;
-    }
     if (!input.hasUsableReviewText && REVIEW_FIELD_KEYS.has(fieldKey)) {
       blockedByKey.set(fieldKey, blockedField(fieldKey, 'review_text_unavailable'));
     }
@@ -514,23 +510,21 @@ function buildPrompt(
   const sourceItemIds = storeProfileSourceItemIds(selectedItems);
   const evidenceItemIds = [...sourceItemIds, ...reviews.map((item) => item.id), ...blogPosts.map((item) => item.id)];
   const hasReviewText = reviews.some((item) => item.content.includedCharCount > 0);
-  const hasImageMetadata = hasUsableImageMetadataAnalysis(selectedItems);
   const fieldPlan = planAnalyzerRulesetFields({
-    hasUsableReviewText: hasReviewText,
-    hasUsableImageMetadataAnalysis: hasImageMetadata
+    hasUsableReviewText: hasReviewText
   });
   const signals = healthcareSignals(input);
 
   return {
     promptInput: {
       task: 'Analyze selected collected content for Store Learning & Blog Content Automation PoC.',
-      schemaVersion: 'sl_a1_blog_sop_input.v1',
+      schemaVersion: 'sl_a1_blog_sop_input.v2',
       outputSchemaRef: 'store_learning_analysis.v2',
       constraints: [
         'Return Korean marketing strategy analysis only.',
         'Every evidence.collectionItemId must be one of the provided evidenceItemIds.',
         'Every requested ruleset field evidenceItemIds entry must be one of the provided evidenceItemIds.',
-        'Do not invent customer reviews, image analysis, Instagram inputs, or collection items.',
+        'Do not invent customer reviews or collection items.',
         'Keep claims conservative and evidence-linked.',
         'Populate every requested ruleset field once; do not populate blocked fields.'
       ],
@@ -542,9 +536,9 @@ function buildPrompt(
       evidenceItemIds,
       blogPosts,
       reviews,
+      computedAggregates: buildBlogSopAggregates(blogPosts.map((item) => item.content.styleMetrics)),
       unavailableData: {
-        reviews: !hasReviewText,
-        images: !hasImageMetadata
+        reviews: !hasReviewText
       },
       requestedRulesetFieldKeys: fieldPlan.requestedRulesetFieldKeys,
       requestedRulesetFields: fieldPlan.requestedRulesetFields,

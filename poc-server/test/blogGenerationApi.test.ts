@@ -56,7 +56,7 @@ describe('ruleset based blog generation API', () => {
     expect(body.blogPost).toMatchObject({
       status: 'pending_approval',
       generatedFromRulesetId: expect.any(String),
-      title: expect.stringContaining('분당')
+      title: expect.stringContaining('예약 전 확인할 점')
     });
     expect(body.blogPost.article).toMatchObject({
       metaDescription: expect.any(String),
@@ -65,6 +65,8 @@ describe('ruleset based blog generation API', () => {
       cta: expect.any(String),
       generatedFromRulesetId: body.blogPost.generatedFromRulesetId
     });
+    expect(JSON.stringify(body.blogPost.article.bodySections)).toContain('제목, 첫 문단, 소제목');
+    expect(JSON.stringify(body.blogPost.article.bodySections)).toContain('소재-키워드 맵');
     expect(generation).toMatchObject({
       storeId: 'store_demo_cake',
       rulesetId: body.blogPost.generatedFromRulesetId,
@@ -320,6 +322,24 @@ describe('ruleset based blog generation API', () => {
       })
     });
     expect(auditLogs).toHaveLength(1);
+    const promptInput = auditLogs[0].promptInputJson as {
+      constraints?: string[];
+      rulesetFields?: Array<{ fieldKey: string; finalValue: string }>;
+    };
+    const promptFieldKeys = (promptInput.rulesetFields || []).map((field) => field.fieldKey);
+    expect(promptFieldKeys).toEqual(
+      expect.arrayContaining([
+        'keywordMap',
+        'titlePatterns',
+        'introPattern',
+        'bodyOutlinePattern',
+        'headingPattern',
+        'industryCommonRules',
+        'seoPlacementPolicy'
+      ])
+    );
+    expect(JSON.stringify(promptInput.constraints)).toContain('Naver top-ranking guarantees');
+    expect(JSON.stringify(promptInput.rulesetFields)).toContain('제목, 첫 문단, 소제목');
     expect(auditLogs[0]).toMatchObject({
       storeId: 'store_demo_cake',
       relatedEntityType: 'content_generation',
@@ -346,9 +366,24 @@ describe('ruleset based blog generation API', () => {
         title: 'OpenAI 분당 레터링 케이크 예약 가이드',
         seoScore: expect.objectContaining({ totalScore: 91 })
       }),
+      rawRequestedJson: expect.objectContaining({
+        model: 'test-blog-model',
+        messages: expect.any(Array)
+      }),
+      rawParsedOutputJson: expect.objectContaining({
+        title: 'OpenAI 분당 레터링 케이크 예약 가이드',
+        seoScore: expect.objectContaining({ totalScore: 91 })
+      }),
+      normalizedOutputJson: expect.objectContaining({
+        title: 'OpenAI 분당 레터링 케이크 예약 가이드',
+        seoScore: expect.objectContaining({ totalScore: 91 })
+      }),
       errorJson: null
     });
     expect(auditLogs[0].durationMs).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(auditLogs[0])).toContain('rawRequestedJson');
+    expect(JSON.stringify(auditLogs[0])).toContain('rawParsedOutputJson');
+    expect(JSON.stringify(auditLogs[0])).toContain('normalizedOutputJson');
     expect(JSON.stringify(auditLogs[0])).not.toContain('test-key');
   });
 

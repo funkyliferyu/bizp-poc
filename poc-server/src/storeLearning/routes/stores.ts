@@ -90,7 +90,7 @@ const RulesetFieldPatchSchema = z.object({
 });
 
 const RulesetPreviewRequestSchema = z.object({
-  channel: z.enum(['common', 'instagram', 'blog']),
+  channel: z.literal('blog'),
   topic: z.string().trim().min(1).max(120).default('딸기 생크림 케이크 예약 안내'),
   variantIndex: z.number().int().min(0).max(20).default(0)
 });

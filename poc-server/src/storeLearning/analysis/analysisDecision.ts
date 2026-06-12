@@ -203,6 +203,28 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
   const requiresNewEvidenceForRegeneration =
     hasPreviousLearningValue && meaningfulChanges === true && hasNewBlogOrReviewEvidence;
 
+  if (!hasPreviousLearningValue && hasNewBlogOrReviewEvidence) {
+    return decision('run_analyzer', 'initial_learning_with_selected_evidence', {
+      hasPreviousLearningValue,
+      rulesetContractComplete,
+      missingRulesetFieldKeysValue,
+      hasNewBlogOrReviewEvidence,
+      counts,
+      newCounts
+    });
+  }
+
+  if (!hasPreviousLearningValue && hasOnlyPlaceProfiles) {
+    return decision('run_analyzer', 'initial_profile_only_analysis', {
+      hasPreviousLearningValue,
+      rulesetContractComplete,
+      missingRulesetFieldKeysValue,
+      hasNewBlogOrReviewEvidence,
+      counts,
+      newCounts
+    });
+  }
+
   if (canReusePath) {
     if (!hasPreviousLearningValue) {
       return decision('block', 'no_previous_learning_to_reuse', {
@@ -273,17 +295,6 @@ export function decideAnalysisExecution(input: AnalysisDecisionInput): AnalysisE
         newCounts
       }
     );
-  }
-
-  if (!hasPreviousLearningValue && hasOnlyPlaceProfiles) {
-    return decision('run_analyzer', 'initial_profile_only_analysis', {
-      hasPreviousLearningValue,
-      rulesetContractComplete,
-      missingRulesetFieldKeysValue,
-      hasNewBlogOrReviewEvidence,
-      counts,
-      newCounts
-    });
   }
 
   return decision('block', 'unsupported_selected_items', {

@@ -23,6 +23,9 @@ export function migrateDatabase(connection: DbConnection) {
   ensureColumn(connection, 'ruleset_fields', 'evidence_item_ids_json', "TEXT NOT NULL DEFAULT '[]'");
   ensureColumn(connection, 'media_assets', 'prompt', 'TEXT');
   ensureColumn(connection, 'seo_scores', 'total_score', 'INTEGER');
+  ensureColumn(connection, 'llm_audit_logs', 'raw_requested_json', "TEXT NOT NULL DEFAULT 'null'");
+  ensureColumn(connection, 'llm_audit_logs', 'raw_parsed_output_json', "TEXT NOT NULL DEFAULT 'null'");
+  ensureColumn(connection, 'llm_audit_logs', 'normalized_output_json', "TEXT NOT NULL DEFAULT 'null'");
 }
 
 function ensureColumn(connection: DbConnection, tableName: string, columnName: string, columnDefinition: string) {

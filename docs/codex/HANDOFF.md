@@ -1,5 +1,80 @@
 # Codex Handoff
 
+## TASK 13C BLOG SOP RULESET CONTRACT
+
+Branch `codex/blog-sop-ruleset-contract` was created from `develop` at
+`84f1684 feat: redesign SL-A1 ruleset evidence flow`.
+
+Implemented:
+
+- Added deterministic Blog SOP metrics in
+  `poc-server/src/storeLearning/analysis/blogSopMetrics.ts`.
+- Upgraded SL-A1 analysis prompt input to
+  `schemaVersion = "sl_a1_blog_sop_input.v2"` with
+  `blogPosts[].content.blocks`, `blogPosts[].content.styleMetrics`, and root
+  `computedAggregates`.
+- Added Core Blog SOP ruleset fields:
+  `keywordMap`, `titlePatterns`, `introPattern`, `bodyOutlinePattern`,
+  `headingPattern`, and `seoPlacementPolicy`.
+- Reframed computed/parser fields in the source matrix:
+  `blogPreferredLength` and `blogEmojiPolicy` are now parser-ready computed
+  policy inputs.
+- Added `sourceStatus` serialization for ruleset fields:
+  `direct_fact`, `inferred_from_pattern`, `computed`, `default_policy`, and
+  `insufficient_evidence`.
+- Updated writing-style insights and the marketing ruleset UI with Blog SOP
+  rows, `브랜드 표현 후보`, and `기호/이모지 정책`.
+- Fed the Blog SOP fields into Blog draft/regeneration prompt inputs and the
+  deterministic mock Blog generator.
+- Added Blog/SEO prompt constraints against Naver top-ranking guarantee or
+  algorithmic ranking outcome claims.
+- Updated `docs/codex/LLM_CALL_STRUCTURES.md`, `web/llm호출.html`,
+  `docs/codex/PLAN.md`, and
+  `docs/codex/NEXT_SESSION_BLOG_SOP_RULESET_PLAN.md`.
+
+Validation on 2026-06-12:
+
+- `cd poc-server && npm test -- --run test/blogSopMetrics.test.ts`
+- `cd poc-server && npm test -- --run test/analysisPromptBudget.test.ts`
+- `cd poc-server && npm test -- --run test/analysisExecutionApi.test.ts -t "OpenAI analyzer output"`
+- `cd poc-server && npm test -- --run test/rulesetApi.test.ts`
+- `cd poc-server && npm test -- --run test/rulesetPage.test.ts`
+- `cd poc-server && npm test -- --run test/blogGenerationApi.test.ts`
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test`
+- `node --check web/ruleset_editor.js`
+- `node --check web/learning_status.js`
+- `git diff --check`
+- Playwright smoke against
+  `http://127.0.0.1:5188/07_마케팅전략룰셋.html?storeId=store_demo_cake` using
+  `STORE_LEARNING_DB_PATH=/tmp/bizp-blog-sop-smoke.sqlite`.
+
+Result:
+
+- Focused SOP/API/UI/generation tests passed.
+- TypeScript typecheck passed.
+- Full suite passed: 40 files passed, 3 live-provider files skipped by
+  default; 269 tests passed, 6 skipped.
+- JS syntax checks passed for touched/relevant browser scripts.
+- `git diff --check` passed.
+- Browser smoke confirmed the new SOP rows, hydrated `titlePatterns` and
+  `seoPlacementPolicy`, `blogPreferredLength` badge `서버 산출`, no console
+  errors/page errors, and no visible `상위노출 보장` or
+  `네이버 알고리즘 보장` copy.
+
+Current next execution briefing:
+
+- Review the local diff on `codex/blog-sop-ruleset-contract`.
+- Open a PR targeting `develop`, or merge locally into `develop` if the user
+  chooses that path.
+- After integration, run develop validation:
+  `cd poc-server && npm run typecheck`, `cd poc-server && npm test`,
+  `node --check web/ruleset_editor.js`, `node --check web/learning_status.js`,
+  and `git diff --check`.
+- Keep `.DS_Store` unstaged and keep `admin/`, `pc-web/`,
+  `README_POC.md`, `web/event_operation_poc.html`, and old
+  Event-to-Operation files untouched.
+
 ## TASK 6 SERVER-SIDE LLM AUDIT LOGS
 
 Branch `codex/llm-audit-relearn-ruleset-restore` was created from latest
@@ -1665,3 +1740,17 @@ Deferred:
 - RAG document generation and AI learning collection still have separate review
   collection paths. Add a shared persisted Place review cache later so either
   flow can reuse already collected reviews and fetch only the deficit.
+
+Blog SOP contract trim follow-up:
+
+- Active SL-A1 analyzer and OpenAI response contracts now exclude Instagram and
+  image-style ruleset fields entirely instead of sending them as blocked fields.
+- `unavailableData` now tracks only `reviews`; the previous image availability
+  flag and image/Instagram blocked reasons are documented for later reuse in
+  `docs/codex/DEFERRED_INSTAGRAM_IMAGE_CONTRACT.md`.
+- Marketing ruleset writing style now exposes a single `블로그` tab and removes
+  the previous Instagram and image-style UI surfaces.
+- Blog generation no longer consumes image-style ruleset fields. Existing image
+  prompt output remains as part of the content detail flow, but it uses generic
+  placeholders instead of learned image-style policy.
+- AI learning status now renders `마지막 학습일` with `HH:mm:ss`.

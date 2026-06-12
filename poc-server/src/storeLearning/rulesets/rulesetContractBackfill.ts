@@ -110,6 +110,12 @@ function fallbackValue(fieldKey: string, store: Store) {
     case 'contentKeywords':
     case 'seoKeywords':
       return localTags;
+    case 'keywordMap':
+      return `${category} 안내 | SEO: ${localTags} | 해시태그: ${localTags
+        .split(', ')
+        .filter(Boolean)
+        .map((item) => `#${item.replace(/\s+/g, '')}`)
+        .join(' ')} | 검색의도: ${area}에서 ${category} 정보를 찾는 고객`;
     case 'reviewStrength':
       return '수집 리뷰 기반 강점 보완 필요';
     case 'reviewWeakness':
@@ -130,22 +136,16 @@ function fallbackValue(fieldKey: string, store: Store) {
       return healthcare ? '낮음 - 정보 전달 중심' : '낮음 - 가벼운 표현만 허용';
     case 'trendSensitivity':
       return '중간 - 매장과 주제에 맞는 트렌드만 선별 반영';
-    case 'instagramPurpose':
-      return '브랜딩과 신규 고객 유입';
-    case 'instagramWritingStyle':
-      return '짧고 명확한 안내형 캡션';
-    case 'instagramPreferredLength':
-      return '캡션 80-150자와 해시태그 4-6개';
-    case 'instagramHashtags':
-      return localTags
-        .split(', ')
-        .filter(Boolean)
-        .map((item) => `#${item.replace(/\s+/g, '')}`)
-        .join(' ');
-    case 'instagramEmojiPolicy':
-      return healthcare ? '사용하지 않음' : '문장 끝 1-2개까지 허용';
     case 'blogPurpose':
       return '검색 유입, 신뢰 형성, 문의 전환';
+    case 'titlePatterns':
+      return '{지역키워드} {대표서비스} 안내, {상황}에 맞는 {대표서비스} 선택 기준, {지역키워드}에서 {서비스} 찾는 분들을 위한 안내';
+    case 'introPattern':
+      return '고객 상황 제시 -> 자주 묻는 질문 제시 -> 이 글에서 안내할 내용 예고';
+    case 'bodyOutlinePattern':
+      return '고객 상황 설명, 상품/서비스 선택 기준, 예약 또는 상담 필요 정보, 주의사항, CTA';
+    case 'headingPattern':
+      return '3~5개 소제목, 질문형 또는 안내형';
     case 'blogWritingStyle':
       return healthcare ? '근거와 주의사항을 함께 안내하는 정보형 문장' : '검색 유입형 정보 전달 문장';
     case 'blogPreferredLength':
@@ -158,30 +158,10 @@ function fallbackValue(fieldKey: string, store: Store) {
         .join(' ');
     case 'blogEmojiPolicy':
       return '검색형 본문에서는 이모지 사용 안 함';
+    case 'seoPlacementPolicy':
+      return '제목과 도입부에 핵심 키워드를 자연스럽게 포함하고, 소제목과 본문에는 보조 키워드를 무리 없이 분산합니다. 무의미한 반복과 관련 없는 키워드는 피합니다.';
     case 'ctaStyle':
       return facts.parking ? '운영정보와 문의 방법을 확인하도록 안내' : '문의 또는 예약 가능 여부 확인 유도';
-    case 'primaryColors':
-      return '#FFFFFF 화이트, #F3F4F6 라이트 그레이';
-    case 'accentColors':
-      return '#2563EB 블루';
-    case 'imageDirection':
-      return '매장 신뢰감을 보여주는 실제 공간/서비스 중심 이미지';
-    case 'imageStyle':
-      return '깔끔하고 밝은 정보형 이미지';
-    case 'imageAvoidStyle':
-      return '어두운 톤, 과도한 필터, 무관한 스톡 이미지';
-    case 'instagramImageFormat':
-      return '정방형 1:1 또는 세로 4:5';
-    case 'instagramImageStyle':
-      return '짧은 메시지를 보조하는 밝은 이미지';
-    case 'instagramOverlayPolicy':
-      return '텍스트 오버레이는 최소화';
-    case 'blogImageFormat':
-      return '가로 3:2 권장, 본문 흐름에 맞는 이미지 사용';
-    case 'blogImageStyle':
-      return '전체샷, 디테일샷, 공간샷을 혼합';
-    case 'blogOverlayPolicy':
-      return '이미지 내 텍스트 최소화';
     default:
       return `${sourceMatrixForFieldKey(fieldKey)?.label ?? fieldKey} 보수적 기본값`;
   }

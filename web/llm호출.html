@@ -224,14 +224,15 @@
           </td>
           <td>
             <ul class="mono-list">
-              <li><code>schemaVersion</code>: <code>sl_a1_blog_sop_input.v1</code></li>
+              <li><code>schemaVersion</code>: <code>sl_a1_blog_sop_input.v2</code></li>
               <li><code>outputSchemaRef</code>: <code>store_learning_analysis.v2</code></li>
               <li><code>storeProfile.facts</code>: name, category, address, phone, description, businessHours, closedDays, parking, treatmentSubjects, representativeTreatmentSubjects 등 canonical facts</li>
               <li><code>evidenceItemIds</code>: budget 적용 후 실제 prompt에 포함된 profile/review/blog evidence ID. OpenAI evidence id enum도 이 목록으로 제한</li>
-              <li><code>blogPosts</code>: 최신 Blog 최대 3개. aggregate body budget 안에서 <code>content.bodyTextFull</code>, char counts, truncation, bodyCompleteness, contentHash, hashtag/question/CTA helper를 포함</li>
+              <li><code>blogPosts</code>: 최신 Blog 최대 3개. aggregate body budget 안에서 <code>content.bodyTextFull</code>, blocks, styleMetrics, char counts, truncation, bodyCompleteness, contentHash, hashtag/question/CTA helper를 포함</li>
+              <li><code>computedAggregates</code>: lengthPolicy, symbolPolicy, hashtagCandidates, ctaCandidates, heading/block statistics</li>
               <li><code>reviews</code>: usable bodyText가 있는 Place review 최대 10개. review text가 없으면 <code>unavailableData.reviews=true</code></li>
-              <li><code>requestedRulesetFieldKeys</code> / <code>requestedRulesetFields</code>: OpenAI가 실제 산출해야 하는 field만 포함</li>
-              <li><code>blockedFields</code>: Instagram 범위 밖, image metadata 없음, review text 없음 같은 이유로 서버가 차단한 field. <code>source=input_blocked</code></li>
+              <li><code>requestedRulesetFieldKeys</code> / <code>requestedRulesetFields</code>: OpenAI가 실제 산출해야 하는 field만 포함. 핵심 Blog SOP field는 <code>keywordMap</code>, <code>titlePatterns</code>, <code>introPattern</code>, <code>bodyOutlinePattern</code>, <code>headingPattern</code>, <code>seoPlacementPolicy</code></li>
+              <li><code>blockedFields</code>: review text 없음 같은 이유로 서버가 차단한 field. Instagram/image-style field는 현재 활성 contract에서 제외</li>
               <li><code>industryPolicy</code>: 병원/의원/클리닉/정형외과/피부과/치과 신호와 의료 문구 정책</li>
             </ul>
           </td>
@@ -248,6 +249,7 @@ JSON.stringify({
   storeProfile,
   evidenceItemIds,
   blogPosts,
+  computedAggregates,
   reviews,
   unavailableData,
   requestedRulesetFieldKeys,
@@ -257,7 +259,7 @@ JSON.stringify({
 })</td>
           <td>
             <code>zodResponseFormat(OpenAIAnalyzerOutputSchema, 'store_learning_analysis')</code><br>
-            OpenAI 응답은 <code>requestedRulesetFieldKeys</code>만 required인 <code>rulesetFieldsByKey</code>로 받고 서버에서 내부 <code>rulesetFields[]</code>로 정규화. 서버는 <code>blockedFields</code>를 <code>source=input_blocked</code>, 빈 evidence, confidence null, 한국어 설명 값으로 추가. 이후 <code>validateAnalyzerOutput()</code>, <code>validateAnalyzerRulesetFieldContract()</code>, <code>validateAnalyzerReferences()</code>로 재검증.
+            OpenAI 응답은 <code>requestedRulesetFieldKeys</code>만 required인 <code>rulesetFieldsByKey</code>로 받고 서버에서 내부 <code>rulesetFields[]</code>로 정규화. 서버는 review 입력 부족으로 발생한 <code>blockedFields</code>만 <code>source=input_blocked</code>, 빈 evidence, confidence null, 한국어 설명 값으로 추가. 이후 <code>validateAnalyzerOutput()</code>, <code>validateAnalyzerRulesetFieldContract()</code>, <code>validateAnalyzerReferences()</code>로 재검증.
           </td>
           <td>
             <ul class="mono-list">
@@ -301,7 +303,8 @@ JSON.stringify({
             <ul class="mono-list">
               <li><code>store</code>: id, name, category, address, phone, description, allowlist profile facts</li>
               <li><code>ruleset</code>: id, status, version, allowlist summary, compact fields</li>
-              <li><code>rulesetFields</code>: fieldKey, finalValue, source, locked</li>
+              <li><code>rulesetFields</code>: fieldKey, finalValue, source, locked. Blog SOP field allowlist에는 소재-키워드 맵, 제목/도입부/본문/소제목 패턴, 키워드 배치 정책이 포함됨</li>
+              <li><code>constraints</code>: Naver 상위노출 보장이나 알고리즘 순위 결과를 암시하지 않도록 제한</li>
               <li><code>currentPost</code> 없음</li>
               <li><code>mediaAssets</code> 빈 배열</li>
             </ul>
@@ -661,7 +664,8 @@ user:
   <h2>분석 입력 예산 규칙</h2>
   <ul>
     <li>분석 prompt는 <code>analysisPromptBudget.ts</code>에서 생성하며, raw provider payload, rendered HTML, image URL 배열, GraphQL snapshot, 중복 body copy는 제외합니다.</li>
-    <li>Blog body는 항목당 최대 1,200자, Place review body는 최대 500자, Place profile은 normalized facts 중심으로 compact합니다.</li>
+    <li>Blog body는 aggregate body budget 안에서 최신 3개까지 포함하며, 각 Blog item에는 blocks/styleMetrics와 해시태그/질문/CTA helper를 함께 담습니다. Place review body는 최대 500자, Place profile은 normalized facts 중심으로 compact합니다.</li>
+    <li><code>computedAggregates</code>는 lengthPolicy, symbolPolicy, hashtagCandidates, ctaCandidates, heading/block statistics를 담아 서버 계산값과 LLM 추론값을 분리합니다.</li>
     <li>현재 개발 버전에서는 선택된 Blog 소스가 몇 개든 날짜 기준 최신순 최대 3개만 LLM 분석 prompt에 포함하고, Place review는 최신순 최대 10개만 포함합니다.</li>
     <li>기존 학습/룰셋이 있는 매장은 신규 Blog 3개와 신규 Place review 10개 이상이 모두 충족될 때만 전체 룰셋 재생성 LLM 분석을 실행합니다. 미달 시 <code>analysis_runs.result.skippedReason</code>에 <code>insufficient_new_evidence_for_ruleset_regeneration</code>을 저장하고 최신 학습/룰셋을 재사용합니다.</li>
     <li>prompt JSON이 character budget을 넘으면 profile/review evidence를 우선 보존하고 Blog 항목을 날짜 기준 최신순으로 남기며 초과분은 제외합니다.</li>
@@ -673,7 +677,8 @@ user:
   <h2>블로그/SEO 입력 예산 규칙</h2>
   <ul>
     <li>블로그/SEO prompt는 <code>blogPromptBudget.ts</code>에서 생성하며, <code>store.metadata</code>, <code>ruleset.ruleset</code>, article JSON, media metadata는 allowlist/compact 구조로 변환합니다.</li>
-    <li>룰셋은 id/status/version, allowlist summary, Blog/SEO 관련 compact field list만 보내며 field value는 길이 제한을 둡니다.</li>
+    <li>룰셋은 id/status/version, allowlist summary, Blog/SEO 관련 compact field list만 보내며 field value는 길이 제한을 둡니다. 이 list에는 <code>keywordMap</code>, <code>titlePatterns</code>, <code>introPattern</code>, <code>bodyOutlinePattern</code>, <code>headingPattern</code>, <code>seoPlacementPolicy</code>가 포함됩니다.</li>
+    <li>블로그/SEO prompt 모두 Naver 상위노출 보장 또는 알고리즘 순위 결과를 암시하지 않도록 제한합니다.</li>
     <li>본문 재생성/SEO의 article은 title, metaDescription, bounded bodySections/bodyText, seoKeywords, cta, imagePrompts만 포함합니다.</li>
     <li>prompt가 설정 budget을 넘으면 media asset 수, article section/body 길이, ruleset field value 길이를 단계적으로 줄여 budget 이하로 맞춥니다.</li>
     <li>media asset metadata는 prompt, alt, placement, generator만 포함하며 CDN 응답/raw provider payload는 제외합니다.</li>

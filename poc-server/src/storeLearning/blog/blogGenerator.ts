@@ -206,6 +206,10 @@ function seoKeywords(fields: RulesetField[], store: Store) {
   return unique([...fromFields, ...fallback]).slice(0, 6);
 }
 
+function firstRuleItem(value: string) {
+  return splitCsv(value)[0] || value;
+}
+
 function buildDraft(store: Store, ruleset: MarketingRuleset, fields: RulesetField[]) {
   const keywords = seoKeywords(fields, store);
   const positioning = fieldValue(
@@ -217,33 +221,49 @@ function buildDraft(store: Store, ruleset: MarketingRuleset, fields: RulesetFiel
   const targetCustomers = fieldValue(fields, ['targetCustomers'], '기념일 케이크를 찾는 고객');
   const tone = fieldValue(fields, ['toneAndManner'], '친절하고 구체적인 예약 안내형');
   const writingStyle = fieldValue(fields, ['blogWritingStyle'], '검색 유입형 블로그 문장');
+  const keywordMap = fieldValue(fields, ['keywordMap'], '소재-키워드 맵: 대표 소재와 핵심 키워드를 분리해 사용');
+  const titlePattern = firstRuleItem(
+    fieldValue(fields, ['titlePatterns'], `${keywords[0] ?? store.name} 예약 전 확인할 점`)
+  );
+  const introPattern = fieldValue(fields, ['introPattern'], '고객 상황이나 질문으로 시작하고 글에서 답할 내용을 예고');
+  const bodyOutlinePattern = fieldValue(
+    fields,
+    ['bodyOutlinePattern'],
+    '문제 상황 설명, 선택 기준, 매장 대응 방식, 방문 전 안내'
+  );
+  const headingPattern = fieldValue(fields, ['headingPattern'], '질문형 또는 안내형 소제목 3-5개');
+  const seoPlacementPolicy = fieldValue(
+    fields,
+    ['seoPlacementPolicy'],
+    '핵심 키워드는 제목, 첫 문단, 소제목 중 필요한 위치에만 자연스럽게 배치'
+  );
   const cta = fieldValue(fields, ['ctaStyle'], '예약 가능 여부와 픽업 시간을 확인하도록 안내');
-  const imageDirection = fieldValue(fields, ['imageDirection'], '케이크 디테일과 포장 상태를 보여주는 이미지');
   const primaryKeyword = keywords.find((keyword) => keyword.includes('케이크')) ?? keywords[0] ?? store.name;
+  const title = titlePattern.includes(primaryKeyword) ? titlePattern : `${primaryKeyword} ${titlePattern}`;
 
   return BlogDraftOutputSchema.parse({
-    title: `${primaryKeyword} 추천 - ${store.name} 예약 안내`,
+    title: `${title} - ${store.name}`,
     metaDescription: `${store.name}의 ${positioning} 특징과 예약 전 확인할 포인트를 정리했습니다.`,
     bodySections: [
       {
         heading: `${primaryKeyword}를 찾는 고객에게`,
-        body: `${targetCustomers}에게 필요한 정보는 디자인, 픽업 시간, 주문 가능 여부입니다. ${store.name}은 ${positioning}이라는 장점을 중심으로 블로그 초안을 구성합니다.`
+        body: `${introPattern}. ${targetCustomers}에게 필요한 정보는 디자인, 픽업 시간, 주문 가능 여부입니다. ${store.name}은 ${positioning}이라는 장점을 중심으로 블로그 초안을 구성합니다.`
       },
       {
-        heading: '고객 후기에서 반복되는 강점',
-        body: `${strengths} 같은 신호가 반복되어 콘텐츠에서는 과장 없이 실제 주문 흐름과 상담 포인트를 먼저 안내합니다. 문장 톤은 ${tone}으로 유지합니다.`
+        heading: firstRuleItem(headingPattern),
+        body: `본문 전개 구조는 ${bodyOutlinePattern} 순서를 따릅니다. 소재-키워드 맵은 ${keywordMap}이며, ${strengths} 같은 신호는 과장 없이 실제 주문 흐름과 상담 포인트로 연결합니다. 문장 톤은 ${tone}으로 유지합니다.`
       },
       {
         heading: '예약 전 확인하면 좋은 내용',
-        body: `${writingStyle} 기준으로 제목과 본문에는 ${keywords.slice(0, 4).join(', ')} 키워드를 자연스럽게 포함합니다. 마지막에는 ${cta} 문장을 넣어 다음 행동을 분명하게 안내합니다.`
+        body: `${writingStyle} 기준으로 제목과 본문에는 ${keywords.slice(0, 4).join(', ')} 키워드를 자연스럽게 포함합니다. 키워드 배치 정책은 ${seoPlacementPolicy}입니다. 마지막에는 ${cta} 문장을 넣어 다음 행동을 분명하게 안내합니다.`
       }
     ],
     seoKeywords: keywords,
     cta,
     imagePrompts: [
-      `${imageDirection} - 대표 이미지`,
-      `${store.name} 레터링 케이크 디테일 이미지 placeholder`,
-      `${store.name} 픽업 또는 포장 안내 이미지 placeholder`
+      `${store.name} ${primaryKeyword} 대표 이미지 placeholder`,
+      `${store.name} 서비스 상세 이미지 placeholder`,
+      `${store.name} 방문 또는 이용 안내 이미지 placeholder`
     ],
     generatedFromRulesetId: ruleset.id,
     generator: 'mock_ruleset_blog_generator'

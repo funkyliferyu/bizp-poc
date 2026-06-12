@@ -67,10 +67,15 @@ const RULESET_SUMMARY_KEYS = [
   'storePositioning',
   'toneAndManner',
   'blogWritingStyle',
+  'keywordMap',
+  'titlePatterns',
+  'introPattern',
+  'bodyOutlinePattern',
+  'headingPattern',
   'seoKeywords',
+  'seoPlacementPolicy',
   'contentKeywords',
   'ctaStyle',
-  'imageDirection',
   'negativeExpressions'
 ] as const;
 
@@ -84,22 +89,23 @@ const BLOG_PROMPT_RULESET_FIELD_KEYS = new Set([
   'reviewWeakness',
   'toneAndManner',
   'catchphrase',
+  'industryCommonRules',
   'blogRequiredIntroCopy',
   'blogRequiredFooterCopy',
   'negativeExpressions',
   'blogPurpose',
+  'keywordMap',
+  'titlePatterns',
+  'introPattern',
+  'bodyOutlinePattern',
+  'headingPattern',
   'blogWritingStyle',
   'blogPreferredLength',
   'blogHashtags',
   'blogEmojiPolicy',
   'seoKeywords',
-  'ctaStyle',
-  'primaryColors',
-  'accentColors',
-  'imageDirection',
-  'blogImageFormat',
-  'blogImageStyle',
-  'blogOverlayPolicy'
+  'seoPlacementPolicy',
+  'ctaStyle'
 ]);
 
 function asRecord(value: JsonValue | unknown): Record<string, unknown> {
@@ -371,6 +377,7 @@ export function buildBlogDraftPromptInput(input: BlogDraftProviderInput, options
           'Use Korean copy suitable for a local-store Naver Blog post.',
           'Respect the current marketing ruleset and avoid forbidden or exaggerated expressions.',
           'Do not claim unsupported facts, discounts, guarantees, medical effects, or official rankings.',
+          'Do not imply Naver top-ranking guarantees or claim algorithmic ranking outcomes.',
           'Image generation is out of scope; return image prompts only.',
           'Keep the draft approval-pending and do not include publishing instructions.'
         ],
@@ -420,6 +427,7 @@ export function buildBlogSeoPromptInput(input: BlogSeoProviderInput, options: Bl
         constraints: [
           'Return only structured SEO scores matching the requested schema.',
           'Score conservatively using the provided article, image prompts, and marketing ruleset.',
+          'Do not reward or imply Naver top-ranking guarantees or algorithmic ranking outcomes.',
           'Do not rewrite the article in this response.'
         ],
         store: {
