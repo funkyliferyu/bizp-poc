@@ -55,9 +55,10 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-12:
 
-1. Implement Blog Formula V2 OpenAI formula extraction provider from
-   [the next-session plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_FORMULA_PROVIDER_PLAN.md).
-   This means the server-side SL-F1 prompt/provider/audit structure with
+1. Review and merge Blog Formula V2 OpenAI formula extraction provider
+   [PR #49](https://github.com/funkyliferyu/bizp-poc/pull/49), then validate
+   it on `develop`.
+   The branch adds the server-side SL-F1 prompt/provider/audit structure with
    `safe_mock` fallback and explicit `openai` formula extraction.
 2. Keep V2 draft generation deterministic in this milestone; do not add
    OpenAI V2 draft generation or Hybrid/combined V1+V2 generation.
@@ -91,7 +92,7 @@ Current next todo as of 2026-06-12:
 | 13b | SL-A1 LLM 입력 구조 재설계 | Validated on develop | [plan](NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md), commit `84f1684` | Pushed to `develop` and validated locally before integration |
 | 13c | Blog SOP 룰셋 계약 적용 | Validated on develop | [plan](NEXT_SESSION_BLOG_SOP_RULESET_PLAN.md), PR #47, merge `b695643` | Develop validation recorded 2026-06-12 |
 | 13d | Blog Formula V2 deterministic 실험 레인 | Validated on develop | [handoff](../BLOG_FORMULA_V2_HANDOFF.md), PR #48, merge `c8f1b52` | Develop validation recorded 2026-06-12 |
-| 13e | Blog Formula V2 OpenAI 포뮬라 추출 provider | Planned | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_FORMULA_PROVIDER_PLAN.md) | Open/merge PR to `develop`, then validate on `develop` |
+| 13e | Blog Formula V2 OpenAI 포뮬라 추출 provider | Implementation PR open | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_FORMULA_PROVIDER_PLAN.md), [#49](https://github.com/funkyliferyu/bizp-poc/pull/49) | Merge PR to `develop`, then validate on `develop` |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist

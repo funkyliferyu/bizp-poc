@@ -8,6 +8,11 @@ Branch:
 
 - `codex/blog-formula-v2-openai-formula-provider`
 
+PR:
+
+- [#49](https://github.com/funkyliferyu/bizp-poc/pull/49) targeting
+  `develop`
+
 Scope:
 
 - Added SL-F1 prompt input builder for bounded owner Blog post inputs.

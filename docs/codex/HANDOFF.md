@@ -7,6 +7,11 @@ validated `develop` at `a36ca0b docs: hand off blog formula v2 safe mock plan`.
 This task implements the server-side Blog Formula V2 provider boundary and
 OpenAI-backed formula extraction (`SL-F1`) with a safe mock fallback.
 
+PR:
+
+- [#49](https://github.com/funkyliferyu/bizp-poc/pull/49) targeting
+  `develop`
+
 Implemented:
 
 - Added pure SL-F1 prompt input builder:
