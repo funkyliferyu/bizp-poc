@@ -9,8 +9,11 @@ import {
   retrieveBlogFormulaV2Samples
 } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
 import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
+import { evaluateBlogFormulaV2Quality } from '../src/storeLearning/blogFormulaV2/formulaQuality.js';
+import { parseStoredBlogFormulaV2 } from '../src/storeLearning/blogFormulaV2/types.js';
 import { validateBlogFormulaV2DraftText } from '../src/storeLearning/blogFormulaV2/validator.js';
 import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
+import { legacyFormulaFixture } from './fixtures/blogFormulaV2Fixtures.js';
 
 const topicBriefInput = {
   topic: '리팟레이저',
@@ -38,7 +41,7 @@ describe('Blog Formula V2 deterministic services', () => {
 
       expect(result.formulaSet).toMatchObject({
         storeId: BLOG_FORMULA_V2_STORE_ID,
-        version: 'formula_v2.0',
+        version: 'formula_v2.1',
         status: 'generated',
         model: 'deterministic-blog-formula-v2'
       });
@@ -48,6 +51,30 @@ describe('Blog Formula V2 deterministic services', () => {
       expect(result.sourcePosts.every((post) => post.sourceKind === 'owner_blog_post')).toBe(true);
       expect(JSON.stringify(result.formulaSet.formula)).not.toContain('collection_item_v2_place_review');
       expect(JSON.stringify(result.formulaSet.formula)).toContain('의료진 상담');
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('deterministic extraction produces a generation-ready v2.1 formula with no quality issues', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const { formulaSet } = extractBlogFormulaV2(repos, BLOG_FORMULA_V2_STORE_ID);
+      const formula = parseStoredBlogFormulaV2(formulaSet.formula);
+
+      expect(formula.schemaVersion).toBe('blog_formula_v2.1');
+      expect(formula.titleFormula.length).toBeGreaterThanOrEqual(2);
+      expect(formula.titleFormula.every((title) => /\{[^}]+\}/u.test(title.pattern))).toBe(true);
+      expect(formula.introFormula.sequence.length).toBeGreaterThanOrEqual(3);
+      expect(formula.bodyFormula.sequence.length).toBeGreaterThanOrEqual(4);
+      expect(formula.toneAndMannerFormula.preferredPhrases.length).toBeGreaterThan(0);
+      expect(formula.ctaFormula.hardReservationAllowed).toBe(false);
+      expect(formula.medicalSafetyFormula.bannedClaims).toContain('부작용 없음');
+      expect(evaluateBlogFormulaV2Quality(formula)).toEqual([]);
     } finally {
       connection.close();
     }
@@ -79,7 +106,7 @@ describe('Blog Formula V2 deterministic services', () => {
           noExternalCalls: true
         }),
         inputBudget: expect.objectContaining({
-          schemaVersion: 'blog_formula_v2_extraction_input.v1'
+          schemaVersion: 'blog_formula_v2_extraction_input.v2'
         })
       });
       expect(result.run.output).toMatchObject({
@@ -159,6 +186,90 @@ describe('Blog Formula V2 deterministic services', () => {
       expect(result.output.styleComplianceReport.sourcePostIds).toEqual(retrieval.samples.map((sample) => sample.collectionItemId));
       expect(JSON.stringify(result)).not.toContain(futureCombinedMode);
       expect(JSON.stringify(result)).not.toContain('v1_ruleset');
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('draft generation consumes the stored formula set, not just its id', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const { formulaSet } = extractBlogFormulaV2(repos, BLOG_FORMULA_V2_STORE_ID);
+      const formula = parseStoredBlogFormulaV2(formulaSet.formula);
+      const { topicBrief, retrievalRun } = retrieveBlogFormulaV2Samples(repos, BLOG_FORMULA_V2_STORE_ID, {
+        formulaSetId: formulaSet.id,
+        topicBrief: {
+          topic: '리팟레이저',
+          mainKeyword: '리팟레이저 부작용',
+          secondaryKeywords: [],
+          mustInclude: ['개인차', '부작용 가능성', '의료진 상담'],
+          mustAvoid: []
+        }
+      });
+      const { output } = generateBlogFormulaV2Draft(repos, BLOG_FORMULA_V2_STORE_ID, {
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id
+      });
+
+      // Title candidates come from slot-filled title formula patterns.
+      expect(output.titleCandidates.length).toBeGreaterThanOrEqual(formula.titleFormula.length);
+      expect(output.titleCandidates[0]).not.toContain('{');
+      expect(output.selectedTitle).toContain('리팟레이저');
+
+      // Draft applies tone habits, soft CTA, and required disclosures from the formula.
+      expect(formula.toneAndMannerFormula.preferredPhrases.some((phrase) => output.blogDraft.includes(phrase))).toBe(true);
+      expect(formula.ctaFormula.softPatterns.some((pattern) => output.blogDraft.includes(pattern))).toBe(true);
+      for (const disclosure of formula.medicalSafetyFormula.requiredDisclosures) {
+        expect(output.blogDraft).toContain(disclosure);
+      }
+
+      // Compliance report names the actually applied blocks.
+      expect(output.styleComplianceReport.appliedBlocks).toEqual(
+        expect.arrayContaining([
+          'titleFormula',
+          'introFormula',
+          'bodyFormula',
+          'toneAndMannerFormula',
+          'ctaFormula',
+          'footerFormula',
+          'medicalSafetyFormula'
+        ])
+      );
+      expect(output.safetyCheck.requiredDisclosures).toEqual(formula.medicalSafetyFormula.requiredDisclosures);
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('draft generation still works for a legacy v2.0 stored formula', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const { formulaSet } = extractBlogFormulaV2(repos, BLOG_FORMULA_V2_STORE_ID);
+      // Simulate a legacy stored row by overwriting the formula JSON.
+      repos.v2BlogFormulaSets.update(formulaSet.id, {
+        formula: legacyFormulaFixture
+      });
+      const { topicBrief, retrievalRun } = retrieveBlogFormulaV2Samples(repos, BLOG_FORMULA_V2_STORE_ID, {
+        formulaSetId: formulaSet.id,
+        topicBrief: topicBriefInput
+      });
+      const { output } = generateBlogFormulaV2Draft(repos, BLOG_FORMULA_V2_STORE_ID, {
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id
+      });
+
+      expect(output.selectedTitle.length).toBeGreaterThan(0);
+      expect(output.blogDraft.length).toBeGreaterThan(0);
     } finally {
       connection.close();
     }

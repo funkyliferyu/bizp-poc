@@ -1,5 +1,104 @@
 # Codex Handoff
 
+## TASK 13F BLOG FORMULA V2 FORMULA QUALITY CONTRACT
+
+Branch `codex/blog-formula-v2-quality-contract` was created from validated
+`develop` at `977b624 docs: record pr49 develop validation`. This task applies
+a Formula Quality Contract to the SL-F1 extraction lane so the extracted
+Formula Set is a generation-ready writing formula consumable by the existing
+V2 deterministic draft generator, not a generic marketing summary.
+
+Plan: [NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md)
+
+Implemented:
+
+- Upgraded the stored Blog Formula V2 schema to generation-ready
+  `formula_v2.1` (`BLOG_FORMULA_V2_VERSION`): slot-based `titleFormula` array,
+  `introFormula`/`bodyFormula`/`footerFormula` writing-move sequences,
+  `toneAndMannerFormula` sentence habits, `ctaFormula` soft/hard CTA split,
+  and `medicalSafetyFormula` banned-claims vs required-disclosures split.
+  Added `parseStoredBlogFormulaV2` to safe-parse `v2.1` and upgrade legacy
+  `v2.0` stored formulas on read.
+- Added `evaluateBlogFormulaV2Quality`
+  (`poc-server/src/storeLearning/blogFormulaV2/formulaQuality.ts`), a
+  deterministic quality guardrail that flags empty/non-slot-based titles,
+  too-short intro/body sequences, missing tone sentence habits, empty CTA
+  soft patterns, and vague stock phrases. Result stored as `qualityIssues` in
+  `v2_blog_formula_runs.validation`.
+- Embedded Product Intent, formula extraction instructions, and formula
+  quality requirements into the SL-F1 prompt input
+  (`blogFormulaPrompt.ts`), bumped `BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION` to
+  `blog_formula_v2_extraction_input.v2` and `outputSchemaRef` to
+  `blog_formula_v2.1`.
+- Rewrote the `openAIBlogFormulaV2Provider` system prompt to match the v2.1
+  generation-ready contract and updated its response format to
+  `BlogFormulaSetV2Schema` v2.1.
+- Added `buildGenerationReadyMockFormula`, a shared mock formula builder used
+  by both the deterministic extractor and the `safe_mock` provider so both
+  paths produce v2.1-shaped formula sets.
+- `generateBlogFormulaV2Draft` (`blogFormulaV2Service.ts`) now reads the
+  parsed formula set: fills `titleFormula` slot patterns from the Topic
+  Brief, inserts a `toneAndMannerFormula` preferred phrase, appends a
+  `ctaFormula` soft pattern, and ensures `medicalSafetyFormula
+  .requiredDisclosures` are present in the disclosure line.
+  `styleComplianceReport.appliedBlocks` and `safetyCheck.requiredDisclosures`
+  are now derived from the formula set.
+- `web/blog_formula_v2.js` renders the new v2.1 array/sequence-shaped formula
+  blocks (`titleFormula` array, sequences, soft CTA patterns, tone habits,
+  banned claims vs required disclosures) via a generic
+  `formulaBlockDetail`/`renderFormulaCard` pair.
+- Added `poc-server/test/blogFormulaV2RoundTrip.test.ts`: end-to-end
+  extract -> retrieve samples -> generate draft -> validate coverage for both
+  `safe_mock` and OpenAI (fake client) providers, plus a V1-table-isolation
+  regression check.
+
+Validation:
+
+- Focused V2 suite (10 files):
+  `cd poc-server && npm test -- --run test/blogFormulaV2Schema.test.ts test/blogFormulaV2Quality.test.ts test/blogFormulaV2Prompt.test.ts test/blogFormulaV2Provider.test.ts test/blogFormulaV2Api.test.ts test/blogFormulaV2Services.test.ts test/blogFormulaV2Demo.test.ts test/blogFormulaV2Page.test.ts test/blogFormulaV2RoundTrip.test.ts test/blogFormulaV2Repositories.test.ts`
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-quality-contract.sqlite BLOG_FORMULA_V2_PROVIDER_MODE=safe_mock npm run demo:blog-formula-v2`
+- `cd poc-server && npm test`
+- `node --check web/blog_formula_v2.js`
+- `node --check web/ruleset_editor.js`
+- `git diff --check`
+
+Result:
+
+- PASS, focused V2 suite: 10 files, 52 tests.
+- PASS, TypeScript typecheck.
+- PASS, safe-mock temp-DB demo produced `providerMode = safe_mock`, a
+  `formula_v2.1`-shaped formula set, and `validationStatus =
+  needs_human_review`.
+- PASS, full test suite: 52 files passed, 3 live-provider files skipped by
+  default; 330 tests passed, 6 skipped.
+- PASS, JS syntax checks for `web/blog_formula_v2.js` and
+  `web/ruleset_editor.js`.
+- PASS, `git diff --check` (no whitespace errors).
+
+Current notes:
+
+- No OpenAI V2 draft generation was added; `generate-draft` stays
+  deterministic.
+- No Hybrid or combined V1/V2 generation lane was added.
+- V2 still writes only to `v2_` tables; the round-trip test asserts
+  `marketing_rulesets` is unchanged.
+- No browser-side Naver/OpenAI/provider calls were added.
+- Live OpenAI smoke was not run; the round-trip test uses an injected fake
+  OpenAI client.
+- Keep `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` unstaged.
+
+Next execution briefing:
+
+- Open a PR to `develop`, then run post-merge develop validation (repeat the
+  Step 1 command block above on `develop`) and record it in
+  `docs/codex/VALIDATION.md` and this file.
+- Next ledger item after 13f validates on develop is milestone 14: final
+  docs/validation cleanup or `develop` -> `main` promotion prep, gated on
+  explicit user publication approval.
+- Do not add OpenAI V2 draft generation or Hybrid/combined V1+V2 generation
+  until the user explicitly approves that scope.
+
 ## TASK 13E BLOG FORMULA V2 OPENAI FORMULA PROVIDER
 
 Branch `codex/blog-formula-v2-openai-formula-provider` was created from

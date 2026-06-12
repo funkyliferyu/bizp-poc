@@ -50,4 +50,14 @@ describe('Blog Formula V2 static UI lane', () => {
     expect(js).not.toContain(futureCombinedMode);
     expect(() => new Function(js)).not.toThrow();
   });
+
+  it('renders v2.1 formula blocks including arrays and sequences', () => {
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    expect(js).toContain('titleFormula');
+    expect(js).toContain('sequence');
+    expect(js).toContain('softPatterns');
+    expect(js).toContain('preferredPhrases');
+    expect(js).toContain('bannedClaims');
+  });
 });

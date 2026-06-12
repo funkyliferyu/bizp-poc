@@ -106,6 +106,41 @@
       .join('');
   }
 
+  function formulaBlockDetail(item) {
+    if (!item) return '';
+    if (Array.isArray(item.sequence)) return item.sequence.join(' → ');
+    if (Array.isArray(item.patterns)) return item.patterns.join(' / ');
+    if (Array.isArray(item.softPatterns)) return `${item.primaryStyle || ''} · ${item.softPatterns.join(' / ')}`;
+    if (Array.isArray(item.bannedClaims)) {
+      return `금지: ${item.bannedClaims.join(', ')} · 필수 고지: ${(item.requiredDisclosures || []).join(', ')}`;
+    }
+    if (Array.isArray(item.preferredPhrases)) {
+      return `${item.persona || ''} · 선호 표현: ${item.preferredPhrases.join(' / ')} · 어미: ${(item.endingStyle || []).join(', ')}`;
+    }
+    return item.pattern || item.description || '';
+  }
+
+  function renderFormulaCard(label, item) {
+    const titleName = item.name || item.persona || '';
+    const detail = formulaBlockDetail(item);
+    const detailLine = item.pattern
+      ? `<div class="formula-v2-meta"><strong>Pattern</strong> ${escapeHtml(detail)}</div>`
+      : `<div class="formula-v2-meta">${escapeHtml(detail)}</div>`;
+    const descriptionLine = item.description ? `<div class="formula-v2-meta">${escapeHtml(item.description)}</div>` : '';
+    const titleSuffix = titleName ? ` · ${escapeHtml(titleName)}` : '';
+    return `
+      <div class="formula-v2-card">
+        <div class="formula-v2-card-title">${escapeHtml(label)}${titleSuffix}</div>
+        ${descriptionLine}
+        ${detailLine}
+        <div class="formula-v2-meta">
+          <span class="formula-v2-badge">${escapeHtml(item.status)}</span>
+          confidence ${escapeHtml(item.confidence)}
+        </div>
+      </div>
+    `;
+  }
+
   function renderFormulaCards(formulaSet) {
     const target = field('v2FormulaCards');
     if (!target) return;
@@ -121,20 +156,13 @@
       ['medicalSafetyFormula', '의료 안전 공식']
     ];
     const cards = entries
-      .map(([key, label]) => {
+      .flatMap(([key, label]) => {
         const item = formula[key];
-        if (!item) return '';
-        return `
-          <div class="formula-v2-card">
-            <div class="formula-v2-card-title">${escapeHtml(label)} · ${escapeHtml(item.name)}</div>
-            <div class="formula-v2-meta">${escapeHtml(item.description)}</div>
-            <div class="formula-v2-meta"><strong>Pattern</strong> ${escapeHtml(item.pattern)}</div>
-            <div class="formula-v2-meta">
-              <span class="formula-v2-badge">${escapeHtml(item.status)}</span>
-              confidence ${escapeHtml(item.confidence)}
-            </div>
-          </div>
-        `;
+        if (!item) return [];
+        if (Array.isArray(item)) {
+          return item.map((entry) => renderFormulaCard(label, entry));
+        }
+        return [renderFormulaCard(label, item)];
       })
       .filter(Boolean);
     target.innerHTML = cards.length ? cards.join('') : '<div class="formula-v2-meta">포뮬라를 추출하면 표시됩니다.</div>';
