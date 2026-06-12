@@ -55,8 +55,8 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-12:
 
-1. Review the Blog Formula V2 deterministic lane branch
-   `codex/blog-formula-v2-experiment`, then open a PR targeting `develop`.
+1. Plan the next post-level analysis pipeline or aggregate SOP improvement
+   milestone from validated `develop`.
 2. Keep V2 deterministic/mock-safe only until the user explicitly approves a
    separate comparison or combined-generation task.
 3. Keep the current ruleset preview endpoint as deterministic server/mock
@@ -88,7 +88,7 @@ Current next todo as of 2026-06-12:
 | 13a | LLM 감사 로그, 근거 부족 재학습 차단, 룰셋 버전 원복 | Validated on develop | [Task 6](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-6-add-server-side-llm-audit-logs), [Task 7](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-7-gate-ruleset-regeneration-until-new-evidence-is-sufficient), [Task 8](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-8-manage-ruleset-version-history-and-restore), PR #44, follow-up PR #45 | Develop validation recorded in `docs/codex/VALIDATION.md` |
 | 13b | SL-A1 LLM 입력 구조 재설계 | Validated on develop | [plan](NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md), commit `84f1684` | Pushed to `develop` and validated locally before integration |
 | 13c | Blog SOP 룰셋 계약 적용 | Validated on develop | [plan](NEXT_SESSION_BLOG_SOP_RULESET_PLAN.md), PR #47, merge `b695643` | Develop validation recorded 2026-06-12 |
-| 13d | Blog Formula V2 deterministic 실험 레인 | Implementation branch local | [handoff](../BLOG_FORMULA_V2_HANDOFF.md), implementation branch `codex/blog-formula-v2-experiment` | Open/merge PR to `develop`, then validate on `develop` |
+| 13d | Blog Formula V2 deterministic 실험 레인 | Validated on develop | [handoff](../BLOG_FORMULA_V2_HANDOFF.md), PR #48, merge `c8f1b52` | Develop validation recorded 2026-06-12 |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist

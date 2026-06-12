@@ -4,6 +4,7 @@
 
 Branch `codex/blog-formula-v2-experiment` was created from `develop` at
 `b695643 Merge pull request #47 from funkyliferyu/codex/sl-a1-ruleset-quality-uplift`.
+PR #48 was merged to `develop` as merge commit `c8f1b52`.
 
 Implemented:
 
@@ -43,10 +44,17 @@ Validation on 2026-06-12:
   confirmed V2 tab load, 50 owner Blog sources, extract, Top 3 retrieval,
   deterministic draft generation, validation result, and no console/page
   errors.
+- Develop validation after PR #48 merge passed:
+  `cd poc-server && npm run typecheck`, focused Blog Formula V2 tests,
+  temp-DB `npm run demo:blog-formula-v2`, `node --check` for
+  `web/blog_formula_v2.js` and `web/ruleset_editor.js`, `git diff --check`,
+  full `cd poc-server && npm test`, and Playwright V2 tab smoke on
+  `localhost:5180`.
 
 Current notes:
 
-- This first V2 implementation is deterministic/mock-safe only.
+- This first V2 implementation is now on validated `develop` and remains
+  deterministic/mock-safe only.
 - No combined V1/V2 generation lane was implemented.
 - V2 does not write to `marketing_rulesets` or `ruleset_fields`.
 - `localhost:5180` was running and serving the new V2 API during smoke.

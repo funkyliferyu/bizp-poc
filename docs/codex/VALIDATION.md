@@ -8,6 +8,11 @@ Branch:
 
 - `codex/blog-formula-v2-experiment`
 
+Develop integration:
+
+- PR #48 merged to `develop` as `c8f1b52` on 2026-06-12.
+- Fresh develop validation passed after merge.
+
 Scope:
 
 - Added V2-only SQLite tables and repositories.
@@ -63,6 +68,9 @@ Result:
   50 owner Blog sources, extracted a generated formula set, rendered 3
   retrieved samples, generated a V2 draft, rendered validation, and found no
   console/page errors.
+- PASS, post-merge develop validation repeated the focused V2 suite,
+  TypeScript typecheck, temp-DB V2 demo, browser JS syntax checks, full test
+  suite, `git diff --check`, and Playwright V2 tab smoke.
 
 Boundary checks:
 
