@@ -44,4 +44,37 @@ describe('Blog Formula V2 demo script', () => {
       connection.close();
     }
   });
+
+  it('can run safe_mock provider extraction from BLOG_FORMULA_V2_PROVIDER_MODE without OpenAI', async () => {
+    const originalProviderMode = process.env.BLOG_FORMULA_V2_PROVIDER_MODE;
+    process.env.BLOG_FORMULA_V2_PROVIDER_MODE = 'safe_mock';
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+
+      const report = await runBlogFormulaV2Demo({
+        connection,
+        storeId: BLOG_FORMULA_V2_STORE_ID,
+        closeConnection: false
+      });
+
+      expect(report).toMatchObject({
+        storeId: BLOG_FORMULA_V2_STORE_ID,
+        providerMode: 'safe_mock',
+        model: 'safe-mock-blog-formula-v2',
+        sourcePostCount: 4,
+        retrievedSampleCount: 3
+      });
+      expect(JSON.stringify(report)).not.toContain('OPENAI_API_KEY');
+      expect(JSON.stringify(report)).not.toContain(futureCombinedMode);
+    } finally {
+      if (originalProviderMode === undefined) {
+        delete process.env.BLOG_FORMULA_V2_PROVIDER_MODE;
+      } else {
+        process.env.BLOG_FORMULA_V2_PROVIDER_MODE = originalProviderMode;
+      }
+      connection.close();
+    }
+  });
 });

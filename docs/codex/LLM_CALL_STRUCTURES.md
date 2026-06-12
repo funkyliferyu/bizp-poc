@@ -11,8 +11,15 @@
 **Not LLM calls:** ruleset preview regeneration, ruleset version restore,
 similar-company benchmark fixture, image prompt regeneration, RAG document
 generation, review-weakness backfill, static/server-derived writing-style
-suggestions, and Blog Formula V2 deterministic extraction/retrieval/draft
-generation/validation do not call OpenAI in the current implementation.
+suggestions, and Blog Formula V2 deterministic/safe-mock extraction,
+retrieval, draft generation, and validation do not call OpenAI.
+
+**Blog Formula V2 OpenAI call:** Blog Formula V2 formula extraction (`SL-F1`)
+calls OpenAI only through `poc-server` when `providerMode = "openai"` or
+`providerMode = "auto"` with a server-side `OPENAI_API_KEY`. Missing
+`providerMode` and `providerMode = "deterministic"` preserve the deterministic
+path, and explicit `openai` fails instead of silently falling back when the
+server-side OpenAI client is unavailable.
 
 ---
 
@@ -24,6 +31,7 @@ generation/validation do not call OpenAI in the current implementation.
 | SL-B1 | Structured blog draft generation | Store Learning Blog | `POST /api/stores/:storeId/blog-posts/generate` | `client.beta.chat.completions.parse` | `BlogProviderDraftOutputSchema` |
 | SL-B2 | Structured blog text regeneration | Store Learning Blog | `POST /api/blog-posts/:postId/regenerate-text` | `client.beta.chat.completions.parse` | `BlogProviderDraftOutputSchema` |
 | SL-S1 | Structured SEO scoring | Store Learning Blog | `POST /api/blog-posts/:postId/seo-score` | `client.beta.chat.completions.parse` | `SeoScoreOutputSchema` |
+| SL-F1 | Structured formula extraction | Blog Formula V2 | `POST /api/stores/:storeId/v2/blog-formula/extract` with `providerMode = "openai"` or `auto` with key | `client.beta.chat.completions.parse` | `BlogFormulaSetV2Schema` |
 | RT-P1 | Runtime model probe | Runtime health | `POST /api/runtime/openai-probe` | `client.models.retrieve` | No prompt / no generated content |
 | LEG-M1 | Legacy structured extraction | Event-to-Operation legacy | `POST /api/memory/build` | `client.beta.chat.completions.parse` | `BusinessMemorySchema.omit({ generationTrace: true })` |
 | LEG-C1 | Legacy structured channel generation | Event-to-Operation legacy | `POST /api/events/:eventId/run` | `client.beta.chat.completions.parse` | `ChannelOutputsSchema` |
@@ -82,6 +90,104 @@ copies a selected historical `marketing_rulesets` row and its `ruleset_fields`
 into a new `draft` version, records restore metadata in
 `marketing_rulesets.ruleset`, and does not call OpenAI or create an
 `analysis_run`.
+
+---
+
+## Type SL-F1: Blog Formula V2 Structured Formula Extraction
+
+**Call ID:** `SL-F1`
+
+**Purpose:** Extract a reusable Blog Formula V2 style formula from collected
+owner Blog posts only.
+
+**Provider:** `openAIBlogFormulaV2Provider`
+
+**Key files:**
+
+- `poc-server/src/storeLearning/blogFormulaV2/blogFormulaPrompt.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/providers/openAIBlogFormulaProvider.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/providers/providerFactory.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/blogFormulaV2Service.ts`
+- `poc-server/src/storeLearning/routes/blogFormulaV2.ts`
+
+**Provider modes on `POST /extract`:**
+
+- missing or `deterministic`: existing deterministic V2 extraction, no
+  OpenAI, no `llm_audit_logs` row.
+- `safe_mock`: provider-shaped path with no external calls, no
+  `llm_audit_logs` row.
+- `openai`: explicit server-side OpenAI extraction; if the server-side OpenAI
+  client is unavailable, the V2 run is stored as `failed` and no formula set is
+  created.
+- `auto`: uses OpenAI when `OPENAI_API_KEY` is configured server-side, else
+  uses `safe_mock`.
+
+**Response format:**
+
+```ts
+zodResponseFormat(BlogFormulaSetV2Schema, "store_learning_blog_formula_v2")
+```
+
+**System prompt:**
+
+```text
+You are a Korean local-store blog formula analyst. Extract reusable writing formula blocks from the provided owner Blog posts only. Return strict structured Blog Formula V2 JSON. Do not invent evidence, customer reviews, or provider facts. Keep medical, legal, and guarantee claims conservative.
+```
+
+**Prompt input shape:**
+
+```ts
+{
+  task: "Extract Blog Formula V2 from owner Blog posts.",
+  schemaVersion: "blog_formula_v2_extraction_input.v1",
+  outputSchemaRef: "blog_formula_v2.0",
+  storeProfile: { id, name, category, address },
+  sourcePostIds: string[],
+  ownerBlogPosts: [
+    {
+      id,
+      title,
+      sourceUrl,
+      publishedAt,
+      charCount,
+      includedCharCount,
+      isTruncated,
+      bodyText
+    }
+  ],
+  requestedFormulaBlocks: [
+    "titleFormula",
+    "introFormula",
+    "bodyFormula",
+    "headingFormula",
+    "toneAndMannerFormula",
+    "ctaFormula",
+    "footerFormula",
+    "medicalSafetyFormula"
+  ]
+}
+```
+
+Prompt builder defaults:
+
+- max 8 latest owner Blog posts
+- max 3,500 body characters per post
+- max 18,000 aggregate body characters
+- max 30,000 serialized prompt characters
+
+**Audit behavior:**
+
+OpenAI extraction records `llm_audit_logs` with:
+
+- `related_entity_type = "v2_blog_formula_run"`
+- `related_entity_id = v2_blog_formula_runs.id`
+- `action = "blog_formula_v2_extract"`
+- `prompt_input_json`, `response_format_json`, raw requested JSON, raw parsed
+  output, normalized output when schema-valid, and sanitized error metadata
+
+Invalid OpenAI output is rejected by `BlogFormulaSetV2Schema`; the server
+stores a failed `v2_blog_formula_runs` row with `formula_set_id = NULL`, does
+not create a V2 formula set, and records a failed audit row.
 
 ---
 

@@ -1,36 +1,86 @@
 # Codex Handoff
 
-## NEXT TASK: BLOG FORMULA V2 SAFE MOCK INTEGRATION
+## TASK 13E BLOG FORMULA V2 OPENAI FORMULA PROVIDER
 
-The next requested task is to add a server-side safe mock integration lane for
-Blog Formula V2.
+Branch `codex/blog-formula-v2-openai-formula-provider` was created from
+validated `develop` at `a36ca0b docs: hand off blog formula v2 safe mock plan`.
+This task implements the server-side Blog Formula V2 provider boundary and
+OpenAI-backed formula extraction (`SL-F1`) with a safe mock fallback.
 
-Use this plan:
+Implemented:
 
-- `docs/codex/NEXT_SESSION_BLOG_FORMULA_V2_SAFE_MOCK_INTEGRATION_PLAN.md`
+- Added pure SL-F1 prompt input builder:
+  `poc-server/src/storeLearning/blogFormulaV2/blogFormulaPrompt.ts`.
+- Added provider boundary and provider factory under
+  `poc-server/src/storeLearning/blogFormulaV2/providers/`.
+- Added `safe_mock` provider with no external calls.
+- Added `openai` formula extraction provider using
+  `client.beta.chat.completions.parse`,
+  `BlogFormulaSetV2Schema`, and
+  `zodResponseFormat(..., "store_learning_blog_formula_v2")`.
+- Added optional `providerMode` to
+  `POST /api/stores/:storeId/v2/blog-formula/extract`:
+  missing/`deterministic`, `safe_mock`, `openai`, and `auto`.
+- Kept missing/`deterministic` on the existing deterministic V2 extraction
+  path for backward compatibility.
+- Added OpenAI SL-F1 audit rows in `llm_audit_logs` with
+  `related_entity_type = "v2_blog_formula_run"` and
+  `action = "blog_formula_v2_extract"`.
+- Failed OpenAI extraction creates a failed `v2_blog_formula_runs` row,
+  creates no formula set, and stores sanitized validation/error metadata.
+- Added `BLOG_FORMULA_V2_PROVIDER_MODE=safe_mock|openai|auto` support to
+  `npm run demo:blog-formula-v2`.
 
-Current baseline:
+Validation on branch:
 
-- `develop == origin/develop`
-- Current HEAD:
-  `e69de6c docs: record blog formula v2 develop validation`
-- Blog Formula V2 deterministic lane is already merged and validated on
-  `develop` through PR #48.
-- `.DS_Store` remains modified locally and must never be staged.
+- RED/GREEN prompt builder:
+  `cd poc-server && npm test -- --run test/blogFormulaV2Prompt.test.ts`
+- RED/GREEN provider boundary:
+  `cd poc-server && npm test -- --run test/blogFormulaV2Provider.test.ts`
+- RED/GREEN API/service provider mode:
+  `cd poc-server && npm test -- --run test/blogFormulaV2Api.test.ts test/blogFormulaV2Services.test.ts -t "providerMode|provider path|SL-F1|safe mock provider"`
+- Focused V2 suite:
+  `cd poc-server && npm test -- --run test/blogFormulaV2Prompt.test.ts test/blogFormulaV2Provider.test.ts test/blogFormulaV2Api.test.ts test/blogFormulaV2Services.test.ts test/blogFormulaV2Demo.test.ts test/blogFormulaV2Page.test.ts`
+- `cd poc-server && npm run typecheck`
+- `STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-openai-provider.sqlite BLOG_FORMULA_V2_PROVIDER_MODE=safe_mock npm run demo:blog-formula-v2`
+- `cd poc-server && npm test`
+- `node --check web/blog_formula_v2.js`
+- `node --check web/ruleset_editor.js`
 
-Intent:
+Result:
 
-- Add provider-shaped V2 integration structure.
-- Implement only `safe_mock` provider behavior.
-- Keep the current deterministic V2 lane passing.
-- Do not add live OpenAI/Naver calls.
-- Do not add Hybrid or combined V1/V2 generation.
-- Keep browser code calling only `poc-server` APIs.
-- Keep V2 writes out of `marketing_rulesets` and `ruleset_fields`.
+- PASS, focused V2 suite: 6 files, 25 tests.
+- PASS, TypeScript typecheck.
+- PASS, safe-mock temp-DB demo produced `providerMode = safe_mock`,
+  `model = safe-mock-blog-formula-v2`, 3 retrieved samples, and
+  `validationStatus = needs_human_review`.
+- PASS, full test suite: 49 files passed, 3 live-provider files skipped by
+  default; 305 tests passed, 6 skipped.
+- PASS, JS syntax checks for `web/blog_formula_v2.js` and
+  `web/ruleset_editor.js`.
 
-Fresh-session request text is included in the plan under
-`New Session Request Text`. Copy that entire block when starting the next
-Codex session to avoid context loss.
+Current notes:
+
+- Live OpenAI smoke was not run in this session; tests use injected fake
+  OpenAI clients and no real key.
+- No Naver calls were added.
+- No OpenAI V2 draft generation was added.
+- No Hybrid or combined V1/V2 generation lane was added.
+- V2 still writes only to `v2_` tables and does not write to
+  `marketing_rulesets` or `ruleset_fields`.
+- Browser code was not changed and still calls only `poc-server` APIs.
+- Keep `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` unstaged.
+
+Next execution briefing:
+
+- Open and review the PR targeting `develop`.
+- After merge to `develop`, run develop validation with the same focused V2
+  suite, `npm run typecheck`, safe-mock temp-DB demo, full `npm test`,
+  browser JS syntax checks, and `git diff --check`.
+- Next product step should compare/use deterministic vs safe_mock vs OpenAI
+  formula extraction outputs; do not add OpenAI V2 draft generation or
+  Hybrid/combined V1+V2 generation until the user explicitly approves that
+  scope.
 
 ## BLOG FORMULA V2 DETERMINISTIC LANE
 

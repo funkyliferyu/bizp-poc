@@ -1,5 +1,94 @@
 # Validation
 
+## Blog Formula V2 OpenAI Formula Provider Validation
+
+Date: 2026-06-12
+
+Branch:
+
+- `codex/blog-formula-v2-openai-formula-provider`
+
+Scope:
+
+- Added SL-F1 prompt input builder for bounded owner Blog post inputs.
+- Added Blog Formula V2 provider boundary with `safe_mock` and `openai`
+  extraction providers.
+- Added optional `providerMode` to
+  `POST /api/stores/:storeId/v2/blog-formula/extract`.
+- Preserved missing/`deterministic` extraction behavior.
+- Added explicit `openai` behavior with no mock fallback when the server-side
+  OpenAI client is unavailable.
+- Added `auto` behavior: OpenAI when `OPENAI_API_KEY` is configured
+  server-side, otherwise `safe_mock`.
+- Validated OpenAI output with `BlogFormulaSetV2Schema` and
+  `zodResponseFormat(..., "store_learning_blog_formula_v2")`.
+- Recorded OpenAI extraction audit rows with
+  `related_entity_type = "v2_blog_formula_run"` and
+  `action = "blog_formula_v2_extract"`.
+- Stored failed OpenAI extraction as `v2_blog_formula_runs.status = "failed"`
+  without creating a formula set.
+- Added `BLOG_FORMULA_V2_PROVIDER_MODE=safe_mock|openai|auto` support to the
+  V2 demo script.
+
+TDD evidence:
+
+- RED `npm test -- --run test/blogFormulaV2Prompt.test.ts`: failed because
+  `blogFormulaPrompt.ts` did not exist.
+- GREEN same command after adding the pure prompt builder.
+- RED `npm test -- --run test/blogFormulaV2Provider.test.ts`: failed because
+  provider files did not exist.
+- GREEN same command after adding provider contract, `safe_mock`, and OpenAI
+  provider with fake-client tests.
+- RED
+  `npm test -- --run test/blogFormulaV2Api.test.ts test/blogFormulaV2Services.test.ts -t "providerMode|provider path|SL-F1|safe mock provider"`:
+  failed because the service function did not exist and `/extract` ignored
+  `providerMode`.
+- GREEN same focused API/service command after adding provider factory,
+  provider-backed service extraction, route body schema, and audit recording.
+- RED
+  `npm test -- --run test/blogFormulaV2Demo.test.ts -t "safe_mock provider extraction"`:
+  failed because the demo still used deterministic extraction only.
+- GREEN same command after adding `BLOG_FORMULA_V2_PROVIDER_MODE` support.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/blogFormulaV2Prompt.test.ts test/blogFormulaV2Provider.test.ts test/blogFormulaV2Api.test.ts test/blogFormulaV2Services.test.ts test/blogFormulaV2Demo.test.ts test/blogFormulaV2Page.test.ts
+npm run typecheck
+STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-openai-provider.sqlite BLOG_FORMULA_V2_PROVIDER_MODE=safe_mock npm run demo:blog-formula-v2
+npm test
+cd ..
+node --check web/blog_formula_v2.js
+node --check web/ruleset_editor.js
+```
+
+Result:
+
+- PASS, focused V2 suite: 6 files, 25 tests.
+- PASS, TypeScript typecheck.
+- PASS, safe-mock temp-DB demo produced `providerMode = safe_mock`,
+  `model = safe-mock-blog-formula-v2`, 3 retrieved samples, and
+  `validationStatus = needs_human_review`.
+- PASS, full test suite: 49 files passed, 3 live-provider files skipped by
+  default; 305 tests passed, 6 skipped.
+- PASS, `node --check web/blog_formula_v2.js`.
+- PASS, `node --check web/ruleset_editor.js`.
+
+Boundary checks:
+
+- `.DS_Store` remains an out-of-scope local modification and was not staged.
+- `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` remains unstaged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser code was not changed and still calls only `poc-server` APIs.
+- No Naver calls, browser-side OpenAI/provider calls, OpenAI V2 draft
+  generation, or Hybrid/combined V1+V2 generation were added.
+- V2 writes remain in `v2_` tables and do not write to `marketing_rulesets` or
+  `ruleset_fields`.
+- Live OpenAI smoke was skipped; provider tests use injected fake OpenAI
+  clients.
+
 ## Blog Formula V2 Deterministic Lane Validation
 
 Date: 2026-06-12
