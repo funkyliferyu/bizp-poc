@@ -24,6 +24,9 @@ const ripotTopicBrief = {
   mustAvoid: []
 };
 
+// The fixture ships with placeholder evidence.sourcePostIds (item_1/2/3) that don't
+// exist in a freshly-seeded DB; rewrite every sourcePostIds field (at any nesting
+// depth) to the real seeded owner-post IDs so downstream lookups resolve correctly.
 function withSourcePostIds(formula: typeof generationReadyFormulaFixture, ids: string[]) {
   return JSON.parse(JSON.stringify(formula), (key, value) => (key === 'sourcePostIds' ? ids : value));
 }
