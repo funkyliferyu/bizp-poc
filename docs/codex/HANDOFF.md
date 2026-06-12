@@ -9,8 +9,8 @@ OpenAI-backed formula extraction (`SL-F1`) with a safe mock fallback.
 
 PR:
 
-- [#49](https://github.com/funkyliferyu/bizp-poc/pull/49) targeting
-  `develop`
+- [#49](https://github.com/funkyliferyu/bizp-poc/pull/49), merged to
+  `develop` as `c76c052`
 
 Implemented:
 
@@ -36,7 +36,7 @@ Implemented:
 - Added `BLOG_FORMULA_V2_PROVIDER_MODE=safe_mock|openai|auto` support to
   `npm run demo:blog-formula-v2`.
 
-Validation on branch:
+Validation on branch and `develop`:
 
 - RED/GREEN prompt builder:
   `cd poc-server && npm test -- --run test/blogFormulaV2Prompt.test.ts`
@@ -63,6 +63,9 @@ Result:
   default; 305 tests passed, 6 skipped.
 - PASS, JS syntax checks for `web/blog_formula_v2.js` and
   `web/ruleset_editor.js`.
+- PASS, post-merge develop validation repeated the focused V2 suite,
+  TypeScript typecheck, safe-mock temp-DB demo, full test suite, browser JS
+  syntax checks, and `git diff --check`.
 
 Current notes:
 
@@ -78,14 +81,14 @@ Current notes:
 
 Next execution briefing:
 
-- Open and review the PR targeting `develop`.
-- After merge to `develop`, run develop validation with the same focused V2
-  suite, `npm run typecheck`, safe-mock temp-DB demo, full `npm test`,
-  browser JS syntax checks, and `git diff --check`.
-- Next product step should compare/use deterministic vs safe_mock vs OpenAI
-  formula extraction outputs; do not add OpenAI V2 draft generation or
-  Hybrid/combined V1+V2 generation until the user explicitly approves that
-  scope.
+- Next ledger item is milestone 14: final docs/validation cleanup or
+  `develop` -> `main` promotion prep when the user approves publication
+  timing.
+- If the user wants another product iteration before publication, the natural
+  follow-up is to compare deterministic, safe_mock, and OpenAI formula outputs
+  on real owner Blog fixtures.
+- Do not add OpenAI V2 draft generation or Hybrid/combined V1+V2 generation
+  until the user explicitly approves that scope.
 
 ## BLOG FORMULA V2 DETERMINISTIC LANE
 

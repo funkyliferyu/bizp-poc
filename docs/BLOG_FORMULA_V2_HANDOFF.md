@@ -124,8 +124,10 @@ owner Blog sources.
 
 ## OpenAI Formula Provider With Safe Mock Fallback
 
-Branch `codex/blog-formula-v2-openai-formula-provider` adds the server-side
-provider boundary for formula extraction:
+PR #49 merged this server-side provider boundary to `develop` as `c76c052` and
+post-merge develop validation passed.
+
+The extraction provider modes are:
 
 - missing/`deterministic`: existing deterministic V2 extraction
 - `safe_mock`: provider-shaped path with no external calls
@@ -157,7 +159,7 @@ Still out of scope:
 - Hybrid or combined V1/V2 generation
 - V2 writes to `marketing_rulesets` or `ruleset_fields`
 
-Recommended next step after this PR is merged and validated on `develop`:
+Recommended next product follow-up if the user wants another V2 iteration:
 
 - compare deterministic, safe_mock, and OpenAI formula outputs on real owner
   Blog fixtures

@@ -10,8 +10,12 @@ Branch:
 
 PR:
 
-- [#49](https://github.com/funkyliferyu/bizp-poc/pull/49) targeting
-  `develop`
+- [#49](https://github.com/funkyliferyu/bizp-poc/pull/49), merged to
+  `develop` as `c76c052` on 2026-06-12.
+
+Develop integration:
+
+- Fresh develop validation passed after PR #49 merge.
 
 Scope:
 
@@ -79,6 +83,9 @@ Result:
   default; 305 tests passed, 6 skipped.
 - PASS, `node --check web/blog_formula_v2.js`.
 - PASS, `node --check web/ruleset_editor.js`.
+- PASS, post-merge develop validation repeated the focused V2 suite,
+  TypeScript typecheck, safe-mock temp-DB demo, full test suite, browser JS
+  syntax checks, and `git diff --check`.
 
 Boundary checks:
 
