@@ -5,6 +5,7 @@ import { createDatabaseConnection, type DbConnection } from '../src/db/connectio
 import { migrateDatabase } from '../src/db/migrate.js';
 import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 import { createBlogFormulaV2Routes } from '../src/storeLearning/routes/blogFormulaV2.js';
+import { BlogFormulaSetV2Schema } from '../src/storeLearning/blogFormulaV2/types.js';
 import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 
 async function readJson(response: Response) {
@@ -16,20 +17,82 @@ function countRows(connection: DbConnection, tableName: string) {
   return (connection.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get() as { count: number }).count;
 }
 
+function formulaOutput(sourcePostIds = [
+  'collection_item_v2_owner_1',
+  'collection_item_v2_owner_2',
+  'collection_item_v2_owner_3',
+  'collection_item_v2_owner_4'
+]) {
+  const common = {
+    sourcePostIds,
+    confidence: 0.84,
+    status: 'confirmed' as const
+  };
+
+  return BlogFormulaSetV2Schema.parse({
+    schemaVersion: 'blog_formula_v2.0',
+    titleFormula: {
+      ...common,
+      name: '검색 걱정 선반영 제목',
+      description: '주요 키워드와 걱정을 앞에 두는 제목 공식입니다.',
+      pattern: '{메인키워드} 전 확인할 걱정과 기준'
+    },
+    introFormula: {
+      ...common,
+      name: '걱정 공감형 도입',
+      description: '첫 문단에서 검색자의 걱정을 인정하고 확인 기준을 예고합니다.',
+      pattern: '걱정 공감 → 확인 기준 예고'
+    },
+    bodyFormula: {
+      ...common,
+      name: '원리 기준형 본문',
+      description: '원리, 판단 기준, 주의사항 순서로 전개합니다.',
+      pattern: '원리 → 개인별 판단 기준 → 주의사항'
+    },
+    headingFormula: {
+      ...common,
+      name: '질문형 소제목',
+      description: '질문형 소제목으로 독자의 다음 궁금증을 이어갑니다.',
+      pattern: '질문형 소제목 3개'
+    },
+    toneAndMannerFormula: {
+      ...common,
+      name: '차분한 상담 안내 톤',
+      description: '과장 없이 상담 기준을 설명합니다.',
+      pattern: '차분함, 구체성, 보장 회피'
+    },
+    ctaFormula: {
+      ...common,
+      name: '상담 확인형 CTA',
+      description: '본인 상태 확인을 위한 상담을 권합니다.',
+      pattern: '상태 확인 → 상담 권유'
+    },
+    footerFormula: {
+      ...common,
+      name: '안전 고지 푸터',
+      description: '의료정보 목적과 개인차를 반복 고지합니다.',
+      pattern: '의료정보 목적 + 개인차 + 상담'
+    },
+    medicalSafetyFormula: {
+      ...common,
+      name: '의료 안전 공식',
+      description: '효과 보장과 부작용 부정을 피합니다.',
+      pattern: '개인차 → 부작용 가능성 → 의료진 상담',
+      requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담']
+    }
+  });
+}
+
 describe('Blog Formula V2 API', () => {
   const futureCombinedMode = ['hybrid', 'v1', 'v2'].join('_');
   let connection: DbConnection;
   let server: ReturnType<express.Express['listen']>;
   let baseUrl: string;
 
-  beforeEach(() => {
-    connection = createDatabaseConnection({ filename: ':memory:' });
-    migrateDatabase(connection);
-    seedBlogFormulaV2Fixture(connection);
-
+  function startServer(routeOptions: Record<string, unknown> = {}) {
     const app = express();
     app.use(express.json());
-    app.use('/api/stores/:storeId/v2/blog-formula', createBlogFormulaV2Routes({ connection }));
+    app.use('/api/stores/:storeId/v2/blog-formula', createBlogFormulaV2Routes({ connection, ...routeOptions }));
     app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res.status(400).json({ error: message });
@@ -37,6 +100,18 @@ describe('Blog Formula V2 API', () => {
     server = app.listen(0);
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
+  }
+
+  async function restartServer(routeOptions: Record<string, unknown>) {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    startServer(routeOptions);
+  }
+
+  beforeEach(() => {
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    seedBlogFormulaV2Fixture(connection);
+    startServer();
   });
 
   afterEach(async () => {
@@ -148,5 +223,247 @@ describe('Blog Formula V2 API', () => {
     expect(repos.v2BlogDraftValidations.listByDraftGenerationId(generated.draftGeneration.id)).toHaveLength(1);
     expect(countRows(connection, 'marketing_rulesets')).toBe(0);
     expect(countRows(connection, 'ruleset_fields')).toBe(0);
+  });
+
+  it('keeps missing providerMode on the deterministic extraction path', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST'
+    });
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.formulaSet).toMatchObject({
+      model: 'deterministic-blog-formula-v2'
+    });
+    expect(body.provider).toBeUndefined();
+    expect(countRows(connection, 'llm_audit_logs')).toBe(0);
+  });
+
+  it('extracts through providerMode=safe_mock without external calls or LLM audit rows', async () => {
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'safe_mock' })
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const run = repos.v2BlogFormulaRuns.findById(body.run.id);
+
+    expect(response.status).toBe(200);
+    expect(body.formulaSet).toMatchObject({
+      model: 'safe-mock-blog-formula-v2'
+    });
+    expect(body.provider).toMatchObject({
+      mode: 'safe_mock',
+      noExternalCalls: true
+    });
+    expect(run?.input).toMatchObject({
+      provider: expect.objectContaining({
+        mode: 'safe_mock'
+      })
+    });
+    expect(countRows(connection, 'llm_audit_logs')).toBe(0);
+    expect(countRows(connection, 'marketing_rulesets')).toBe(0);
+    expect(countRows(connection, 'ruleset_fields')).toBe(0);
+  });
+
+  it('extracts through providerMode=openai using the server-side OpenAI provider and records SL-F1 audit', async () => {
+    let parseCallCount = 0;
+    await restartServer({
+      providerFactoryOptions: {
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'gpt-test-formula' },
+        openAIClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async () => {
+                  parseCallCount += 1;
+                  return { choices: [{ message: { parsed: formulaOutput() } }] };
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'openai' })
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const auditRows = repos.llmAuditLogs.latest();
+
+    expect(response.status).toBe(200);
+    expect(parseCallCount).toBe(1);
+    expect(body.formulaSet).toMatchObject({
+      model: 'gpt-test-formula'
+    });
+    expect(body.provider).toMatchObject({
+      name: 'openAIBlogFormulaV2Provider',
+      mode: 'openai',
+      callId: 'SL-F1',
+      noExternalCalls: false
+    });
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]).toMatchObject({
+      storeId: BLOG_FORMULA_V2_STORE_ID,
+      relatedEntityType: 'v2_blog_formula_run',
+      relatedEntityId: body.run.id,
+      action: 'blog_formula_v2_extract',
+      status: 'completed',
+      model: 'gpt-test-formula'
+    });
+    expect(auditRows[0].promptInputJson).toMatchObject({
+      schemaVersion: 'blog_formula_v2_extraction_input.v1'
+    });
+    expect(auditRows[0].rawRequestedJson).toEqual(expect.any(Object));
+    expect(auditRows[0].rawParsedOutputJson).toEqual(formulaOutput());
+    expect(auditRows[0].normalizedOutputJson).toEqual(formulaOutput());
+  });
+
+  it('uses safe_mock for providerMode=auto when no OpenAI key is configured', async () => {
+    await restartServer({
+      providerFactoryOptions: {
+        env: {}
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'auto' })
+    });
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.provider).toMatchObject({
+      mode: 'safe_mock',
+      noExternalCalls: true
+    });
+    expect(body.formulaSet).toMatchObject({
+      model: 'safe-mock-blog-formula-v2'
+    });
+    expect(countRows(connection, 'llm_audit_logs')).toBe(0);
+  });
+
+  it('uses OpenAI for providerMode=auto when a server-side OpenAI key is configured', async () => {
+    let parseCallCount = 0;
+    await restartServer({
+      providerFactoryOptions: {
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'gpt-test-formula' },
+        openAIClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async () => {
+                  parseCallCount += 1;
+                  return { choices: [{ message: { parsed: formulaOutput() } }] };
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'auto' })
+    });
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(parseCallCount).toBe(1);
+    expect(body.provider).toMatchObject({
+      mode: 'openai',
+      model: 'gpt-test-formula'
+    });
+    expect(countRows(connection, 'llm_audit_logs')).toBe(1);
+  });
+
+  it('rejects invalid OpenAI formula output without creating a formula set', async () => {
+    await restartServer({
+      providerFactoryOptions: {
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'gpt-test-formula' },
+        openAIClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async () => ({ choices: [{ message: { parsed: { schemaVersion: 'wrong' } } }] })
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'openai' })
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const failedRun = repos.v2BlogFormulaRuns.listByStoreId(BLOG_FORMULA_V2_STORE_ID).at(-1);
+    const auditRow = repos.llmAuditLogs.latest()[0];
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('schemaVersion');
+    expect(repos.v2BlogFormulaSets.listByStoreId(BLOG_FORMULA_V2_STORE_ID)).toHaveLength(0);
+    expect(failedRun).toMatchObject({
+      formulaSetId: null,
+      status: 'failed',
+      model: 'gpt-test-formula'
+    });
+    expect(auditRow).toMatchObject({
+      relatedEntityType: 'v2_blog_formula_run',
+      relatedEntityId: failedRun?.id,
+      action: 'blog_formula_v2_extract',
+      status: 'failed'
+    });
+    expect(auditRow.rawParsedOutputJson).toEqual({ schemaVersion: 'wrong' });
+    expect(auditRow.normalizedOutputJson).toBeNull();
+  });
+
+  it('fails explicit providerMode=openai without mock fallback and does not create a formula set', async () => {
+    await restartServer({
+      providerFactoryOptions: {
+        env: {}
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'openai' })
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const runs = repos.v2BlogFormulaRuns.listByStoreId(BLOG_FORMULA_V2_STORE_ID);
+    const failedRun = runs.at(-1);
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('OpenAI client is unavailable');
+    expect(repos.v2BlogFormulaSets.listByStoreId(BLOG_FORMULA_V2_STORE_ID)).toHaveLength(0);
+    expect(failedRun).toMatchObject({
+      formulaSetId: null,
+      status: 'failed'
+    });
+    expect(failedRun?.validation).toMatchObject({
+      status: 'failed',
+      provider: expect.objectContaining({
+        mode: 'openai'
+      })
+    });
+    expect(repos.llmAuditLogs.latest()[0]).toMatchObject({
+      relatedEntityType: 'v2_blog_formula_run',
+      relatedEntityId: failedRun?.id,
+      action: 'blog_formula_v2_extract',
+      status: 'failed'
+    });
   });
 });

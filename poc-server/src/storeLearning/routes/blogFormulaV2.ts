@@ -4,6 +4,7 @@ import type { DbConnection } from '../../db/connection.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import {
   extractBlogFormulaV2,
+  extractBlogFormulaV2WithProvider,
   generateBlogFormulaV2Draft,
   getBlogFormulaV2Draft,
   getBlogFormulaV2Payload,
@@ -11,11 +12,20 @@ import {
   retrieveBlogFormulaV2Samples,
   validateBlogFormulaV2Draft
 } from '../blogFormulaV2/blogFormulaV2Service.js';
+import {
+  createBlogFormulaV2ProviderForMode,
+  type BlogFormulaV2ProviderFactoryOptions
+} from '../blogFormulaV2/providers/providerFactory.js';
 import { BlogTopicBriefInputSchema } from '../blogFormulaV2/types.js';
 
 type BlogFormulaV2RoutesOptions = {
   connection: DbConnection;
+  providerFactoryOptions?: BlogFormulaV2ProviderFactoryOptions;
 };
+
+const ExtractFormulaBodySchema = z.object({
+  providerMode: z.enum(['deterministic', 'safe_mock', 'openai', 'auto']).optional()
+});
 
 const RetrieveSamplesBodySchema = z.object({
   formulaSetId: z.string().trim().min(1).optional(),
@@ -41,7 +51,7 @@ const ValidateDraftBodySchema = z.union([
   })
 ]);
 
-export function createBlogFormulaV2Routes({ connection }: BlogFormulaV2RoutesOptions) {
+export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }: BlogFormulaV2RoutesOptions) {
   const router = express.Router({ mergeParams: true });
   const repos = createStoreLearningRepositories(connection);
 
@@ -58,9 +68,17 @@ export function createBlogFormulaV2Routes({ connection }: BlogFormulaV2RoutesOpt
     }
   });
 
-  router.post('/extract', (req, res, next) => {
+  router.post('/extract', async (req, res, next) => {
     try {
-      res.json(extractBlogFormulaV2(repos, storeId(req)));
+      const body = ExtractFormulaBodySchema.parse(req.body ?? {});
+      const provider = createBlogFormulaV2ProviderForMode(body.providerMode, {
+        ...(providerFactoryOptions ?? {})
+      });
+      if (!provider) {
+        res.json(extractBlogFormulaV2(repos, storeId(req)));
+        return;
+      }
+      res.json(await extractBlogFormulaV2WithProvider(repos, storeId(req), provider));
     } catch (error) {
       next(error);
     }

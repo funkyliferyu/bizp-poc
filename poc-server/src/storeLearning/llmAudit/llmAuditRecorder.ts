@@ -18,7 +18,7 @@ type LlmAuditProvider = LlmAuditMetadataProvider & {
 
 type RecordLlmAuditLogInput = {
   storeId: string | null;
-  relatedEntityType: 'analysis_run' | 'content_generation' | 'blog_post' | 'seo_score';
+  relatedEntityType: 'analysis_run' | 'content_generation' | 'blog_post' | 'seo_score' | 'v2_blog_formula_run';
   relatedEntityId: string | null;
   provider: LlmAuditProvider;
   model?: string | null;
@@ -40,11 +40,15 @@ export function recordLlmAuditLog(repos: Repositories, input: RecordLlmAuditLogI
   const startedAt = auditMetadata?.requestStartedAt ?? completedAt;
   const duration = auditMetadata?.durationMs ?? durationMs(startedAt, completedAt);
   const normalizedOutputJson =
-    input.normalizedOutputJson ??
-    auditMetadata?.normalizedOutputJson ??
-    input.parsedOutputJson ??
-    auditMetadata?.parsedOutputJson ??
-    null;
+    input.normalizedOutputJson !== undefined
+      ? input.normalizedOutputJson
+      : auditMetadata?.normalizedOutputJson !== undefined
+        ? auditMetadata.normalizedOutputJson
+        : input.parsedOutputJson !== undefined
+          ? input.parsedOutputJson
+          : auditMetadata?.parsedOutputJson !== undefined
+            ? auditMetadata.parsedOutputJson
+            : null;
 
   return repos.llmAuditLogs.create({
     id: `llm_audit_${Date.now()}_${randomUUID()}`,

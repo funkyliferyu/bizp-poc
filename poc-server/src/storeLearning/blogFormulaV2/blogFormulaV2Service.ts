@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { JsonValue } from '../../repositories/base.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import { recordLlmAuditLog } from '../llmAudit/llmAuditRecorder.js';
+import { sanitizedProviderError } from '../llmAudit/llmAuditMetadata.js';
 import {
   BLOG_FORMULA_V2_MODEL,
   BLOG_FORMULA_V2_VERSION,
@@ -14,6 +16,11 @@ import {
   type BlogRetrievedSampleV2,
   type BlogTopicBriefInput
 } from './types.js';
+import { BLOG_FORMULA_V2_CALL_ID, BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION } from './blogFormulaPrompt.js';
+import type {
+  BlogFormulaV2Provider,
+  BlogFormulaV2ProviderProvenance
+} from './providers/blogFormulaV2Provider.js';
 import { listOwnerBlogPostsForFormulaV2, type OwnerBlogPostV2 } from './sourcePosts.js';
 import { validateBlogFormulaV2DraftText } from './validator.js';
 
@@ -178,6 +185,26 @@ function serializeFormulaSourcePost(post: OwnerBlogPostV2) {
   };
 }
 
+function provenanceFromProvider(provider: BlogFormulaV2Provider): BlogFormulaV2ProviderProvenance {
+  return {
+    name: provider.name,
+    mode: provider.mode,
+    model: provider.model,
+    callId: BLOG_FORMULA_V2_CALL_ID,
+    promptShapeVersion: BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION,
+    noExternalCalls: provider.mode !== 'openai'
+  };
+}
+
+function providerInputStore(store: ReturnType<typeof requireStore>) {
+  return {
+    id: store.id,
+    name: store.name,
+    category: store.category,
+    address: store.address
+  };
+}
+
 export function getBlogFormulaV2Payload(repos: StoreLearningRepositories, storeId: string) {
   requireStore(repos, storeId);
   const formulaSet = latestByUpdatedAt(repos.v2BlogFormulaSets.listByStoreId(storeId));
@@ -257,6 +284,132 @@ export function extractBlogFormulaV2(repos: StoreLearningRepositories, storeId: 
       usedFor: serializeFormulaSourcePost(posts[index]).usedFor
     }))
   };
+}
+
+export async function extractBlogFormulaV2WithProvider(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  provider: BlogFormulaV2Provider
+) {
+  const store = requireStore(repos, storeId);
+  const posts = listOwnerBlogPostsForFormulaV2(repos, storeId);
+  if (posts.length === 0) throw new Error(`No owner_blog_post content available for Blog Formula V2: ${storeId}`);
+  const fallbackProvider = provenanceFromProvider(provider);
+  const sourcePostIds = sourceIds(posts);
+
+  try {
+    const providerResult = await provider.extractFormula({
+      store: providerInputStore(store),
+      ownerBlogPosts: posts
+    });
+    const formula = BlogFormulaSetV2Schema.parse(providerResult.output);
+    const providerSourcePostIds = providerResult.promptInput.sourcePostIds;
+    const postsById = new Map(posts.map((post) => [post.collectionItemId, post]));
+    const providerPosts = providerSourcePostIds
+      .map((sourcePostId) => postsById.get(sourcePostId))
+      .filter((post): post is OwnerBlogPostV2 => Boolean(post));
+    const formulaSet = repos.v2BlogFormulaSets.create({
+      id: makeId('v2_formula_set'),
+      storeId,
+      version: BLOG_FORMULA_V2_VERSION,
+      status: 'generated',
+      formula: toJsonValue(formula),
+      sourcePostIds: providerSourcePostIds,
+      model: providerResult.provider.model
+    });
+
+    const sourcePosts = providerPosts.map((post) =>
+      repos.v2BlogFormulaSourcePosts.create({
+        id: makeId('v2_formula_source'),
+        formulaSetId: formulaSet.id,
+        storeId,
+        collectionItemId: post.collectionItemId,
+        title: post.title,
+        sourceUrl: post.sourceUrl,
+        charCount: post.charCount,
+        isTruncated: post.isTruncated ? 1 : 0,
+        usedFor: serializeFormulaSourcePost(post).usedFor
+      })
+    );
+
+    const run = repos.v2BlogFormulaRuns.create({
+      id: makeId('v2_formula_run'),
+      storeId,
+      formulaSetId: formulaSet.id,
+      input: toJsonValue({
+        sourceKind: 'owner_blog_post',
+        sourcePostCount: posts.length,
+        sourcePostIds: providerSourcePostIds,
+        provider: providerResult.provider,
+        inputBudget: providerResult.inputBudget,
+        promptInput: providerResult.promptInput
+      }),
+      output: toJsonValue({ formulaSetId: formulaSet.id, formula, provider: providerResult.provider }),
+      validation: toJsonValue({
+        status: 'needs_human_review',
+        reason: 'provider_formula_requires_human_review_before_publish',
+        provider: providerResult.provider
+      }),
+      model: providerResult.provider.model,
+      status: 'completed'
+    });
+
+    recordLlmAuditLog(repos, {
+      storeId,
+      relatedEntityType: 'v2_blog_formula_run',
+      relatedEntityId: run.id,
+      provider,
+      model: providerResult.provider.model,
+      action: 'blog_formula_v2_extract',
+      status: 'completed',
+      inputBudget: providerResult.inputBudget,
+      parsedOutputJson: formula
+    });
+
+    return {
+      formulaSet,
+      run,
+      sourcePosts: sourcePosts.map((sourcePost, index) => ({
+        ...sourcePost,
+        sourceKind: 'owner_blog_post' as const,
+        usedFor: serializeFormulaSourcePost(providerPosts[index]).usedFor
+      })),
+      provider: providerResult.provider
+    };
+  } catch (error) {
+    const errorJson = sanitizedProviderError(error);
+    const run = repos.v2BlogFormulaRuns.create({
+      id: makeId('v2_formula_run'),
+      storeId,
+      formulaSetId: null,
+      input: toJsonValue({
+        sourceKind: 'owner_blog_post',
+        sourcePostCount: posts.length,
+        sourcePostIds,
+        provider: fallbackProvider
+      }),
+      output: toJsonValue({ formulaSetId: null, provider: fallbackProvider }),
+      validation: toJsonValue({
+        status: 'failed',
+        provider: fallbackProvider,
+        error: errorJson
+      }),
+      model: provider.model,
+      status: 'failed'
+    });
+
+    recordLlmAuditLog(repos, {
+      storeId,
+      relatedEntityType: 'v2_blog_formula_run',
+      relatedEntityId: run.id,
+      provider,
+      model: provider.model,
+      action: 'blog_formula_v2_extract',
+      status: 'failed',
+      errorJson
+    });
+    throw error;
+  }
 }
 
 function scorePost(post: OwnerBlogPostV2, topicBrief: BlogTopicBriefInput): BlogRetrievedSampleV2['scoring'] {

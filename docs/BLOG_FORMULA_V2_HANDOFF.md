@@ -122,30 +122,44 @@ STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-demo.sqlite npm run demo:blog-f
 The demo seeds mock owner Blog posts only when the target store has no usable
 owner Blog sources.
 
-## Next Step: Safe Mock Integration Lane
+## OpenAI Formula Provider With Safe Mock Fallback
 
-The next task is not a live provider integration. It should add an integration
-shape that can later accept a live provider, while implementing only a
-server-side `safe_mock` provider now.
+Branch `codex/blog-formula-v2-openai-formula-provider` adds the server-side
+provider boundary for formula extraction:
 
-Use:
+- missing/`deterministic`: existing deterministic V2 extraction
+- `safe_mock`: provider-shaped path with no external calls
+- `openai`: server-side OpenAI SL-F1 formula extraction only
+- `auto`: OpenAI when `OPENAI_API_KEY` exists server-side, otherwise
+  `safe_mock`
 
-```text
-docs/codex/NEXT_SESSION_BLOG_FORMULA_V2_SAFE_MOCK_INTEGRATION_PLAN.md
-```
-
-Required boundaries for that task:
-
-- keep existing deterministic V2 behavior passing
-- add provider-shaped server structure for extract/draft operations
-- implement only `safe_mock`
-- no live OpenAI/Naver calls
-- no browser-side provider calls
-- no Hybrid or combined V1/V2 generation
-- no V2 writes to `marketing_rulesets` or `ruleset_fields`
-
-Recommended branch:
+The OpenAI path uses:
 
 ```text
-codex/blog-formula-v2-safe-mock-integration
+BlogFormulaSetV2Schema
+zodResponseFormat(..., "store_learning_blog_formula_v2")
+llm_audit_logs.related_entity_type = "v2_blog_formula_run"
+llm_audit_logs.action = "blog_formula_v2_extract"
 ```
+
+Failure behavior:
+
+- explicit `openai` does not fall back to mock when the server-side client is
+  unavailable
+- invalid OpenAI output creates a failed `v2_blog_formula_runs` row
+- failed OpenAI output does not create a formula set
+
+Still out of scope:
+
+- Naver calls
+- OpenAI V2 draft generation
+- browser-side provider calls
+- Hybrid or combined V1/V2 generation
+- V2 writes to `marketing_rulesets` or `ruleset_fields`
+
+Recommended next step after this PR is merged and validated on `develop`:
+
+- compare deterministic, safe_mock, and OpenAI formula outputs on real owner
+  Blog fixtures
+- decide whether V2 formula extraction should become reviewer-facing in the UI
+  or remain API/demo-only for one more iteration

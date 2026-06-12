@@ -4,9 +4,11 @@ import { migrateDatabase } from '../src/db/migrate.js';
 import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 import {
   extractBlogFormulaV2,
+  extractBlogFormulaV2WithProvider,
   generateBlogFormulaV2Draft,
   retrieveBlogFormulaV2Samples
 } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
+import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
 import { validateBlogFormulaV2DraftText } from '../src/storeLearning/blogFormulaV2/validator.js';
 import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 
@@ -46,6 +48,48 @@ describe('Blog Formula V2 deterministic services', () => {
       expect(result.sourcePosts.every((post) => post.sourceKind === 'owner_blog_post')).toBe(true);
       expect(JSON.stringify(result.formulaSet.formula)).not.toContain('collection_item_v2_place_review');
       expect(JSON.stringify(result.formulaSet.formula)).toContain('의료진 상담');
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('persists provider provenance when extracting through the safe mock provider path', async () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+      const provider = createSafeMockBlogFormulaV2Provider();
+
+      const result = await extractBlogFormulaV2WithProvider(repos, BLOG_FORMULA_V2_STORE_ID, provider);
+
+      expect(result.formulaSet).toMatchObject({
+        storeId: BLOG_FORMULA_V2_STORE_ID,
+        status: 'generated',
+        model: 'safe-mock-blog-formula-v2'
+      });
+      expect(result.provider).toMatchObject({
+        mode: 'safe_mock',
+        noExternalCalls: true,
+        callId: 'SL-F1'
+      });
+      expect(result.run.input).toMatchObject({
+        provider: expect.objectContaining({
+          mode: 'safe_mock',
+          noExternalCalls: true
+        }),
+        inputBudget: expect.objectContaining({
+          schemaVersion: 'blog_formula_v2_extraction_input.v1'
+        })
+      });
+      expect(result.run.output).toMatchObject({
+        provider: expect.objectContaining({
+          mode: 'safe_mock'
+        })
+      });
+      expect(repos.llmAuditLogs.latest()).toHaveLength(0);
+      expect(JSON.stringify(result)).not.toContain('marketing_ruleset');
+      expect(JSON.stringify(result)).not.toContain('ruleset_field');
     } finally {
       connection.close();
     }

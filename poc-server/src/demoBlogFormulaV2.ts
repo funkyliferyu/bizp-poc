@@ -5,10 +5,16 @@ import { migrateDatabase } from './db/migrate.js';
 import { createStoreLearningRepositories } from './repositories/storeLearningRepositories.js';
 import {
   extractBlogFormulaV2,
+  extractBlogFormulaV2WithProvider,
   generateBlogFormulaV2Draft,
   retrieveBlogFormulaV2Samples,
   validateBlogFormulaV2Draft
 } from './storeLearning/blogFormulaV2/blogFormulaV2Service.js';
+import type {
+  BlogFormulaV2ExtractProviderMode,
+  BlogFormulaV2ProviderProvenance
+} from './storeLearning/blogFormulaV2/providers/blogFormulaV2Provider.js';
+import { createBlogFormulaV2ProviderForMode } from './storeLearning/blogFormulaV2/providers/providerFactory.js';
 import { listOwnerBlogPostsForFormulaV2 } from './storeLearning/blogFormulaV2/sourcePosts.js';
 import { BLOG_FORMULA_V2_MODEL } from './storeLearning/blogFormulaV2/types.js';
 
@@ -16,12 +22,14 @@ export type BlogFormulaV2DemoOptions = {
   connection?: DbConnection;
   databaseFilename?: string;
   storeId?: string;
+  providerMode?: BlogFormulaV2ExtractProviderMode;
   closeConnection?: boolean;
 };
 
 export type BlogFormulaV2DemoReport = {
   storeId: string;
   mode: 'v2_formula';
+  providerMode: 'deterministic' | 'safe_mock' | 'openai';
   model: string;
   formulaSetId: string;
   draftGenerationId: string;
@@ -33,6 +41,13 @@ export type BlogFormulaV2DemoReport = {
 };
 
 const defaultStoreId = process.env.BLOG_FORMULA_V2_STORE_ID ?? 'store_1020864025';
+const providerModes = new Set(['deterministic', 'safe_mock', 'openai', 'auto']);
+
+function providerModeFromEnv(value: string | undefined): BlogFormulaV2ExtractProviderMode | undefined {
+  if (!value) return undefined;
+  if (providerModes.has(value)) return value as BlogFormulaV2ExtractProviderMode;
+  throw new Error(`Invalid BLOG_FORMULA_V2_PROVIDER_MODE: ${value}`);
+}
 
 function timestamp(offsetSeconds: number) {
   return new Date(Date.UTC(2026, 5, 12, 9, 0, offsetSeconds)).toISOString();
@@ -138,7 +153,17 @@ export async function runBlogFormulaV2Demo(
     migrateDatabase(connection);
     ensureDemoSourcePosts(connection, storeId);
     const repos = createStoreLearningRepositories(connection);
-    const extraction = extractBlogFormulaV2(repos, storeId);
+    const providerMode = options.providerMode ?? providerModeFromEnv(process.env.BLOG_FORMULA_V2_PROVIDER_MODE);
+    const provider = createBlogFormulaV2ProviderForMode(providerMode);
+    let extractionProvider: BlogFormulaV2ProviderProvenance | null = null;
+    let extraction: ReturnType<typeof extractBlogFormulaV2> | Awaited<ReturnType<typeof extractBlogFormulaV2WithProvider>>;
+    if (provider) {
+      const providerExtraction = await extractBlogFormulaV2WithProvider(repos, storeId, provider);
+      extractionProvider = providerExtraction.provider;
+      extraction = providerExtraction;
+    } else {
+      extraction = extractBlogFormulaV2(repos, storeId);
+    }
     const retrieval = retrieveBlogFormulaV2Samples(repos, storeId, {
       formulaSetId: extraction.formulaSet.id,
       topicBrief: {
@@ -166,7 +191,8 @@ export async function runBlogFormulaV2Demo(
     return {
       storeId,
       mode: 'v2_formula',
-      model: BLOG_FORMULA_V2_MODEL,
+      providerMode: extractionProvider?.mode ?? 'deterministic',
+      model: extraction.formulaSet.model ?? BLOG_FORMULA_V2_MODEL,
       formulaSetId: extraction.formulaSet.id,
       draftGenerationId: generated.draftGeneration.id,
       sourcePostCount: extraction.sourcePosts.length,
