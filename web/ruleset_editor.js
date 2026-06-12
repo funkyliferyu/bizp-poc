@@ -148,8 +148,15 @@
     return null;
   }
 
-  function sourceLabel(source, locked) {
+  function sourceLabel(rulesetField) {
+    const source = rulesetField.source;
+    const sourceStatus = rulesetField.sourceStatus;
+    const locked = rulesetField.locked;
     if (locked || source === 'user_edited') return { text: '수정됨', className: 'src-edited' };
+    if (sourceStatus === 'direct_fact') return { text: 'Place 수집', className: 'src-place' };
+    if (sourceStatus === 'computed') return { text: '서버 산출', className: 'src-ai' };
+    if (sourceStatus === 'default_policy') return { text: '기본 정책', className: 'src-ai' };
+    if (sourceStatus === 'insufficient_evidence') return { text: '근거 부족', className: 'src-ai' };
     return { text: 'AI 분석', className: 'src-ai' };
   }
 
@@ -184,9 +191,9 @@
   function updateSourceBadge(element, rulesetField) {
     const label = element.querySelector('.ruleset-label');
     if (!label) return;
-    label.querySelectorAll('.src-ai,.src-edited,.ruleset-lock-badge').forEach((badge) => badge.remove());
+    label.querySelectorAll('.src-place,.src-ai,.src-edited,.ruleset-lock-badge').forEach((badge) => badge.remove());
     if (isBrandAnalysisRulesetField(element)) return;
-    const source = sourceLabel(rulesetField.source, rulesetField.locked);
+    const source = sourceLabel(rulesetField);
     const sourceBadge = document.createElement('span');
     sourceBadge.className = source.className;
     sourceBadge.textContent = source.text;
@@ -401,14 +408,10 @@
     return Boolean(element?.closest('#sec-brand') && element.dataset.rulesetField);
   }
 
-  function isImageStyleRulesetField(element) {
-    return Boolean(element?.closest('#sec-img') && element.dataset.rulesetField);
-  }
-
   function shouldRenderRulesetSourceNote(element) {
     const fieldKey = element?.dataset.rulesetField;
     if (isStoreInfoRulesetField(element) && APPLIED_STORE_INFO_FIELDS.has(fieldKey)) return false;
-    return !isStoreInfoRulesetField(element) && !isBrandAnalysisRulesetField(element) && !isWritingStyleRulesetField(element) && !isImageStyleRulesetField(element);
+    return !isStoreInfoRulesetField(element) && !isBrandAnalysisRulesetField(element) && !isWritingStyleRulesetField(element);
   }
 
   function directFactValue(storeFacts, fieldKey) {

@@ -15,6 +15,12 @@ import {
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
 type StoreRecord = NonNullable<ReturnType<Repositories['stores']['findById']>>;
 type SerializedRulesetField = ReturnType<typeof serializeField>;
+type RulesetFieldSourceStatus =
+  | 'direct_fact'
+  | 'inferred_from_pattern'
+  | 'computed'
+  | 'default_policy'
+  | 'insufficient_evidence';
 type WritingStyleCurrentValueStatus = 'inferred' | 'user_edited' | 'placeholder' | 'empty';
 type WritingStyleSuggestionJudgment = 'maintain' | 'improve';
 
@@ -28,12 +34,21 @@ const MEDICAL_BLOG_FOOTER_LINES = [
 
 const WRITING_STYLE_INSIGHT_FIELD_KEYS = [
   'blogPurpose',
+  'keywordMap',
+  'titlePatterns',
+  'introPattern',
+  'bodyOutlinePattern',
+  'headingPattern',
   'blogWritingStyle',
   'blogPreferredLength',
   'blogHashtags',
   'blogEmojiPolicy',
   'seoKeywords',
+  'seoPlacementPolicy',
   'ctaStyle',
+  'catchphrase',
+  'humorLevel',
+  'trendSensitivity',
   'industryCommonRules',
   'blogRequiredIntroCopy',
   'blogRequiredFooterCopy'
@@ -56,6 +71,31 @@ const WRITING_STYLE_SUGGESTIONS: Record<
     judgment: 'improve',
     value: '검색 유입, 예약/전화 문의, 신뢰 형성 목적을 분리하고 포스팅 주제마다 복수 목표를 선택합니다.',
     evidence: '블로그 목적은 검색 유입과 상담 전환 신호가 함께 쓰이므로 목적을 분리하면 CTA가 더 명확해집니다.'
+  },
+  keywordMap: {
+    judgment: 'improve',
+    value: '소재별 핵심 키워드, 보조 키워드, 해시태그를 한 줄 맵으로 분리해 글마다 필요한 조합만 사용합니다.',
+    evidence: '소재와 키워드를 한 항목에 묶어 두면 제목, 본문, 해시태그의 반복 강도를 생성 단계에서 제어하기 쉽습니다.'
+  },
+  titlePatterns: {
+    judgment: 'maintain',
+    value: '지역/업종 키워드와 고객 질문을 결합하되, 제목마다 하나의 검색 의도만 선명하게 둡니다.',
+    evidence: '기존 블로그 제목은 지역 키워드와 주제 질문을 결합하는 패턴이 많아 제목 템플릿으로 관리할 수 있습니다.'
+  },
+  introPattern: {
+    judgment: 'improve',
+    value: '첫 문단은 고객 상황이나 질문으로 시작하고, 두 번째 문장에서 글에서 답할 내용을 짧게 예고합니다.',
+    evidence: '도입부 구조를 분리하면 고정 인트로 문구와 글별 문제 제기가 섞여 반복적으로 보이는 일을 줄일 수 있습니다.'
+  },
+  bodyOutlinePattern: {
+    judgment: 'maintain',
+    value: '문제 상황, 원인/선택 기준, 매장 대응 방식, 방문 전 안내 순서로 본문 흐름을 유지합니다.',
+    evidence: '본문 전개는 생성 품질에 직접 영향을 주므로 문체보다 먼저 구조화해 두는 편이 안정적입니다.'
+  },
+  headingPattern: {
+    judgment: 'maintain',
+    value: '모바일에서 훑어보기 쉬운 질문형 또는 안내형 소제목을 3-5개 사용합니다.',
+    evidence: '기존 블로그의 문단 길이와 소제목 후보를 함께 보면 소제목 수와 표현 방식을 서버에서 보수적으로 산출할 수 있습니다.'
   },
   blogWritingStyle: {
     judgment: 'maintain',
@@ -82,10 +122,30 @@ const WRITING_STYLE_SUGGESTIONS: Record<
     value: '대표 지역 키워드 1-2개와 주제 키워드 2-3개를 나눠 제목/본문 반복을 제어합니다.',
     evidence: '현재 키워드는 지역과 업종 표현이 함께 묶여 있어 포스팅별 자연스러운 반복 횟수 제어가 필요합니다.'
   },
+  seoPlacementPolicy: {
+    judgment: 'improve',
+    value: '핵심 키워드는 제목, 첫 문단, 소제목 중 필요한 위치에만 배치하고 의미 없는 반복은 제한합니다.',
+    evidence: '키워드 배치 정책은 상위노출을 보장하는 항목이 아니라, 글의 자연스러움과 주제 일관성을 지키는 생성 제약입니다.'
+  },
   ctaStyle: {
     judgment: 'improve',
     value: '운영시간, 전화번호, 예약 가능 여부가 있는 글에서는 마지막 문단에 다음 행동을 구체적으로 안내합니다.',
     evidence: 'CTA가 추상적이면 사용자가 문의, 예약, 방문 중 어떤 행동을 해야 하는지 판단하기 어렵습니다.'
+  },
+  catchphrase: {
+    judgment: 'improve',
+    value: '확정 슬로건 대신 포스팅 주제에 맞춰 선택할 수 있는 브랜드 표현 후보 2-3개로 관리합니다.',
+    evidence: '반복 표현은 고정 문장으로 박아 두기보다 승인된 후보군으로 두어 글마다 자연스럽게 선택하는 편이 안전합니다.'
+  },
+  humorLevel: {
+    judgment: 'maintain',
+    value: '정보 전달형 블로그에서는 유머를 낮게 유지하고 가벼운 언어 유희까지만 허용합니다.',
+    evidence: '예약 전 확인 정보는 신뢰가 우선이므로 과한 농담보다 차분한 설명이 더 안전합니다.'
+  },
+  trendSensitivity: {
+    judgment: 'maintain',
+    value: '시즌과 기념일 소재는 반영하되 매장 맥락과 맞지 않는 유행어는 제한합니다.',
+    evidence: '트렌드는 콘텐츠 소재 확장에는 유용하지만 관련 없는 유행어는 검색 의도와 전환 품질을 흐릴 수 있습니다.'
   },
   industryCommonRules: {
     judgment: 'maintain',
@@ -216,18 +276,30 @@ function excerpt(value: string | null | undefined, maxLength = 160) {
   return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength)}...` : trimmed;
 }
 
+function sourceStatusForField(field: RulesetField, fieldKey: string): RulesetFieldSourceStatus {
+  const sourceMatrix = sourceMatrixForFieldKey(fieldKey);
+  if (field.source === 'input_blocked') return 'insufficient_evidence';
+  if (field.source === 'analysis_computed' || field.source === 'computed') return 'computed';
+  if (sourceMatrix?.sourceTier === 'blog_parser') return 'computed';
+  if (field.source === 'ruleset_contract_backfill') return 'default_policy';
+  if (sourceMatrix?.sourceTier === 'place_direct' || sourceMatrix?.sourceTier === 'manual_only') return 'direct_fact';
+  return 'inferred_from_pattern';
+}
+
 function serializeField(field: RulesetField, fieldKeyOverride?: string) {
+  const fieldKey = fieldKeyOverride ?? field.fieldKey;
   return {
     id: field.id,
-    fieldKey: fieldKeyOverride ?? field.fieldKey,
+    fieldKey,
     aiValue: field.aiValue,
     userValue: field.userValue,
     finalValue: field.finalValue,
     source: field.source,
+    sourceStatus: sourceStatusForField(field, fieldKey),
     locked: field.locked === 1,
     evidenceItemIds: asStringArray(field.evidenceItemIds),
     confidence: field.confidence,
-    sourceMatrix: sourceMatrixForFieldKey(fieldKeyOverride ?? field.fieldKey),
+    sourceMatrix: sourceMatrixForFieldKey(fieldKey),
     updatedAt: field.updatedAt
   };
 }

@@ -42,7 +42,7 @@ app.use('/api/collection-items', createCollectionItemRoutes({ connection: storeL
 app.use('/api/analysis-runs', createAnalysisRunRoutes({ connection: storeLearningConnection }));
 app.use('/api/blog-posts', createBlogPostRoutes({ connection: storeLearningConnection }));
 app.use('/api/stores/:storeId/rag-documents', createRagDocumentRoutes({ connection: storeLearningConnection }));
-app.use('/api/store-learning', createStoreLearningReadinessRoutes());
+app.use('/api/store-learning', createStoreLearningReadinessRoutes({ connection: storeLearningConnection }));
 
 const ApprovalDecisionRequestSchema = z.object({
   action: z.enum(['request_revision', 'reject', 'approve']),

@@ -111,10 +111,17 @@ learning snapshot, evidence rows, marketing ruleset, and ruleset fields.
 - Place profile body is excluded; normalized facts are used instead.
 - Current development version sends at most 3 latest Blog sources and 10 latest
   Place review sources with usable review text.
+- Blog sources include server-computed SOP metrics (`styleMetrics`) and
+  block-level text structure so the analyzer can learn title/intro/body,
+  heading, symbol, hashtag, CTA, and keyword-placement patterns without
+  inventing parser facts.
+- Prompt root includes `computedAggregates` for length policy, symbol policy,
+  hashtag candidates, CTA candidates, and heading/block statistics.
 - Prompt JSON is capped by `DEFAULT_PROMPT_CHARACTER_BUDGET = 60000`.
 - Aggregate body text is capped by `DEFAULT_BODY_CHARACTER_BUDGET = 32000`.
-- Unsupported review/image/Instagram ruleset fields are blocked server-side in
-  `blockedFields` instead of being requested from OpenAI.
+- Review-derived ruleset fields are blocked server-side in `blockedFields` only
+  when usable review text is unavailable. Instagram and image-style ruleset
+  fields are excluded from the active analyzer contract.
 
 **Ruleset regeneration gate:** for stores that already have a learning
 snapshot and marketing ruleset, `SL-A1` full analyzer regeneration is allowed
@@ -152,13 +159,13 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
 ```ts
 {
   task: "Analyze selected collected content for Store Learning & Blog Content Automation PoC.",
-  schemaVersion: "sl_a1_blog_sop_input.v1",
+  schemaVersion: "sl_a1_blog_sop_input.v2",
   outputSchemaRef: "store_learning_analysis.v2",
   constraints: [
     "Return Korean marketing strategy analysis only.",
     "Every evidence.collectionItemId must be one of the provided evidenceItemIds.",
     "Every requested ruleset field evidenceItemIds entry must be one of the provided evidenceItemIds.",
-    "Do not invent customer reviews, image analysis, Instagram inputs, or collection items.",
+    "Do not invent customer reviews or collection items.",
     "Keep claims conservative and evidence-linked.",
     "Populate every requested ruleset field once; do not populate blocked fields."
   ],
@@ -205,6 +212,18 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
         truncationReason,
         contentHash,
         bodyAvailability,
+        blocks: [{ type: "heading" | "paragraph", text, index }],
+        styleMetrics: {
+          characterCount,
+          paragraphCount,
+          headingLikeLineCount,
+          questionSentenceCount,
+          hashtagCount,
+          emojiCount,
+          symbolCount,
+          ctaCandidateCount,
+          averageParagraphLength
+        },
         hasHashtags,
         questionSentenceCount,
         ctaCandidates
@@ -237,8 +256,18 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
     }
   ],
   unavailableData: {
-    reviews: boolean,
-    images: boolean
+    reviews: boolean
+  },
+  computedAggregates: {
+    blogPostCount,
+    averageBodyCharacterCount,
+    averageParagraphCount,
+    averageHeadingLikeLineCount,
+    hashtagCandidates,
+    ctaCandidates,
+    lengthPolicy,
+    symbolPolicy,
+    headingPolicy
   },
   requestedRulesetFieldKeys: string[],
   requestedRulesetFields: [
@@ -258,7 +287,7 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
       fieldKey,
       label,
       section,
-      reason: "instagram_not_in_scope" | "image_metadata_unavailable" | "review_text_unavailable",
+      reason: "review_text_unavailable",
       source: "input_blocked"
     }
   ],
@@ -278,8 +307,14 @@ contract; healthcare screens only relabel that row as 대표 진료과목. For
 brand-analysis fields above review strengths/weaknesses, field evidence is
 scoped to Blog post IDs. `reviewStrength` and `reviewWeakness` are scoped to
 Place review IDs and are blocked when there is no usable collected review text.
-Instagram fields are always blocked for the current Blog SOP pass. Image fields
-are blocked unless usable image metadata analysis exists.
+The core Blog SOP fields are `keywordMap`, `titlePatterns`, `introPattern`,
+`bodyOutlinePattern`, `headingPattern`, and `seoPlacementPolicy`; these are
+generated from Blog titles/body, store facts, and computed aggregates. Parser
+fields such as `blogPreferredLength` and `blogEmojiPolicy` are treated as
+server-computed policy inputs rather than free-form analyzer invention.
+Instagram and image-style fields are not part of the active Blog SOP analyzer
+input/output contract. Their previous prompt and schema pieces are archived in
+`docs/codex/DEFERRED_INSTAGRAM_IMAGE_CONTRACT.md` for later reintroduction.
 
 ### Response Handling
 
@@ -312,8 +347,9 @@ ruleset fields.
 counts, Blog limit/counts, review limit/counts, character budgets, and
 `promptBudgetReason`. `llm_audit_logs.prompt_input_json` stores the v2
 budgeted input (`schemaVersion`, `storeProfile`, `evidenceItemIds`,
-`blogPosts`, `reviews`, `requestedRulesetFieldKeys`, `blockedFields`, and
-`industryPolicy`) and may include Blog body text after server-side budgeting.
+`blogPosts`, `computedAggregates`, `reviews`, `requestedRulesetFieldKeys`,
+`blockedFields`, and `industryPolicy`) and may include Blog body text after
+server-side budgeting.
 Current development defaults include at most 3 Blog items and at most 10 Place
 review items in the SL-A1 prompt.
 
@@ -379,6 +415,7 @@ You are a Korean local-store blog content strategist. Return validated structure
     "Use Korean copy suitable for a local-store Naver Blog post.",
     "Respect the current marketing ruleset and avoid forbidden or exaggerated expressions.",
     "Do not claim unsupported facts, discounts, guarantees, medical effects, or official rankings.",
+    "Do not imply Naver top-ranking guarantees or claim algorithmic ranking outcomes.",
     "Image generation is out of scope; return image prompts only.",
     "Keep the draft approval-pending and do not include publishing instructions."
   ],
@@ -400,7 +437,7 @@ You are a Korean local-store blog content strategist. Return validated structure
   },
   rulesetFields: [
     {
-      fieldKey,
+      fieldKey, // includes Blog SOP fields such as keywordMap, titlePatterns, introPattern, bodyOutlinePattern, headingPattern, seoPlacementPolicy
       finalValue,
       source,
       locked
@@ -432,8 +469,10 @@ response also exposes the same content metadata as `contentProvenance`, and
 the initial SEO score separates provider metadata into `seoScore.provenance`.
 
 **Fallback:** if no provider is created, `buildDraft()` creates a deterministic
-mock draft. Context-length provider errors are sanitized to a Korean product
-message before they reach route error responses.
+mock draft that uses title patterns, body outline patterns, heading policy,
+keyword placement policy, and the 소재-키워드 맵 when present. Context-length
+provider errors are sanitized to a Korean product message before they reach
+route error responses.
 
 ---
 
@@ -489,6 +528,7 @@ You are a Korean local-store blog content strategist. Return validated structure
     "Use Korean copy suitable for a local-store Naver Blog post.",
     "Respect the current marketing ruleset and avoid forbidden or exaggerated expressions.",
     "Do not claim unsupported facts, discounts, guarantees, medical effects, or official rankings.",
+    "Do not imply Naver top-ranking guarantees or claim algorithmic ranking outcomes.",
     "Image generation is out of scope; return image prompts only.",
     "Keep the draft approval-pending and do not include publishing instructions."
   ],
@@ -602,6 +642,7 @@ You are a Korean Naver Blog SEO reviewer. Return strict structured SEO scoring o
   constraints: [
     "Return only structured SEO scores matching the requested schema.",
     "Score conservatively using the provided article, image prompts, and marketing ruleset.",
+    "Do not reward or imply Naver top-ranking guarantees or algorithmic ranking outcomes.",
     "Do not rewrite the article in this response."
   ],
   store: {

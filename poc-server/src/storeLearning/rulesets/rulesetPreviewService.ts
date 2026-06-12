@@ -1,14 +1,10 @@
-export type RulesetPreviewChannel = 'common' | 'instagram' | 'blog';
+export type RulesetPreviewChannel = 'blog';
 
 const channelLabels: Record<RulesetPreviewChannel, string> = {
-  common: '공통 스타일',
-  instagram: '인스타그램',
   blog: '블로그'
 };
 
 const channelTags: Record<RulesetPreviewChannel, string[]> = {
-  common: ['분당 케이크', '예약 안내', '픽업 안내'],
-  instagram: ['#분당케이크', '#레터링케이크', '#예약케이크'],
   blog: ['분당 케이크', '딸기 생크림 케이크', '예약 안내']
 };
 

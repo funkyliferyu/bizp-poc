@@ -13,7 +13,7 @@ import { startAnalysisRun } from '../src/storeLearning/analysis/analysisExecutio
 import { createOpenAIAnalysisProvider } from '../src/storeLearning/analysis/openAIAnalysisProvider.js';
 import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../src/storeLearning/rulesets/rulesetSourceMatrix.js';
 
-const OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS = [
+const REMOVED_INSTAGRAM_AND_IMAGE_FIELD_KEYS = [
   'instagramPurpose',
   'instagramWritingStyle',
   'instagramPreferredLength',
@@ -32,9 +32,16 @@ const OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS = [
   'blogOverlayPolicy'
 ];
 
-const OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT = REQUIRED_ANALYZER_RULESET_FIELD_KEYS.filter(
-  (fieldKey) => !OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS.includes(fieldKey)
-);
+const OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT = [...REQUIRED_ANALYZER_RULESET_FIELD_KEYS];
+
+const CORE_BLOG_SOP_FIELD_KEYS = [
+  'keywordMap',
+  'titlePatterns',
+  'introPattern',
+  'bodyOutlinePattern',
+  'headingPattern',
+  'seoPlacementPolicy'
+];
 
 async function readJson(response: Response) {
   const text = await response.text();
@@ -186,14 +193,13 @@ describe('analysis execution API', () => {
     expect(persistedRun?.status).toBe('completed');
     expect(snapshots).toHaveLength(1);
     expect(snapshots[0].snapshot).toMatchObject({
-      storePositioning: expect.any(String),
+      storePositioning: '분당 당일 제작 커스텀 케이크 전문점',
       keyStrengths: expect.any(Array),
-      targetCustomers: expect.any(Array),
+      targetCustomers: ['기념일 케이크 고객', '레터링 케이크 예약 고객', '정자동 픽업 고객'],
       toneAndManner: expect.any(String),
       blogWritingStyle: expect.any(String),
-      seoKeywords: expect.any(Array),
+      seoKeywords: ['분당 케이크', '레터링 케이크', '정자동 케이크', '당일 제작 케이크'],
       ctaStyle: expect.any(String),
-      imageDirection: expect.any(String),
       negativeExpressions: expect.any(Array)
     });
     expect(generatedRuleset).toBeTruthy();
@@ -227,11 +233,6 @@ describe('analysis execution API', () => {
         'catchphrase',
         'humorLevel',
         'trendSensitivity',
-        'instagramPurpose',
-        'instagramWritingStyle',
-        'instagramPreferredLength',
-        'instagramHashtags',
-        'instagramEmojiPolicy',
         'blogPurpose',
         'toneAndManner',
         'blogWritingStyle',
@@ -239,27 +240,22 @@ describe('analysis execution API', () => {
         'blogEmojiPolicy',
         'seoKeywords',
         'ctaStyle',
-        'primaryColors',
-        'accentColors',
-        'imageDirection',
-        'imageStyle',
-        'imageAvoidStyle',
-        'instagramImageFormat',
-        'instagramImageStyle',
-        'instagramOverlayPolicy',
-        'blogImageFormat',
-        'blogImageStyle',
-        'blogOverlayPolicy',
         'negativeExpressions'
       ])
     );
     expect(fields.find((field) => field.fieldKey === 'storePositioning')).toMatchObject({
-      aiValue: expect.any(String),
+      aiValue: '분당 당일 제작 커스텀 케이크 전문점',
       userValue: null,
-      finalValue: expect.any(String),
+      finalValue: '분당 당일 제작 커스텀 케이크 전문점',
       source: 'mock_analyzer',
       locked: 0,
       evidenceItemIds: expect.arrayContaining(['collection_item_demo_place_profile'])
+    });
+    expect(fields.find((field) => field.fieldKey === 'seoKeywords')).toMatchObject({
+      finalValue: '분당 케이크, 레터링 케이크, 정자동 케이크, 당일 제작 케이크'
+    });
+    expect(fields.find((field) => field.fieldKey === 'keywordMap')).toMatchObject({
+      finalValue: '분당 케이크 예약: 분당 케이크, 예약, 픽업 / 레터링 주문: 레터링 케이크, 문구 상담 / 당일 제작: 당일 제작 케이크, 가능 여부'
     });
     expect(fields.find((field) => field.fieldKey === 'reviewWeakness')).toMatchObject({
       aiValue: expect.stringContaining('주차'),
@@ -289,7 +285,7 @@ describe('analysis execution API', () => {
     expect(latest.analysisRun.status).toBe('completed');
     expect(latest.learningSnapshot.status).toBe('active');
     expect(latest.marketingRuleset.status).toBe('draft');
-    expect(latest.rulesetFields.length).toBeGreaterThanOrEqual(30);
+    expect(latest.rulesetFields.length).toBeGreaterThanOrEqual(28);
     expect(latest.analysisEvidence.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -909,7 +905,6 @@ describe('analysis execution API', () => {
       blogWritingStyle: '후기 근거를 먼저 제시하고 예약 방법을 자연스럽게 연결',
       seoKeywords: ['분당 케이크', '레터링 케이크', '정자동 케이크'],
       ctaStyle: '예약 가능 여부와 픽업 시간을 확인하도록 유도',
-      imageDirection: '케이크 디테일과 포장 상태를 함께 보여주는 이미지 구성',
       negativeExpressions: ['전국 최고', '무조건 가능'],
       evidence: [
         {
@@ -973,15 +968,22 @@ describe('analysis execution API', () => {
     expect(parsePayload).toContain('test-openai-model');
     expect(parsePayload).toContain('collection_item_demo_blog');
     expect(parsePayload).toContain('rulesetFieldsByKey');
-    expect(parsePayload).toContain('sl_a1_blog_sop_input.v1');
+    expect(parsePayload).toContain('sl_a1_blog_sop_input.v2');
     expect(parsePayload).toContain('store_learning_analysis.v2');
     expect(parsePayload).toContain('reviewWeakness');
-    expect(parsePayload).toContain('blogImageFormat');
     expect(parsePayload).toContain('representativeMenu');
+    expect(parsePayload).toContain('titlePatterns');
+    expect(parsePayload).toContain('seoPlacementPolicy');
+    expect(parsePayload).toContain('computedAggregates');
     expect(parsePayload).toContain('blogger_test');
     expect(parsePayload).toContain('건물 뒤편 2대 주차 가능');
     expect(parsePayload).not.toContain('rawProviderPayload');
     expect(parsePayload).not.toContain('https://cdn.example.com');
+    for (const fieldKey of REMOVED_INSTAGRAM_AND_IMAGE_FIELD_KEYS) {
+      expect(parsePayload).not.toContain(fieldKey);
+    }
+    expect(parsePayload).not.toContain('instagram_not_in_scope');
+    expect(parsePayload).not.toContain('image_metadata_unavailable');
 
     const parseCall = asRecord(parseCalls[0]);
     const responseFormat = asRecord(parseCall.response_format);
@@ -1014,12 +1016,14 @@ describe('analysis execution API', () => {
     expect(rulesetFieldsByKeySchema.additionalProperties).toBe(false);
     expect(rulesetFieldRequired).toHaveLength(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT.length);
     expect(rulesetFieldRequired).toEqual(expect.arrayContaining(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT));
+    expect(rulesetFieldRequired).toEqual(expect.arrayContaining(CORE_BLOG_SOP_FIELD_KEYS));
     expect(Object.keys(rulesetFieldProperties)).toEqual(
       expect.arrayContaining(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT)
     );
-    for (const blockedFieldKey of OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS) {
-      expect(rulesetFieldRequired).not.toContain(blockedFieldKey);
-      expect(rulesetFieldProperties[blockedFieldKey]).toBeUndefined();
+    expect(Object.keys(rulesetFieldProperties)).toEqual(expect.arrayContaining(CORE_BLOG_SOP_FIELD_KEYS));
+    for (const fieldKey of REMOVED_INSTAGRAM_AND_IMAGE_FIELD_KEYS) {
+      expect(rulesetFieldRequired).not.toContain(fieldKey);
+      expect(rulesetFieldProperties[fieldKey]).toBeUndefined();
     }
     expect(evidenceItemIdSchema.enum).toEqual(
       expect.arrayContaining([
@@ -1028,8 +1032,15 @@ describe('analysis execution API', () => {
         'collection_item_demo_place_review'
       ])
     );
-    expect(promptInput.schemaVersion).toBe('sl_a1_blog_sop_input.v1');
+    expect(promptInput.schemaVersion).toBe('sl_a1_blog_sop_input.v2');
     expect(promptInput.outputSchemaRef).toBe('store_learning_analysis.v2');
+    expect(promptInput.computedAggregates).toEqual(
+      expect.objectContaining({
+        source: 'computed',
+        lengthPolicy: expect.objectContaining({ source: 'computed' }),
+        symbolPolicy: expect.objectContaining({ source: 'computed' })
+      })
+    );
     expect(promptInput.evidenceItemIds).toEqual([
       'collection_item_demo_place_profile',
       'collection_item_demo_place_review',
@@ -1060,20 +1071,8 @@ describe('analysis execution API', () => {
     );
     expect(promptInput.reviews.map((item: { id: string }) => item.id)).toContain('collection_item_demo_place_review');
     expect(promptInput.requestedRulesetFieldKeys).toEqual(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT);
-    expect(promptInput.blockedFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          fieldKey: 'blogImageFormat',
-          reason: 'image_metadata_unavailable',
-          source: 'input_blocked'
-        }),
-        expect.objectContaining({
-          fieldKey: 'instagramPurpose',
-          reason: 'instagram_not_in_scope',
-          source: 'input_blocked'
-        })
-      ])
-    );
+    expect(promptInput.blockedFields).toEqual([]);
+    expect(promptInput.unavailableData).not.toHaveProperty('images');
 
     expect(persistedRun?.status).toBe('completed');
     expect(persistedRun?.result).toEqual(
@@ -1122,16 +1121,7 @@ describe('analysis execution API', () => {
     expect(fields.filter((field) => field.source === 'openai_analysis').map((field) => field.fieldKey)).toEqual(
       expect.arrayContaining(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT)
     );
-    expect(fields.filter((field) => field.source === 'input_blocked').map((field) => field.fieldKey)).toEqual(
-      expect.arrayContaining(OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS)
-    );
-    expect(fields.find((field) => field.fieldKey === 'blogImageFormat')).toMatchObject({
-      source: 'input_blocked',
-      locked: 0,
-      confidence: null,
-      evidenceItemIds: [],
-      finalValue: expect.stringContaining('입력 데이터가 부족해')
-    });
+    expect(fields.filter((field) => field.source === 'input_blocked').map((field) => field.fieldKey)).toEqual([]);
     expect(auditLogs).toHaveLength(1);
     expect(auditLogs[0]).toMatchObject({
       storeId: 'store_demo_cake',
@@ -1147,28 +1137,23 @@ describe('analysis execution API', () => {
         promptCharacterCount: expect.any(Number),
         promptBudgetReason: null,
         requestedRulesetFieldKeys: OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT,
-        blockedFields: expect.arrayContaining([
-          expect.objectContaining({
-            fieldKey: 'blogImageFormat',
-            source: 'input_blocked'
-          })
-        ])
+        blockedFields: []
       }),
       promptInputJson: expect.objectContaining({
-        schemaVersion: 'sl_a1_blog_sop_input.v1',
+        schemaVersion: 'sl_a1_blog_sop_input.v2',
         outputSchemaRef: 'store_learning_analysis.v2',
         storeProfile: expect.objectContaining({ id: 'store_demo_cake' }),
+        computedAggregates: expect.objectContaining({
+          source: 'computed',
+          lengthPolicy: expect.objectContaining({ source: 'computed' }),
+          symbolPolicy: expect.objectContaining({ source: 'computed' })
+        }),
         evidenceItemIds: [
           'collection_item_demo_place_profile',
           'collection_item_demo_place_review',
           'collection_item_demo_blog'
         ],
-        blockedFields: expect.arrayContaining([
-          expect.objectContaining({
-            fieldKey: 'blogImageFormat',
-            source: 'input_blocked'
-          })
-        ])
+        blockedFields: []
       }),
       responseFormatJson: expect.objectContaining({
         name: 'store_learning_analysis',
@@ -1178,11 +1163,26 @@ describe('analysis execution API', () => {
         storePositioning: '분당 레터링 케이크 예약 전문점',
         rulesetFields: expect.any(Array)
       }),
+      rawRequestedJson: expect.objectContaining({
+        model: 'test-openai-model',
+        messages: expect.any(Array)
+      }),
+      rawParsedOutputJson: expect.objectContaining({
+        rulesetFieldsByKey: expect.any(Object)
+      }),
+      normalizedOutputJson: expect.objectContaining({
+        storePositioning: '분당 레터링 케이크 예약 전문점',
+        rulesetFields: expect.any(Array)
+      }),
       errorJson: null
     });
     expect(auditLogs[0].durationMs).toBeGreaterThanOrEqual(0);
     expect(auditLogs[0].requestStartedAt).toEqual(expect.any(String));
     expect(auditLogs[0].responseCompletedAt).toEqual(expect.any(String));
+    expect(JSON.stringify(auditLogs[0])).toContain('rawRequestedJson');
+    expect(JSON.stringify(auditLogs[0])).toContain('rawParsedOutputJson');
+    expect(JSON.stringify(auditLogs[0])).toContain('normalizedOutputJson');
+    expect(JSON.stringify(auditLogs[0])).toContain('rulesetFieldsByKey');
     expect(JSON.stringify(auditLogs[0])).not.toContain('test-key');
     expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('rawProviderPayload');
     expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('rawRenderedHtml');
@@ -1211,7 +1211,6 @@ describe('analysis execution API', () => {
               blogWritingStyle: '후기 근거 중심',
               seoKeywords: ['분당 케이크'],
               ctaStyle: '예약 문의 유도',
-              imageDirection: '케이크 디테일 이미지',
               negativeExpressions: ['전국 최고'],
               evidence: [
                 {
@@ -1339,7 +1338,6 @@ describe('analysis execution API', () => {
             blogWritingStyle: '후기 근거 중심',
             seoKeywords: ['분당 케이크'],
             ctaStyle: '예약 문의 유도',
-            imageDirection: '케이크 디테일 이미지',
             negativeExpressions: ['전국 최고'],
             evidence: [
               {
@@ -1421,7 +1419,6 @@ describe('analysis execution API', () => {
             blogWritingStyle: '근거 중심',
             seoKeywords: ['테스트'],
             ctaStyle: '문의 유도',
-            imageDirection: '대표 이미지',
             negativeExpressions: ['과장 금지'],
             evidence: [
               {

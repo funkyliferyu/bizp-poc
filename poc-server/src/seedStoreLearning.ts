@@ -285,8 +285,7 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     version: 1,
     ruleset: {
       positioning: '분당 당일 제작 커스텀 케이크 전문점',
-      writingStyle: '친절하고 예약 정보를 명확히 안내하는 블로그형',
-      imageStyle: '케이크 디테일과 픽업 패키지를 함께 보여주는 구성'
+      writingStyle: '친절하고 예약 정보를 명확히 안내하는 블로그형'
     },
     createdAt: timestamp(22),
     updatedAt: timestamp(22)
@@ -397,40 +396,40 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
       confidence: 0.72
     },
     {
-      fieldKey: 'instagramPurpose',
-      value: '비주얼 중심 브랜딩과 신규 고객 유입',
-      evidenceItemIds: ['collection_item_demo_place_profile'],
-      confidence: 0.72
-    },
-    {
-      fieldKey: 'instagramWritingStyle',
-      value: '짧은 단정 서술과 지역/메뉴 해시태그 중심',
-      evidenceItemIds: ['collection_item_demo_blog'],
-      confidence: 0.72
-    },
-    {
-      fieldKey: 'instagramPreferredLength',
-      value: '캡션 80-150자와 해시태그 4-6개',
-      evidenceItemIds: ['collection_item_demo_blog'],
-      confidence: 0.71
-    },
-    {
-      fieldKey: 'instagramHashtags',
-      value: '#분당케이크 #레터링케이크 #커스텀케이크 #당일제작케이크',
-      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile', 'collection_item_demo_place_review'],
-      confidence: 0.78
-    },
-    {
-      fieldKey: 'instagramEmojiPolicy',
-      value: '문장 끝 1-2개까지 허용',
-      evidenceItemIds: ['collection_item_demo_blog'],
-      confidence: 0.7
-    },
-    {
       fieldKey: 'blogPurpose',
       value: '검색 유입, 예약 상담 유도, 신뢰 형성',
       evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
       confidence: 0.85
+    },
+    {
+      fieldKey: 'keywordMap',
+      value: '분당 케이크 예약: 분당 케이크, 예약, 픽업 / 레터링 주문: 레터링 케이크, 문구 상담 / 당일 제작: 당일 제작 케이크, 가능 여부',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
+      confidence: 0.84
+    },
+    {
+      fieldKey: 'titlePatterns',
+      value: '분당 케이크 예약 전 확인할 점, 레터링 케이크 주문 전 체크리스트, 정자동 케이크 픽업 안내',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.83
+    },
+    {
+      fieldKey: 'introPattern',
+      value: '고객이 케이크 예약 전 자주 묻는 상황으로 시작하고 오늘 확인할 내용을 짧게 예고',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.82
+    },
+    {
+      fieldKey: 'bodyOutlinePattern',
+      value: '예약 전 고민, 디자인/문구 선택 기준, 제작 가능 여부 확인, 픽업 동선 안내, CTA',
+      evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
+      confidence: 0.82
+    },
+    {
+      fieldKey: 'headingPattern',
+      value: '질문형 또는 안내형 소제목 3-5개, 각 소제목 아래 2-3문단',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.81
     },
     {
       fieldKey: 'blogWritingStyle',
@@ -440,7 +439,7 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
     },
     {
       fieldKey: 'blogPreferredLength',
-      value: '본문 700-1,000자와 사진 8장 이상 권장',
+      value: '본문 700-1,000자, 소제목 3-5개, CTA 포함 권장',
       evidenceItemIds: ['collection_item_demo_blog'],
       confidence: 0.77
     },
@@ -463,77 +462,17 @@ export function seedDemoStore(connection: DbConnection): DemoStoreSeedResult {
       confidence: 0.89
     },
     {
+      fieldKey: 'seoPlacementPolicy',
+      value: '핵심 키워드는 제목, 첫 문단, 소제목 중 필요한 위치에만 배치하고 의미 없는 반복은 제한',
+      evidenceItemIds: ['collection_item_demo_blog'],
+      confidence: 0.82
+    },
+    {
       fieldKey: 'ctaStyle',
       value: '예약 가능 여부와 픽업 시간을 확인하도록 부드럽게 유도',
       evidenceItemIds: ['collection_item_demo_place_profile'],
       confidence: 0.82
     },
-    {
-      fieldKey: 'primaryColors',
-      value: '#FAD9E3 파스텔 핑크, #FFFFFF 화이트',
-      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
-      confidence: 0.69
-    },
-    {
-      fieldKey: 'accentColors',
-      value: '#E8A0BF 로즈 핑크',
-      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
-      confidence: 0.68
-    },
-    {
-      fieldKey: 'imageDirection',
-      value: '케이크 디테일, 레터링 문구, 포장 상태, 픽업 동선을 함께 보여주는 이미지 구성',
-      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_place_review'],
-      confidence: 0.81
-    },
-    {
-      fieldKey: 'imageStyle',
-      value: '감성적 미니멀, 케이크 클로즈업 중심',
-      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
-      confidence: 0.74
-    },
-    {
-      fieldKey: 'imageAvoidStyle',
-      value: '어두운 톤, 과도한 필터, 복잡한 배경',
-      evidenceItemIds: ['collection_item_demo_place_profile'],
-      confidence: 0.73
-    },
-    {
-      fieldKey: 'instagramImageFormat',
-      value: '정방형 1:1 또는 세로 4:5',
-      evidenceItemIds: ['collection_item_demo_place_profile'],
-      confidence: 0.7
-    },
-    {
-      fieldKey: 'instagramImageStyle',
-      value: '감성 접사와 플랫레이 중심',
-      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
-      confidence: 0.7
-    },
-    {
-      fieldKey: 'instagramOverlayPolicy',
-      value: '카드뉴스형 가능, 로고 워터마크는 owner asset이 있을 때만 사용',
-      evidenceItemIds: ['collection_item_demo_place_profile'],
-      confidence: 0.68
-    },
-    {
-      fieldKey: 'blogImageFormat',
-      value: '가로 3:2 권장, 최소 8장, 1200x800px 이상',
-      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
-      confidence: 0.76
-    },
-    {
-      fieldKey: 'blogImageStyle',
-      value: '전체샷, 디테일샷, 공간샷을 혼합',
-      evidenceItemIds: ['collection_item_demo_place_profile', 'collection_item_demo_blog'],
-      confidence: 0.75
-    },
-    {
-      fieldKey: 'blogOverlayPolicy',
-      value: '이미지 내 텍스트 최소화',
-      evidenceItemIds: ['collection_item_demo_place_profile'],
-      confidence: 0.74
-    }
   ];
 
   expandedRulesetFields.forEach((field, index) => {

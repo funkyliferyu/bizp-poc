@@ -128,6 +128,18 @@
     return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
   }
 
+  function formatDateTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '-';
+    const datePart = formatDate(value);
+    const timePart = [
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds()
+    ].map((item) => String(item).padStart(2, '0')).join(':');
+    return `${datePart} ${timePart}`;
+  }
+
   function shortDate(value) {
     if (typeof value === 'string') {
       const trimmed = value.trim();
@@ -494,7 +506,7 @@
   }
 
   function renderOverview(status, storeId) {
-    field('learning-last-analyzed').textContent = formatDate(status.lastAnalyzedAt);
+    field('learning-last-analyzed').textContent = formatDateTime(status.lastAnalyzedAt);
     field('learning-next-collection').textContent = formatDate(status.nextCollectionAt);
     field('learning-collection-cycle').textContent = status.collectionCycle || '-';
     field('learning-ruleset-status').innerHTML = status.ruleset

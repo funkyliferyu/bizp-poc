@@ -25,6 +25,9 @@ type RecordLlmAuditLogInput = {
   action: string;
   status: 'completed' | 'failed';
   inputBudget?: unknown;
+  rawRequestedJson?: unknown;
+  rawParsedOutputJson?: unknown;
+  normalizedOutputJson?: unknown;
   parsedOutputJson?: unknown;
   errorJson?: unknown;
 };
@@ -36,6 +39,12 @@ export function recordLlmAuditLog(repos: Repositories, input: RecordLlmAuditLogI
   const completedAt = auditMetadata?.responseCompletedAt ?? nowIso();
   const startedAt = auditMetadata?.requestStartedAt ?? completedAt;
   const duration = auditMetadata?.durationMs ?? durationMs(startedAt, completedAt);
+  const normalizedOutputJson =
+    input.normalizedOutputJson ??
+    auditMetadata?.normalizedOutputJson ??
+    input.parsedOutputJson ??
+    auditMetadata?.parsedOutputJson ??
+    null;
 
   return repos.llmAuditLogs.create({
     id: `llm_audit_${Date.now()}_${randomUUID()}`,
@@ -52,6 +61,11 @@ export function recordLlmAuditLog(repos: Repositories, input: RecordLlmAuditLogI
     inputBudget: toJsonValue(input.inputBudget ?? auditMetadata?.inputBudget ?? null),
     promptInputJson: toJsonValue(auditMetadata?.promptInputJson ?? null),
     responseFormatJson: toJsonValue(auditMetadata?.responseFormatJson ?? null),
+    rawRequestedJson: toJsonValue(input.rawRequestedJson ?? auditMetadata?.rawRequestedJson ?? null),
+    rawParsedOutputJson: toJsonValue(
+      input.rawParsedOutputJson ?? auditMetadata?.rawParsedOutputJson ?? auditMetadata?.parsedOutputJson ?? null
+    ),
+    normalizedOutputJson: toJsonValue(normalizedOutputJson),
     parsedOutputJson: toJsonValue(input.parsedOutputJson ?? auditMetadata?.parsedOutputJson ?? null),
     status: input.status,
     errorJson: toJsonValue(input.errorJson ?? auditMetadata?.errorJson ?? null),

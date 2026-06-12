@@ -55,16 +55,17 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-12:
 
-1. Implement the SL-A1 LLM input redesign from
-   `docs/codex/NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md`. Start from latest
-   `develop` including PR #45 merge commit `dc0a759`, use
-   `codex/sl-a1-input-redesign`, keep `.DS_Store` unstaged, and keep the work
-   limited to the SL-A1 analysis prompt/input contract, response field
-   contract, LLM audit payload, and reviewer docs.
-2. Keep `web/llm호출.html` as the temporary reviewer-facing verification table
+1. Review and integrate the Blog SOP ruleset contract branch
+   `codex/blog-sop-ruleset-contract` after final review. It was implemented
+   from latest `develop` at commit `84f1684`; keep `.DS_Store` unstaged, and
+   keep browser calls limited to `poc-server` APIs.
+2. Keep the current ruleset preview endpoint as deterministic server/mock
+   output unless the user explicitly approves a separate OpenAI preview
+   provider task.
+3. Keep `web/llm호출.html` as the temporary reviewer-facing verification table
    until the LLM provenance work either replaces it or the user says to remove
    it.
-3. Prepare the `develop` -> `main` promotion path only after the user approves
+4. Prepare the `develop` -> `main` promotion path only after the user approves
    publication timing.
 
 ## Milestone Ledger
@@ -83,9 +84,10 @@ Current next todo as of 2026-06-12:
 | 10 | 마케팅 전략 룰셋 API 계약 후속 | Validated on develop | [#36](https://github.com/funkyliferyu/bizp-poc/pull/36) | Covered by final develop validation after PR #38 |
 | 11 | 실등록 Store E2E 하드닝 | Validated on develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Covered by final develop validation after PR #38 |
 | 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Validated on develop | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), merge `204f964` | Develop validation recorded 2026-06-10 |
-| 13 | LLM 호출 감사와 분석 입력 예산 | Merged to develop | [plan](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md), temporary table `web/llm호출.html`, merge `f17683b` | Follow-up Task 6/7 planned for audit logs and evidence-threshold relearn gating |
-| 13a | LLM 감사 로그, 근거 부족 재학습 차단, 룰셋 버전 원복 | Merged to develop | [Task 6](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-6-add-server-side-llm-audit-logs), [Task 7](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-7-gate-ruleset-regeneration-until-new-evidence-is-sufficient), [Task 8](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-8-manage-ruleset-version-history-and-restore), PR #44, follow-up PR #45 | Develop merge complete; next user-approved work is SL-A1 input redesign |
-| 13b | SL-A1 LLM 입력 구조 재설계 | Implementation in progress | [plan](NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md), branch `codex/sl-a1-input-redesign` | Feature-branch implementation and local validation complete; PR to `develop` remains |
+| 13 | LLM 호출 감사와 분석 입력 예산 | Validated on develop | [plan](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md), temporary table `web/llm호출.html`, merge `f17683b` | Follow-up validation recorded in `docs/codex/VALIDATION.md` |
+| 13a | LLM 감사 로그, 근거 부족 재학습 차단, 룰셋 버전 원복 | Validated on develop | [Task 6](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-6-add-server-side-llm-audit-logs), [Task 7](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-7-gate-ruleset-regeneration-until-new-evidence-is-sufficient), [Task 8](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-8-manage-ruleset-version-history-and-restore), PR #44, follow-up PR #45 | Develop validation recorded in `docs/codex/VALIDATION.md` |
+| 13b | SL-A1 LLM 입력 구조 재설계 | Validated on develop | [plan](NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md), commit `84f1684` | Pushed to `develop` and validated locally before integration |
+| 13c | Blog SOP 룰셋 계약 적용 | Validated locally on branch | [plan](NEXT_SESSION_BLOG_SOP_RULESET_PLAN.md), implementation branch `codex/blog-sop-ruleset-contract` | Open/merge PR to `develop`, then validate on `develop` |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist
@@ -490,9 +492,21 @@ The current implementation stack should be integrated in this order:
 ```
 
 PRs #26-#34, #36, #37, and #38 have been merged to `develop`. Final develop
-validation after PR #38 passed on 2026-06-10. The next todo is the LLM call
-audit and analysis prompt-budget follow-up in
-`docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`.
+validation after PR #38 passed on 2026-06-10. LLM call audit follow-up and
+SL-A1 input redesign work have since been integrated into `develop`; the Blog
+SOP ruleset contract is locally validated on `codex/blog-sop-ruleset-contract`
+and should be integrated next.
+
+Blog SOP contract trim follow-up on `codex/blog-sop-ruleset-contract`:
+
+- Remove Instagram and image-style fields from the active SL-A1 analyzer input,
+  OpenAI response schema, source matrix, seed data, and ruleset UI.
+- Keep only the Blog writing-style surface in the marketing ruleset page; the
+  previous visible `공통` tab is now labelled `블로그`.
+- Keep deferred Instagram/image prompt and schema pieces in
+  `docs/codex/DEFERRED_INSTAGRAM_IMAGE_CONTRACT.md` for later reuse.
+- Learning status should render `마지막 학습일` with seconds:
+  `YYYY.MM.DD HH:mm:ss`.
 
 ## Validation Commands
 

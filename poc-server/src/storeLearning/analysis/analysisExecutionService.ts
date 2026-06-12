@@ -322,13 +322,10 @@ function validateAnalyzerRulesetFieldContract(
 }
 
 function blockedFieldFinalValue(field: BlockedAnalyzerRulesetField) {
-  if (field.reason === 'instagram_not_in_scope') {
-    return `${field.label}은(는) 이번 Blog SOP 분석 범위에 Instagram 입력이 없어 AI가 추론하지 않았습니다.`;
-  }
   if (field.reason === 'review_text_unavailable') {
     return `${field.label}은(는) 수집된 리뷰 본문 입력 데이터가 부족해 AI가 추론하지 않았습니다.`;
   }
-  return `${field.label}은(는) 이미지 메타데이터 분석 입력 데이터가 부족해 AI가 추론하지 않았습니다.`;
+  return `${field.label}은(는) 입력 데이터가 부족해 AI가 추론하지 않았습니다.`;
 }
 
 function appendBlockedInputRulesetFields(
@@ -532,7 +529,6 @@ export async function startAnalysisRun(
         blogWritingStyle: output.blogWritingStyle,
         seoKeywords: output.seoKeywords,
         ctaStyle: output.ctaStyle,
-        imageDirection: output.imageDirection,
         negativeExpressions: output.negativeExpressions,
         evidenceItemIds: selectedItems.map((item) => item.id),
         provider: provider.name,
@@ -565,7 +561,6 @@ export async function startAnalysisRun(
         blogWritingStyle: output.blogWritingStyle,
         seoKeywords: output.seoKeywords,
         ctaStyle: output.ctaStyle,
-        imageDirection: output.imageDirection,
         negativeExpressions: output.negativeExpressions
       }
     });

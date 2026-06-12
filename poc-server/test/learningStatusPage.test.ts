@@ -36,6 +36,16 @@ describe('learning status static page API wiring', () => {
     expect(js).not.toContain('NAVER_CLIENT');
   });
 
+  it('renders the last learning timestamp with hours, minutes, and seconds', () => {
+    const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
+
+    expect(js).toContain('function formatDateTime');
+    expect(js).toContain("field('learning-last-analyzed').textContent = formatDateTime(status.lastAnalyzedAt);");
+    expect(js).toContain('getHours()');
+    expect(js).toContain('getMinutes()');
+    expect(js).toContain('getSeconds()');
+  });
+
   it('renders API-backed completion result hooks without provider calls', () => {
     const html = readFileSync(path.join(webRoot, '06_AI학습_현황.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');

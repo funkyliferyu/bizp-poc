@@ -1,5 +1,116 @@
 # Validation
 
+## Task 13c Blog SOP Ruleset Contract Validation
+
+Date: 2026-06-12
+
+Branch:
+
+- `codex/blog-sop-ruleset-contract`
+
+Scope:
+
+- Added deterministic Blog SOP metrics and aggregates before SL-A1.
+- Upgraded SL-A1 prompt input to `sl_a1_blog_sop_input.v2` with Blog body
+  blocks, style metrics, and `computedAggregates`.
+- Added first-class Blog SOP ruleset fields:
+  `keywordMap`, `titlePatterns`, `introPattern`, `bodyOutlinePattern`,
+  `headingPattern`, and `seoPlacementPolicy`.
+- Added ruleset field `sourceStatus` serialization without a DB migration.
+- Updated marketing strategy ruleset writing UI rows and labels for Blog SOP,
+  `브랜드 표현 후보`, and `기호/이모지 정책`.
+- Fed Blog SOP fields into Blog generation/regeneration prompt inputs and the
+  deterministic mock Blog generator.
+- Added Blog/SEO constraints that avoid Naver top-ranking guarantee or
+  algorithmic ranking outcome claims.
+- Updated LLM call structure docs, reviewer HTML, plan ledger, and handoff.
+
+TDD evidence:
+
+- RED `npm test -- --run test/blogSopMetrics.test.ts`: failed because
+  `blogSopMetrics.ts` did not exist.
+- RED `npm test -- --run test/analysisPromptBudget.test.ts`: failed because
+  SL-A1 prompt input was still v1 and lacked `styleMetrics` /
+  `computedAggregates`.
+- RED
+  `npm test -- --run test/analysisExecutionApi.test.ts -t "OpenAI analyzer output"`:
+  failed because the strict analyzer schema/prompt did not include Core Blog
+  SOP fields.
+- RED
+  `npm test -- --run test/rulesetApi.test.ts -t "sourceStatus|field source matrix"`:
+  failed because serialized ruleset fields lacked `sourceStatus`.
+- RED
+  `npm test -- --run test/rulesetPage.test.ts -t "writing style as editable"`:
+  failed because the new Blog SOP UI rows/source status labels were absent.
+- RED
+  `npm test -- --run test/blogGenerationApi.test.ts -t "generates an approval-pending blog post"`:
+  failed because Blog generation prompt inputs and mock drafts did not use the
+  new SOP fields.
+- GREEN same focused commands after implementation.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/blogSopMetrics.test.ts
+npm test -- --run test/analysisPromptBudget.test.ts
+npm test -- --run test/analysisExecutionApi.test.ts -t "OpenAI analyzer output"
+npm test -- --run test/rulesetApi.test.ts
+npm test -- --run test/rulesetPage.test.ts
+npm test -- --run test/blogGenerationApi.test.ts
+npm run typecheck
+npm test
+cd ..
+node --check web/ruleset_editor.js
+node --check web/learning_status.js
+git diff --check
+```
+
+Browser smoke:
+
+```bash
+cd poc-server
+rm -f /tmp/bizp-blog-sop-smoke.sqlite /tmp/bizp-blog-sop-smoke.sqlite-shm /tmp/bizp-blog-sop-smoke.sqlite-wal
+STORE_LEARNING_DB_PATH=/tmp/bizp-blog-sop-smoke.sqlite npm run db:seed
+PORT=5188 STORE_LEARNING_DB_PATH=/tmp/bizp-blog-sop-smoke.sqlite npm run dev
+```
+
+Then Playwright opened:
+
+```text
+http://127.0.0.1:5188/07_마케팅전략룰셋.html?storeId=store_demo_cake
+```
+
+Result:
+
+- PASS, focused SOP metrics: 2 tests.
+- PASS, focused analysis prompt budget: 7 tests.
+- PASS, focused OpenAI analyzer output: 1 test, 16 skipped.
+- PASS, ruleset API: 22 tests.
+- PASS, ruleset page: 17 tests.
+- PASS, Blog generation API: 5 tests.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 40 files passed, 3 live-provider files skipped by
+  default; 269 tests passed, 6 skipped.
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, `node --check web/learning_status.js`.
+- PASS, `git diff --check`.
+- PASS, Playwright smoke found all new SOP labels, hydrated
+  `titlePatterns` and `seoPlacementPolicy`, showed `blogPreferredLength` as
+  `서버 산출`, and found no console errors, page errors, `상위노출 보장`, or
+  `네이버 알고리즘 보장` copy.
+
+Boundary checks:
+
+- `.DS_Store` remains an out-of-scope local modification and was not edited or
+  staged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Browser changes use existing `poc-server` APIs only; no browser-side
+  Naver/OpenAI/provider calls were added.
+- Ruleset preview remains deterministic/local; no OpenAI preview provider was
+  added.
+
 ## Task 6 Server-Side LLM Audit Logs Validation
 
 Date: 2026-06-11
@@ -2466,3 +2577,50 @@ Browser UI validation:
   - The browser log buffer included one older `MutationObserver` error from
     `http://localhost:5177/` before the direct ruleset-page check. The direct
     DOM state for the ruleset page was verified after reload.
+
+Blog SOP contract trim validation:
+
+```bash
+cd poc-server
+npm test -- analysisPromptBudget.test.ts learningStatusPage.test.ts rulesetPage.test.ts rulesetApi.test.ts analysisExecutionApi.test.ts staticWebConnectivity.test.ts openAIBlogProviderBudget.test.ts
+npm run typecheck
+npm test
+node --check ../web/ruleset_editor.js
+node --check ../web/learning_status.js
+git diff --check
+npm run demo:store-learning
+```
+
+Result:
+
+- PASS, focused RED/GREEN regression coverage: 7 files passed, 105 tests
+  passed.
+- PASS, TypeScript typecheck.
+- PASS, full test suite: 40 files passed and 3 live-provider files skipped by
+  default.
+- PASS, 270 tests passed and 6 live-provider tests skipped by default.
+- PASS, `node --check` for `web/ruleset_editor.js` and
+  `web/learning_status.js`.
+- PASS, `git diff --check`.
+- PASS, demo seed completed:
+  - store: `분당 케이크하우스`
+  - channels: 3
+  - collectionItems: 5
+  - blogPostStatus: `pending_approval`
+  - seoScore: 86
+
+Playwright smoke:
+
+- Browser plugin tool was not available in this turn, so regular Playwright was
+  used against `http://localhost:5180`.
+- Ruleset page:
+  - top tabs: `매장 정보`, `우리 매장 분석`, `글쓰기 스타일`, `유사업체비교`
+  - writing sub-tabs: `블로그`
+  - `#sec-img`: absent
+  - `#write-insta`: absent
+  - visible `이미지 스타일` / writing-tab `인스타그램`: absent
+  - writing preview channel: `블로그`
+- Learning status page:
+  - `#learning-last-analyzed`: `2026.06.06 02:08:53`
+  - timestamp matched `YYYY.MM.DD HH:mm:ss`.
+- Console errors/warnings: none captured during the smoke run.

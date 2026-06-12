@@ -82,8 +82,8 @@ function rulesetFields() {
     field('seoKeywords', '분당 케이크, 레터링 케이크, 정자동 케이크'),
     field('blogWritingStyle', '후기 근거를 바탕으로 예약 전 확인사항을 정리하는 문체'),
     field('ctaStyle', '예약 가능 여부와 픽업 시간을 확인하도록 안내'),
-    field('negativeExpressions', '전국 최고, 무조건, 보장'),
-    field('imageDirection', '케이크 디테일과 포장 상태 중심')
+    field('industryCommonRules', '업종 공통 필수 고지 없음'),
+    field('negativeExpressions', '전국 최고, 무조건, 보장')
   ];
 }
 
@@ -248,6 +248,10 @@ describe('OpenAI blog provider prompt budget', () => {
           expect.objectContaining({
             fieldKey: 'seoKeywords',
             finalValue: '분당 케이크, 레터링 케이크, 정자동 케이크'
+          }),
+          expect.objectContaining({
+            fieldKey: 'industryCommonRules',
+            finalValue: '업종 공통 필수 고지 없음'
           })
         ])
       })

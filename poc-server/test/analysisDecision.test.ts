@@ -122,6 +122,39 @@ describe('analysis execution decision', () => {
     });
   });
 
+  it('runs the analyzer for first learning from cached selected evidence even when the latest collection has no meaningful changes', () => {
+    const decision = decideAnalysisExecution({
+      collectionSummary: {
+        collectionDelta: {
+          hasMeaningfulChanges: false,
+          counts: { new: 0, duplicate: 60, unchanged: 1, changed: 0 }
+        }
+      },
+      selectedItems: [
+        item({
+          id: 'cached_profile',
+          sourceType: 'profile',
+          metadata: { collectionDelta: 'unchanged' }
+        }),
+        item({
+          id: 'cached_blog_unlearned',
+          channel: 'blog',
+          sourceType: 'post',
+          metadata: { provider: 'naverBlogRenderedCollectionProvider' }
+        })
+      ],
+      latestLearning: null
+    });
+
+    expect(decision).toMatchObject({
+      action: 'run_analyzer',
+      reason: 'initial_learning_with_selected_evidence',
+      hasPreviousLearning: false,
+      hasNewBlogOrReviewEvidence: true,
+      selectedCounts: { blogPosts: 1, placeProfiles: 1, placeReviews: 0, total: 2 }
+    });
+  });
+
   it('reuses previous learning when existing learned stores have insufficient new evidence for ruleset regeneration', () => {
     const decision = decideAnalysisExecution({
       collectionSummary: {

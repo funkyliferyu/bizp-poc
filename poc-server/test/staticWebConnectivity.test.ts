@@ -443,7 +443,7 @@ describe('web static flow connectivity', () => {
 
   it('shows a separate regeneratable writing preview block that combines style and store analysis signals', () => {
     const ruleset = readWeb('07_마케팅전략룰셋.html');
-    const writeSection = ruleset.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 이미지 스타일 -->/)?.[0] ?? '';
+    const writeSection = ruleset.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 유사업체비교 -->/)?.[0] ?? '';
 
     expect(writeSection).toContain('id="writingStylePreview"');
     expect(writeSection).toContain('class="card writing-preview-card"');
@@ -472,7 +472,7 @@ describe('web static flow connectivity', () => {
     expect(ruleset).toContain('renderWritingPreview');
     expect(ruleset).toContain('regenerateWritingPreview');
     expect(ruleset).toContain("renderWritingPreview(id)");
-    expect(ruleset).toContain("renderWritingPreview('common')");
+    expect(ruleset).toContain("renderWritingPreview('blog')");
     expect(ruleset).toContain('분당 딸기 생크림 케이크 예약 안내');
   });
 

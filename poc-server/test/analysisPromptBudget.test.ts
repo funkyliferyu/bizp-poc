@@ -4,7 +4,7 @@ import type { Store } from '../src/repositories/stores.js';
 import { buildAnalysisPromptInput } from '../src/storeLearning/analysis/analysisPromptBudget.js';
 import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../src/storeLearning/rulesets/rulesetSourceMatrix.js';
 
-const ALWAYS_BLOCKED_INSTAGRAM_FIELD_KEYS = [
+const REMOVED_INSTAGRAM_FIELD_KEYS = [
   'instagramPurpose',
   'instagramWritingStyle',
   'instagramPreferredLength',
@@ -15,7 +15,7 @@ const ALWAYS_BLOCKED_INSTAGRAM_FIELD_KEYS = [
   'instagramOverlayPolicy'
 ];
 
-const IMAGE_METADATA_BLOCKED_FIELD_KEYS = [
+const REMOVED_IMAGE_STYLE_FIELD_KEYS = [
   'primaryColors',
   'accentColors',
   'imageDirection',
@@ -149,7 +149,7 @@ describe('analysis prompt budget', () => {
     expect(serialized).not.toContain('renderedHtml');
     expect(serialized).not.toContain('https://cdn.example.com');
     expect(prompt).toMatchObject({
-      schemaVersion: 'sl_a1_blog_sop_input.v1',
+      schemaVersion: 'sl_a1_blog_sop_input.v2',
       outputSchemaRef: 'store_learning_analysis.v2',
       storeProfile: expect.objectContaining({
         id: 'store_test',
@@ -167,8 +167,7 @@ describe('analysis prompt budget', () => {
       blogPosts: expect.any(Array),
       reviews: expect.any(Array),
       unavailableData: expect.objectContaining({
-        reviews: false,
-        images: true
+        reviews: false
       }),
       requestedRulesetFieldKeys: expect.any(Array),
       blockedFields: expect.any(Array),
@@ -177,6 +176,33 @@ describe('analysis prompt budget', () => {
         signals: expect.arrayContaining(['의원', '피부과'])
       })
     });
+    expect(promptInput.unavailableData).not.toHaveProperty('images');
+    expect(promptInput.blogPosts[0].content.styleMetrics).toEqual(
+      expect.objectContaining({
+        charCount: expect.any(Number),
+        paragraphCount: expect.any(Number),
+        headingLikeLineCount: expect.any(Number),
+        averageParagraphCharCount: expect.any(Number),
+        hashtags: expect.any(Array),
+        emojiCount: expect.any(Number),
+        questionSentenceCount: expect.any(Number),
+        ctaCandidates: expect.any(Array)
+      })
+    );
+    expect(promptInput.computedAggregates).toEqual(
+      expect.objectContaining({
+        source: 'computed',
+        lengthPolicy: expect.objectContaining({
+          source: 'computed',
+          medianCharCount: expect.any(Number),
+          recommendedRange: expect.any(String)
+        }),
+        symbolPolicy: expect.objectContaining({
+          source: 'computed',
+          emoji: expect.any(String)
+        })
+      })
+    );
     expect(prompt).not.toHaveProperty('store');
     expect(prompt).not.toHaveProperty('selectedItemIds');
     expect(prompt).not.toHaveProperty('promptItemIds');
@@ -359,11 +385,17 @@ describe('analysis prompt budget', () => {
       bodyCompleteness: 'complete',
       hasHashtags: true,
       questionSentenceCount: 1,
-      ctaCandidates: expect.arrayContaining([expect.stringContaining('문의')])
+      ctaCandidates: expect.arrayContaining([expect.stringContaining('문의')]),
+      styleMetrics: expect.objectContaining({
+        hashtags: ['#피부과'],
+        questionSentenceCount: 1,
+        ctaCandidates: expect.arrayContaining([expect.stringContaining('문의')])
+      })
     });
+    expect(promptInput.computedAggregates.hashtagCandidates).toContain('#피부과');
   });
 
-  it('sends only supported SL-A1 ruleset fields and explains input-blocked fields', () => {
+  it('sends only active SL-A1 ruleset fields and omits deferred Instagram and image style fields', () => {
     const { promptInput } = buildAnalysisPromptInput({
       store: baseStore(),
       selectedItems: [
@@ -394,6 +426,8 @@ describe('analysis prompt budget', () => {
     const blockedFieldKeys = keysOf(promptInput.blockedFields);
     const requestedFieldKeys = [...promptInput.requestedRulesetFieldKeys];
     const partitionedKeys = [...requestedFieldKeys, ...blockedFieldKeys].sort();
+    const removedScopeFieldKeys = [...REMOVED_INSTAGRAM_FIELD_KEYS, ...REMOVED_IMAGE_STYLE_FIELD_KEYS];
+    const serialized = JSON.stringify(promptInput);
 
     expect(partitionedKeys).toEqual([...REQUIRED_ANALYZER_RULESET_FIELD_KEYS].sort());
     expect(new Set(partitionedKeys).size).toBe(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
@@ -402,29 +436,16 @@ describe('analysis prompt budget', () => {
     expect(requestedFieldKeys).toContain('reviewWeakness');
     expect(requestedFieldKeys).not.toContain('operatingHours');
     expect(requestedFieldKeys).not.toContain('parking');
-    expect(blockedFieldKeys).toEqual(
-      expect.arrayContaining([...ALWAYS_BLOCKED_INSTAGRAM_FIELD_KEYS, ...IMAGE_METADATA_BLOCKED_FIELD_KEYS])
-    );
+    for (const fieldKey of removedScopeFieldKeys) {
+      expect(requestedFieldKeys).not.toContain(fieldKey);
+      expect(blockedFieldKeys).not.toContain(fieldKey);
+      expect(serialized).not.toContain(fieldKey);
+    }
     expect(blockedFieldKeys).not.toContain('reviewStrength');
     expect(blockedFieldKeys).not.toContain('reviewWeakness');
-    expect(promptInput.blockedFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          fieldKey: 'instagramPurpose',
-          label: '글의 목적',
-          section: 'write_instagram',
-          reason: 'instagram_not_in_scope',
-          source: 'input_blocked'
-        }),
-        expect.objectContaining({
-          fieldKey: 'blogImageFormat',
-          label: '비율·포맷',
-          section: 'image_blog',
-          reason: 'image_metadata_unavailable',
-          source: 'input_blocked'
-        })
-      ])
-    );
+    expect(promptInput.blockedFields).toEqual([]);
+    expect(serialized).not.toContain('instagram_not_in_scope');
+    expect(serialized).not.toContain('image_metadata_unavailable');
   });
 
   it('blocks review fields and marks review data unavailable when no usable review text exists', () => {
@@ -531,8 +552,7 @@ describe('analysis prompt budget', () => {
     expect(promptInput.requestedRulesetFields).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          fieldKey: 'blogImageFormat',
-          section: 'image_blog'
+          fieldKey: expect.stringMatching(/instagram|image/i)
         })
       ])
     );

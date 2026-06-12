@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLM I/O Viewer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --border: #d9e1ee;
+      --border-strong: #b9c6d8;
+      --text: #152033;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --green: #17803b;
+      --red: #b42318;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border);
+      background: rgba(244, 246, 251, 0.96);
+      backdrop-filter: blur(12px);
+    }
+
+    .shell {
+      width: min(1480px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 72px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    button {
+      min-height: 34px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+
+    input,
+    select {
+      padding: 0 10px;
+    }
+
+    input[type="search"] {
+      width: min(300px, 44vw);
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 12px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    button.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+    }
+
+    main.shell {
+      padding: 18px 0 32px;
+    }
+
+    .status {
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.error {
+      border-color: #f0b8b2;
+      color: var(--red);
+      background: #fff7f6;
+    }
+
+    .log-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .log-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .log-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 14px;
+      background: #fff;
+    }
+
+    .log-title {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-weight: 800;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0 8px;
+      color: var(--muted);
+      background: var(--panel-soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .pill.ok {
+      border-color: #b8e0c3;
+      color: var(--green);
+      background: #f0fff4;
+    }
+
+    .pill.fail {
+      border-color: #f0b8b2;
+      color: var(--red);
+      background: #fff7f6;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px;
+    }
+
+    details {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-soft);
+      overflow: hidden;
+    }
+
+    details[open] {
+      background: #fff;
+    }
+
+    summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 42px;
+      padding: 0 10px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .db-name {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    pre {
+      margin: 0;
+      max-height: 520px;
+      overflow: auto;
+      border-top: 1px solid var(--border);
+      padding: 12px;
+      background: #0f172a;
+      color: #dbeafe;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .empty {
+      border: 1px dashed var(--border-strong);
+      border-radius: 8px;
+      padding: 28px;
+      color: var(--muted);
+      text-align: center;
+      background: #fff;
+    }
+
+    @media (max-width: 980px) {
+      .topbar,
+      .log-head {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: stretch;
+      }
+
+      .controls {
+        justify-content: stretch;
+      }
+
+      .controls > * {
+        flex: 1 1 160px;
+      }
+
+      input[type="search"] {
+        width: 100%;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell topbar">
+      <div>
+        <h1>LLM I/O Viewer</h1>
+        <div class="subtitle">내부 전용 · poc-server 감사 로그</div>
+      </div>
+      <div class="controls">
+        <label>
+          Store ID
+          <input id="storeIdInput" value="store_1020864025" autocomplete="off" />
+        </label>
+        <label>
+          Action
+          <select id="actionSelect">
+            <option value="">전체</option>
+            <option value="analyze_store_learning">analyze_store_learning</option>
+            <option value="generate_blog_post">generate_blog_post</option>
+            <option value="regenerate_blog_text">regenerate_blog_text</option>
+            <option value="score_blog_seo">score_blog_seo</option>
+          </select>
+        </label>
+        <label>
+          Limit
+          <select id="limitSelect">
+            <option>5</option>
+            <option selected>20</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </label>
+        <label>
+          Search
+          <input id="searchInput" type="search" placeholder="field, text, id" autocomplete="off" />
+        </label>
+        <button id="refreshButton" class="primary" type="button">새로고침</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div id="status" class="status">대기 중</div>
+    <section id="logList" class="log-list" aria-live="polite"></section>
+  </main>
+
+  <script>
+    const API_PATH = '/api/store-learning/llm-audit-logs';
+    const fieldPanels = [
+      { key: 'rawRequestedJson', dbName: 'raw_requested_json', title: 'Raw Request' },
+      { key: 'promptInputJson', dbName: 'prompt_input_json', title: 'Prompt Input' },
+      { key: 'rawParsedOutputJson', dbName: 'raw_parsed_output_json', title: 'Raw Parsed Output' },
+      { key: 'normalizedOutputJson', dbName: 'normalized_output_json', title: 'Normalized Output' },
+      { key: 'parsedOutputJson', dbName: 'parsed_output_json', title: 'Legacy Parsed Output' },
+      { key: 'responseFormatJson', dbName: 'response_format_json', title: 'Response Format' },
+      { key: 'inputBudgetJson', dbName: 'input_budget_json', title: 'Input Budget' },
+      { key: 'errorJson', dbName: 'error_json', title: 'Error' },
+      { key: 'providerMetadataJson', dbName: 'provider_metadata_json', title: 'Provider Metadata' }
+    ];
+
+    const state = {
+      logs: []
+    };
+
+    const els = {
+      storeId: document.getElementById('storeIdInput'),
+      action: document.getElementById('actionSelect'),
+      limit: document.getElementById('limitSelect'),
+      search: document.getElementById('searchInput'),
+      refresh: document.getElementById('refreshButton'),
+      status: document.getElementById('status'),
+      logList: document.getElementById('logList')
+    };
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function stringifyJson(value) {
+      if (value === undefined) return 'undefined';
+      return JSON.stringify(value, null, 2);
+    }
+
+    function formatKoreaTime(value) {
+      if (!value) return '-';
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return '-';
+      return `${date.toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      })} KST`;
+    }
+
+    function setStatus(message, isError = false) {
+      els.status.textContent = message;
+      els.status.classList.toggle('error', isError);
+    }
+
+    function restoreQueryState() {
+      const params = new URLSearchParams(window.location.search);
+      const storeId = params.get('storeId');
+      const action = params.get('action');
+      const limit = params.get('limit');
+      if (storeId) els.storeId.value = storeId;
+      if (action) els.action.value = action;
+      if (limit) els.limit.value = limit;
+    }
+
+    function buildApiUrl() {
+      const params = new URLSearchParams();
+      const storeId = els.storeId.value.trim();
+      const action = els.action.value.trim();
+      const limit = els.limit.value.trim();
+      if (storeId) params.set('storeId', storeId);
+      if (action) params.set('action', action);
+      if (limit) params.set('limit', limit);
+      return `${API_PATH}?${params.toString()}`;
+    }
+
+    async function loadLogs() {
+      setStatus('조회 중...');
+      try {
+        const response = await fetch(buildApiUrl(), { headers: { accept: 'application/json' } });
+        const body = await response.json();
+        if (!response.ok) {
+          throw new Error(body && body.error ? body.error : `HTTP ${response.status}`);
+        }
+        state.logs = Array.isArray(body.logs) ? body.logs : [];
+        render();
+        setStatus(`${state.logs.length}개 로그 · ${formatKoreaTime(new Date())}`);
+      } catch (error) {
+        state.logs = [];
+        render();
+        setStatus(error instanceof Error ? error.message : String(error), true);
+      }
+    }
+
+    function matchesSearch(log) {
+      const query = els.search.value.trim().toLowerCase();
+      if (!query) return true;
+      return JSON.stringify(log).toLowerCase().includes(query);
+    }
+
+    function render() {
+      const logs = state.logs.filter(matchesSearch);
+      if (logs.length === 0) {
+        els.logList.innerHTML = '<div class="empty">표시할 LLM 로그가 없습니다.</div>';
+        return;
+      }
+      els.logList.innerHTML = logs.map(renderLogCard).join('');
+    }
+
+    function renderLogCard(log, index) {
+      const statusClass = log.status === 'completed' ? 'ok' : 'fail';
+      const panels = fieldPanels.map((panel) => renderPanel(panel, log[panel.key])).join('');
+      return `
+        <article class="log-card">
+          <div class="log-head">
+            <div>
+              <div class="log-title">
+                <span>${escapeHtml(log.action || '-')}</span>
+                <span class="pill ${statusClass}">${escapeHtml(log.status || '-')}</span>
+                <span class="pill">${escapeHtml(log.provider || '-')}</span>
+                <span class="pill">${escapeHtml(log.model || '-')}</span>
+              </div>
+              <div class="meta">
+                <span>${escapeHtml(log.id || '-')}</span>
+                <span>${escapeHtml(log.relatedEntityType || '-')} / ${escapeHtml(log.relatedEntityId || '-')}</span>
+                <span title="${escapeHtml(log.createdAt || '-')}">${escapeHtml(formatKoreaTime(log.createdAt))}</span>
+              </div>
+            </div>
+            <div class="meta">
+              <span>${escapeHtml(log.storeId || '-')}</span>
+              <span>${Number.isFinite(log.durationMs) ? `${log.durationMs}ms` : '-'}</span>
+            </div>
+          </div>
+          <div class="grid">
+            ${panels}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderPanel(panel, value) {
+      const open = panel.key === 'rawRequestedJson' || panel.key === 'rawParsedOutputJson' || panel.key === 'normalizedOutputJson';
+      return `
+        <details ${open ? 'open' : ''}>
+          <summary>
+            <span>${escapeHtml(panel.title)}</span>
+            <span class="db-name">${escapeHtml(panel.dbName)}</span>
+          </summary>
+          <pre>${escapeHtml(stringifyJson(value ?? null))}</pre>
+        </details>
+      `;
+    }
+
+    els.refresh.addEventListener('click', loadLogs);
+    els.search.addEventListener('input', render);
+    els.storeId.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') loadLogs();
+    });
+    els.action.addEventListener('change', loadLogs);
+    els.limit.addEventListener('change', loadLogs);
+
+    restoreQueryState();
+    loadLogs();
+  </script>
+</body>
+</html>

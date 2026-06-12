@@ -17,6 +17,9 @@ export type LlmAuditLog = BaseEntity & {
   inputBudget: JsonValue;
   promptInputJson: JsonValue;
   responseFormatJson: JsonValue;
+  rawRequestedJson: JsonValue;
+  rawParsedOutputJson: JsonValue;
+  normalizedOutputJson: JsonValue;
   parsedOutputJson: JsonValue;
   status: LlmAuditLogStatus;
   errorJson: JsonValue;
@@ -38,6 +41,9 @@ const columns = [
   'inputBudget',
   'promptInputJson',
   'responseFormatJson',
+  'rawRequestedJson',
+  'rawParsedOutputJson',
+  'normalizedOutputJson',
   'parsedOutputJson',
   'status',
   'errorJson',
@@ -50,7 +56,17 @@ export function createLlmAuditLogsRepository(connection: DbConnection) {
   const repository = createRepository<LlmAuditLog>(connection, {
     tableName: 'llm_audit_logs',
     columns,
-    jsonColumns: ['inputBudget', 'promptInputJson', 'responseFormatJson', 'parsedOutputJson', 'errorJson', 'providerMetadataJson'],
+    jsonColumns: [
+      'inputBudget',
+      'promptInputJson',
+      'responseFormatJson',
+      'rawRequestedJson',
+      'rawParsedOutputJson',
+      'normalizedOutputJson',
+      'parsedOutputJson',
+      'errorJson',
+      'providerMetadataJson'
+    ],
     columnOverrides: {
       inputBudget: 'input_budget_json'
     }
