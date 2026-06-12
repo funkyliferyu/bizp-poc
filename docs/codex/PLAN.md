@@ -95,6 +95,7 @@ Current next todo as of 2026-06-13:
 | 13d | Blog Formula V2 deterministic 실험 레인 | Validated on develop | [handoff](../BLOG_FORMULA_V2_HANDOFF.md), PR #48, merge `c8f1b52` | Develop validation recorded 2026-06-12 |
 | 13e | Blog Formula V2 OpenAI 포뮬라 추출 provider | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_FORMULA_PROVIDER_PLAN.md), [#49](https://github.com/funkyliferyu/bizp-poc/pull/49), merge `c76c052` | Develop validation recorded 2026-06-12 |
 | 13f | Blog Formula V2 Formula Quality Contract | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md), [#50](https://github.com/funkyliferyu/bizp-poc/pull/50), merge `1d929d1` | Develop validation recorded 2026-06-13 |
+| 13g | Blog Formula V2 provider 비교 (실데이터, live OpenAI 1회) | Planned | [plan](NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md) | Pending |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist
