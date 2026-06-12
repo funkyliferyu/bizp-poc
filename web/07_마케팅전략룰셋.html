@@ -115,6 +115,32 @@
 .writing-preview-body{font-size:13px;color:#1A1A2E;line-height:1.75;white-space:pre-line}
 .writing-preview-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .writing-preview-tag{font-size:11px;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;font-weight:700}
+.formula-v2-status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.formula-v2-stat{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:10px;min-height:68px}
+.formula-v2-label{font-size:10px;font-weight:800;color:#9AA0B4;margin-bottom:5px}
+.formula-v2-value{font-size:13px;font-weight:800;color:#1A1A2E;line-height:1.35;word-break:keep-all}
+.formula-v2-note{font-size:11px;color:#6B7280;line-height:1.5;margin-top:4px}
+.formula-v2-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.formula-v2-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;margin-bottom:16px}
+.formula-v2-panel{border:1px solid #E2E8F0;border-radius:8px;background:#fff;overflow:hidden}
+.formula-v2-panel-head{padding:11px 13px;border-bottom:1px solid #EDF2F7;font-size:12px;font-weight:800;color:#1A1A2E;background:#FAFBFC}
+.formula-v2-panel-body{padding:12px}
+.formula-v2-source-list,.formula-v2-card-list,.formula-v2-sample-list{display:flex;flex-direction:column;gap:8px}
+.formula-v2-source,.formula-v2-card,.formula-v2-sample{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:10px}
+.formula-v2-source-title,.formula-v2-card-title,.formula-v2-sample-title{font-size:12px;font-weight:800;color:#1A1A2E;line-height:1.45;margin-bottom:4px}
+.formula-v2-meta{font-size:11px;line-height:1.5;color:#6B7280}
+.formula-v2-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.formula-v2-field{display:flex;flex-direction:column;gap:5px}
+.formula-v2-field.full{grid-column:1/-1}
+.formula-v2-field label{font-size:11px;font-weight:800;color:#4A5568}
+.formula-v2-field input,.formula-v2-field textarea{width:100%;border:1px solid #D8E0EC;border-radius:6px;padding:8px 9px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:#1A1A2E;background:#fff;box-sizing:border-box}
+.formula-v2-field textarea{min-height:58px;resize:vertical;line-height:1.5}
+.formula-v2-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.formula-v2-draft{white-space:pre-line;font-size:12px;line-height:1.75;color:#1A1A2E}
+.formula-v2-badge{display:inline-flex;align-items:center;border-radius:999px;background:#EEF2FF;color:#3B5BDB;font-size:10px;font-weight:800;padding:2px 7px;margin-right:4px}
+.formula-v2-risk.high{background:#FFF5F5;color:#E03131}
+.formula-v2-risk.medium{background:#FFF4E6;color:#E8590C}
+.formula-v2-risk.low{background:#EBFBEE;color:#2F9E44}
 .page-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .ruleset-status-badge{font-size:11px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;vertical-align:middle}
 .ruleset-title-actions{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
@@ -169,6 +195,7 @@
   .similar-compare-layout,.full-comparison-grid{grid-template-columns:1fr}
   .writing-style-row{grid-template-columns:1fr}
   .writing-preview-layout{grid-template-columns:1fr}
+  .formula-v2-status,.formula-v2-layout,.formula-v2-form,.formula-v2-result-grid{grid-template-columns:1fr}
   .ruleset-title-actions{margin-left:0;width:100%;justify-content:flex-start}
 }
 </style>
@@ -206,6 +233,7 @@
     <div class="top-tab active" onclick="showTop('store',this)">매장 정보</div>
     <div class="top-tab" onclick="showTop('brand',this)">우리 매장 분석</div>
     <div class="top-tab" onclick="showTop('write',this)">글쓰기 스타일</div>
+    <div class="top-tab" onclick="showTop('formula-v2',this)">블로그 작성 포뮬라</div>
     <div class="top-tab" onclick="showTop('compare',this)">유사업체비교</div>
   </div>
 
@@ -631,6 +659,91 @@
     </div>
   </div>
 
+  <!-- Blog Formula V2 -->
+  <div id="sec-formula-v2" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        <span>Blog Formula V2</span>
+        <span class="benchmark-source-badge">V1 독립 운용</span>
+      </div>
+      <div class="card-body">
+        <div class="formula-v2-status">
+          <div class="formula-v2-stat"><div class="formula-v2-label">Formula Set 상태</div><div class="formula-v2-value" id="v2FormulaStatus">불러오는 중</div></div>
+          <div class="formula-v2-stat"><div class="formula-v2-label">버전</div><div class="formula-v2-value" id="v2FormulaVersion">-</div></div>
+          <div class="formula-v2-stat"><div class="formula-v2-label">소스 블로그</div><div class="formula-v2-value" id="v2FormulaSourceCount">-</div></div>
+          <div class="formula-v2-stat"><div class="formula-v2-label">검수</div><div class="formula-v2-value" id="v2FormulaReviewStatus">-</div></div>
+          <div class="formula-v2-stat"><div class="formula-v2-label">최종 추출</div><div class="formula-v2-value" id="v2FormulaUpdatedAt">-</div></div>
+          <div class="formula-v2-stat"><div class="formula-v2-label">생성 모델</div><div class="formula-v2-value" id="v2FormulaModel">deterministic</div></div>
+          <div class="formula-v2-stat"><div class="formula-v2-label">운용 경계</div><div class="formula-v2-value" id="v2FormulaIndependence">V1 독립</div></div>
+          <div class="formula-v2-stat"><div class="formula-v2-label">초안 상태</div><div class="formula-v2-value" id="v2DraftStatus">-</div></div>
+        </div>
+
+        <div class="formula-v2-actions">
+          <button type="button" class="btn btn-primary btn-sm" id="v2FormulaExtractButton" onclick="extractBlogFormulaV2()">포뮬라 추출</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="v2ReloadButton" onclick="loadBlogFormulaV2()">새로고침</button>
+          <span class="formula-v2-note" id="v2FormulaMessage">owner blog 기반 deterministic lane</span>
+        </div>
+
+        <div class="formula-v2-layout">
+          <div class="formula-v2-panel">
+            <div class="formula-v2-panel-head">소스 블로그</div>
+            <div class="formula-v2-panel-body">
+              <div class="formula-v2-source-list" id="v2FormulaSourcePosts">소스 블로그를 불러오는 중입니다.</div>
+            </div>
+          </div>
+          <div class="formula-v2-panel">
+            <div class="formula-v2-panel-head">Formula Set</div>
+            <div class="formula-v2-panel-body">
+              <div class="formula-v2-card-list" id="v2FormulaCards">포뮬라를 추출하면 표시됩니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="formula-v2-panel">
+          <div class="formula-v2-panel-head">소재 Brief</div>
+          <div class="formula-v2-panel-body">
+            <div class="formula-v2-form">
+              <div class="formula-v2-field"><label for="v2-topic">주제</label><input id="v2-topic" value="리팟레이저"></div>
+              <div class="formula-v2-field"><label for="v2-main-keyword">메인 키워드</label><input id="v2-main-keyword" value="리팟레이저 부작용"></div>
+              <div class="formula-v2-field"><label for="v2-secondary-keywords">서브 키워드</label><input id="v2-secondary-keywords" value="흑자 제거, 색소침착"></div>
+              <div class="formula-v2-field"><label for="v2-target-reader">타겟 독자</label><input id="v2-target-reader" value="흑자 제거를 고민하지만 부작용, 재발, 착색이 걱정되는 고객"></div>
+              <div class="formula-v2-field"><label for="v2-core-concern">핵심 걱정</label><input id="v2-core-concern" value="부작용과 재발 우려"></div>
+              <div class="formula-v2-field"><label for="v2-main-angle">전개 방향</label><input id="v2-main-angle" value="원리와 의료진 상담 기준을 먼저 설명"></div>
+              <div class="formula-v2-field"><label for="v2-must-include">반드시 포함</label><input id="v2-must-include" value="개인차, 의료진 상담, 부작용 가능성"></div>
+              <div class="formula-v2-field"><label for="v2-must-avoid">피해야 할 표현</label><input id="v2-must-avoid" value="효과보장, 부작용 없음"></div>
+              <div class="formula-v2-field full"><label for="v2-cta-direction">CTA 방향</label><input id="v2-cta-direction" value="상담 예약"></div>
+            </div>
+            <div class="formula-v2-actions" style="margin:12px 0 0">
+              <button type="button" class="btn btn-ghost btn-sm" id="v2RetrieveButton" onclick="retrieveBlogFormulaV2Samples()">유사 블로그 Top 3</button>
+              <button type="button" class="btn btn-primary btn-sm" id="v2GenerateButton" onclick="generateBlogFormulaV2Draft()">V2 초안 생성</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="v2ValidateButton" onclick="validateBlogFormulaV2Draft()">초안 검수</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="formula-v2-result-grid">
+          <div class="formula-v2-panel">
+            <div class="formula-v2-panel-head">유사 블로그 Top 3</div>
+            <div class="formula-v2-panel-body">
+              <div class="formula-v2-sample-list" id="v2RetrievedSamples">검색 결과가 없습니다.</div>
+            </div>
+          </div>
+          <div class="formula-v2-panel">
+            <div class="formula-v2-panel-head">V2 초안</div>
+            <div class="formula-v2-panel-body">
+              <div id="v2DraftPreview">초안 생성 결과가 없습니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="formula-v2-panel" style="margin-top:14px">
+          <div class="formula-v2-panel-head">Validation Result</div>
+          <div class="formula-v2-panel-body" id="v2ValidationPanel">검수 결과가 없습니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 유사업체비교 -->
   <div id="sec-compare" style="display:none">
     <div class="card">
@@ -912,7 +1025,7 @@ function closeFullComparison(){
 }
 
 function showTop(id, el){
-  ['store','brand','write','compare'].forEach(s=>document.getElementById('sec-'+s).style.display='none');
+  ['store','brand','write','formula-v2','compare'].forEach(s=>document.getElementById('sec-'+s).style.display='none');
   document.getElementById('sec-'+id).style.display='block';
   document.querySelectorAll('.top-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
@@ -989,6 +1102,7 @@ async function regenerateWritingPreview(){
 loadBenchmarkFixture();
 renderWritingPreview('blog');
 </script>
+<script src="blog_formula_v2.js"></script>
 <script src="ruleset_editor.js"></script>
 </body>
 </html>

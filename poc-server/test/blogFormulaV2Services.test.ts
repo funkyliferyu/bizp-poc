@@ -1,0 +1,150 @@
+import { describe, expect, it } from 'vitest';
+import { createDatabaseConnection } from '../src/db/connection.js';
+import { migrateDatabase } from '../src/db/migrate.js';
+import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
+import {
+  extractBlogFormulaV2,
+  generateBlogFormulaV2Draft,
+  retrieveBlogFormulaV2Samples
+} from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
+import { validateBlogFormulaV2DraftText } from '../src/storeLearning/blogFormulaV2/validator.js';
+import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
+
+const topicBriefInput = {
+  topic: '리팟레이저',
+  mainKeyword: '리팟레이저 부작용',
+  secondaryKeywords: ['흑자 제거', '색소침착'],
+  targetReader: '흑자 제거를 고민하지만 부작용, 재발, 착색이 걱정되는 고객',
+  coreConcern: '부작용과 재발 우려',
+  mainAngle: '원리와 의료진 상담 기준을 먼저 설명',
+  mustInclude: ['개인차', '의료진 상담', '부작용 가능성'],
+  mustAvoid: ['효과보장', '부작용 없음'],
+  ctaDirection: '상담 예약'
+};
+
+describe('Blog Formula V2 deterministic services', () => {
+  const futureCombinedMode = ['hybrid', 'v1', 'v2'].join('_');
+
+  it('extracts a formula set only from owner_blog_post collection items', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      const fixture = seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const result = extractBlogFormulaV2(repos, BLOG_FORMULA_V2_STORE_ID);
+
+      expect(result.formulaSet).toMatchObject({
+        storeId: BLOG_FORMULA_V2_STORE_ID,
+        version: 'formula_v2.0',
+        status: 'generated',
+        model: 'deterministic-blog-formula-v2'
+      });
+      expect(result.formulaSet.sourcePostIds).toEqual(fixture.ownerPostIds);
+      expect(result.formulaSet.sourcePostIds).not.toContain(fixture.reviewItemId);
+      expect(result.sourcePosts).toHaveLength(fixture.ownerPostIds.length);
+      expect(result.sourcePosts.every((post) => post.sourceKind === 'owner_blog_post')).toBe(true);
+      expect(JSON.stringify(result.formulaSet.formula)).not.toContain('collection_item_v2_place_review');
+      expect(JSON.stringify(result.formulaSet.formula)).toContain('의료진 상담');
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('retrieves at most three similar samples and excludes Place visitor reviews', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+      const extraction = extractBlogFormulaV2(repos, BLOG_FORMULA_V2_STORE_ID);
+
+      const result = retrieveBlogFormulaV2Samples(repos, BLOG_FORMULA_V2_STORE_ID, {
+        formulaSetId: extraction.formulaSet.id,
+        topicBrief: topicBriefInput,
+        maxSamples: 3
+      });
+
+      expect(result.samples).toHaveLength(3);
+      expect(result.samples.map((sample) => sample.rank)).toEqual([1, 2, 3]);
+      expect(result.samples.every((sample) => sample.sourceKind === 'owner_blog_post')).toBe(true);
+      expect(result.samples.map((sample) => sample.collectionItemId)).not.toContain('collection_item_v2_place_review');
+      expect(result.samples[0]).toMatchObject({
+        scoring: expect.objectContaining({
+          treatmentMatch: expect.any(Number),
+          concernMatch: expect.any(Number),
+          titleMatch: expect.any(Number),
+          bodyKeywordOverlap: expect.any(Number)
+        }),
+        whySelected: expect.stringContaining('리팟레이저')
+      });
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('generates a mock-safe v2_formula draft without V1 or hybrid generation modes', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      seedBlogFormulaV2Fixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+      const extraction = extractBlogFormulaV2(repos, BLOG_FORMULA_V2_STORE_ID);
+      const retrieval = retrieveBlogFormulaV2Samples(repos, BLOG_FORMULA_V2_STORE_ID, {
+        formulaSetId: extraction.formulaSet.id,
+        topicBrief: topicBriefInput,
+        maxSamples: 3
+      });
+
+      const result = generateBlogFormulaV2Draft(repos, BLOG_FORMULA_V2_STORE_ID, {
+        formulaSetId: extraction.formulaSet.id,
+        topicBriefId: retrieval.topicBrief.id,
+        retrievalRunId: retrieval.retrievalRun.id
+      });
+
+      expect(result.draftGeneration).toMatchObject({
+        storeId: BLOG_FORMULA_V2_STORE_ID,
+        generationMode: 'v2_formula',
+        status: 'generated',
+        model: 'deterministic-blog-formula-v2'
+      });
+      expect(result.output.selectedTitle).toContain('리팟레이저 부작용');
+      expect(result.output.blogDraft).toContain('개인차');
+      expect(result.output.blogDraft).toContain('부작용');
+      expect(result.output.blogDraft).toContain('의료진 상담');
+      expect(result.output.styleComplianceReport.sourcePostIds).toEqual(retrieval.samples.map((sample) => sample.collectionItemId));
+      expect(JSON.stringify(result)).not.toContain(futureCombinedMode);
+      expect(JSON.stringify(result)).not.toContain('v1_ruleset');
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('flags broken unicode, banned medical ad phrases, missing disclosures, sample overlap, and hardcoded hours', () => {
+    const validation = validateBlogFormulaV2DraftText({
+      selectedTitle: '리팟레이저 효과보장 안내',
+      blogDraft:
+        '리팟레이저 효과보장으로 흑자를 완전 제거할 수 있습니다. 부작용 없음이라고 안내할 수 있으며 тщ실한 care를 제공합니다.\n\n진료시간은 10:00-19:00입니다.',
+      topicBrief: topicBriefInput,
+      retrievedSamples: [
+        {
+          collectionItemId: 'collection_item_v2_owner_1',
+          title: '리팟레이저 부작용 걱정 없이 하려면 [리팟 공식 인증 피부과]',
+          bodyText: '리팟레이저 부작용을 검색하는 분들은 흑자 치료 후 색소침착이나 재발을 가장 걱정합니다.'
+        }
+      ]
+    });
+
+    expect(validation.status).toBe('failed');
+    expect(validation.riskLevel).toBe('high');
+    expect(validation.issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining([
+        'broken_unicode',
+        'banned_medical_ad_phrase',
+        'missing_required_disclosure',
+        'sample_copy_overlap',
+        'hardcoded_operating_hours'
+      ])
+    );
+  });
+});

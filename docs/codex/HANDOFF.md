@@ -1,5 +1,57 @@
 # Codex Handoff
 
+## BLOG FORMULA V2 DETERMINISTIC LANE
+
+Branch `codex/blog-formula-v2-experiment` was created from `develop` at
+`b695643 Merge pull request #47 from funkyliferyu/codex/sl-a1-ruleset-quality-uplift`.
+
+Implemented:
+
+- Added V2-only SQLite tables with `v2_` prefix for formula sets, extraction
+  runs, source posts, topic briefs, retrieval runs, retrieved samples, draft
+  generations, and draft validations.
+- Added V2 repositories under `poc-server/src/repositories/v2_blog_formula.ts`
+  and exposed them through `createStoreLearningRepositories`.
+- Added deterministic Blog Formula V2 services under
+  `poc-server/src/storeLearning/blogFormulaV2/`.
+- Restricted V2 formula extraction and retrieval to `owner_blog_post`
+  collection items only.
+- Added lexical Top 3 retrieval, deterministic `v2_formula` draft generation,
+  and deterministic validation for broken Unicode, medical-ad risk phrases,
+  required disclosures, sample overlap, hardcoded hours, and SEO keyword
+  placement.
+- Added separate V2 API namespace:
+  `/api/stores/:storeId/v2/blog-formula`.
+- Added a separate `블로그 작성 포뮬라` tab in
+  `web/07_마케팅전략룰셋.html` backed by `web/blog_formula_v2.js`.
+- Added `npm run demo:blog-formula-v2`.
+- Added `docs/BLOG_FORMULA_V2_HANDOFF.md`.
+
+Validation on 2026-06-12:
+
+- RED focused V2 tests failed because V2 tables, repositories, services,
+  route, UI script, and demo script did not exist.
+- GREEN focused V2 suite:
+  `cd poc-server && npm test -- --run test/blogFormulaV2Repositories.test.ts test/blogFormulaV2Services.test.ts test/blogFormulaV2Api.test.ts test/blogFormulaV2Page.test.ts test/blogFormulaV2Demo.test.ts`
+- `cd poc-server && npm run typecheck`
+- `STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-demo.sqlite npm run demo:blog-formula-v2`
+- `node --check web/blog_formula_v2.js`
+- `node --check web/ruleset_editor.js`
+- `cd poc-server && npm test`
+- Playwright smoke against
+  `http://127.0.0.1:5180/07_마케팅전략룰셋.html?storeId=store_1020864025`
+  confirmed V2 tab load, 50 owner Blog sources, extract, Top 3 retrieval,
+  deterministic draft generation, validation result, and no console/page
+  errors.
+
+Current notes:
+
+- This first V2 implementation is deterministic/mock-safe only.
+- No combined V1/V2 generation lane was implemented.
+- V2 does not write to `marketing_rulesets` or `ruleset_fields`.
+- `localhost:5180` was running and serving the new V2 API during smoke.
+- Keep `.DS_Store` unstaged.
+
 ## TASK 13C BLOG SOP RULESET CONTRACT
 
 Branch `codex/blog-sop-ruleset-contract` was created from `develop` at

@@ -1,5 +1,78 @@
 # Validation
 
+## Blog Formula V2 Deterministic Lane Validation
+
+Date: 2026-06-12
+
+Branch:
+
+- `codex/blog-formula-v2-experiment`
+
+Scope:
+
+- Added V2-only SQLite tables and repositories.
+- Added deterministic Blog Formula V2 extraction, lexical Top 3 retrieval,
+  deterministic draft generation, and validation.
+- Added separate V2 API namespace:
+  `/api/stores/:storeId/v2/blog-formula`.
+- Added a separate Marketing Ruleset UI tab:
+  `블로그 작성 포뮬라`.
+- Added mock-safe demo script:
+  `npm run demo:blog-formula-v2`.
+- Kept Store Learning V1 ruleset fields, analyzer prompt, and V1 Blog
+  generation untouched.
+
+TDD evidence:
+
+- RED
+  `npm test -- --run test/blogFormulaV2Repositories.test.ts test/blogFormulaV2Services.test.ts test/blogFormulaV2Api.test.ts test/blogFormulaV2Page.test.ts test/blogFormulaV2Demo.test.ts`:
+  failed because the V2 schema, repositories, services, route, browser script,
+  and demo script did not exist.
+- GREEN same focused V2 command after implementation.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/blogFormulaV2Repositories.test.ts test/blogFormulaV2Services.test.ts test/blogFormulaV2Api.test.ts test/blogFormulaV2Page.test.ts test/blogFormulaV2Demo.test.ts
+npm run typecheck
+STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-demo.sqlite npm run demo:blog-formula-v2
+npm test
+cd ..
+node --check web/blog_formula_v2.js
+node --check web/ruleset_editor.js
+```
+
+Browser smoke:
+
+```text
+http://127.0.0.1:5180/07_마케팅전략룰셋.html?storeId=store_1020864025
+```
+
+Result:
+
+- PASS, focused V2 suite: 5 files, 12 tests.
+- PASS, TypeScript typecheck.
+- PASS, temp-DB V2 demo script generated `mode = v2_formula`,
+  `retrievedSampleCount = 3`, and `validationStatus = needs_human_review`.
+- PASS, full test suite: 47 files passed, 3 live-provider files skipped by
+  default; 290 tests passed, 6 skipped.
+- PASS, `node --check web/blog_formula_v2.js`.
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, Playwright smoke loaded the V2 tab for `store_1020864025`, confirmed
+  50 owner Blog sources, extracted a generated formula set, rendered 3
+  retrieved samples, generated a V2 draft, rendered validation, and found no
+  console/page errors.
+
+Boundary checks:
+
+- `.DS_Store` remains an out-of-scope local modification and was not staged.
+- No `admin/`, `pc-web/`, `README_POC.md`,
+  `web/event_operation_poc.html`, or old Event-to-Operation files changed.
+- Browser changes call only `poc-server` V2 APIs.
+- V2 writes do not touch `marketing_rulesets` or `ruleset_fields`.
+- No browser-side Naver/OpenAI/provider calls were added.
+
 ## Task 13c Blog SOP Ruleset Contract Validation
 
 Date: 2026-06-12

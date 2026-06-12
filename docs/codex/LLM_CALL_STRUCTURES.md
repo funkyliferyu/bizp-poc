@@ -10,8 +10,9 @@
 
 **Not LLM calls:** ruleset preview regeneration, ruleset version restore,
 similar-company benchmark fixture, image prompt regeneration, RAG document
-generation, review-weakness backfill, and static/server-derived writing-style
-suggestions do not call OpenAI in the current implementation.
+generation, review-weakness backfill, static/server-derived writing-style
+suggestions, and Blog Formula V2 deterministic extraction/retrieval/draft
+generation/validation do not call OpenAI in the current implementation.
 
 ---
 
