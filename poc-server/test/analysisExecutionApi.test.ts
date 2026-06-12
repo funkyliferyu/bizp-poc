@@ -13,6 +13,29 @@ import { startAnalysisRun } from '../src/storeLearning/analysis/analysisExecutio
 import { createOpenAIAnalysisProvider } from '../src/storeLearning/analysis/openAIAnalysisProvider.js';
 import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../src/storeLearning/rulesets/rulesetSourceMatrix.js';
 
+const OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS = [
+  'instagramPurpose',
+  'instagramWritingStyle',
+  'instagramPreferredLength',
+  'instagramHashtags',
+  'instagramEmojiPolicy',
+  'primaryColors',
+  'accentColors',
+  'imageDirection',
+  'imageStyle',
+  'imageAvoidStyle',
+  'instagramImageFormat',
+  'instagramImageStyle',
+  'instagramOverlayPolicy',
+  'blogImageFormat',
+  'blogImageStyle',
+  'blogOverlayPolicy'
+];
+
+const OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT = REQUIRED_ANALYZER_RULESET_FIELD_KEYS.filter(
+  (fieldKey) => !OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS.includes(fieldKey)
+);
+
 async function readJson(response: Response) {
   const text = await response.text();
   return text ? JSON.parse(text) : null;
@@ -84,18 +107,21 @@ function createNewEvidenceItem(
 }
 
 function openAIParsedRulesetFieldsByKey(
-  overridesByFieldKey: Record<string, Partial<AnalyzerOutput['rulesetFields'][number]>> = {}
+  overridesByFieldKey: Record<string, Partial<AnalyzerOutput['rulesetFields'][number]>> = {},
+  fieldKeys: readonly string[] = REQUIRED_ANALYZER_RULESET_FIELD_KEYS
 ) {
   return Object.fromEntries(
-    fullAnalyzerRulesetFields(overridesByFieldKey).map((field) => [
-      field.fieldKey,
-      {
-        aiValue: field.aiValue,
-        finalValue: field.finalValue,
-        evidenceItemIds: field.evidenceItemIds,
-        confidence: field.confidence
-      }
-    ])
+    fullAnalyzerRulesetFields(overridesByFieldKey)
+      .filter((field) => fieldKeys.includes(field.fieldKey))
+      .map((field) => [
+        field.fieldKey,
+        {
+          aiValue: field.aiValue,
+          finalValue: field.finalValue,
+          evidenceItemIds: field.evidenceItemIds,
+          confidence: field.confidence
+        }
+      ])
   );
 }
 
@@ -573,6 +599,79 @@ describe('analysis execution API', () => {
     expect(repos.llmAuditLogs.all()).toHaveLength(0);
   });
 
+  it('queues ruleset relearning from existing assets when explicitly forced from learning status', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.collectionRuns.upsert({
+      id: 'collection_run_forced_ruleset_relearn',
+      storeId: 'store_demo_cake',
+      status: 'completed',
+      mode: 'real',
+      startedAt: '2026-06-11T00:00:00.000Z',
+      completedAt: '2026-06-11T00:00:01.000Z',
+      summary: {
+        collectionDelta: {
+          hasMeaningfulChanges: true,
+          counts: { new: 1, duplicate: 0, unchanged: 0, changed: 0 }
+        },
+        collectedCounts: { blogPosts: 1, placeProfiles: 1, placeReviews: 1 }
+      }
+    });
+    createNewEvidenceItem(repos, {
+      id: 'collection_item_forced_profile',
+      runId: 'collection_run_forced_ruleset_relearn',
+      channel: 'place',
+      sourceType: 'profile'
+    });
+    createNewEvidenceItem(repos, {
+      id: 'collection_item_forced_blog',
+      runId: 'collection_run_forced_ruleset_relearn',
+      channel: 'blog',
+      sourceType: 'post'
+    });
+    createNewEvidenceItem(repos, {
+      id: 'collection_item_forced_review',
+      runId: 'collection_run_forced_ruleset_relearn',
+      channel: 'place',
+      sourceType: 'review'
+    });
+
+    const createResponse = await fetch(`${baseUrl}/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId: 'store_demo_cake',
+        collectionRunId: 'collection_run_forced_ruleset_relearn',
+        selectedItemIds: ['collection_item_forced_blog', 'collection_item_forced_review'],
+        forceRulesetRelearn: true
+      })
+    });
+    const created = await readJson(createResponse);
+
+    expect(createResponse.status).toBe(200);
+    expect(created.analysisRun.status).toBe('queued');
+    expect(created.analysisRun.result).toMatchObject({
+      selectedItemIds: expect.arrayContaining([
+        'collection_item_forced_profile',
+        'collection_item_forced_blog',
+        'collection_item_forced_review'
+      ]),
+      selectedCounts: {
+        blogPosts: 1,
+        placeProfiles: 1,
+        placeReviews: 1,
+        total: 3
+      },
+      analysisDecision: expect.objectContaining({
+        action: 'run_analyzer',
+        reason: 'manual_ruleset_relearn_existing_assets',
+        hasPreviousLearning: true
+      })
+    });
+    expect(repos.collectionItems.findById('collection_item_forced_blog')?.selectedForAnalysis).toBe(1);
+    expect(repos.collectionItems.findById('collection_item_forced_review')?.selectedForAnalysis).toBe(1);
+    expect(repos.llmAuditLogs.all()).toHaveLength(0);
+  });
+
   it('queues analyzer execution for existing learned stores when new evidence thresholds are met', async () => {
     const repos = createStoreLearningRepositories(connection);
     repos.collectionRuns.upsert({
@@ -826,20 +925,23 @@ describe('analysis execution API', () => {
           score: 0.89
         }
       ],
-      rulesetFieldsByKey: openAIParsedRulesetFieldsByKey({
-        storePositioning: {
-          aiValue: '분당 레터링 케이크 예약 전문점',
-          finalValue: '분당 레터링 케이크 예약 전문점',
-          evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
-          confidence: 0.9
+      rulesetFieldsByKey: openAIParsedRulesetFieldsByKey(
+        {
+          storePositioning: {
+            aiValue: '분당 레터링 케이크 예약 전문점',
+            finalValue: '분당 레터링 케이크 예약 전문점',
+            evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
+            confidence: 0.9
+          },
+          seoKeywords: {
+            aiValue: '분당 케이크, 레터링 케이크, 정자동 케이크',
+            finalValue: '분당 케이크, 레터링 케이크, 정자동 케이크',
+            evidenceItemIds: ['collection_item_demo_blog'],
+            confidence: 0.88
+          }
         },
-        seoKeywords: {
-          aiValue: '분당 케이크, 레터링 케이크, 정자동 케이크',
-          finalValue: '분당 케이크, 레터링 케이크, 정자동 케이크',
-          evidenceItemIds: ['collection_item_demo_blog'],
-          confidence: 0.88
-        }
-      })
+        OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT
+      )
     };
     const parseCalls: unknown[] = [];
     const provider = createOpenAIAnalysisProvider({
@@ -871,6 +973,8 @@ describe('analysis execution API', () => {
     expect(parsePayload).toContain('test-openai-model');
     expect(parsePayload).toContain('collection_item_demo_blog');
     expect(parsePayload).toContain('rulesetFieldsByKey');
+    expect(parsePayload).toContain('sl_a1_blog_sop_input.v1');
+    expect(parsePayload).toContain('store_learning_analysis.v2');
     expect(parsePayload).toContain('reviewWeakness');
     expect(parsePayload).toContain('blogImageFormat');
     expect(parsePayload).toContain('representativeMenu');
@@ -908,9 +1012,15 @@ describe('analysis execution API', () => {
     expect(schemaRequired).not.toContain('rulesetFields');
     expect(schemaProperties.rulesetFields).toBeUndefined();
     expect(rulesetFieldsByKeySchema.additionalProperties).toBe(false);
-    expect(rulesetFieldRequired).toHaveLength(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
-    expect(rulesetFieldRequired).toEqual(expect.arrayContaining(REQUIRED_ANALYZER_RULESET_FIELD_KEYS));
-    expect(Object.keys(rulesetFieldProperties)).toEqual(expect.arrayContaining(REQUIRED_ANALYZER_RULESET_FIELD_KEYS));
+    expect(rulesetFieldRequired).toHaveLength(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT.length);
+    expect(rulesetFieldRequired).toEqual(expect.arrayContaining(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT));
+    expect(Object.keys(rulesetFieldProperties)).toEqual(
+      expect.arrayContaining(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT)
+    );
+    for (const blockedFieldKey of OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS) {
+      expect(rulesetFieldRequired).not.toContain(blockedFieldKey);
+      expect(rulesetFieldProperties[blockedFieldKey]).toBeUndefined();
+    }
     expect(evidenceItemIdSchema.enum).toEqual(
       expect.arrayContaining([
         'collection_item_demo_blog',
@@ -918,12 +1028,52 @@ describe('analysis execution API', () => {
         'collection_item_demo_place_review'
       ])
     );
-    expect(promptInput.promptItemIds).toEqual([
+    expect(promptInput.schemaVersion).toBe('sl_a1_blog_sop_input.v1');
+    expect(promptInput.outputSchemaRef).toBe('store_learning_analysis.v2');
+    expect(promptInput.evidenceItemIds).toEqual([
       'collection_item_demo_place_profile',
       'collection_item_demo_place_review',
       'collection_item_demo_blog'
     ]);
-    expect(promptInput.requiredRulesetFields).toHaveLength(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
+    expect(promptInput.promptItemIds).toBeUndefined();
+    expect(promptInput.requiredRulesetFields).toBeUndefined();
+    expect(promptInput.storeProfile.facts).toEqual(
+      expect.objectContaining({
+        name: '분당 케이크하우스',
+        businessHours: '화-일 11:00-20:00',
+        parking: '건물 뒤편 2대 주차 가능'
+      })
+    );
+    expect(promptInput.blogPosts[0]).toEqual(
+      expect.objectContaining({
+        id: 'collection_item_demo_blog',
+        metadata: expect.objectContaining({
+          blogId: 'blogger_test',
+          logNo: 'log_test'
+        }),
+        content: expect.objectContaining({
+          bodyTextFull: expect.stringContaining('OpenAI 분석 입력 예산 테스트용 블로그 본문입니다.'),
+          contentHash: expect.any(String),
+          isTruncated: false
+        })
+      })
+    );
+    expect(promptInput.reviews.map((item: { id: string }) => item.id)).toContain('collection_item_demo_place_review');
+    expect(promptInput.requestedRulesetFieldKeys).toEqual(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT);
+    expect(promptInput.blockedFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'blogImageFormat',
+          reason: 'image_metadata_unavailable',
+          source: 'input_blocked'
+        }),
+        expect.objectContaining({
+          fieldKey: 'instagramPurpose',
+          reason: 'instagram_not_in_scope',
+          source: 'input_blocked'
+        })
+      ])
+    );
 
     expect(persistedRun?.status).toBe('completed');
     expect(persistedRun?.result).toEqual(
@@ -943,7 +1093,7 @@ describe('analysis execution API', () => {
         promptReviewItemCount: 1,
         omittedReviewItemCount: 0,
         promptCharacterCount: expect.any(Number),
-        promptBudgetReason: 'body_truncated_to_budget'
+        promptBudgetReason: null
       })
     );
     expect(snapshot.snapshot).toEqual(
@@ -968,6 +1118,20 @@ describe('analysis execution API', () => {
       source: 'openai_analysis',
       evidenceItemIds: expect.arrayContaining(['collection_item_demo_place_profile'])
     });
+    expect(fields.map((field) => field.fieldKey).sort()).toEqual([...REQUIRED_ANALYZER_RULESET_FIELD_KEYS].sort());
+    expect(fields.filter((field) => field.source === 'openai_analysis').map((field) => field.fieldKey)).toEqual(
+      expect.arrayContaining(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT)
+    );
+    expect(fields.filter((field) => field.source === 'input_blocked').map((field) => field.fieldKey)).toEqual(
+      expect.arrayContaining(OPENAI_BLOCKED_FIELD_KEYS_WITHOUT_IMAGE_ANALYSIS)
+    );
+    expect(fields.find((field) => field.fieldKey === 'blogImageFormat')).toMatchObject({
+      source: 'input_blocked',
+      locked: 0,
+      confidence: null,
+      evidenceItemIds: [],
+      finalValue: expect.stringContaining('입력 데이터가 부족해')
+    });
     expect(auditLogs).toHaveLength(1);
     expect(auditLogs[0]).toMatchObject({
       storeId: 'store_demo_cake',
@@ -981,15 +1145,30 @@ describe('analysis execution API', () => {
       inputBudget: expect.objectContaining({
         promptItemCount: 3,
         promptCharacterCount: expect.any(Number),
-        promptBudgetReason: 'body_truncated_to_budget'
+        promptBudgetReason: null,
+        requestedRulesetFieldKeys: OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT,
+        blockedFields: expect.arrayContaining([
+          expect.objectContaining({
+            fieldKey: 'blogImageFormat',
+            source: 'input_blocked'
+          })
+        ])
       }),
       promptInputJson: expect.objectContaining({
-        store: expect.objectContaining({ id: 'store_demo_cake' }),
-        promptItemIds: [
+        schemaVersion: 'sl_a1_blog_sop_input.v1',
+        outputSchemaRef: 'store_learning_analysis.v2',
+        storeProfile: expect.objectContaining({ id: 'store_demo_cake' }),
+        evidenceItemIds: [
           'collection_item_demo_place_profile',
           'collection_item_demo_place_review',
           'collection_item_demo_blog'
-        ]
+        ],
+        blockedFields: expect.arrayContaining([
+          expect.objectContaining({
+            fieldKey: 'blogImageFormat',
+            source: 'input_blocked'
+          })
+        ])
       }),
       responseFormatJson: expect.objectContaining({
         name: 'store_learning_analysis',
@@ -1006,7 +1185,9 @@ describe('analysis execution API', () => {
     expect(auditLogs[0].responseCompletedAt).toEqual(expect.any(String));
     expect(JSON.stringify(auditLogs[0])).not.toContain('test-key');
     expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('rawProviderPayload');
+    expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('rawRenderedHtml');
     expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('https://cdn.example.com');
+    expect(JSON.stringify(auditLogs[0].promptInputJson)).not.toContain('promptItemIds');
   });
 
   it('returns current failed run diagnostics from the start API when analysis fails', async () => {

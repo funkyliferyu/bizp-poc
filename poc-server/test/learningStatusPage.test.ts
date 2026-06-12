@@ -67,12 +67,16 @@ describe('learning status static page API wiring', () => {
     expect(js).not.toContain('NAVER_CLIENT');
   });
 
-  it('creates a new collection run before relearn navigation', () => {
+  it('labels the collection CTA separately from ruleset relearning', () => {
     const html = readFileSync(path.join(webRoot, '06_AI학습_현황.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
 
-    expect(html).toContain('id="learning-relearn-btn"');
+    expect(html).toContain('id="learning-collect-new-content-btn"');
+    expect(html).toContain('신규 콘텐츠 수집');
+    expect(html).toContain('id="learning-ruleset-relearn-btn"');
+    expect(html).toContain('룰셋 재학습');
     expect(html).not.toContain('onclick="location.href=\'04_AI학습_수집중.html\'"');
+    expect(html).not.toContain('id="learning-relearn-btn"');
 
     expect(js).toContain('function createCollectionRun');
     expect(js).toContain('fetch(`/api/stores/${storeId}/collection-runs`');
@@ -82,16 +86,47 @@ describe('learning status static page API wiring', () => {
     expect(js).toContain("next.searchParams.set('storeId', storeId)");
     expect(js).toContain("next.searchParams.set('runId', runId)");
     expect(js).toContain("window.localStorage.setItem(STORE_ID_KEY, storeId)");
+    expect(js).toContain("field('learning-collect-new-content-btn')");
   });
 
-  it('dims the relearn button when new evidence thresholds are not met', () => {
+  it('runs ruleset relearning from existing assets without browser-side provider calls', () => {
+    const html = readFileSync(path.join(webRoot, '06_AI학습_현황.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
+
+    expect(html).toContain('id="learning-analysis-overlay"');
+    expect(html).toContain('id="learning-analysis-overlay-status"');
+    expect(html).toContain('id="learning-analysis-overlay-elapsed"');
+    expect(html).toContain('data-learning-overlay-step="analyzing"');
+    expect(html).toContain('룰셋 생성');
+    expect(js).toContain('function collectedAssetIds');
+    expect(js).toContain('function createRulesetRelearnAnalysisRun');
+    expect(js).toContain('function startRulesetRelearn');
+    expect(js).toContain('function setAnalysisOverlayVisible');
+    expect(js).toContain('function startAnalysisElapsedTimer');
+    expect(js).toContain('function startAnalysisProgressPolling');
+    expect(js).toContain('function readAnalysisRun');
+    expect(js).toContain('applyAnalysisProgress');
+    expect(js).toContain('forceRulesetRelearn: true');
+    expect(js).toContain('fetch(`/api/analysis-runs`,');
+    expect(js).toContain('fetch(`/api/analysis-runs/${analysisRunId}/start`');
+    expect(js).toContain('reloadLearningStatus(storeId)');
+    expect(js).not.toContain("next.searchParams.set('analysisRunId', analysisRunId)");
+    expect(js).not.toContain('goToRulesetRelearnResult');
+    expect(js).toContain("field('learning-ruleset-relearn-btn')");
+    expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
+
+  it('dims the ruleset relearn button only when existing assets are missing', () => {
     const js = readFileSync(path.join(webRoot, 'learning_status.js'), 'utf8');
 
     expect(js).toContain('function applyRelearnEligibility');
-    expect(js).toContain('status.relearnEligibility');
-    expect(js).toContain('재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.');
-    expect(js).toContain('button.disabled = !eligibility.allowed');
-    expect(js).toContain('button.classList.toggle(\'is-disabled\', !eligibility.allowed)');
+    expect(js).toContain('latestLearningStatus = status');
+    expect(js).toContain('hasExistingRulesetAssets');
+    expect(js).toContain('현재 에셋 데이터가 부족해 룰셋 재학습을 실행할 수 없습니다.');
+    expect(js).toContain('button.disabled = !hasAssets');
+    expect(js).toContain('button.classList.toggle(\'is-disabled\', !hasAssets)');
   });
 
   it('renders Blog rows as source links with published date and view count fields', () => {

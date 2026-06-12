@@ -2,10 +2,28 @@
   const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
   const PLACE_REVIEW_COLLAPSED_LIMIT = 5;
   const PLACE_REVIEW_EXPANDED_LIMIT = 20;
-  const RELEARN_EVIDENCE_GUIDANCE = '재학습을 위해서는 블로그 3개, 리뷰 10개 이상의 신규 에셋이 필요합니다.';
+  const RULESET_RELEARN_ASSET_GUIDANCE = '현재 에셋 데이터가 부족해 룰셋 재학습을 실행할 수 없습니다.';
+  let latestLearningStatus = null;
+  let latestBlogStatus = null;
+  let latestPlaceStatus = null;
   let latestPlaceReviews = [];
   let placeReviewsExpanded = false;
   let placeReviewPage = 0;
+  let analysisElapsedTimer = null;
+  let analysisElapsedStartedAt = null;
+
+  const analysisOverlayStepOrder = ['queued', 'analyzing', 'validating', 'snapshot', 'ruleset', 'completed'];
+  const analysisServerStepToOverlayStep = {
+    preparing: 'queued',
+    analyzing: 'analyzing',
+    validating: 'validating',
+    evidence: 'validating',
+    snapshot: 'snapshot',
+    ruleset: 'ruleset',
+    ruleset_fields: 'ruleset',
+    completed: 'completed',
+    failed: 'validating'
+  };
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -35,6 +53,73 @@
       throw new Error(body.error || '요청을 처리하지 못했습니다.');
     }
     return body;
+  }
+
+  function setAnalysisOverlayVisible(visible) {
+    const overlay = field('learning-analysis-overlay');
+    if (!overlay) return;
+    overlay.classList.toggle('active', visible);
+    overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
+  function setAnalysisOverlayStatus(text) {
+    const status = field('learning-analysis-overlay-status');
+    if (status) status.textContent = text || '진행 중';
+  }
+
+  function formatElapsed(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function stopAnalysisElapsedTimer() {
+    if (analysisElapsedTimer) window.clearInterval(analysisElapsedTimer);
+    analysisElapsedTimer = null;
+  }
+
+  function startAnalysisElapsedTimer() {
+    stopAnalysisElapsedTimer();
+    analysisElapsedStartedAt = Date.now();
+    const elapsed = field('learning-analysis-overlay-elapsed');
+    const tick = () => {
+      if (elapsed && analysisElapsedStartedAt) {
+        elapsed.textContent = `경과 ${formatElapsed(Date.now() - analysisElapsedStartedAt)}`;
+      }
+    };
+    tick();
+    analysisElapsedTimer = window.setInterval(tick, 1000);
+  }
+
+  function setAnalysisOverlayFlow(stepKey, stateText) {
+    const activeIndex = analysisOverlayStepOrder.indexOf(stepKey);
+    const steps = Array.from(document.querySelectorAll('[data-learning-overlay-step]'));
+    steps.forEach((step) => {
+      const key = step.getAttribute('data-learning-overlay-step');
+      const index = analysisOverlayStepOrder.indexOf(key);
+      const state = step.querySelector('.analysis-overlay-step-state');
+      const isDone = activeIndex >= 0 && index >= 0 && index < activeIndex;
+      const isActive = key === stepKey;
+      step.classList.toggle('done', isDone);
+      step.classList.toggle('active', isActive);
+      if (state) {
+        if (isDone) state.textContent = '완료';
+        else if (isActive) state.textContent = stateText || '진행 중';
+        else state.textContent = '대기';
+      }
+    });
+  }
+
+  function applyAnalysisProgress(progress) {
+    if (!progress || typeof progress !== 'object') return;
+    const step = progress.step;
+    if (typeof step !== 'string') return;
+    const label = typeof progress.label === 'string' ? progress.label : '분석 실행';
+    const message = typeof progress.message === 'string' ? progress.message : label;
+    const stateText = progress.state === 'done' ? '완료' : label;
+    setAnalysisOverlayFlow(analysisServerStepToOverlayStep[step] || 'analyzing', stateText);
+    setAnalysisOverlayStatus(message);
   }
 
   function formatDate(value) {
@@ -114,19 +199,91 @@
     window.location.href = `${next.pathname}${next.search}`;
   }
 
-  function applyRelearnEligibility(eligibility) {
-    const button = field('learning-relearn-btn');
-    if (!button || !eligibility) return;
-    button.disabled = !eligibility.allowed;
-    button.classList.toggle('is-disabled', !eligibility.allowed);
-    button.title = eligibility.allowed ? '지금 재학습' : (eligibility.message || RELEARN_EVIDENCE_GUIDANCE);
-    button.textContent = eligibility.allowed ? '지금 재학습' : '재학습 대기';
+  function collectedAssetIds(blog, place) {
+    const ids = [
+      ...(Array.isArray(blog?.items) ? blog.items.map((item) => item.id) : []),
+      place?.profile?.id,
+      ...(Array.isArray(place?.reviews) ? place.reviews.map((review) => review.id) : [])
+    ];
+    return Array.from(new Set(ids.filter(Boolean)));
   }
 
-  async function startRelearn(storeId, button) {
+  function hasExistingRulesetAssets() {
+    return Boolean(latestLearningStatus?.relearnEligibility?.latestCollectionRunId) &&
+      collectedAssetIds(latestBlogStatus, latestPlaceStatus).length > 0;
+  }
+
+  async function createRulesetRelearnAnalysisRun(storeId) {
+    const collectionRunId = latestLearningStatus?.relearnEligibility?.latestCollectionRunId;
+    const selectedItemIds = collectedAssetIds(latestBlogStatus, latestPlaceStatus);
+    if (!collectionRunId || selectedItemIds.length === 0) {
+      throw new Error(RULESET_RELEARN_ASSET_GUIDANCE);
+    }
+    const response = await fetch(`/api/analysis-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId,
+        collectionRunId,
+        selectedItemIds,
+        forceRulesetRelearn: true
+      })
+    });
+    return readResponse(response);
+  }
+
+  async function startAnalysisRun(analysisRunId) {
+    const response = await fetch(`/api/analysis-runs/${analysisRunId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return readResponse(response);
+  }
+
+  async function readAnalysisRun(analysisRunId) {
+    const response = await fetch(`/api/analysis-runs/${analysisRunId}`);
+    return readResponse(response);
+  }
+
+  function startAnalysisProgressPolling(analysisRunId) {
+    let stopped = false;
+    let timer = null;
+    const poll = async () => {
+      if (stopped) return;
+      try {
+        const artifacts = await readAnalysisRun(analysisRunId);
+        applyAnalysisProgress(artifacts.analysisRun?.result?.analysisProgress);
+        const status = artifacts.analysisRun?.status;
+        if (['completed', 'failed'].includes(status)) {
+          stopped = true;
+          if (timer) window.clearInterval(timer);
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    };
+    poll();
+    timer = window.setInterval(poll, 1000);
+    return () => {
+      stopped = true;
+      if (timer) window.clearInterval(timer);
+    };
+  }
+
+  function applyRelearnEligibility(eligibility) {
+    const button = field('learning-ruleset-relearn-btn');
+    if (!button || !eligibility) return;
+    const hasAssets = hasExistingRulesetAssets();
+    button.disabled = !hasAssets;
+    button.classList.toggle('is-disabled', !hasAssets);
+    button.title = hasAssets ? '현재 에셋 데이터로 룰셋 재학습' : RULESET_RELEARN_ASSET_GUIDANCE;
+    button.textContent = '룰셋 재학습';
+  }
+
+  async function startNewContentCollection(storeId, button) {
     const originalText = button.textContent;
     button.disabled = true;
-    button.textContent = '재학습 준비 중';
+    button.textContent = '수집 준비 중';
     try {
       const payload = await createCollectionRun(storeId);
       const runId = payload.collectionRunId || payload.collectionRun?.id;
@@ -139,14 +296,59 @@
     }
   }
 
+  async function startRulesetRelearn(storeId, button) {
+    const originalText = button.textContent;
+    let stopProgressPolling = null;
+    button.disabled = true;
+    button.textContent = '룰셋 재학습 중';
+    try {
+      const payload = await createRulesetRelearnAnalysisRun(storeId);
+      const analysisRunId = payload.analysisRunId || payload.analysisRun?.id;
+      if (!analysisRunId) throw new Error('분석 실행 정보를 생성하지 못했습니다.');
+      setAnalysisOverlayVisible(true);
+      startAnalysisElapsedTimer();
+      setAnalysisOverlayStatus('현재 에셋을 확정하는 중입니다');
+      setAnalysisOverlayFlow('queued', '확정 중');
+      stopProgressPolling = startAnalysisProgressPolling(analysisRunId);
+      setAnalysisOverlayStatus('AI 분석을 시작했습니다');
+      setAnalysisOverlayFlow('analyzing', 'AI 분석 중');
+      const started = await startAnalysisRun(analysisRunId);
+      stopProgressPolling?.();
+      applyAnalysisProgress(started.analysisRun?.result?.analysisProgress);
+      setAnalysisOverlayStatus('룰셋 재학습이 완료되었습니다');
+      setAnalysisOverlayFlow('completed', '완료');
+      await reloadLearningStatus(storeId);
+      window.setTimeout(() => {
+        setAnalysisOverlayVisible(false);
+        stopAnalysisElapsedTimer();
+      }, 700);
+    } catch (error) {
+      stopProgressPolling?.();
+      stopAnalysisElapsedTimer();
+      setAnalysisOverlayVisible(false);
+      button.disabled = false;
+      button.textContent = originalText;
+      throw error;
+    }
+  }
+
   function wireRelearn(storeId) {
-    const button = field('learning-relearn-btn');
-    if (!button) return;
-    button.addEventListener('click', () => {
-      startRelearn(storeId, button).catch((error) => {
-        alert(error instanceof Error ? error.message : '재학습을 시작하지 못했습니다.');
+    const collectionButton = field('learning-collect-new-content-btn');
+    if (collectionButton) {
+      collectionButton.addEventListener('click', () => {
+        startNewContentCollection(storeId, collectionButton).catch((error) => {
+          alert(error instanceof Error ? error.message : '신규 콘텐츠 수집을 시작하지 못했습니다.');
+        });
       });
-    });
+    }
+    const rulesetButton = field('learning-ruleset-relearn-btn');
+    if (rulesetButton) {
+      rulesetButton.addEventListener('click', () => {
+        startRulesetRelearn(storeId, rulesetButton).catch((error) => {
+          alert(error instanceof Error ? error.message : '룰셋 재학습을 시작하지 못했습니다.');
+        });
+      });
+    }
   }
 
   function wireRulesetNavigation(storeId) {
@@ -577,6 +779,17 @@
     ]);
   }
 
+  async function reloadLearningStatus(storeId) {
+    const [status, blog, place, instagram] = await loadLearningStatus(storeId);
+    latestLearningStatus = status;
+    latestBlogStatus = blog;
+    latestPlaceStatus = place;
+    renderOverview(status, storeId);
+    renderBlog(blog);
+    renderPlace(place);
+    renderInstagram(instagram);
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     const storeId = currentStoreId();
     window.localStorage.setItem(STORE_ID_KEY, storeId);
@@ -586,11 +799,7 @@
     wirePlaceReviewControls();
 
     try {
-      const [status, blog, place, instagram] = await loadLearningStatus(storeId);
-      renderOverview(status, storeId);
-      renderBlog(blog);
-      renderPlace(place);
-      renderInstagram(instagram);
+      await reloadLearningStatus(storeId);
     } catch (error) {
       console.warn(error);
       field('state-area').innerHTML = '<div class="err-banner warning"><div class="err-title">학습 현황을 불러오지 못했습니다</div><div class="err-desc">잠시 후 다시 시도해주세요.</div></div>';

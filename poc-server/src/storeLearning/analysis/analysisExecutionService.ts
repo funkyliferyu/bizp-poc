@@ -12,6 +12,7 @@ import {
   canonicalRulesetFieldKey,
   sourceMatrixForFieldKey
 } from '../rulesets/rulesetSourceMatrix.js';
+import type { BlockedAnalyzerRulesetField } from './analysisPromptBudget.js';
 import { createMockAnalysisProvider, type AnalysisProvider, validateAnalyzerOutput } from './analyzer.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
@@ -56,6 +57,27 @@ function asNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function asBlockedFields(value: unknown): BlockedAnalyzerRulesetField[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    const fieldKey = asString(record.fieldKey);
+    const label = asString(record.label);
+    const section = asString(record.section);
+    const reason = asString(record.reason);
+    if (!fieldKey || !label || !section || !reason || record.source !== 'input_blocked') return [];
+    return [
+      {
+        fieldKey,
+        label,
+        section: section as BlockedAnalyzerRulesetField['section'],
+        reason: reason as BlockedAnalyzerRulesetField['reason'],
+        source: 'input_blocked'
+      }
+    ];
+  });
+}
+
 function providerRunMetadata(provider: AnalysisProvider, selectedItems: CollectionItem[]) {
   const metadata = asRecord(provider.getLastRunMetadata?.());
   return {
@@ -76,7 +98,10 @@ function providerRunMetadata(provider: AnalysisProvider, selectedItems: Collecti
     promptCharacterCount: asNumber(metadata.promptCharacterCount),
     promptCharacterBudget: asNumber(metadata.promptCharacterBudget),
     bodyCharacterBudget: asNumber(metadata.bodyCharacterBudget),
-    promptBudgetReason: asString(metadata.promptBudgetReason)
+    promptBudgetReason: asString(metadata.promptBudgetReason),
+    evidenceItemIds: asStringArray(metadata.evidenceItemIds),
+    requestedRulesetFieldKeys: asStringArray(metadata.requestedRulesetFieldKeys),
+    blockedFields: asBlockedFields(metadata.blockedFields)
   };
 }
 
@@ -246,10 +271,21 @@ function validateAnalyzerRulesetFieldContract(
   provider: AnalysisProvider
 ) {
   const requiredFieldKeys = new Set(REQUIRED_ANALYZER_RULESET_FIELD_KEYS);
+  const metadata = asRecord(provider.getLastRunMetadata?.());
+  const blockedFields = asBlockedFields(metadata.blockedFields);
+  const blockedFieldKeys = new Set(blockedFields.map((field) => field.fieldKey));
+  const requestedFieldKeysFromMetadata = asStringArray(metadata.requestedRulesetFieldKeys);
+  const requestedFieldKeys =
+    provider.mode === 'openai' && (requestedFieldKeysFromMetadata.length > 0 || blockedFieldKeys.size > 0)
+      ? requestedFieldKeysFromMetadata
+      : REQUIRED_ANALYZER_RULESET_FIELD_KEYS;
+  const requestedFieldKeySet = new Set(requestedFieldKeys);
   const seenFieldKeys = new Set<string>();
   const duplicateFieldKeys = new Set<string>();
   const unknownFieldKeys = new Set<string>();
   const invalidOpenAISourceFieldKeys = new Set<string>();
+  const contractCoverage = new Set([...requestedFieldKeySet, ...blockedFieldKeys]);
+  const missingContractCoverage = REQUIRED_ANALYZER_RULESET_FIELD_KEYS.filter((fieldKey) => !contractCoverage.has(fieldKey));
 
   for (const field of output.rulesetFields) {
     if (seenFieldKeys.has(field.fieldKey)) {
@@ -259,14 +295,20 @@ function validateAnalyzerRulesetFieldContract(
     if (!requiredFieldKeys.has(field.fieldKey)) {
       unknownFieldKeys.add(field.fieldKey);
     }
-    if (provider.mode === 'openai' && field.source !== 'openai_analysis') {
+    if (provider.mode === 'openai' && requestedFieldKeySet.has(field.fieldKey) && field.source !== 'openai_analysis') {
+      invalidOpenAISourceFieldKeys.add(field.fieldKey);
+    }
+    if (provider.mode === 'openai' && blockedFieldKeys.has(field.fieldKey) && field.source !== 'input_blocked') {
       invalidOpenAISourceFieldKeys.add(field.fieldKey);
     }
   }
 
   const missingFieldKeys = REQUIRED_ANALYZER_RULESET_FIELD_KEYS.filter((fieldKey) => !seenFieldKeys.has(fieldKey));
-  if (missingFieldKeys.length > 0) {
-    throw new AnalysisContractError('missing_required_ruleset_fields', missingFieldKeys.length);
+  if (missingFieldKeys.length > 0 || missingContractCoverage.length > 0) {
+    throw new AnalysisContractError(
+      'missing_required_ruleset_fields',
+      missingFieldKeys.length + missingContractCoverage.length
+    );
   }
   if (duplicateFieldKeys.size > 0) {
     throw new AnalysisContractError('duplicate_ruleset_fields', duplicateFieldKeys.size);
@@ -277,6 +319,44 @@ function validateAnalyzerRulesetFieldContract(
   if (invalidOpenAISourceFieldKeys.size > 0) {
     throw new AnalysisContractError('invalid_openai_ruleset_source', invalidOpenAISourceFieldKeys.size);
   }
+}
+
+function blockedFieldFinalValue(field: BlockedAnalyzerRulesetField) {
+  if (field.reason === 'instagram_not_in_scope') {
+    return `${field.label}은(는) 이번 Blog SOP 분석 범위에 Instagram 입력이 없어 AI가 추론하지 않았습니다.`;
+  }
+  if (field.reason === 'review_text_unavailable') {
+    return `${field.label}은(는) 수집된 리뷰 본문 입력 데이터가 부족해 AI가 추론하지 않았습니다.`;
+  }
+  return `${field.label}은(는) 이미지 메타데이터 분석 입력 데이터가 부족해 AI가 추론하지 않았습니다.`;
+}
+
+function appendBlockedInputRulesetFields(
+  output: ReturnType<typeof validateAnalyzerOutput>,
+  provider: AnalysisProvider
+): ReturnType<typeof validateAnalyzerOutput> {
+  if (provider.mode !== 'openai') return output;
+  const blockedFields = asBlockedFields(asRecord(provider.getLastRunMetadata?.()).blockedFields);
+  if (blockedFields.length === 0) return output;
+  return {
+    ...output,
+    rulesetFields: [
+      ...output.rulesetFields,
+      ...blockedFields.map((field) => {
+        const finalValue = blockedFieldFinalValue(field);
+        return {
+          fieldKey: field.fieldKey,
+          aiValue: finalValue,
+          userValue: null,
+          finalValue,
+          source: 'input_blocked',
+          locked: false,
+          evidenceItemIds: [],
+          confidence: null
+        };
+      })
+    ]
+  };
 }
 
 function nextRulesetVersion(repos: Repositories, storeId: string) {
@@ -415,7 +495,7 @@ export async function startAnalysisRun(
 
   try {
     updateAnalysisProgress(repos, analysisRun.id, 'analyzing', 'running');
-    const output = validateAnalyzerOutput(await provider.analyze({ store, selectedItems }));
+    const output = appendBlockedInputRulesetFields(validateAnalyzerOutput(await provider.analyze({ store, selectedItems })), provider);
     const runMetadata = providerRunMetadata(provider, selectedItems);
     updateAnalysisProgress(repos, analysisRun.id, 'validating', 'running');
     validateAnalyzerRulesetFieldContract(output, provider);

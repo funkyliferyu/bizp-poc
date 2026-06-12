@@ -4,6 +4,32 @@ import type { Store } from '../src/repositories/stores.js';
 import { buildAnalysisPromptInput } from '../src/storeLearning/analysis/analysisPromptBudget.js';
 import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../src/storeLearning/rulesets/rulesetSourceMatrix.js';
 
+const ALWAYS_BLOCKED_INSTAGRAM_FIELD_KEYS = [
+  'instagramPurpose',
+  'instagramWritingStyle',
+  'instagramPreferredLength',
+  'instagramHashtags',
+  'instagramEmojiPolicy',
+  'instagramImageFormat',
+  'instagramImageStyle',
+  'instagramOverlayPolicy'
+];
+
+const IMAGE_METADATA_BLOCKED_FIELD_KEYS = [
+  'primaryColors',
+  'accentColors',
+  'imageDirection',
+  'imageStyle',
+  'imageAvoidStyle',
+  'blogImageFormat',
+  'blogImageStyle',
+  'blogOverlayPolicy'
+];
+
+function keysOf(items: Array<{ fieldKey: string }>) {
+  return items.map((item) => item.fieldKey);
+}
+
 function baseItem(overrides: Partial<CollectionItem>): CollectionItem {
   const timestamp = '2026-06-10T00:00:00.000Z';
   return {
@@ -105,6 +131,7 @@ describe('analysis prompt budget', () => {
       { store, selectedItems },
       { promptCharacterBudget: 26000, bodyCharacterBudget: 1800 }
     );
+    const prompt = promptInput as unknown as Record<string, unknown>;
     const serialized = JSON.stringify(promptInput);
 
     expect(metadata.promptCharacterCount).toBeLessThanOrEqual(26000);
@@ -121,8 +148,42 @@ describe('analysis prompt budget', () => {
     expect(serialized).not.toContain('rawProviderPayload');
     expect(serialized).not.toContain('renderedHtml');
     expect(serialized).not.toContain('https://cdn.example.com');
-    expect(promptInput.selectedItems.find((item) => item.id === 'profile_1')?.bodyText).toBeNull();
-    expect((promptInput.selectedItems.find((item) => item.id === 'review_1')?.bodyText ?? '').length).toBeLessThanOrEqual(500);
+    expect(prompt).toMatchObject({
+      schemaVersion: 'sl_a1_blog_sop_input.v1',
+      outputSchemaRef: 'store_learning_analysis.v2',
+      storeProfile: expect.objectContaining({
+        id: 'store_test',
+        facts: expect.objectContaining({
+          name: '테라스의원',
+          category: '피부과 의원',
+          address: '서울 강남구 테스트로 1',
+          phone: '02-123-4567',
+          businessHours: '월-금 10:00-19:00',
+          parking: '건물 지하 주차 가능',
+          treatmentSubjects: expect.arrayContaining(['피부관리', '여드름'])
+        })
+      }),
+      evidenceItemIds: expect.arrayContaining(['profile_1', 'review_1']),
+      blogPosts: expect.any(Array),
+      reviews: expect.any(Array),
+      unavailableData: expect.objectContaining({
+        reviews: false,
+        images: true
+      }),
+      requestedRulesetFieldKeys: expect.any(Array),
+      blockedFields: expect.any(Array),
+      industryPolicy: expect.objectContaining({
+        isHealthcare: true,
+        signals: expect.arrayContaining(['의원', '피부과'])
+      })
+    });
+    expect(prompt).not.toHaveProperty('store');
+    expect(prompt).not.toHaveProperty('selectedItemIds');
+    expect(prompt).not.toHaveProperty('promptItemIds');
+    expect(prompt).not.toHaveProperty('selectedItems');
+    expect(prompt).not.toHaveProperty('requiredRulesetFieldKeys');
+    expect(prompt).not.toHaveProperty('requiredRulesetFields');
+    expect((promptInput.reviews.find((item) => item.id === 'review_1')?.content.bodyText ?? '').length).toBeLessThanOrEqual(500);
   });
 
   it('limits blog sources to 3 even when the prompt budget allows more', () => {
@@ -162,14 +223,14 @@ describe('analysis prompt budget', () => {
       { store: baseStore(), selectedItems },
       { promptCharacterBudget: 100000, bodyCharacterBudget: 100000 }
     );
-    const promptBlogIds = promptInput.selectedItems.filter((item) => item.channel === 'blog').map((item) => item.id);
+    const promptBlogIds = promptInput.blogPosts.map((item) => item.id);
 
     expect(promptBlogIds).toHaveLength(3);
     expect(promptBlogIds).toEqual(['blog_12', 'blog_11', 'blog_10']);
-    expect(promptInput.promptItemIds).toEqual(['profile_1', 'review_1', 'blog_12', 'blog_11', 'blog_10']);
-    expect(promptInput.promptItemIds).not.toContain('blog_1');
-    expect(promptInput.selectedItems.map((item) => item.id)).toContain('profile_1');
-    expect(promptInput.selectedItems.map((item) => item.id)).toContain('review_1');
+    expect(promptInput.evidenceItemIds).toEqual(['profile_1', 'review_1', 'blog_12', 'blog_11', 'blog_10']);
+    expect(promptInput.evidenceItemIds).not.toContain('blog_1');
+    expect(promptInput.storeProfile.sourceItemIds).toContain('profile_1');
+    expect(promptInput.reviews.map((item) => item.id)).toContain('review_1');
     expect(metadata.omittedItemCount).toBe(9);
     expect(metadata.blogItemLimit).toBe(3);
     expect(metadata.promptBlogItemCount).toBe(3);
@@ -213,9 +274,7 @@ describe('analysis prompt budget', () => {
       { store: baseStore(), selectedItems },
       { promptCharacterBudget: 100000, bodyCharacterBudget: 100000 }
     );
-    const promptReviewIds = promptInput.selectedItems
-      .filter((item) => item.sourceType === 'review')
-      .map((item) => item.id);
+    const promptReviewIds = promptInput.reviews.map((item) => item.id);
 
     expect(promptReviewIds).toHaveLength(10);
     expect(promptReviewIds).toEqual([
@@ -230,8 +289,8 @@ describe('analysis prompt budget', () => {
       'review_4',
       'review_3'
     ]);
-    expect(promptInput.selectedItems.map((item) => item.id)).toContain('profile_1');
-    expect(promptInput.selectedItems.map((item) => item.id)).toContain('blog_1');
+    expect(promptInput.storeProfile.sourceItemIds).toContain('profile_1');
+    expect(promptInput.blogPosts.map((item) => item.id)).toContain('blog_1');
     expect(metadata.omittedItemCount).toBe(2);
     expect(metadata.reviewItemLimit).toBe(10);
     expect(metadata.promptReviewItemCount).toBe(10);
@@ -239,7 +298,72 @@ describe('analysis prompt budget', () => {
     expect(metadata.promptBudgetReason).toBe('review_item_limit_exceeded');
   });
 
-  it('sends structured guidance for every SL-A1 ruleset field that requires AI interpretation', () => {
+  it('canonicalizes store facts once under storeProfile.facts and keeps profile metadata out of item metadata', () => {
+    const { promptInput } = buildAnalysisPromptInput({
+      store: baseStore({
+        metadata: {
+          profileFacts: {
+            businessHours: '월-금 09:00-18:00'
+          },
+          storeMetadata: {
+            businessHours: '월-금 10:00-19:00',
+            closedDays: '일요일',
+            parking: '발렛 가능',
+            representativeTreatmentSubjects: ['피부질환', '리프팅']
+          }
+        }
+      }),
+      selectedItems: [
+        baseItem({
+          id: 'profile_1',
+          channel: 'place',
+          sourceType: 'profile',
+          metadata: {
+            profileFacts: {
+              businessHours: '월-금 10:00-19:00',
+              closedDays: '일요일'
+            },
+            businessHours: '월-금 10:00-19:00'
+          }
+        }),
+        baseItem({
+          id: 'blog_1',
+          channel: 'blog',
+          sourceType: 'post',
+          title: '피부관리 안내 블로그',
+          bodyText: '테라스의원은 상담 예약을 안내합니다. 궁금한 점은 문의해 주세요? #피부과',
+          metadata: {
+            bodyAvailability: 'full',
+            publishedAt: '2026-06-01'
+          }
+        })
+      ]
+    });
+    const serialized = JSON.stringify(promptInput);
+
+    expect(promptInput.storeProfile.facts).toEqual(
+      expect.objectContaining({
+        name: '테라스의원',
+        category: '피부과 의원',
+        address: '서울 강남구 테스트로 1',
+        phone: '02-123-4567',
+        businessHours: '월-금 10:00-19:00',
+        closedDays: '일요일',
+        parking: '발렛 가능',
+        representativeTreatmentSubjects: expect.arrayContaining(['피부질환', '리프팅'])
+      })
+    );
+    expect(serialized).not.toContain('profileFacts');
+    expect(promptInput.blogPosts[0].content).toMatchObject({
+      bodyAvailability: 'full',
+      bodyCompleteness: 'complete',
+      hasHashtags: true,
+      questionSentenceCount: 1,
+      ctaCandidates: expect.arrayContaining([expect.stringContaining('문의')])
+    });
+  });
+
+  it('sends only supported SL-A1 ruleset fields and explains input-blocked fields', () => {
     const { promptInput } = buildAnalysisPromptInput({
       store: baseStore(),
       selectedItems: [
@@ -253,6 +377,121 @@ describe('analysis prompt budget', () => {
           }
         }),
         baseItem({
+          id: 'review_1',
+          channel: 'place',
+          sourceType: 'review',
+          bodyText: '상담이 꼼꼼하고 방문 안내가 좋았습니다.'
+        }),
+        baseItem({
+          id: 'blog_1',
+          channel: 'blog',
+          sourceType: 'post',
+          title: '피부관리 안내 블로그',
+          bodyText: '피부관리 블로그 문체와 상담 안내 예시'
+        })
+      ]
+    });
+    const blockedFieldKeys = keysOf(promptInput.blockedFields);
+    const requestedFieldKeys = [...promptInput.requestedRulesetFieldKeys];
+    const partitionedKeys = [...requestedFieldKeys, ...blockedFieldKeys].sort();
+
+    expect(partitionedKeys).toEqual([...REQUIRED_ANALYZER_RULESET_FIELD_KEYS].sort());
+    expect(new Set(partitionedKeys).size).toBe(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
+    expect(requestedFieldKeys).toContain('storePositioning');
+    expect(requestedFieldKeys).toContain('representativeMenu');
+    expect(requestedFieldKeys).toContain('reviewWeakness');
+    expect(requestedFieldKeys).not.toContain('operatingHours');
+    expect(requestedFieldKeys).not.toContain('parking');
+    expect(blockedFieldKeys).toEqual(
+      expect.arrayContaining([...ALWAYS_BLOCKED_INSTAGRAM_FIELD_KEYS, ...IMAGE_METADATA_BLOCKED_FIELD_KEYS])
+    );
+    expect(blockedFieldKeys).not.toContain('reviewStrength');
+    expect(blockedFieldKeys).not.toContain('reviewWeakness');
+    expect(promptInput.blockedFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'instagramPurpose',
+          label: '글의 목적',
+          section: 'write_instagram',
+          reason: 'instagram_not_in_scope',
+          source: 'input_blocked'
+        }),
+        expect.objectContaining({
+          fieldKey: 'blogImageFormat',
+          label: '비율·포맷',
+          section: 'image_blog',
+          reason: 'image_metadata_unavailable',
+          source: 'input_blocked'
+        })
+      ])
+    );
+  });
+
+  it('blocks review fields and marks review data unavailable when no usable review text exists', () => {
+    const { promptInput } = buildAnalysisPromptInput({
+      store: baseStore(),
+      selectedItems: [
+        baseItem({
+          id: 'profile_1',
+          channel: 'place',
+          sourceType: 'profile'
+        }),
+        baseItem({
+          id: 'review_empty',
+          channel: 'place',
+          sourceType: 'review',
+          bodyText: '   ',
+          metadata: { reviewDate: '2026-06-01' }
+        }),
+        baseItem({
+          id: 'blog_1',
+          channel: 'blog',
+          sourceType: 'post',
+          bodyText: '피부관리 블로그 문체와 상담 안내 예시'
+        })
+      ]
+    });
+
+    expect(promptInput.reviews).toHaveLength(0);
+    expect(promptInput.evidenceItemIds).not.toContain('review_empty');
+    expect(promptInput.unavailableData.reviews).toBe(true);
+    expect(keysOf(promptInput.blockedFields)).toEqual(expect.arrayContaining(['reviewStrength', 'reviewWeakness']));
+    expect(promptInput.blockedFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'reviewStrength',
+          reason: 'review_text_unavailable',
+          source: 'input_blocked'
+        }),
+        expect.objectContaining({
+          fieldKey: 'reviewWeakness',
+          reason: 'review_text_unavailable',
+          source: 'input_blocked'
+        })
+      ])
+    );
+  });
+
+  it('keeps structured source guidance for requested SL-A1 fields', () => {
+    const { promptInput } = buildAnalysisPromptInput({
+      store: baseStore(),
+      selectedItems: [
+        baseItem({
+          id: 'profile_1',
+          channel: 'place',
+          sourceType: 'profile',
+          metadata: {
+            representativeMenu: ['피부관리', '여드름 관리'],
+            businessHours: '월-금 10:00-19:00'
+          }
+        }),
+        baseItem({
+          id: 'review_1',
+          channel: 'place',
+          sourceType: 'review',
+          bodyText: '상담이 꼼꼼하고 방문 안내가 좋았습니다.'
+        }),
+        baseItem({
           id: 'blog_1',
           channel: 'blog',
           sourceType: 'post',
@@ -262,13 +501,7 @@ describe('analysis prompt budget', () => {
       ]
     });
 
-    expect(promptInput.requiredRulesetFields.map((field) => field.fieldKey)).toEqual(
-      REQUIRED_ANALYZER_RULESET_FIELD_KEYS
-    );
-    expect(promptInput.requiredRulesetFields).toHaveLength(REQUIRED_ANALYZER_RULESET_FIELD_KEYS.length);
-    expect(promptInput.requiredRulesetFields.map((field) => field.fieldKey)).not.toContain('operatingHours');
-    expect(promptInput.requiredRulesetFields.map((field) => field.fieldKey)).not.toContain('parking');
-    expect(promptInput.requiredRulesetFields).toEqual(
+    expect(promptInput.requestedRulesetFields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           fieldKey: 'storePositioning',
@@ -276,28 +509,30 @@ describe('analysis prompt budget', () => {
           section: 'brand',
           valueKind: 'text',
           sourceTier: 'ai_processing',
-          inputSources: expect.arrayContaining(['Place profile item']),
+          inputSources: expect.arrayContaining(['Blog body items']),
           expectedOutput: expect.stringContaining('포지셔닝'),
-          evidenceGuidance: expect.stringContaining('selected collection item IDs')
+          evidenceGuidance: expect.stringContaining('Use Blog post evidence item IDs')
         }),
         expect.objectContaining({
           fieldKey: 'representativeMenu',
           label: '대표 메뉴',
-          sourceTier: 'place_then_ai',
+          sourceTier: 'ai_processing',
           expectedOutput: expect.stringContaining('대표 메뉴'),
-          evidenceGuidance: expect.stringContaining('direct Place facts')
+          evidenceGuidance: expect.stringContaining('Use Blog post evidence item IDs')
         }),
         expect.objectContaining({
           fieldKey: 'reviewWeakness',
           label: '리뷰 약점',
           expectedOutput: expect.stringContaining('리뷰 약점'),
-          evidenceGuidance: expect.stringContaining('strategy-only')
-        }),
+          evidenceGuidance: expect.stringMatching(/Use Place review evidence item IDs.*strategy-only/)
+        })
+      ])
+    );
+    expect(promptInput.requestedRulesetFields).not.toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
           fieldKey: 'blogImageFormat',
-          label: '비율·포맷',
-          section: 'image_blog',
-          expectedOutput: expect.stringContaining('비율·포맷')
+          section: 'image_blog'
         })
       ])
     );

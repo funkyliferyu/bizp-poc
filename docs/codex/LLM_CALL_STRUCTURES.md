@@ -102,15 +102,19 @@ learning snapshot, evidence rows, marketing ruleset, and ruleset fields.
 
 **Current budget behavior:**
 
-- Store metadata is reduced to allowlisted profile facts.
+- Store facts are canonicalized once under `storeProfile.facts`.
 - Item metadata is reduced to allowlisted metadata fields.
-- Blog body is capped at 1,200 characters per item.
+- Blog body text is no longer capped at a fixed per-item 1,200 characters;
+  the latest 3 Blog posts fit against the aggregate body budget and include
+  content completeness metadata.
 - Place review body is capped at 500 characters per item.
 - Place profile body is excluded; normalized facts are used instead.
 - Current development version sends at most 3 latest Blog sources and 10 latest
-  Place review sources.
+  Place review sources with usable review text.
 - Prompt JSON is capped by `DEFAULT_PROMPT_CHARACTER_BUDGET = 60000`.
 - Aggregate body text is capped by `DEFAULT_BODY_CHARACTER_BUDGET = 32000`.
+- Unsupported review/image/Instagram ruleset fields are blocked server-side in
+  `blockedFields` instead of being requested from OpenAI.
 
 **Ruleset regeneration gate:** for stores that already have a learning
 snapshot and marketing ruleset, `SL-A1` full analyzer regeneration is allowed
@@ -148,47 +152,96 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
 ```ts
 {
   task: "Analyze selected collected content for Store Learning & Blog Content Automation PoC.",
+  schemaVersion: "sl_a1_blog_sop_input.v1",
+  outputSchemaRef: "store_learning_analysis.v2",
   constraints: [
     "Return Korean marketing strategy analysis only.",
-    "Every evidence.collectionItemId must be one of the provided promptItemIds.",
-    "Every ruleset field evidenceItemIds entry must be one of the provided promptItemIds.",
-    "Do not invent customer reviews or collection items.",
+    "Every evidence.collectionItemId must be one of the provided evidenceItemIds.",
+    "Every requested ruleset field evidenceItemIds entry must be one of the provided evidenceItemIds.",
+    "Do not invent customer reviews, image analysis, Instagram inputs, or collection items.",
     "Keep claims conservative and evidence-linked.",
-    "Populate every required ruleset field once."
+    "Populate every requested ruleset field once; do not populate blocked fields."
   ],
-  store: {
+  storeProfile: {
     id,
-    name,
-    category,
-    address,
-    description,
-    metadata: {
-      // allowlisted profile facts only:
-      // category, address, phone, businessHours, closedDays,
-      // parking, intro, description, treatmentSubjects,
-      // representativeTreatmentSubjects, representativeMenu
+    sourceItemIds: string[],
+    facts: {
+      name,
+      category,
+      address,
+      phone,
+      description,
+      businessHours,
+      closedDays,
+      parking,
+      intro,
+      treatmentSubjects,
+      representativeTreatmentSubjects,
+      representativeMenu
     }
   },
-  selectedItemIds: string[],
-  promptItemIds: string[],
-  selectedItems: [
+  evidenceItemIds: string[],
+  blogPosts: [
     {
       id,
-      channel,
-      sourceType,
       title,
-      bodyText, // budgeted, or null for profile items
       sourceUrl,
       metadata: {
-        // allowlisted item metadata only:
-        // publishedAt, postDate, reviewDate, rating,
-        // reviewerName, bodyAvailability, sourceKind,
-        // sourceOwnership, blogId, logNo, tags, profileFacts
+        publishedAt,
+        postDate,
+        bodyAvailability,
+        sourceKind,
+        sourceOwnership,
+        blogId,
+        logNo,
+        tags
+      },
+      content: {
+        bodyTextFull,
+        charCount,
+        includedCharCount,
+        isTruncated,
+        bodyCompleteness,
+        truncationReason,
+        contentHash,
+        bodyAvailability,
+        hasHashtags,
+        questionSentenceCount,
+        ctaCandidates
       }
     }
   ],
-  requiredRulesetFieldKeys: REQUIRED_ANALYZER_RULESET_FIELD_KEYS,
-  requiredRulesetFields: [
+  reviews: [
+    {
+      id,
+      title,
+      sourceUrl,
+      metadata: {
+        reviewDate,
+        rating,
+        reviewerName,
+        bodyAvailability,
+        sourceKind,
+        sourceOwnership
+      },
+      content: {
+        bodyText,
+        charCount,
+        includedCharCount,
+        isTruncated,
+        bodyCompleteness,
+        truncationReason,
+        contentHash,
+        bodyAvailability
+      }
+    }
+  ],
+  unavailableData: {
+    reviews: boolean,
+    images: boolean
+  },
+  requestedRulesetFieldKeys: string[],
+  requestedRulesetFields: [
     {
       fieldKey,
       label,
@@ -199,14 +252,34 @@ You are a Korean local-store marketing strategist. Analyze collected blog/place 
       expectedOutput,
       evidenceGuidance
     }
-  ]
+  ],
+  blockedFields: [
+    {
+      fieldKey,
+      label,
+      section,
+      reason: "instagram_not_in_scope" | "image_metadata_unavailable" | "review_text_unavailable",
+      source: "input_blocked"
+    }
+  ],
+  industryPolicy: {
+    isHealthcare,
+    signals,
+    requiredRules
+  }
 }
 ```
 
-`requiredRulesetFields` is built from the AI source matrix only. Direct
-Place/manual facts such as `operatingHours`, `closedDays`, `parking`, and
-`representativeTreatmentSubjects` stay direct and are not included as
-LLM-generated ruleset fields.
+`requestedRulesetFields` is built from the AI source matrix after input
+planning. Direct Place/manual facts such as `operatingHours`, `closedDays`, and
+`parking` stay direct and are not included as LLM-generated ruleset fields.
+The brand-analysis representative offering row uses the `representativeMenu`
+contract; healthcare screens only relabel that row as 대표 진료과목. For
+brand-analysis fields above review strengths/weaknesses, field evidence is
+scoped to Blog post IDs. `reviewStrength` and `reviewWeakness` are scoped to
+Place review IDs and are blocked when there is no usable collected review text.
+Instagram fields are always blocked for the current Blog SOP pass. Image fields
+are blocked unless usable image metadata analysis exists.
 
 ### Response Handling
 
@@ -222,20 +295,27 @@ flowchart LR
 ```
 
 The OpenAI provider requests `rulesetFieldsByKey`, a field-keyed object where
-every `REQUIRED_ANALYZER_RULESET_FIELD_KEYS` key is present exactly once.
-Evidence IDs in the structured response are constrained to `promptItemIds`,
-the IDs that actually appear in the budgeted prompt payload. The provider then
-normalizes this object to internal `rulesetFields[]` with
-`source = "openai_analysis"`. Before persistence, `SL-A1` rejects
-duplicate/unknown/source mismatches and revalidates all evidence item
-references. A failure at this stage marks the analysis run as failed and saves
-no evidence, snapshot, marketing ruleset, or ruleset fields.
+only `requestedRulesetFieldKeys` are required. Evidence IDs in the structured
+response are constrained to `evidenceItemIds`, the IDs that actually appear in
+the budgeted prompt payload. The provider normalizes requested keys to
+internal `rulesetFields[]` with `source = "openai_analysis"`. The analysis
+execution service appends server-created blocked fields with
+`source = "input_blocked"`, empty `evidenceItemIds`, `confidence = null`, and
+a Korean `finalValue` explaining why the field was not inferred. Before
+persistence, `SL-A1` rejects duplicate/unknown/source mismatches and
+revalidates all evidence item references. A failure at this stage marks the
+analysis run as failed and saves no evidence, snapshot, marketing ruleset, or
+ruleset fields.
 
 **Stored metadata:** `analysis_runs.result` stores
 `analyzerProvider`, `analyzerMode`, `analyzerModel`, selected/prompt/omitted
 counts, Blog limit/counts, review limit/counts, character budgets, and
-`promptBudgetReason`. Current development defaults include at most 3 Blog
-items and at most 10 Place review items in the SL-A1 prompt.
+`promptBudgetReason`. `llm_audit_logs.prompt_input_json` stores the v2
+budgeted input (`schemaVersion`, `storeProfile`, `evidenceItemIds`,
+`blogPosts`, `reviews`, `requestedRulesetFieldKeys`, `blockedFields`, and
+`industryPolicy`) and may include Blog body text after server-side budgeting.
+Current development defaults include at most 3 Blog items and at most 10 Place
+review items in the SL-A1 prompt.
 
 **Failure handling:** context-length errors are sanitized as
 `errorType: "analysis_context_too_large"` with a Korean product message.

@@ -53,14 +53,14 @@ The next todo is the first milestone below that is not `Validated on develop`.
 If its PR is open, the todo is to review, merge or retarget that PR, then
 validate on `develop`; it is not to skip ahead.
 
-Current next todo as of 2026-06-11:
+Current next todo as of 2026-06-12:
 
-1. Continue the LLM call audit follow-up from
-   `docs/codex/NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md`; Task 6 server-side LLM
-   audit logs, Task 7 evidence-threshold gating, and Task 8 ruleset version
-   list/view/restore are implemented on
-   `codex/llm-audit-relearn-ruleset-restore`. The next execution step is final
-   branch verification and PR preparation for the follow-up bundle.
+1. Implement the SL-A1 LLM input redesign from
+   `docs/codex/NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md`. Start from latest
+   `develop` including PR #45 merge commit `dc0a759`, use
+   `codex/sl-a1-input-redesign`, keep `.DS_Store` unstaged, and keep the work
+   limited to the SL-A1 analysis prompt/input contract, response field
+   contract, LLM audit payload, and reviewer docs.
 2. Keep `web/llm호출.html` as the temporary reviewer-facing verification table
    until the LLM provenance work either replaces it or the user says to remove
    it.
@@ -84,7 +84,8 @@ Current next todo as of 2026-06-11:
 | 11 | 실등록 Store E2E 하드닝 | Validated on develop | [#37](https://github.com/funkyliferyu/bizp-poc/pull/37), [plan](MILESTONE_11_REAL_STORE_E2E_HARDENING_PLAN.md) | Covered by final develop validation after PR #38 |
 | 12 | CR 후속: 수집 델타, 재학습 스킵, 학습 현황 표시 | Validated on develop | [#38](https://github.com/funkyliferyu/bizp-poc/pull/38), [plan](MILESTONE_12_COLLECTION_DELTA_RELEARNING_PLAN.md), merge `204f964` | Develop validation recorded 2026-06-10 |
 | 13 | LLM 호출 감사와 분석 입력 예산 | Merged to develop | [plan](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md), temporary table `web/llm호출.html`, merge `f17683b` | Follow-up Task 6/7 planned for audit logs and evidence-threshold relearn gating |
-| 13a | LLM 감사 로그, 근거 부족 재학습 차단, 룰셋 버전 원복 | Implementation in progress | [Task 6](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-6-add-server-side-llm-audit-logs), [Task 7](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-7-gate-ruleset-regeneration-until-new-evidence-is-sufficient), [Task 8](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-8-manage-ruleset-version-history-and-restore) | Task 6/7/8 feature-branch implementation complete; final validation/PR remains before develop gate |
+| 13a | LLM 감사 로그, 근거 부족 재학습 차단, 룰셋 버전 원복 | Merged to develop | [Task 6](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-6-add-server-side-llm-audit-logs), [Task 7](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-7-gate-ruleset-regeneration-until-new-evidence-is-sufficient), [Task 8](NEXT_SESSION_LLM_CALL_AUDIT_PLAN.md#task-8-manage-ruleset-version-history-and-restore), PR #44, follow-up PR #45 | Develop merge complete; next user-approved work is SL-A1 input redesign |
+| 13b | SL-A1 LLM 입력 구조 재설계 | Implementation in progress | [plan](NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md), branch `codex/sl-a1-input-redesign` | Feature-branch implementation and local validation complete; PR to `develop` remains |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist

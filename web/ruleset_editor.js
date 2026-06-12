@@ -29,6 +29,17 @@
     '수집/결과 대기',
     '수집/AI 결과 대기'
   ]);
+  const BLOG_EVIDENCE_FIELD_KEYS = new Set([
+    'storePositioning',
+    'positioning',
+    'keyStrengths',
+    'representativeMenu',
+    'representativeTreatmentSubjects',
+    'targetCustomers',
+    'contentKeywords',
+    'seoKeywords'
+  ]);
+  const REVIEW_EVIDENCE_FIELD_KEYS = new Set(['reviewStrength', 'reviewWeakness']);
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -504,14 +515,9 @@
     const isHealthcare = isHealthcareStore(payload);
     document.querySelectorAll('[data-industry-field="representativeOffering"]').forEach((field) => {
       const label = field.querySelector('[data-industry-label]');
-      const button = field.querySelector('[data-reference-key]');
-      field.dataset.rulesetField = isHealthcare ? 'representativeTreatmentSubjects' : 'representativeMenu';
-      field.dataset.rulesetAliases = '';
+      field.dataset.rulesetField = 'representativeMenu';
+      field.dataset.rulesetAliases = isHealthcare ? 'representativeTreatmentSubjects' : '';
       if (label) label.textContent = isHealthcare ? '대표 진료과목' : '대표 메뉴';
-      if (button) {
-        button.dataset.referenceKey = isHealthcare ? 'treatmentSubject' : 'menu';
-        button.setAttribute('onclick', 'showReferenceLayer(this.dataset.referenceKey)');
-      }
     });
   }
 
@@ -732,6 +738,65 @@
     fieldMap.set(rulesetField.fieldKey, rulesetField);
   }
 
+  function evidenceSourceMode(payload) {
+    if (payload.evidenceSourceMode) return payload.evidenceSourceMode;
+    const fieldKey = payload.field?.fieldKey || '';
+    if (REVIEW_EVIDENCE_FIELD_KEYS.has(fieldKey)) return 'review';
+    if (BLOG_EVIDENCE_FIELD_KEYS.has(fieldKey)) return 'blog';
+    return 'mixed';
+  }
+
+  function blogEvidenceItems(evidence) {
+    const posts = (evidence || [])
+      .filter((item) => item.channel === 'blog' && item.sourceType === 'post')
+      .slice(0, 5);
+    return posts;
+  }
+
+  function reviewEvidenceItems(evidence) {
+    const reviews = (evidence || [])
+      .filter((item) => item.channel === 'place' && item.sourceType === 'review')
+      .slice(0, 5);
+    return reviews;
+  }
+
+  function rationaleText(payload, evidenceItems) {
+    const summaries = evidenceItems
+      .map((item) => item.analysisSummary || '')
+      .map((text) => text.replace(/^.*?산출 근거:\s*/, '').split('수집 근거:')[0].trim())
+      .filter(Boolean);
+    if (summaries.length > 0) return Array.from(new Set(summaries)).join(' ');
+    const fieldValue = payload.field?.finalValue || payload.field?.aiValue || payload.field?.fieldValue;
+    return fieldValue || '연결된 근거를 기준으로 산출했습니다.';
+  }
+
+  function evidenceReviewTitle(item) {
+    return item.title && item.title !== '플레이스 리뷰 요약'
+      ? item.title
+      : `방문자 리뷰${item.score ? ` · 신뢰도 ${Math.round(item.score * 100)}%` : ''}`;
+  }
+
+  function evidenceBlogTitle(item) {
+    return item.title ? `블로그 본문 인용 - ${item.title}` : '블로그 본문 인용';
+  }
+
+  function quoteText(item, fallbackText) {
+    const text = String(item.excerpt || fallbackText || '').trim();
+    if (!text) return fallbackText;
+    return text.length > 180 ? `${text.slice(0, 180)}...` : text;
+  }
+
+  function evidenceCard(item, mode) {
+    const isBlog = mode === 'blog';
+    const title = isBlog ? evidenceBlogTitle(item) : evidenceReviewTitle(item);
+    const fallback = isBlog ? '블로그 본문을 확인할 수 없습니다.' : '리뷰 본문을 확인할 수 없습니다.';
+    const body = isBlog ? `“${quoteText(item, fallback)}”` : quoteText(item, fallback);
+    return `<div class="evidence-review-card">
+      <div class="evidence-review-title">${escapeHtml(title)}</div>
+      <div class="evidence-review-body">${escapeHtml(body)}</div>
+    </div>`;
+  }
+
   async function handleSave(storeId, element) {
     const fieldKey = element.dataset.loadedFieldKey || element.dataset.rulesetField;
     const userValue = fieldValue(element);
@@ -756,20 +821,25 @@
   }
 
   function showEvidenceModal(payload) {
-    const label = payload.field.sourceMatrix?.label || payload.field.fieldKey;
+    const label = payload.field?.sourceMatrix?.label || payload.field?.fieldKey || '선택 항목';
+    const mode = evidenceSourceMode(payload);
+    const evidenceItems = mode === 'blog' ? blogEvidenceItems(payload.evidence) : reviewEvidenceItems(payload.evidence);
+    const emptyText = mode === 'blog' ? '연결된 블로그 근거가 없습니다.' : '연결된 방문자 리뷰가 없습니다.';
     field('benchmarkEvidenceTitle').textContent = `${label} 근거 보기`;
-    field('benchmarkEvidenceDesc').textContent = '이 항목을 산출할 때 연결된 수집 콘텐츠 근거입니다.';
-    field('benchmarkEvidenceList').innerHTML = (payload.evidence || [])
-      .map((item) => {
-        const summary = item.analysisSummary || item.excerpt || '-';
-        return `<li><strong>${escapeHtml(item.title || item.collectionItemId)}</strong><br>${escapeHtml(summary)}</li>`;
-      })
-      .join('') || '<li>연결된 근거가 없습니다.</li>';
+    field('benchmarkEvidenceDesc').textContent = mode === 'blog'
+      ? '이 항목 산출에 사용된 블로그 본문 인용과 산출근거입니다.'
+      : '이 항목 산출에 사용된 실제 방문자 리뷰와 산출근거입니다.';
+    field('benchmarkEvidenceReviews').innerHTML = evidenceItems
+      .map((item) => evidenceCard(item, mode))
+      .join('') || `<div class="evidence-review-card"><div class="evidence-review-body">${emptyText}</div></div>`;
+    field('benchmarkEvidenceRationaleText').textContent = rationaleText(payload, evidenceItems);
+    field('benchmarkEvidenceRationale').hidden = false;
+    field('benchmarkEvidenceList').innerHTML = '';
     field('modal-benchmark-evidence').style.display = 'flex';
   }
 
   async function handleEvidence(storeId, element) {
-    const fieldKey = element.dataset.loadedFieldKey || element.dataset.rulesetField;
+    const fieldKey = element.dataset.rulesetField || element.dataset.loadedFieldKey;
     if (!fieldKey) return;
     const payload = await loadRulesetEvidence(storeId, fieldKey);
     showEvidenceModal(payload);

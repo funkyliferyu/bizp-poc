@@ -56,10 +56,65 @@
 .ruleset-kpi{width:100%;text-align:left;font-family:'Noto Sans KR',sans-serif;cursor:pointer}
 .ruleset-kpi:hover{border-color:#2F9E44;background:#F4FFF6}
 .ruleset-kpi:focus-visible{outline:2px solid #2F9E44;outline-offset:2px}
+.analysis-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(17,24,39,.48);z-index:2000;padding:24px}
+.analysis-overlay.active{display:flex}
+.analysis-overlay-panel{width:min(560px,calc(100vw - 48px));border-radius:8px;background:#fff;border:1px solid #E2E8F0;box-shadow:0 18px 48px rgba(17,24,39,.2);padding:24px;text-align:center}
+.analysis-overlay-spinner{width:34px;height:34px;border:3px solid #DCE3F8;border-top-color:#3B5BDB;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+.analysis-overlay-title{font-size:18px;font-weight:800;color:#1A1A2E;margin-bottom:8px}
+.analysis-overlay-desc{font-size:13px;line-height:1.65;color:#4A5568;margin-bottom:14px}
+.analysis-overlay-meta{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.analysis-overlay-status{font-size:12px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border:1px solid #DCE3F8;border-radius:999px;padding:7px 10px;display:inline-flex}
+.analysis-overlay-elapsed{font-size:12px;font-weight:700;color:#4A5568;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:999px;padding:7px 10px;display:inline-flex}
+.analysis-overlay-flow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:left}
+.analysis-overlay-step{border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:9px 10px;min-width:0}
+.analysis-overlay-step-label{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.analysis-overlay-step-state{font-size:11px;color:#9AA0B4;line-height:1.5}
+.analysis-overlay-step.active{border-color:#3B5BDB;background:#F5F7FF}
+.analysis-overlay-step.active .analysis-overlay-step-state{color:#3B5BDB;font-weight:700}
+.analysis-overlay-step.done{border-color:#8CE99A;background:#F4FFF6}
+.analysis-overlay-step.done .analysis-overlay-step-state{color:#2F9E44;font-weight:700}
+@media (max-width:640px){.analysis-overlay-flow{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <script src="icons.js"></script>
+<div class="analysis-overlay" id="learning-analysis-overlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="learning-analysis-overlay-title" aria-describedby="learning-analysis-overlay-desc">
+  <div class="analysis-overlay-panel">
+    <div class="analysis-overlay-spinner" aria-hidden="true"></div>
+    <div class="analysis-overlay-title" id="learning-analysis-overlay-title">룰셋 재학습을 실행하고 있습니다</div>
+    <div class="analysis-overlay-desc" id="learning-analysis-overlay-desc">현재 수집된 에셋을 다시 분석하고 마케팅 전략 룰셋을 업데이트하는 중입니다. 실제 AI 응답 구간은 수십 초 이상 이어질 수 있습니다. 이 화면에서 완료 상태를 확인할 수 있습니다.</div>
+    <div class="analysis-overlay-meta">
+      <div class="analysis-overlay-status" id="learning-analysis-overlay-status">룰셋 재학습 준비 중</div>
+      <div class="analysis-overlay-elapsed" id="learning-analysis-overlay-elapsed">경과 00:00</div>
+    </div>
+    <div class="analysis-overlay-flow" id="learning-analysis-overlay-flow">
+      <div class="analysis-overlay-step" data-learning-overlay-step="queued">
+        <div class="analysis-overlay-step-label">에셋 확정</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-learning-overlay-step="analyzing">
+        <div class="analysis-overlay-step-label">AI 분석</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-learning-overlay-step="validating">
+        <div class="analysis-overlay-step-label">결과 검증</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-learning-overlay-step="snapshot">
+        <div class="analysis-overlay-step-label">학습 스냅샷 저장</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-learning-overlay-step="ruleset">
+        <div class="analysis-overlay-step-label">룰셋 생성</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+      <div class="analysis-overlay-step" data-learning-overlay-step="completed">
+        <div class="analysis-overlay-step-label">현황 갱신</div>
+        <div class="analysis-overlay-step-state">대기</div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="topbar">
   <div class="topbar-breadcrumb">마케팅 채널관리 &rsaquo; AI 학습 &rsaquo; <span>학습 현황</span></div>
 </div>
@@ -108,9 +163,12 @@
         <div class="prog-ch-row" style="margin-top:6px"><span class="prog-ch-name"><span class="icon-map-pin" data-icon="map-pin" data-size="13" data-color="#03C75A"></span> 네이버 플레이스</span><span class="badge b-green">정상</span></div>
         <div class="prog-ch-row" style="margin-top:6px"><span class="prog-ch-name"><span class="icon-instagram" data-icon="instagram" data-size="13" data-color="#E1306C"></span> 인스타그램</span><span class="badge b-green">정상</span></div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid #E2E8F0">
-        <span style="font-size:12px;color:#4A5568">마지막 학습 이후 새로 등록된 콘텐츠를 수집하여 룰셋을 업데이트합니다.</span>
-        <button class="btn btn-primary btn-sm" id="learning-relearn-btn" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 재학습 수집">지금 재학습</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid #E2E8F0">
+        <span style="font-size:12px;color:#4A5568">새 콘텐츠를 수집하거나, 현재 수집된 에셋으로 룰셋을 다시 학습합니다.</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn btn-ghost btn-sm" id="learning-collect-new-content-btn" data-flow-target="04_AI학습_수집중.html" data-flow-label="다음: 신규 콘텐츠 수집">신규 콘텐츠 수집</button>
+          <button class="btn btn-primary btn-sm" id="learning-ruleset-relearn-btn" data-flow-target="api:ruleset-relearn" data-flow-label="학습 현황: 룰셋 재학습">룰셋 재학습</button>
+        </div>
       </div>
     </div>
   </div>

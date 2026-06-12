@@ -24,7 +24,8 @@ type AnalysisRunRoutesOptions = {
 const AnalysisRunCreateSchema = z.object({
   storeId: z.string().trim().min(1),
   collectionRunId: z.string().trim().min(1),
-  selectedItemIds: z.array(z.string().trim().min(1)).default([])
+  selectedItemIds: z.array(z.string().trim().min(1)).default([]),
+  forceRulesetRelearn: z.boolean().default(false)
 });
 
 function nowIso() {
@@ -228,11 +229,19 @@ export function createAnalysisRunRoutes({ connection, env = process.env, provide
       const classifier = createRulesetEvidenceClassifier(repos, store.id);
       const selectedItems = Array.from(selectedIdSet).map((itemId) => classifier.withState(collectedById.get(itemId) as CollectionItem));
       const latestArtifacts = getLatestAnalysisArtifacts(repos, store.id);
-      const analysisDecision = decideAnalysisExecution({
+      const baseAnalysisDecision = decideAnalysisExecution({
         collectionSummary: collectionRun.summary,
         selectedItems,
         latestLearning: latestLearningDecisionInput(latestArtifacts)
       });
+      const analysisDecision: AnalysisExecutionDecision =
+        body.forceRulesetRelearn && baseAnalysisDecision.selectedCounts.total > 0
+          ? {
+              ...baseAnalysisDecision,
+              action: 'run_analyzer',
+              reason: 'manual_ruleset_relearn_existing_assets'
+            }
+          : baseAnalysisDecision;
 
       if (analysisDecision.action === 'block') {
         res.status(400).json({

@@ -362,24 +362,21 @@ describe('web static flow connectivity', () => {
     }
   });
 
-  it('keeps our-store analysis focused and uses a right reference layer for item examples', () => {
+  it('keeps our-store analysis focused without item reference buttons or panels', () => {
     const ruleset = readWeb('07_마케팅전략룰셋.html');
     const brandSection = ruleset.match(/<!-- 우리 매장 분석 -->[\s\S]*?<!-- 글쓰기 스타일 -->/)?.[0] ?? '';
 
     expect(ruleset).not.toContain("fetch('strategy_benchmark_fixture.json')");
     expect(ruleset).toContain('/strategy-ruleset/benchmark-evidence');
     expect(ruleset).toContain('loadBenchmarkFixture');
-    expect(ruleset).toContain('showReferenceLayer');
-    expect(brandSection).toContain('class="analysis-focus-layout"');
-    expect(brandSection).toContain('id="storeAnalysisReferencePanel"');
-    expect(brandSection).toContain('id="referenceLayerTitle"');
-    expect(brandSection).toContain('id="referenceLayerBody"');
-    expect(brandSection).toContain('data-reference-key="positioning"');
-    expect(brandSection).toContain('data-reference-key="menu"');
-    expect(brandSection).toContain('data-reference-key="target"');
-    expect(brandSection).toContain('data-reference-key="contentKeywords"');
-    expect(brandSection).toContain('data-reference-key="reviewStrength"');
-    expect(brandSection).toContain('data-reference-key="reviewWeakness"');
+    expect(ruleset).not.toContain('showReferenceLayer');
+    expect(brandSection).not.toContain('class="analysis-focus-layout"');
+    expect(brandSection).not.toContain('id="storeAnalysisReferencePanel"');
+    expect(brandSection).not.toContain('id="referenceLayerTitle"');
+    expect(brandSection).not.toContain('id="referenceLayerBody"');
+    expect(brandSection).not.toContain('data-reference-key');
+    expect(brandSection).not.toContain('reference-btn');
+    expect(brandSection).not.toContain('참고</button>');
     expect(brandSection).toContain('포지셔닝');
     expect(brandSection).toContain('콘텐츠 소재 키워드');
     expect(brandSection).not.toContain('비교 기준 설정');
@@ -387,7 +384,7 @@ describe('web static flow connectivity', () => {
     expect(brandSection).not.toContain('id="benchmarkComparisonBody"');
   });
 
-  it('maps right reference candidates to the matching similar-business comparison type', () => {
+  it('keeps similar-business comparison candidates in the comparison tab only', () => {
     const ruleset = readWeb('07_마케팅전략룰셋.html');
     const fixture = JSON.parse(readFileSync(path.join(webRoot, 'strategy_benchmark_fixture.json'), 'utf8')) as BenchmarkFixture;
     const recommended = fixture.benchmarkTypes.find((type) => type.id === 'recommended');
@@ -410,15 +407,13 @@ describe('web static flow connectivity', () => {
       name: '분당 케이크픽',
       category: '케이크'
     });
-    expect(ruleset).toContain('id="referenceCandidateList"');
-    expect(ruleset).toContain('class="reference-candidate-card"');
-    expect(ruleset).toContain('reference-candidate-meta');
-    expect(ruleset).toContain('${escapeHtml(candidate.name)} · ${escapeHtml(candidate.location)} · ${escapeHtml(candidate.category)}');
-    expect(ruleset).toContain('REFERENCE_TYPE_BY_ROW_KEY');
-    expect(ruleset).toContain("menu: 'sameIndustry'");
-    expect(ruleset).toContain("contentKeywords: 'keywordTop'");
-    expect(ruleset).toContain('referenceBenchmarkForRow');
-    expect(ruleset).toContain('const type = referenceBenchmarkForRow(rowKey)');
+    expect(ruleset).not.toContain('id="referenceCandidateList"');
+    expect(ruleset).not.toContain('class="reference-candidate-card"');
+    expect(ruleset).not.toContain('reference-candidate-meta');
+    expect(ruleset).not.toContain('REFERENCE_TYPE_BY_ROW_KEY');
+    expect(ruleset).not.toContain('referenceBenchmarkForRow');
+    expect(ruleset).toContain('compare-company-name">${escapeHtml(candidate.name)}</div>');
+    expect(ruleset).toContain('compare-company-meta">${escapeHtml(candidate.category)} · ${escapeHtml(candidate.location)}</div>');
     expect(ruleset).toContain('type.candidates.map');
     expect(ruleset).not.toContain("${candidate.category || '비교 후보'} · ${candidate.location || type.scope}");
   });

@@ -10,7 +10,6 @@ import {
   toJsonValue,
   type LlmCallAuditMetadata
 } from '../llmAudit/llmAuditMetadata.js';
-import { REQUIRED_ANALYZER_RULESET_FIELD_KEYS } from '../rulesets/rulesetSourceMatrix.js';
 import { buildAnalysisPromptInput, type AnalysisPromptBudgetMetadata } from './analysisPromptBudget.js';
 import { AnalyzerOutputSchema, createMockAnalysisProvider, type AnalysisProvider } from './analyzer.js';
 
@@ -37,8 +36,11 @@ function promptItemIdSchema(promptItemIds: readonly string[]) {
   return z.enum(uniqueIds as [string, ...string[]]);
 }
 
-function createOpenAIAnalyzerOutputSchema(promptItemIds: readonly string[]) {
-  const itemIdSchema = promptItemIdSchema(promptItemIds);
+export function createOpenAIAnalyzerOutputSchema(
+  evidenceItemIds: readonly string[],
+  requestedRulesetFieldKeys: readonly string[]
+) {
+  const itemIdSchema = promptItemIdSchema(evidenceItemIds);
   const evidenceSchema = z.object({
     collectionItemId: itemIdSchema,
     evidenceType: z.string().min(1),
@@ -52,7 +54,7 @@ function createOpenAIAnalyzerOutputSchema(promptItemIds: readonly string[]) {
     confidence: z.number().min(0).max(1).nullable()
   });
   const rulesetFieldsByKeyShape: Record<string, typeof rulesetFieldValueSchema> = {};
-  for (const fieldKey of REQUIRED_ANALYZER_RULESET_FIELD_KEYS) {
+  for (const fieldKey of requestedRulesetFieldKeys) {
     rulesetFieldsByKeyShape[fieldKey] = rulesetFieldValueSchema;
   }
 
@@ -62,12 +64,16 @@ function createOpenAIAnalyzerOutputSchema(promptItemIds: readonly string[]) {
   });
 }
 
-function normalizeOpenAIAnalyzerOutput(parsed: unknown, promptItemIds: readonly string[]) {
-  const output = createOpenAIAnalyzerOutputSchema(promptItemIds).parse(parsed);
+function normalizeOpenAIAnalyzerOutput(
+  parsed: unknown,
+  evidenceItemIds: readonly string[],
+  requestedRulesetFieldKeys: readonly string[]
+) {
+  const output = createOpenAIAnalyzerOutputSchema(evidenceItemIds, requestedRulesetFieldKeys).parse(parsed);
   const { rulesetFieldsByKey, ...analysis } = output;
   return {
     ...analysis,
-    rulesetFields: REQUIRED_ANALYZER_RULESET_FIELD_KEYS.map((fieldKey) => {
+    rulesetFields: requestedRulesetFieldKeys.map((fieldKey) => {
       const field = rulesetFieldsByKey[fieldKey];
       return {
         fieldKey,
@@ -103,7 +109,7 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
       lastRunMetadata = prompt.metadata;
       lastAuditMetadata = null;
       const responseFormat = zodResponseFormat(
-        createOpenAIAnalyzerOutputSchema(prompt.promptInput.promptItemIds),
+        createOpenAIAnalyzerOutputSchema(prompt.promptInput.evidenceItemIds, prompt.promptInput.requestedRulesetFieldKeys),
         'store_learning_analysis'
       );
       const requestStartedAt = nowIso();
@@ -118,7 +124,7 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
               content:
                 'You are a Korean local-store marketing strategist. Analyze collected blog/place evidence and return a strict JSON ruleset. ' +
                 'Use only provided collection items as evidence. Avoid unsupported superlatives and medical/legal/guarantee claims. ' +
-                'Populate every required ruleset field in rulesetFieldsByKey exactly once.'
+                'Populate every requested ruleset field in rulesetFieldsByKey exactly once. Do not populate blocked fields.'
             },
             {
               role: 'user',
@@ -129,7 +135,11 @@ export function createOpenAIAnalysisProvider(options: OpenAIAnalysisProviderOpti
         });
 
         parsedOutput = completion.choices[0]?.message.parsed ?? null;
-        const output = normalizeOpenAIAnalyzerOutput(parsedOutput, prompt.promptInput.promptItemIds);
+        const output = normalizeOpenAIAnalyzerOutput(
+          parsedOutput,
+          prompt.promptInput.evidenceItemIds,
+          prompt.promptInput.requestedRulesetFieldKeys
+        );
         const responseCompletedAt = nowIso();
         lastAuditMetadata = {
           requestStartedAt,

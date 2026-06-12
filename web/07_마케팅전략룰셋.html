@@ -49,26 +49,16 @@
 .evidence-btn{height:28px;padding:0 9px;border:1px solid #BAC8FF;border-radius:6px;background:#fff;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
 .evidence-btn:hover{background:#EEF2FF}
 .evidence-list{margin:0;padding-left:18px;color:#4A5568;font-size:12px;line-height:1.8}
-.analysis-focus-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+.evidence-review-list{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}
+.evidence-review-card{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:10px}
+.evidence-review-title{font-size:12px;font-weight:800;color:#1A1A2E;margin-bottom:5px}
+.evidence-review-body{font-size:12px;line-height:1.65;color:#4A5568}
+.evidence-rationale{border-top:1px solid #E2E8F0;padding-top:12px;margin-top:12px}
+.evidence-rationale-title{font-size:11px;font-weight:800;color:#3B5BDB;margin-bottom:5px}
+.evidence-rationale-text{font-size:12px;line-height:1.65;color:#1A1A2E}
 .analysis-list{display:flex;flex-direction:column;gap:0}
 .analysis-field-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
-.reference-btn{height:28px;padding:0 9px;border:1px solid #D8E0EC;border-radius:6px;background:#fff;color:#3B5BDB;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
-.reference-btn:hover,.reference-btn.active{border-color:#3B5BDB;background:#EEF2FF}
-.reference-panel{border:1px solid #D8E0EC;border-radius:8px;background:#FAFBFC;overflow:hidden;position:sticky;top:12px}
-.reference-panel-head{padding:13px 14px;border-bottom:1px solid #E2E8F0;background:#fff}
-.reference-panel-title{font-size:13px;font-weight:700;color:#1A1A2E;margin-bottom:5px}
-.reference-panel-title.common-example{color:#E03131}
 .common-example-title{color:#E03131;font-weight:700}
-.reference-panel-meta{font-size:11px;line-height:1.45;color:#6B7280}
-.reference-panel-body{padding:14px}
-.reference-kicker{font-size:10px;font-weight:700;color:#9AA0B4;margin-bottom:4px}
-.reference-body{font-size:12px;line-height:1.65;color:#1A1A2E;margin-bottom:10px}
-.reference-evidence{margin:0;padding-left:16px;font-size:11px;line-height:1.7;color:#4A5568}
-.reference-candidate-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-.reference-candidate-card{border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:10px}
-.reference-candidate-meta{font-size:12px;font-weight:700;line-height:1.45;color:#1A1A2E;margin-bottom:5px}
-.reference-candidate-signal{font-size:11px;line-height:1.55;color:#4A5568;margin-bottom:6px}
-.reference-candidate-evidence{margin:0;padding-left:16px;font-size:11px;line-height:1.6;color:#6B7280}
 .similar-compare-layout{display:grid;grid-template-columns:200px 280px minmax(0,1fr);gap:14px;align-items:start}
 .compare-column-title{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:8px}
 .compare-type-list,.compare-company-list{display:flex;flex-direction:column;gap:8px}
@@ -176,8 +166,7 @@
   .ruleset-source-matrix{overflow-x:auto}
   .ruleset-source-matrix-table{min-width:820px}
   .comparison-scroll{overflow-x:auto}
-  .analysis-focus-layout,.similar-compare-layout,.full-comparison-grid{grid-template-columns:1fr}
-  .reference-panel{position:static}
+  .similar-compare-layout,.full-comparison-grid{grid-template-columns:1fr}
   .writing-style-row{grid-template-columns:1fr}
   .writing-preview-layout{grid-template-columns:1fr}
   .ruleset-title-actions{margin-left:0;width:100%;justify-content:flex-start}
@@ -255,80 +244,59 @@
         <span class="benchmark-source-badge" id="storeAnalysisBadge">우리 매장 기준</span>
       </div>
       <div class="card-body">
-        <div class="analysis-focus-layout">
-          <div class="analysis-list">
-            <div class="ruleset-field" data-ruleset-field="positioning" data-ruleset-aliases="storePositioning">
-              <div class="analysis-field-head">
-                <div class="ruleset-label">포지셔닝</div>
-                <button type="button" class="reference-btn active" data-reference-key="positioning" onclick="showReferenceLayer('positioning')">참고</button>
-              </div>
-              <div class="ruleset-val" data-ruleset-value>분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div>
-              <div class="ruleset-hint">시장 내 위치 · 차별점 요약</div>
+        <div class="analysis-list">
+          <div class="ruleset-field" data-ruleset-field="positioning" data-ruleset-aliases="storePositioning">
+            <div class="analysis-field-head">
+              <div class="ruleset-label">포지셔닝</div>
             </div>
-            <div class="ruleset-field" data-ruleset-field="keyStrengths" data-ruleset-aliases="reviewStrength">
-              <div class="analysis-field-head">
-                <div class="ruleset-label">업체 주장 강점</div>
-                <button type="button" class="reference-btn" data-reference-key="strength" onclick="showReferenceLayer('strength')">참고</button>
-              </div>
-              <div class="ruleset-val" data-ruleset-value>당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div>
-            </div>
-            <div class="ruleset-field" data-ruleset-field="representativeMenu" data-industry-field="representativeOffering" data-default-label="대표 메뉴" data-healthcare-label="대표 진료과목" data-default-reference-key="menu" data-healthcare-reference-key="treatmentSubject">
-              <div class="analysis-field-head">
-                <div class="ruleset-label"><span data-industry-label>대표 메뉴</span></div>
-                <button type="button" class="reference-btn" data-reference-key="menu" onclick="showReferenceLayer(this.dataset.referenceKey)">참고</button>
-              </div>
-              <div class="ruleset-val" data-ruleset-value>커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div>
-            </div>
-            <div class="ruleset-field" data-ruleset-field="targetCustomers">
-              <div class="analysis-field-head">
-                <div class="ruleset-label">주 타겟층</div>
-                <button type="button" class="reference-btn" data-reference-key="target" onclick="showReferenceLayer('target')">참고</button>
-              </div>
-              <div class="ruleset-val" data-ruleset-value>20~40대 분당·수지 지역 여성 / 생일·기념일 케이크 구매 고객</div>
-            </div>
-            <div class="ruleset-field" data-ruleset-field="contentKeywords" data-ruleset-aliases="seoKeywords">
-              <div class="analysis-field-head">
-                <div class="ruleset-label">콘텐츠 소재 키워드</div>
-                <button type="button" class="reference-btn" data-reference-key="contentKeywords" onclick="showReferenceLayer('contentKeywords')">참고</button>
-              </div>
-              <div class="benchmark-tags">
-                <span class="benchmark-tag">분당 케이크</span>
-                <span class="benchmark-tag">레터링케이크</span>
-                <span class="benchmark-tag">커스텀케이크</span>
-                <span class="benchmark-tag">당일제작</span>
-                <span class="benchmark-tag">생일케이크</span>
-              </div>
-              <div class="ruleset-val" data-ruleset-value style="margin-top:8px">분당 케이크, 레터링케이크, 커스텀케이크, 당일제작, 생일케이크</div>
-              <div class="ruleset-hint">콘텐츠 자동 생성 시 주제 소재로 활용됩니다.</div>
-            </div>
-            <div class="ruleset-field" data-ruleset-field="reviewStrength" data-ruleset-aliases="keyStrengths">
-              <div class="analysis-field-head">
-                <div class="ruleset-label">리뷰 강점</div>
-                <button type="button" class="reference-btn" data-reference-key="reviewStrength" onclick="showReferenceLayer('reviewStrength')">참고</button>
-              </div>
-              <div class="ruleset-val" data-ruleset-value>예쁜 케이크 디자인, 친절한 사장님, 빠른 제작</div>
-            </div>
-            <div class="ruleset-field" data-ruleset-field="reviewWeakness">
-              <div class="analysis-field-head">
-                <div class="ruleset-label">리뷰 약점</div>
-                <button type="button" class="reference-btn" data-reference-key="reviewWeakness" onclick="showReferenceLayer('reviewWeakness')">참고</button>
-              </div>
-              <div class="ruleset-val" data-ruleset-value>주차 공간 협소, 현금 결제 불가 언급</div>
-              <div class="warn-box"><span>콘텐츠에서 직접 언급하지 않습니다. 보완 전략 수립 참고용으로만 활용됩니다.</span></div>
-            </div>
+            <div class="ruleset-val" data-ruleset-value>분당·수지 지역 커스텀 케이크 전문점 / 당일 제작 가능한 케이크 맛집</div>
+            <div class="ruleset-hint">시장 내 위치 · 차별점 요약</div>
           </div>
-          <aside class="reference-panel" id="storeAnalysisReferencePanel">
-            <div class="reference-panel-head">
-              <div class="reference-panel-title common-example" id="referenceLayerTitle">(공통예시) 항목 참고</div>
-              <div class="reference-panel-meta" id="referenceLayerMeta">유사 기준 데이터를 불러오는 중입니다.</div>
+          <div class="ruleset-field" data-ruleset-field="keyStrengths" data-ruleset-aliases="reviewStrength">
+            <div class="analysis-field-head">
+              <div class="ruleset-label">업체 주장 강점</div>
             </div>
-            <div class="reference-panel-body">
-              <div class="reference-kicker" id="referenceLayerKicker">참고 분류</div>
-              <div class="reference-body" id="referenceLayerBody">왼쪽 항목의 참고 버튼을 누르면 유사 업체 예시를 보여줍니다.</div>
-              <ul class="reference-evidence" id="referenceLayerEvidence"></ul>
-              <div class="reference-candidate-list" id="referenceCandidateList"></div>
+            <div class="ruleset-val" data-ruleset-value>당일 제작 가능, 레터링 케이크 전문, 다양한 커스텀 옵션</div>
+          </div>
+          <div class="ruleset-field" data-ruleset-field="representativeMenu" data-industry-field="representativeOffering" data-default-label="대표 메뉴" data-healthcare-label="대표 진료과목">
+            <div class="analysis-field-head">
+              <div class="ruleset-label"><span data-industry-label>대표 메뉴</span></div>
             </div>
-          </aside>
+            <div class="ruleset-val" data-ruleset-value>커스텀 레터링 케이크 (48,000원~), 딸기 생크림 케이크 (32,000원)</div>
+          </div>
+          <div class="ruleset-field" data-ruleset-field="targetCustomers">
+            <div class="analysis-field-head">
+              <div class="ruleset-label">주 타겟층</div>
+            </div>
+            <div class="ruleset-val" data-ruleset-value>20~40대 분당·수지 지역 여성 / 생일·기념일 케이크 구매 고객</div>
+          </div>
+          <div class="ruleset-field" data-ruleset-field="contentKeywords" data-ruleset-aliases="seoKeywords">
+            <div class="analysis-field-head">
+              <div class="ruleset-label">콘텐츠 소재 키워드</div>
+            </div>
+            <div class="benchmark-tags">
+              <span class="benchmark-tag">분당 케이크</span>
+              <span class="benchmark-tag">레터링케이크</span>
+              <span class="benchmark-tag">커스텀케이크</span>
+              <span class="benchmark-tag">당일제작</span>
+              <span class="benchmark-tag">생일케이크</span>
+            </div>
+            <div class="ruleset-val" data-ruleset-value style="margin-top:8px">분당 케이크, 레터링케이크, 커스텀케이크, 당일제작, 생일케이크</div>
+            <div class="ruleset-hint">콘텐츠 자동 생성 시 주제 소재로 활용됩니다.</div>
+          </div>
+          <div class="ruleset-field" data-ruleset-field="reviewStrength" data-ruleset-aliases="keyStrengths">
+            <div class="analysis-field-head">
+              <div class="ruleset-label">리뷰 강점</div>
+            </div>
+            <div class="ruleset-val" data-ruleset-value>예쁜 케이크 디자인, 친절한 사장님, 빠른 제작</div>
+          </div>
+          <div class="ruleset-field" data-ruleset-field="reviewWeakness">
+            <div class="analysis-field-head">
+              <div class="ruleset-label">리뷰 약점</div>
+            </div>
+            <div class="ruleset-val" data-ruleset-value>주차 공간 협소, 현금 결제 불가 언급</div>
+            <div class="warn-box"><span>콘텐츠에서 직접 언급하지 않습니다. 보완 전략 수립에만 활용됩니다.</span></div>
+          </div>
         </div>
       </div>
     </div>
@@ -688,7 +656,12 @@
   <div class="modal modal-sm">
     <div class="modal-title" id="benchmarkEvidenceTitle">근거 보기</div>
     <div class="modal-desc" id="benchmarkEvidenceDesc">선택한 분석 항목의 기준 후보와 리뷰/키워드 근거입니다.</div>
-    <ul class="evidence-list" id="benchmarkEvidenceList"></ul>
+    <div class="evidence-review-list" id="benchmarkEvidenceReviews"></div>
+    <div class="evidence-rationale" id="benchmarkEvidenceRationale">
+      <div class="evidence-rationale-title">산출근거</div>
+      <div class="evidence-rationale-text" id="benchmarkEvidenceRationaleText"></div>
+    </div>
+    <ul class="evidence-list" id="benchmarkEvidenceList" hidden></ul>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="closeBenchmarkEvidence()">확인</button>
     </div>
@@ -713,20 +686,8 @@ let benchmarkFixture = null;
 let selectedBenchmarkType = 'recommended';
 let selectedComparisonType = 'recommended';
 let selectedCompanyIndex = 0;
-let activeReferenceKey = 'positioning';
 let activeWritingChannel = 'common';
 let writingPreviewIndexes = { common: 0, insta: 0, blog: 0 };
-const COMMON_REFERENCE_TITLE_PREFIX = '(공통예시)';
-const REFERENCE_TYPE_BY_ROW_KEY = {
-  positioning: 'recommended',
-  strength: 'sameIndustry',
-  menu: 'sameIndustry',
-  treatmentSubject: 'sameIndustry',
-  target: 'nearby',
-  contentKeywords: 'keywordTop',
-  reviewStrength: 'sameIndustry',
-  reviewWeakness: 'nearby'
-};
 
 function escapeHtml(value){
   return String(value ?? '')
@@ -749,30 +710,6 @@ function currentBenchmark(){
     || null;
 }
 
-function normalizedReferenceKey(rowKey){
-  return rowKey === 'strength'
-    ? 'reviewStrength'
-    : rowKey === 'treatmentSubject' ? 'menu' : rowKey;
-}
-
-function benchmarkById(typeId){
-  return benchmarkFixture?.benchmarkTypes?.find((type) => type.id === typeId) || null;
-}
-
-function referenceBenchmarkForRow(rowKey){
-  const normalizedKey = normalizedReferenceKey(rowKey);
-  const mappedTypeId = REFERENCE_TYPE_BY_ROW_KEY[rowKey] || REFERENCE_TYPE_BY_ROW_KEY[normalizedKey];
-  return benchmarkById(mappedTypeId) || currentBenchmark();
-}
-
-function referenceComparisonRow(type, rowKey){
-  const normalizedKey = normalizedReferenceKey(rowKey);
-  return type?.comparison?.find((item) => item.key === normalizedKey)
-    || currentBenchmark()?.comparison?.find((item) => item.key === normalizedKey)
-    || type?.comparison?.[0]
-    || null;
-}
-
 async function loadBenchmarkFixture(){
   try {
     const response = await fetch(`/api/stores/${currentStoreId()}/strategy-ruleset/benchmark-evidence`);
@@ -790,35 +727,7 @@ function selectBenchmarkType(typeId){
 }
 
 function renderBenchmark(){
-  showReferenceLayer(activeReferenceKey);
   renderComparisonWorkspace();
-}
-
-function showReferenceLayer(rowKey){
-  activeReferenceKey = rowKey;
-  const type = referenceBenchmarkForRow(rowKey);
-  const row = referenceComparisonRow(type, rowKey);
-  if (!type || !row) return;
-  document.querySelectorAll('[data-reference-key]').forEach((button) => {
-    button.classList.toggle('active', button.dataset.referenceKey === rowKey);
-  });
-  document.getElementById('referenceLayerTitle').textContent = `${COMMON_REFERENCE_TITLE_PREFIX} ${row.label} 참고`;
-  document.getElementById('referenceLayerMeta').textContent = `공통 예시 · ${type.label} · ${type.candidates.length}개 업체 사례`;
-  document.getElementById('referenceLayerKicker').textContent = `${row.label}: ${row.ourStore}`;
-  document.getElementById('referenceLayerBody').textContent = `${row.benchmark} ${row.recommendation}`;
-  document.getElementById('referenceLayerEvidence').innerHTML = (row.evidence || [])
-    .slice(0, 3)
-    .map((item) => `<li>${escapeHtml(item)}</li>`)
-    .join('');
-  document.getElementById('referenceCandidateList').innerHTML = type.candidates.map((candidate) => `
-    <div class="reference-candidate-card">
-      <div class="reference-candidate-meta">${escapeHtml(candidate.name)} · ${escapeHtml(candidate.location)} · ${escapeHtml(candidate.category)}</div>
-      <div class="reference-candidate-signal">${escapeHtml(candidate.rankSignal || row.benchmark)}</div>
-      <ul class="reference-candidate-evidence">
-        ${(candidate.evidence || []).slice(0, 2).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
-      </ul>
-    </div>
-  `).join('');
 }
 
 function selectComparisonType(typeId){
@@ -826,7 +735,6 @@ function selectComparisonType(typeId){
   selectedBenchmarkType = typeId;
   selectedCompanyIndex = 0;
   renderComparisonWorkspace();
-  showReferenceLayer(activeReferenceKey);
 }
 
 function selectComparisonCompany(index){
@@ -896,10 +804,13 @@ function openBenchmarkEvidence(rowKey){
   const row = type?.comparison?.find((item) => item.key === rowKey);
   if (!row) return;
   document.getElementById('benchmarkEvidenceTitle').textContent = `${row.label} 근거 보기`;
-  document.getElementById('benchmarkEvidenceDesc').textContent = `${type.label} 기준으로 확인한 후보/리뷰/키워드 근거입니다.`;
-  document.getElementById('benchmarkEvidenceList').innerHTML = row.evidence
-    .map((item) => `<li>${escapeHtml(item)}</li>`)
+  document.getElementById('benchmarkEvidenceDesc').textContent = `${type.label} 기준으로 확인한 후보 근거와 산출근거입니다.`;
+  document.getElementById('benchmarkEvidenceReviews').innerHTML = row.evidence
+    .map((item) => `<div class="evidence-review-card"><div class="evidence-review-body">${escapeHtml(item)}</div></div>`)
     .join('');
+  document.getElementById('benchmarkEvidenceRationaleText').textContent = row.recommendation;
+  document.getElementById('benchmarkEvidenceRationale').hidden = false;
+  document.getElementById('benchmarkEvidenceList').innerHTML = '';
   document.getElementById('modal-benchmark-evidence').style.display = 'flex';
 }
 

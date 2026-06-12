@@ -302,7 +302,7 @@ describe('marketing ruleset API', () => {
           fieldKey: 'representativeMenu',
           label: '대표 메뉴',
           section: 'brand',
-          sourceTier: 'place_then_ai',
+          sourceTier: 'ai_processing',
           requiresAi: true,
           automationStatus: 'ai_processing'
         }),
@@ -956,7 +956,7 @@ describe('marketing ruleset API', () => {
     });
   });
 
-  it('returns linked evidence with short collection item excerpts', async () => {
+  it('returns source-scoped evidence with short collection item excerpts', async () => {
     const response = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/positioning/evidence`);
     const body = await readJson(response);
     const weaknessResponse = await fetch(`${baseUrl}/api/stores/store_demo_cake/ruleset/fields/reviewWeakness/evidence`);
@@ -964,9 +964,12 @@ describe('marketing ruleset API', () => {
 
     expect(response.status).toBe(200);
     expect(weaknessResponse.status).toBe(200);
+    expect(body.evidenceSourceMode).toBe('blog');
+    expect(weaknessBody.evidenceSourceMode).toBe('review');
     expect(body.field).toMatchObject({
       fieldKey: 'positioning'
     });
+    expect(body.evidence.every((item: { channel: string; sourceType: string }) => item.channel === 'blog' && item.sourceType === 'post')).toBe(true);
     expect(body.evidence).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -975,16 +978,17 @@ describe('marketing ruleset API', () => {
           sourceType: 'post',
           title: '분당 레터링 케이크 후기',
           excerpt: expect.stringContaining('당일 제작')
-        }),
-        expect.objectContaining({
-          collectionItemId: 'collection_item_demo_place_review',
-          channel: 'place',
-          sourceType: 'review',
-          title: '플레이스 리뷰 요약',
-          analysisSummary: expect.stringContaining('포지셔닝')
         })
       ])
     );
+    expect(body.evidence).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceType: 'review'
+        })
+      ])
+    );
+    expect(weaknessBody.evidence.every((item: { channel: string; sourceType: string }) => item.channel === 'place' && item.sourceType === 'review')).toBe(true);
     expect(weaknessBody.evidence).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1034,6 +1038,21 @@ describe('marketing ruleset API', () => {
       selectedAt: '2026-06-10T00:00:01.000Z',
       metadata: {}
     });
+    repos.collectionItems.create({
+      id: 'collection_item_legacy_blog',
+      runId: 'collection_run_legacy_evidence',
+      storeId: 'store_legacy_evidence',
+      channel: 'blog',
+      sourceType: 'post',
+      status: 'collected',
+      sourceUrl: null,
+      title: '블로그 포지셔닝 근거',
+      bodyText: '서울 중구 예약 상담형 케이크 전문점으로 소개하며 상담 동선을 자세히 안내합니다.',
+      selectedForAnalysis: 1,
+      selectionReason: 'legacy blog evidence',
+      selectedAt: '2026-06-10T00:00:01.000Z',
+      metadata: {}
+    });
     repos.analysisRuns.create({
       id: 'analysis_run_legacy_evidence',
       storeId: 'store_legacy_evidence',
@@ -1053,6 +1072,15 @@ describe('marketing ruleset API', () => {
       score: 0.81,
       metadata: {}
     });
+    repos.analysisEvidence.create({
+      id: 'analysis_evidence_legacy_blog',
+      analysisRunId: 'analysis_run_legacy_evidence',
+      collectionItemId: 'collection_item_legacy_blog',
+      evidenceType: 'blog',
+      summary: '예약 상담형 전문점 포지션이 블로그에 설명됩니다.',
+      score: 0.83,
+      metadata: {}
+    });
     repos.learningSnapshots.create({
       id: 'learning_snapshot_legacy_evidence',
       storeId: 'store_legacy_evidence',
@@ -1068,10 +1096,10 @@ describe('marketing ruleset API', () => {
       version: 1,
       ruleset: {}
     });
-    for (const [fieldKey, value] of [
-      ['storePositioning', '서울 중구 예약 상담형 케이크 전문점'],
-      ['reviewWeakness', '주차 안내를 더 명확히 제공해야 함']
-    ]) {
+    for (const [fieldKey, value, evidenceItemIds] of [
+      ['storePositioning', '서울 중구 예약 상담형 케이크 전문점', ['collection_item_legacy_blog']],
+      ['reviewWeakness', '주차 안내를 더 명확히 제공해야 함', ['collection_item_legacy_shared']]
+    ] as [string, string, string[]][]) {
       repos.rulesetFields.create({
         id: `ruleset_field_legacy_${fieldKey}`,
         rulesetId: 'marketing_ruleset_legacy_evidence',
@@ -1082,7 +1110,7 @@ describe('marketing ruleset API', () => {
         finalValue: value,
         source: 'analysis',
         locked: 0,
-        evidenceItemIds: ['collection_item_legacy_shared'],
+        evidenceItemIds,
         confidence: 0.8
       });
     }
@@ -1097,5 +1125,245 @@ describe('marketing ruleset API', () => {
     expect(positioning.evidence[0].analysisSummary).toContain('포지셔닝 산출 근거');
     expect(weakness.evidence[0].analysisSummary).toContain('리뷰 약점 산출 근거');
     expect(positioning.evidence[0].analysisSummary).not.toBe(weakness.evidence[0].analysisSummary);
+  });
+
+  it('falls back to same-run source-scoped evidence when linked field evidence uses the wrong source', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.create({
+      id: 'store_wrong_source_evidence',
+      name: '소스 보정 매장',
+      naverPlaceUrl: null,
+      naverPlaceId: null,
+      category: 'clinic',
+      address: '서울 종로구',
+      phone: null,
+      description: null,
+      metadata: {}
+    });
+    repos.collectionRuns.create({
+      id: 'collection_run_wrong_source_evidence',
+      storeId: 'store_wrong_source_evidence',
+      status: 'completed',
+      mode: 'mock',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {}
+    });
+    repos.collectionItems.create({
+      id: 'collection_item_wrong_source_profile',
+      runId: 'collection_run_wrong_source_evidence',
+      storeId: 'store_wrong_source_evidence',
+      channel: 'place',
+      sourceType: 'profile',
+      status: 'collected',
+      sourceUrl: null,
+      title: '소스 보정 매장',
+      bodyText: '플레이스 프로필 설명입니다.',
+      selectedForAnalysis: 1,
+      selectionReason: null,
+      selectedAt: '2026-06-10T00:00:01.000Z',
+      metadata: {}
+    });
+    repos.collectionItems.create({
+      id: 'collection_item_wrong_source_blog',
+      runId: 'collection_run_wrong_source_evidence',
+      storeId: 'store_wrong_source_evidence',
+      channel: 'blog',
+      sourceType: 'post',
+      status: 'collected',
+      sourceUrl: null,
+      title: '프라이빗 피부관리 블로그',
+      bodyText: '프라이빗한 상담과 맞춤형 피부관리를 소개하는 블로그 본문입니다.',
+      selectedForAnalysis: 1,
+      selectionReason: null,
+      selectedAt: '2026-06-10T00:00:01.000Z',
+      metadata: {}
+    });
+    repos.analysisRuns.create({
+      id: 'analysis_run_wrong_source_evidence',
+      storeId: 'store_wrong_source_evidence',
+      collectionRunId: 'collection_run_wrong_source_evidence',
+      status: 'completed',
+      startedAt: '2026-06-10T00:00:01.000Z',
+      completedAt: '2026-06-10T00:00:02.000Z',
+      result: {},
+      error: null
+    });
+    repos.analysisEvidence.create({
+      id: 'analysis_evidence_wrong_source_profile',
+      analysisRunId: 'analysis_run_wrong_source_evidence',
+      collectionItemId: 'collection_item_wrong_source_profile',
+      evidenceType: 'profile',
+      summary: '프로필 기반 요약입니다.',
+      score: 0.7,
+      metadata: {}
+    });
+    repos.analysisEvidence.create({
+      id: 'analysis_evidence_wrong_source_blog',
+      analysisRunId: 'analysis_run_wrong_source_evidence',
+      collectionItemId: 'collection_item_wrong_source_blog',
+      evidenceType: 'blog',
+      summary: '프라이빗 상담과 맞춤 피부관리 블로그 근거입니다.',
+      score: 0.82,
+      metadata: {}
+    });
+    repos.learningSnapshots.create({
+      id: 'learning_snapshot_wrong_source_evidence',
+      storeId: 'store_wrong_source_evidence',
+      analysisRunId: 'analysis_run_wrong_source_evidence',
+      status: 'active',
+      snapshot: {}
+    });
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_wrong_source_evidence',
+      storeId: 'store_wrong_source_evidence',
+      learningSnapshotId: 'learning_snapshot_wrong_source_evidence',
+      status: 'draft',
+      version: 1,
+      ruleset: {}
+    });
+    repos.rulesetFields.create({
+      id: 'ruleset_field_wrong_source_positioning',
+      rulesetId: 'marketing_ruleset_wrong_source_evidence',
+      fieldKey: 'storePositioning',
+      fieldValue: '프라이빗 맞춤 피부관리 클리닉',
+      aiValue: '프라이빗 맞춤 피부관리 클리닉',
+      userValue: null,
+      finalValue: '프라이빗 맞춤 피부관리 클리닉',
+      source: 'analysis',
+      locked: 0,
+      evidenceItemIds: ['collection_item_wrong_source_profile'],
+      confidence: 0.8
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_wrong_source_evidence/strategy-ruleset/fields/storePositioning/evidence`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.evidenceSourceMode).toBe('blog');
+    expect(body.evidence).toEqual([
+      expect.objectContaining({
+        collectionItemId: 'collection_item_wrong_source_blog',
+        channel: 'blog',
+        sourceType: 'post',
+        excerpt: expect.stringContaining('프라이빗한 상담')
+      })
+    ]);
+  });
+
+  it('prefers source-scoped collection evidence that matches the field rationale text', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    repos.stores.create({
+      id: 'store_relevant_review_evidence',
+      name: '관련 리뷰 매장',
+      naverPlaceUrl: null,
+      naverPlaceId: null,
+      category: 'clinic',
+      address: '서울 종로구',
+      phone: null,
+      description: null,
+      metadata: {}
+    });
+    repos.collectionRuns.create({
+      id: 'collection_run_relevant_review_evidence',
+      storeId: 'store_relevant_review_evidence',
+      status: 'completed',
+      mode: 'mock',
+      startedAt: '2026-06-10T00:00:00.000Z',
+      completedAt: '2026-06-10T00:00:01.000Z',
+      summary: {}
+    });
+    for (const [id, title, bodyText] of [
+      ['collection_item_irrelevant_review', '방문자 리뷰 - sun****', '아프지 않은 시술 경험이 좋았고 기대됩니다.'],
+      ['collection_item_relevant_wait_review', '방문자 리뷰 - wait****', '토요일에는 대기시간이 길어서 꼭 예약해야 한다는 방문 후기입니다.']
+    ] as [string, string, string][]) {
+      repos.collectionItems.create({
+        id,
+        runId: 'collection_run_relevant_review_evidence',
+        storeId: 'store_relevant_review_evidence',
+        channel: 'place',
+        sourceType: 'review',
+        status: 'collected',
+        sourceUrl: null,
+        title,
+        bodyText,
+        selectedForAnalysis: 1,
+        selectionReason: null,
+        selectedAt: '2026-06-10T00:00:01.000Z',
+        metadata: {}
+      });
+    }
+    repos.analysisRuns.create({
+      id: 'analysis_run_relevant_review_evidence',
+      storeId: 'store_relevant_review_evidence',
+      collectionRunId: 'collection_run_relevant_review_evidence',
+      status: 'completed',
+      startedAt: '2026-06-10T00:00:01.000Z',
+      completedAt: '2026-06-10T00:00:02.000Z',
+      result: {},
+      error: null
+    });
+    repos.analysisEvidence.create({
+      id: 'analysis_evidence_irrelevant_review',
+      analysisRunId: 'analysis_run_relevant_review_evidence',
+      collectionItemId: 'collection_item_irrelevant_review',
+      evidenceType: 'review',
+      summary: '아프지 않은 시술 경험과 기대감에 대한 긍정적 후기입니다.',
+      score: 0.8,
+      metadata: {
+        fieldEvidence: {
+          reviewWeakness: {
+            summary: '리뷰 약점 산출 근거: 대기 시간이 길어질 수 있음. 수집 근거: 아프지 않은 시술 경험과 기대감에 대한 긍정적 후기입니다.'
+          }
+        }
+      }
+    });
+    repos.learningSnapshots.create({
+      id: 'learning_snapshot_relevant_review_evidence',
+      storeId: 'store_relevant_review_evidence',
+      analysisRunId: 'analysis_run_relevant_review_evidence',
+      status: 'active',
+      snapshot: {}
+    });
+    repos.marketingRulesets.create({
+      id: 'marketing_ruleset_relevant_review_evidence',
+      storeId: 'store_relevant_review_evidence',
+      learningSnapshotId: 'learning_snapshot_relevant_review_evidence',
+      status: 'draft',
+      version: 1,
+      ruleset: {}
+    });
+    repos.rulesetFields.create({
+      id: 'ruleset_field_relevant_review_weakness',
+      rulesetId: 'marketing_ruleset_relevant_review_evidence',
+      fieldKey: 'reviewWeakness',
+      fieldValue: '대기 시간이 길어질 수 있음',
+      aiValue: '대기 시간이 길어질 수 있음',
+      userValue: null,
+      finalValue: '대기 시간이 길어질 수 있음',
+      source: 'analysis',
+      locked: 0,
+      evidenceItemIds: ['collection_item_irrelevant_review'],
+      confidence: 0.8
+    });
+
+    const response = await fetch(`${baseUrl}/api/stores/store_relevant_review_evidence/strategy-ruleset/fields/reviewWeakness/evidence`);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.evidenceSourceMode).toBe('review');
+    expect(body.evidence[0]).toMatchObject({
+      collectionItemId: 'collection_item_relevant_wait_review',
+      channel: 'place',
+      sourceType: 'review',
+      excerpt: expect.stringContaining('대기시간')
+    });
+    expect(body.evidence).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          collectionItemId: 'collection_item_irrelevant_review'
+        })
+      ])
+    );
   });
 });

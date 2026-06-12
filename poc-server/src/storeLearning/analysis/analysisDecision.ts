@@ -18,6 +18,7 @@ export type AnalysisDecisionReason =
   | 'initial_learning_with_selected_evidence'
   | 'initial_profile_only_analysis'
   | 'new_selected_evidence'
+  | 'manual_ruleset_relearn_existing_assets'
   | 'insufficient_new_evidence_for_ruleset_regeneration'
   | 'no_previous_learning_to_reuse'
   | 'no_collected_selected_items'

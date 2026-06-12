@@ -211,7 +211,7 @@
             <code>POST /api/analysis-runs/:analysisRunId/start</code>
           </td>
           <td><span class="badge yes">LLM 호출 대상</span><br>수집 콘텐츠를 분석해 학습 스냅샷과 마케팅 룰셋을 생성하도록 정의됨.</td>
-          <td><span class="badge yes">현재 실제 호출</span><br>현재 runtime/readiness 기준 <code>openAIAnalysisProvider</code>가 선택됨. provider/model/prompt budget metadata가 analysis run에 기록됨.</td>
+          <td><span class="badge yes">현재 실제 호출</span><br>현재 runtime/readiness 기준 <code>openAIAnalysisProvider</code>가 선택됨. SL-A1 prompt v2, provider/model/prompt budget metadata가 analysis run과 LLM audit log에 기록됨.</td>
           <td>
             <ul class="mono-list">
               <li><code>OPENAI_API_KEY</code> 있음: OpenAI 호출</li>
@@ -224,13 +224,15 @@
           </td>
           <td>
             <ul class="mono-list">
-              <li><code>store</code>: id, name, category, address, description, allowlist profile facts</li>
-              <li><code>selectedItemIds</code></li>
-              <li><code>promptItemIds</code>: budget 적용 후 실제 prompt에 포함된 항목 ID. OpenAI evidence id enum도 이 목록으로 제한</li>
-              <li><code>selectedItems</code>: id, channel, sourceType, title, sourceUrl, budgeted bodyText. 개발 버전에서는 Blog 최대 3개, Place review 최대 10개만 포함</li>
-              <li><code>metadata</code>: publishedAt, reviewDate, rating, reviewerName, blogId, logNo, tags, Place profile facts 등 allowlist만 포함</li>
-              <li><code>requiredRulesetFieldKeys</code></li>
-              <li><code>requiredRulesetFields</code>: AI 산출 대상 fieldKey, label, section, valueKind, sourceTier, inputSources, expectedOutput, evidenceGuidance. 운영시간/휴무일/주차/대표 진료과목 같은 direct Place/manual facts는 제외</li>
+              <li><code>schemaVersion</code>: <code>sl_a1_blog_sop_input.v1</code></li>
+              <li><code>outputSchemaRef</code>: <code>store_learning_analysis.v2</code></li>
+              <li><code>storeProfile.facts</code>: name, category, address, phone, description, businessHours, closedDays, parking, treatmentSubjects, representativeTreatmentSubjects 등 canonical facts</li>
+              <li><code>evidenceItemIds</code>: budget 적용 후 실제 prompt에 포함된 profile/review/blog evidence ID. OpenAI evidence id enum도 이 목록으로 제한</li>
+              <li><code>blogPosts</code>: 최신 Blog 최대 3개. aggregate body budget 안에서 <code>content.bodyTextFull</code>, char counts, truncation, bodyCompleteness, contentHash, hashtag/question/CTA helper를 포함</li>
+              <li><code>reviews</code>: usable bodyText가 있는 Place review 최대 10개. review text가 없으면 <code>unavailableData.reviews=true</code></li>
+              <li><code>requestedRulesetFieldKeys</code> / <code>requestedRulesetFields</code>: OpenAI가 실제 산출해야 하는 field만 포함</li>
+              <li><code>blockedFields</code>: Instagram 범위 밖, image metadata 없음, review text 없음 같은 이유로 서버가 차단한 field. <code>source=input_blocked</code></li>
+              <li><code>industryPolicy</code>: 병원/의원/클리닉/정형외과/피부과/치과 신호와 의료 문구 정책</li>
             </ul>
           </td>
           <td class="prompt-box">system:
@@ -240,21 +242,26 @@ Use only provided collection items as evidence...
 user:
 JSON.stringify({
   task,
+  schemaVersion,
+  outputSchemaRef,
   constraints,
-  store,
-  selectedItemIds,
-  promptItemIds,
-  selectedItems,
-  requiredRulesetFieldKeys,
-  requiredRulesetFields
+  storeProfile,
+  evidenceItemIds,
+  blogPosts,
+  reviews,
+  unavailableData,
+  requestedRulesetFieldKeys,
+  requestedRulesetFields,
+  blockedFields,
+  industryPolicy
 })</td>
           <td>
             <code>zodResponseFormat(OpenAIAnalyzerOutputSchema, 'store_learning_analysis')</code><br>
-            OpenAI 응답은 <code>rulesetFieldsByKey</code>로 받고 서버에서 내부 <code>rulesetFields[]</code>로 정규화. 이후 <code>validateAnalyzerOutput()</code>, <code>validateAnalyzerRulesetFieldContract()</code>, <code>validateAnalyzerReferences()</code>로 재검증.
+            OpenAI 응답은 <code>requestedRulesetFieldKeys</code>만 required인 <code>rulesetFieldsByKey</code>로 받고 서버에서 내부 <code>rulesetFields[]</code>로 정규화. 서버는 <code>blockedFields</code>를 <code>source=input_blocked</code>, 빈 evidence, confidence null, 한국어 설명 값으로 추가. 이후 <code>validateAnalyzerOutput()</code>, <code>validateAnalyzerRulesetFieldContract()</code>, <code>validateAnalyzerReferences()</code>로 재검증.
           </td>
           <td>
             <ul class="mono-list">
-              <li>저장 전 모든 AI 산출 대상 <code>rulesetFields</code>가 정확히 1회 존재해야 하며, unknown fieldKey와 OpenAI <code>source</code> 불일치는 실패 처리</li>
+              <li>저장 전 requested + blocked 전체 analyzer field가 정확히 1회 존재해야 하며, unknown fieldKey와 source 불일치는 실패 처리</li>
               <li><code>analysis_evidence</code> 저장</li>
               <li><code>learning_snapshots</code> 저장</li>
               <li><code>marketing_rulesets</code> 생성</li>
@@ -263,7 +270,8 @@ JSON.stringify({
               <li><code>analysis_runs.result</code>에 analyzerProvider, analyzerMode, analyzerModel, selected/prompt/omitted item count 저장</li>
               <li><code>analysis_runs.result</code>에 blogItemLimit, selectedBlogItemCount, promptBlogItemCount, omittedBlogItemCount 저장</li>
               <li><code>analysis_runs.result</code>에 reviewItemLimit, selectedReviewItemCount, promptReviewItemCount, omittedReviewItemCount 저장</li>
-              <li><code>analysis_runs.result</code>에 promptCharacterCount, promptCharacterBudget, bodyCharacterBudget, promptBudgetReason 저장</li>
+              <li><code>analysis_runs.result</code>에 promptCharacterCount, promptCharacterBudget, bodyCharacterBudget, promptBudgetReason, evidenceItemIds, requestedRulesetFieldKeys, blockedFields 저장</li>
+              <li><code>llm_audit_logs.prompt_input_json</code>에 v2 budgeted input 저장. API key, raw provider payload, raw HTML, 대량 image URL 배열은 저장하지 않음</li>
             </ul>
           </td>
           <td>

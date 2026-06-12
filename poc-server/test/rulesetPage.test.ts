@@ -239,6 +239,32 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).toContain('placeholderText');
   });
 
+  it('renders blog evidence for analysis fields and review evidence for review fields', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
+
+    expect(html).toContain('id="benchmarkEvidenceReviews"');
+    expect(html).toContain('id="benchmarkEvidenceRationale"');
+    expect(html).toContain('id="benchmarkEvidenceRationaleText"');
+
+    expect(js).toContain('const BLOG_EVIDENCE_FIELD_KEYS');
+    expect(js).toContain('const REVIEW_EVIDENCE_FIELD_KEYS');
+    expect(js).toContain('function evidenceSourceMode');
+    expect(js).toContain('function blogEvidenceItems');
+    expect(js).toContain(".filter((item) => item.channel === 'blog' && item.sourceType === 'post')");
+    expect(js).toContain('function reviewEvidenceItems');
+    expect(js).toContain(".filter((item) => item.channel === 'place' && item.sourceType === 'review')");
+    expect(js).toContain('.slice(0, 5)');
+    expect(js).toContain('function rationaleText');
+    expect(js).toContain("replace(/^.*?산출 근거:\\s*/");
+    expect(js).toContain("split('수집 근거:')[0]");
+    expect(js).toContain('블로그 본문 인용');
+    expect(js).toContain('실제 방문자 리뷰');
+    expect(js).toContain('benchmarkEvidenceReviews');
+    expect(js).toContain('benchmarkEvidenceRationaleText');
+    expect(js).not.toContain('리뷰 약점 산출 근거');
+  });
+
   it('removes the automatic input criteria block from the store info tab', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
     const storeSection = html.match(/<!-- 매장 정보 -->[\s\S]*?<!-- 우리 매장 분석 -->/)?.[0] ?? '';
@@ -280,27 +306,21 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).toContain('!isStoreInfoRulesetField(element)');
   });
 
-  it('marks every reference panel title as a red common example', () => {
+  it('removes reference buttons and common-example reference panels from store analysis', () => {
     const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
-    const referenceKeys = [
-      'positioning',
-      'strength',
-      'menu',
-      'target',
-      'contentKeywords',
-      'reviewStrength',
-      'reviewWeakness'
-    ];
+    const js = readFileSync(path.join(webRoot, 'ruleset_editor.js'), 'utf8');
+    const brandSection = html.match(/<!-- 우리 매장 분석 -->[\s\S]*?<!-- 글쓰기 스타일 -->/)?.[0] ?? '';
 
-    expect(html).toContain("const COMMON_REFERENCE_TITLE_PREFIX = '(공통예시)';");
-    expect(html).toContain('.reference-panel-title.common-example{color:#E03131');
-    expect(html).toContain('class="reference-panel-title common-example" id="referenceLayerTitle">(공통예시) 항목 참고</div>');
-    expect(html).toContain('`${COMMON_REFERENCE_TITLE_PREFIX} ${row.label} 참고`');
-    expect(html).toContain("treatmentSubject: 'sameIndustry'");
-    expect(html).toContain("rowKey === 'treatmentSubject' ? 'menu'");
-    for (const key of referenceKeys) {
-      expect(html).toContain(`data-reference-key="${key}"`);
-    }
+    expect(brandSection).not.toContain('reference-btn');
+    expect(brandSection).not.toContain('storeAnalysisReferencePanel');
+    expect(brandSection).not.toContain('referenceLayerTitle');
+    expect(brandSection).not.toContain('참고</button>');
+    expect(brandSection).not.toContain('(공통예시)');
+    expect(html).not.toContain('COMMON_REFERENCE_TITLE_PREFIX');
+    expect(html).not.toContain('REFERENCE_TYPE_BY_ROW_KEY');
+    expect(html).not.toContain('showReferenceLayer');
+    expect(html).not.toContain('data-reference-key');
+    expect(js).not.toContain('referenceKey');
   });
 
   it('defines industry-aware representative offering behavior for healthcare stores', () => {
@@ -310,16 +330,17 @@ describe('marketing ruleset static page API wiring', () => {
     expect(html).toContain('data-industry-field="representativeOffering"');
     expect(html).toContain('data-default-label="대표 메뉴"');
     expect(html).toContain('data-healthcare-label="대표 진료과목"');
-    expect(html).toContain('data-default-reference-key="menu"');
-    expect(html).toContain('data-healthcare-reference-key="treatmentSubject"');
+    expect(html).not.toContain('data-default-reference-key');
+    expect(html).not.toContain('data-healthcare-reference-key');
     expect(js).toContain("const HEALTHCARE_CATEGORY_KEYWORDS = ['병원', '의원', '클리닉', '정형외과', '피부과', '치과'];");
     expect(js).toContain('function isHealthcareStore');
     expect(js).toContain('function configureIndustryFields');
-    expect(js).toContain("field.dataset.rulesetField = isHealthcare ? 'representativeTreatmentSubjects' : 'representativeMenu';");
+    expect(js).toContain("field.dataset.rulesetField = 'representativeMenu';");
+    expect(js).toContain("field.dataset.rulesetAliases = isHealthcare ? 'representativeTreatmentSubjects' : '';");
     expect(js).toContain('function representativeTreatmentSubjectsValue');
     expect(js).toContain('storeFacts.representativeTreatmentSubjects');
-    expect(js).not.toContain("field.dataset.rulesetAliases = isHealthcare ? 'representativeMenu' : '';");
-    expect(js).toContain("button.dataset.referenceKey = isHealthcare ? 'treatmentSubject' : 'menu';");
+    expect(js).not.toContain("field.dataset.rulesetField = isHealthcare ? 'representativeTreatmentSubjects' : 'representativeMenu';");
+    expect(js).not.toContain('referenceKey');
     expect(js).toContain("label.textContent = isHealthcare ? '대표 진료과목' : '대표 메뉴';");
   });
 

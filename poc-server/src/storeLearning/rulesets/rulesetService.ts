@@ -6,8 +6,10 @@ import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import {
   canonicalRulesetFieldKey,
+  rulesetEvidenceSourceModeForFieldKey,
   serializeRulesetSourceMatrix,
-  sourceMatrixForFieldKey
+  sourceMatrixForFieldKey,
+  type RulesetEvidenceSourceMode
 } from './rulesetSourceMatrix.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
@@ -823,8 +825,68 @@ function itemPayload(item: CollectionItem, analysisSummary: string | null, score
   };
 }
 
+type SourceScopedEvidenceCandidate = {
+  payload: ReturnType<typeof itemPayload>;
+  hasFieldSummary: boolean;
+  linked: boolean;
+  sourcePriority: number;
+};
+
 function unique(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+function evidenceSourceModeForFieldKeys(fieldKeys: string[]): RulesetEvidenceSourceMode {
+  const modes = fieldKeys.map((fieldKey) => rulesetEvidenceSourceModeForFieldKey(fieldKey));
+  if (modes.includes('review')) return 'review';
+  if (modes.includes('blog')) return 'blog';
+  return 'mixed';
+}
+
+function matchesEvidenceSourceMode(item: CollectionItem, evidenceSourceMode: RulesetEvidenceSourceMode) {
+  if (evidenceSourceMode === 'blog') return item.channel === 'blog' && item.sourceType === 'post';
+  if (evidenceSourceMode === 'review') return item.channel === 'place' && item.sourceType === 'review';
+  return true;
+}
+
+const EVIDENCE_RELEVANCE_STOPWORDS = new Set([
+  '있음',
+  '있습니다',
+  '대한',
+  '하는',
+  '제공',
+  '제공하는',
+  '필요',
+  '가능',
+  '있어',
+  '통한',
+  '고객',
+  '매장',
+  '클리닉'
+]);
+
+function evidenceRelevanceTerms(field: RulesetField) {
+  const text = [field.finalValue, field.aiValue, field.fieldValue].filter(Boolean).join(' ');
+  const terms = text
+    .split(/[^0-9A-Za-z가-힣]+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 2 && !EVIDENCE_RELEVANCE_STOPWORDS.has(term));
+  if (/대기|오래|시간/.test(text)) {
+    terms.push('대기', '대기시간', '오래', '시간', '길어');
+  }
+  if (/기다/.test(text)) {
+    terms.push('기다', '기다림');
+  }
+  return unique(terms);
+}
+
+function evidenceRelevanceScore(payload: ReturnType<typeof itemPayload>, terms: string[]) {
+  if (terms.length === 0) return 0;
+  const haystack = [
+    payload.title,
+    payload.excerpt
+  ].filter(Boolean).join(' ');
+  return terms.reduce((score, term) => score + (haystack.includes(term) ? 1 : 0), 0);
 }
 
 function fieldSpecificAnalysisSummary(metadata: JsonValue, candidateFieldKeys: string[]) {
@@ -850,6 +912,100 @@ function fallbackFieldSpecificSummary(field: RulesetField, requestedFieldKey: st
     : `${label} 산출 근거: ${baseSummary}`;
 }
 
+function sourceScopedEvidencePayload(
+  repos: Repositories,
+  analysisEvidence: AnalysisEvidence,
+  evidenceSourceMode: RulesetEvidenceSourceMode,
+  candidateFieldKeys: string[],
+  field: RulesetField,
+  requestedFieldKey: string
+) {
+  if (!analysisEvidence.collectionItemId) return null;
+  const item = repos.collectionItems.findById(analysisEvidence.collectionItemId);
+  if (!item) return null;
+  if (!matchesEvidenceSourceMode(item, evidenceSourceMode)) return null;
+  const fieldSummary = fieldSpecificAnalysisSummary(analysisEvidence.metadata, candidateFieldKeys);
+  const analysisSummary = fieldSummary ?? fallbackFieldSpecificSummary(field, requestedFieldKey, analysisEvidence.summary);
+  return {
+    payload: itemPayload(item, analysisSummary, analysisEvidence.score ?? null),
+    hasFieldSummary: Boolean(fieldSummary),
+    linked: false,
+    sourcePriority: 2
+  };
+}
+
+function selectedCollectionEvidenceCandidate(
+  item: CollectionItem,
+  evidenceSourceMode: RulesetEvidenceSourceMode
+): SourceScopedEvidenceCandidate | null {
+  if (!matchesEvidenceSourceMode(item, evidenceSourceMode)) return null;
+  if (!item.selectedForAnalysis) return null;
+  return {
+    payload: itemPayload(item, null, null),
+    hasFieldSummary: false,
+    linked: false,
+    sourcePriority: 1
+  };
+}
+
+function evidenceCandidateRank(candidate: SourceScopedEvidenceCandidate) {
+  return Number(candidate.linked) * 10 + Number(candidate.hasFieldSummary) * 5 + candidate.sourcePriority;
+}
+
+function evidenceCandidateSignature(candidate: SourceScopedEvidenceCandidate) {
+  return [
+    candidate.payload.channel,
+    candidate.payload.sourceType,
+    candidate.payload.title,
+    candidate.payload.excerpt
+  ].join('|');
+}
+
+function dedupeEvidenceCandidates(candidates: SourceScopedEvidenceCandidate[]) {
+  const byItemId = new Map<string, SourceScopedEvidenceCandidate>();
+  for (const candidate of candidates) {
+    const existing = byItemId.get(candidate.payload.collectionItemId);
+    if (!existing) {
+      byItemId.set(candidate.payload.collectionItemId, candidate);
+      continue;
+    }
+    const existingRank = evidenceCandidateRank(existing);
+    const candidateRank = evidenceCandidateRank(candidate);
+    if (candidateRank > existingRank) byItemId.set(candidate.payload.collectionItemId, candidate);
+  }
+  const byContent = new Map<string, SourceScopedEvidenceCandidate>();
+  for (const candidate of byItemId.values()) {
+    const signature = evidenceCandidateSignature(candidate);
+    const existing = byContent.get(signature);
+    if (!existing) {
+      byContent.set(signature, candidate);
+      continue;
+    }
+    if (evidenceCandidateRank(candidate) > evidenceCandidateRank(existing)) byContent.set(signature, candidate);
+  }
+  return Array.from(byContent.values());
+}
+
+function rankedEvidencePayloads(candidates: SourceScopedEvidenceCandidate[], field: RulesetField) {
+  const terms = evidenceRelevanceTerms(field);
+  const scored = dedupeEvidenceCandidates(candidates).map((candidate) => ({
+    ...candidate,
+    relevance: evidenceRelevanceScore(candidate.payload, terms)
+  }));
+  const hasRelevantCandidate = scored.some((candidate) => candidate.relevance > 0);
+  return scored
+    .filter((candidate) => !hasRelevantCandidate || candidate.relevance > 0)
+    .sort((a, b) =>
+      b.relevance - a.relevance
+      || Number(b.linked) - Number(a.linked)
+      || Number(b.hasFieldSummary) - Number(a.hasFieldSummary)
+      || b.sourcePriority - a.sourcePriority
+      || (b.payload.score ?? 0) - (a.payload.score ?? 0)
+    )
+    .slice(0, 5)
+    .map((candidate) => candidate.payload);
+}
+
 export function buildRulesetFieldEvidence(repos: Repositories, storeId: string, fieldKey: string) {
   const context = rulesetFieldContext(repos, storeId, fieldKey);
   if (!context) return null;
@@ -868,22 +1024,45 @@ export function buildRulesetFieldEvidence(repos: Repositories, storeId: string, 
     canonicalRulesetFieldKey(fieldKey),
     canonicalRulesetFieldKey(context.field.fieldKey)
   ]);
+  const evidenceSourceMode = evidenceSourceModeForFieldKeys(candidateFieldKeys);
 
-  const evidence = evidenceItemIds
+  const linkedEvidenceCandidates = evidenceItemIds
     .map((itemId) => {
       const item = repos.collectionItems.findById(itemId);
       if (!item) return null;
+      if (!matchesEvidenceSourceMode(item, evidenceSourceMode)) return null;
       const analysisEvidence = evidenceByItemId.get(item.id);
-      const analysisSummary = analysisEvidence
+      const fieldSummary = analysisEvidence
         ? fieldSpecificAnalysisSummary(analysisEvidence.metadata, candidateFieldKeys)
-          ?? fallbackFieldSpecificSummary(context.field, fieldKey, analysisEvidence.summary)
         : null;
-      return itemPayload(item, analysisSummary, analysisEvidence?.score ?? null);
+      const analysisSummary = analysisEvidence
+        ? fieldSummary ?? fallbackFieldSpecificSummary(context.field, fieldKey, analysisEvidence.summary)
+        : null;
+      return {
+        payload: itemPayload(item, analysisSummary, analysisEvidence?.score ?? null),
+        hasFieldSummary: Boolean(fieldSummary),
+        linked: true,
+        sourcePriority: 3
+      };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const analysisEvidenceCandidates = evidenceRows
+    .map((analysisEvidence) =>
+      sourceScopedEvidencePayload(repos, analysisEvidence, evidenceSourceMode, candidateFieldKeys, context.field, fieldKey)
+    )
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const collectionEvidenceCandidates = repos.collectionItems
+    .listByStoreId(storeId)
+    .map((item) => selectedCollectionEvidenceCandidate(item, evidenceSourceMode))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const evidence = rankedEvidencePayloads(
+    [...linkedEvidenceCandidates, ...analysisEvidenceCandidates, ...collectionEvidenceCandidates],
+    context.field
+  );
 
   return {
     field: serializeField(context.field, fieldKey),
+    evidenceSourceMode,
     evidence
   };
 }
