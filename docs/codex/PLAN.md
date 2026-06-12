@@ -55,10 +55,12 @@ validate on `develop`; it is not to skip ahead.
 
 Current next todo as of 2026-06-12:
 
-1. Plan the next post-level analysis pipeline or aggregate SOP improvement
-   milestone from validated `develop`.
-2. Keep V2 deterministic/mock-safe only until the user explicitly approves a
-   separate comparison or combined-generation task.
+1. Implement Blog Formula V2 safe mock integration structure from
+   [the next-session plan](NEXT_SESSION_BLOG_FORMULA_V2_SAFE_MOCK_INTEGRATION_PLAN.md).
+   This means provider-shaped server integration with `safe_mock` only, not a
+   live OpenAI/Naver lane.
+2. Keep V2 deterministic/mock-safe until the user explicitly approves a
+   live provider or combined-generation task.
 3. Keep the current ruleset preview endpoint as deterministic server/mock
    output unless the user explicitly approves a separate OpenAI preview
    provider task.
@@ -89,6 +91,7 @@ Current next todo as of 2026-06-12:
 | 13b | SL-A1 LLM 입력 구조 재설계 | Validated on develop | [plan](NEXT_SESSION_SL_A1_INPUT_REDESIGN_PLAN.md), commit `84f1684` | Pushed to `develop` and validated locally before integration |
 | 13c | Blog SOP 룰셋 계약 적용 | Validated on develop | [plan](NEXT_SESSION_BLOG_SOP_RULESET_PLAN.md), PR #47, merge `b695643` | Develop validation recorded 2026-06-12 |
 | 13d | Blog Formula V2 deterministic 실험 레인 | Validated on develop | [handoff](../BLOG_FORMULA_V2_HANDOFF.md), PR #48, merge `c8f1b52` | Develop validation recorded 2026-06-12 |
+| 13e | Blog Formula V2 safe mock 연동 구조 | Planned | [plan](NEXT_SESSION_BLOG_FORMULA_V2_SAFE_MOCK_INTEGRATION_PLAN.md) | Open/merge PR to `develop`, then validate on `develop` |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist

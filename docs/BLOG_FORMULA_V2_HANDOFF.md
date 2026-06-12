@@ -121,3 +121,31 @@ STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-demo.sqlite npm run demo:blog-f
 
 The demo seeds mock owner Blog posts only when the target store has no usable
 owner Blog sources.
+
+## Next Step: Safe Mock Integration Lane
+
+The next task is not a live provider integration. It should add an integration
+shape that can later accept a live provider, while implementing only a
+server-side `safe_mock` provider now.
+
+Use:
+
+```text
+docs/codex/NEXT_SESSION_BLOG_FORMULA_V2_SAFE_MOCK_INTEGRATION_PLAN.md
+```
+
+Required boundaries for that task:
+
+- keep existing deterministic V2 behavior passing
+- add provider-shaped server structure for extract/draft operations
+- implement only `safe_mock`
+- no live OpenAI/Naver calls
+- no browser-side provider calls
+- no Hybrid or combined V1/V2 generation
+- no V2 writes to `marketing_rulesets` or `ruleset_fields`
+
+Recommended branch:
+
+```text
+codex/blog-formula-v2-safe-mock-integration
+```

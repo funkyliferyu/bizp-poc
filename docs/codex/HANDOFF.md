@@ -1,5 +1,37 @@
 # Codex Handoff
 
+## NEXT TASK: BLOG FORMULA V2 SAFE MOCK INTEGRATION
+
+The next requested task is to add a server-side safe mock integration lane for
+Blog Formula V2.
+
+Use this plan:
+
+- `docs/codex/NEXT_SESSION_BLOG_FORMULA_V2_SAFE_MOCK_INTEGRATION_PLAN.md`
+
+Current baseline:
+
+- `develop == origin/develop`
+- Current HEAD:
+  `e69de6c docs: record blog formula v2 develop validation`
+- Blog Formula V2 deterministic lane is already merged and validated on
+  `develop` through PR #48.
+- `.DS_Store` remains modified locally and must never be staged.
+
+Intent:
+
+- Add provider-shaped V2 integration structure.
+- Implement only `safe_mock` provider behavior.
+- Keep the current deterministic V2 lane passing.
+- Do not add live OpenAI/Naver calls.
+- Do not add Hybrid or combined V1/V2 generation.
+- Keep browser code calling only `poc-server` APIs.
+- Keep V2 writes out of `marketing_rulesets` and `ruleset_fields`.
+
+Fresh-session request text is included in the plan under
+`New Session Request Text`. Copy that entire block when starting the next
+Codex session to avoid context loss.
+
 ## BLOG FORMULA V2 DETERMINISTIC LANE
 
 Branch `codex/blog-formula-v2-experiment` was created from `develop` at
