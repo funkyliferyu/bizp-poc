@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS ruleset_fields (
   source TEXT NOT NULL,
   locked INTEGER NOT NULL DEFAULT 0,
   evidence_item_ids_json TEXT NOT NULL DEFAULT '[]',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
   confidence REAL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

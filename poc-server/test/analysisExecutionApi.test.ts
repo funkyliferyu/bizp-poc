@@ -132,6 +132,35 @@ function openAIParsedRulesetFieldsByKey(
   );
 }
 
+function openAIParsedV3RulesetFieldsByKey(
+  overridesByFieldKey: Record<string, Record<string, unknown>> = {},
+  fieldKeys: readonly string[] = REQUIRED_ANALYZER_RULESET_FIELD_KEYS
+) {
+  return Object.fromEntries(
+    fieldKeys.map((fieldKey) => {
+      const value = `${fieldKey} 산출 값`;
+      return [
+        fieldKey,
+        {
+          aiValue: value,
+          finalValue: value,
+          sourceStatus: 'inferred_from_pattern',
+          evidenceItemIds: ['collection_item_demo_blog'],
+          policyRefs: [],
+          usage: 'public_copy_source',
+          reason: null,
+          validation: {
+            status: 'pass',
+            notes: []
+          },
+          confidence: 0.8,
+          ...overridesByFieldKey[fieldKey]
+        }
+      ];
+    })
+  );
+}
+
 describe('analysis execution API', () => {
   let connection: DbConnection;
   let server: ReturnType<express.Express['listen']>;
@@ -876,6 +905,7 @@ describe('analysis execution API', () => {
       error: null
     });
     repos.stores.update('store_demo_cake', {
+      category: '피부과 의원',
       metadata: {
         rawRenderedHtml: '<html>'.repeat(1000),
         storeMetadata: {
@@ -905,7 +935,7 @@ describe('analysis execution API', () => {
       blogWritingStyle: '후기 근거를 먼저 제시하고 예약 방법을 자연스럽게 연결',
       seoKeywords: ['분당 케이크', '레터링 케이크', '정자동 케이크'],
       ctaStyle: '예약 가능 여부와 픽업 시간을 확인하도록 유도',
-      negativeExpressions: ['전국 최고', '무조건 가능'],
+      negativeExpressions: ['효과보장', '100% 효과', '완전 제거', '부작용 없음', '무조건 개선'],
       evidence: [
         {
           collectionItemId: 'collection_item_demo_blog',
@@ -918,15 +948,67 @@ describe('analysis execution API', () => {
           evidenceType: 'store_profile',
           summary: '플레이스 기본정보에서 정자동 케이크 전문점 정보 확인',
           score: 0.89
+        },
+        {
+          collectionItemId: 'collection_item_demo_place_review',
+          evidenceType: 'visitor_review',
+          summary: '방문자 리뷰에서 상담 안내 긍정 표현 확인',
+          score: 0.87
         }
       ],
-      rulesetFieldsByKey: openAIParsedRulesetFieldsByKey(
+      rulesetFieldsByKey: openAIParsedV3RulesetFieldsByKey(
         {
           storePositioning: {
             aiValue: '분당 레터링 케이크 예약 전문점',
             finalValue: '분당 레터링 케이크 예약 전문점',
-            evidenceItemIds: ['collection_item_demo_blog', 'collection_item_demo_place_profile'],
+            evidenceItemIds: ['collection_item_demo_blog'],
             confidence: 0.9
+          },
+          reviewStrength: {
+            aiValue: ['상담과 설명에 대한 긍정 언급'],
+            finalValue: ['상담과 설명에 대한 긍정 언급'],
+            sourceStatus: 'inferred_from_pattern',
+            evidenceItemIds: ['collection_item_demo_place_review'],
+            usage: 'internal_only',
+            reason: '방문자 리뷰에서 내부 참고용 긍정 패턴을 확인했습니다.',
+            confidence: 0.82
+          },
+          reviewWeakness: {
+            aiValue: null,
+            finalValue: null,
+            sourceStatus: 'insufficient_evidence',
+            evidenceItemIds: [],
+            usage: 'internal_only',
+            reason: '방문자 리뷰에서 반복되는 부정 패턴이 충분히 확인되지 않았습니다.',
+            confidence: null
+          },
+          industryCommonRules: {
+            aiValue: [
+              '의료/피부과 콘텐츠는 개인별 결과 차이를 명시합니다.',
+              '상담 필요성과 부작용 가능성을 함께 안내합니다.',
+              '리뷰 표현을 치료 효과 주장으로 전환하지 않습니다.'
+            ],
+            finalValue: [
+              '의료/피부과 콘텐츠는 개인별 결과 차이를 명시합니다.',
+              '상담 필요성과 부작용 가능성을 함께 안내합니다.',
+              '리뷰 표현을 치료 효과 주장으로 전환하지 않습니다.'
+            ],
+            sourceStatus: 'policy_default',
+            evidenceItemIds: [],
+            policyRefs: ['kr_medical_ad_policy.v1'],
+            usage: 'policy_guardrail',
+            reason: '의료/피부과 업종 기본 정책 가드레일입니다.',
+            confidence: 1
+          },
+          negativeExpressions: {
+            aiValue: ['효과보장', '100% 효과', '완전 제거', '부작용 없음', '무조건 개선'],
+            finalValue: ['효과보장', '100% 효과', '완전 제거', '부작용 없음', '무조건 개선'],
+            sourceStatus: 'policy_default',
+            evidenceItemIds: [],
+            policyRefs: ['kr_medical_ad_policy.v1'],
+            usage: 'policy_guardrail',
+            reason: '단정/보장형 의료 광고 표현을 기본 금지 표현으로 적용합니다.',
+            confidence: 1
           },
           seoKeywords: {
             aiValue: '분당 케이크, 레터링 케이크, 정자동 케이크',
@@ -968,13 +1050,14 @@ describe('analysis execution API', () => {
     expect(parsePayload).toContain('test-openai-model');
     expect(parsePayload).toContain('collection_item_demo_blog');
     expect(parsePayload).toContain('rulesetFieldsByKey');
-    expect(parsePayload).toContain('sl_a1_blog_sop_input.v2');
-    expect(parsePayload).toContain('store_learning_analysis.v2');
+    expect(parsePayload).toContain('sl_a1_blog_sop_input.v3');
+    expect(parsePayload).toContain('store_learning_analysis.v3');
     expect(parsePayload).toContain('reviewWeakness');
     expect(parsePayload).toContain('representativeMenu');
     expect(parsePayload).toContain('titlePatterns');
     expect(parsePayload).toContain('seoPlacementPolicy');
     expect(parsePayload).toContain('computedAggregates');
+    expect(parsePayload).not.toContain('Populate every requested ruleset field');
     expect(parsePayload).toContain('blogger_test');
     expect(parsePayload).toContain('건물 뒤편 2대 주차 가능');
     expect(parsePayload).not.toContain('rawProviderPayload');
@@ -1032,8 +1115,8 @@ describe('analysis execution API', () => {
         'collection_item_demo_place_review'
       ])
     );
-    expect(promptInput.schemaVersion).toBe('sl_a1_blog_sop_input.v2');
-    expect(promptInput.outputSchemaRef).toBe('store_learning_analysis.v2');
+    expect(promptInput.schemaVersion).toBe('sl_a1_blog_sop_input.v3');
+    expect(promptInput.outputSchemaRef).toBe('store_learning_analysis.v3');
     expect(promptInput.computedAggregates).toEqual(
       expect.objectContaining({
         source: 'computed',
@@ -1103,7 +1186,7 @@ describe('analysis execution API', () => {
         storePositioning: '분당 레터링 케이크 예약 전문점'
       })
     );
-    expect(evidence).toHaveLength(2);
+    expect(evidence).toHaveLength(3);
     expect(evidence[0]).toMatchObject({
       collectionItemId: 'collection_item_demo_blog',
       evidenceType: 'blog_post',
@@ -1115,8 +1198,38 @@ describe('analysis execution API', () => {
     });
     expect(fields.find((field) => field.fieldKey === 'storePositioning')).toMatchObject({
       source: 'openai_analysis',
-      evidenceItemIds: expect.arrayContaining(['collection_item_demo_place_profile'])
+      evidenceItemIds: expect.arrayContaining(['collection_item_demo_blog'])
     });
+    expect(fields.find((field) => field.fieldKey === 'reviewWeakness')).toMatchObject({
+      source: 'openai_analysis',
+      evidenceItemIds: [],
+      metadata: expect.objectContaining({
+        semanticFinalValue: null,
+        sourceStatus: 'insufficient_evidence',
+        usage: 'internal_only',
+        reason: '방문자 리뷰에서 반복되는 부정 패턴이 충분히 확인되지 않았습니다.'
+      })
+    });
+    expect(fields.find((field) => field.fieldKey === 'industryCommonRules')).toMatchObject({
+      source: 'openai_analysis',
+      evidenceItemIds: [],
+      metadata: expect.objectContaining({
+        sourceStatus: 'policy_default',
+        policyRefs: ['kr_medical_ad_policy.v1'],
+        usage: 'policy_guardrail'
+      })
+    });
+    expect(fields.find((field) => field.fieldKey === 'negativeExpressions')).toMatchObject({
+      source: 'openai_analysis',
+      evidenceItemIds: [],
+      metadata: expect.objectContaining({
+        semanticFinalValue: expect.arrayContaining(['효과보장', '100% 효과', '완전 제거', '부작용 없음', '무조건 개선']),
+        sourceStatus: 'policy_default',
+        policyRefs: ['kr_medical_ad_policy.v1'],
+        usage: 'policy_guardrail'
+      })
+    });
+    expect(String(fields.find((field) => field.fieldKey === 'negativeExpressions')?.finalValue)).not.toContain('부작용,');
     expect(fields.map((field) => field.fieldKey).sort()).toEqual([...REQUIRED_ANALYZER_RULESET_FIELD_KEYS].sort());
     expect(fields.filter((field) => field.source === 'openai_analysis').map((field) => field.fieldKey)).toEqual(
       expect.arrayContaining(OPENAI_REQUESTED_FIELD_KEYS_WITH_REVIEW_TEXT)
@@ -1140,8 +1253,8 @@ describe('analysis execution API', () => {
         blockedFields: []
       }),
       promptInputJson: expect.objectContaining({
-        schemaVersion: 'sl_a1_blog_sop_input.v2',
-        outputSchemaRef: 'store_learning_analysis.v2',
+        schemaVersion: 'sl_a1_blog_sop_input.v3',
+        outputSchemaRef: 'store_learning_analysis.v3',
         storeProfile: expect.objectContaining({ id: 'store_demo_cake' }),
         computedAggregates: expect.objectContaining({
           source: 'computed',
@@ -1389,6 +1502,170 @@ describe('analysis execution API', () => {
     });
     expect(JSON.stringify(auditLogs[0].errorJson)).not.toContain(rawLeak);
     expect(JSON.stringify(auditLogs[0].errorJson)).not.toContain('Analyzer output');
+  });
+
+  it('fails analysis when an OpenAI ruleset field uses evidence from a disallowed source type', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const analysisRun = repos.analysisRuns.create({
+      id: 'analysis_run_invalid_ruleset_source_kind',
+      storeId: 'store_demo_cake',
+      collectionRunId: 'collection_run_demo_store_learning',
+      status: 'queued',
+      startedAt: null,
+      completedAt: null,
+      result: {
+        selectedItemIds: [
+          'collection_item_demo_blog',
+          'collection_item_demo_place_profile',
+          'collection_item_demo_place_review'
+        ]
+      },
+      error: null
+    });
+
+    await expect(
+      startAnalysisRun(repos, analysisRun.id, {
+        name: 'openAIAnalysisProvider',
+        mode: 'openai',
+        async analyze() {
+          return {
+            storePositioning: '분당 레터링 케이크 예약 전문점',
+            keyStrengths: ['상담형 주문 제작'],
+            targetCustomers: ['기념일 케이크 고객'],
+            toneAndManner: '친절한 안내형',
+            blogWritingStyle: '후기 근거 중심',
+            seoKeywords: ['분당 케이크'],
+            ctaStyle: '예약 문의 유도',
+            negativeExpressions: ['효과보장'],
+            evidence: [
+              {
+                collectionItemId: 'collection_item_demo_blog',
+                evidenceType: 'blog_post',
+                summary: '블로그 근거',
+                score: 0.8
+              }
+            ],
+            rulesetFields: fullAnalyzerRulesetFields({
+              reviewWeakness: {
+                aiValue: '예약이 어렵다는 표현',
+                finalValue: '예약이 어렵다는 표현',
+                evidenceItemIds: ['collection_item_demo_blog'],
+                confidence: 0.72
+              },
+              industryCommonRules: {
+                aiValue: '상담 필요성과 개인차 안내',
+                finalValue: '상담 필요성과 개인차 안내',
+                evidenceItemIds: [],
+                confidence: 1
+              },
+              negativeExpressions: {
+                aiValue: '효과보장',
+                finalValue: '효과보장',
+                evidenceItemIds: [],
+                confidence: 1
+              }
+            })
+          };
+        }
+      })
+    ).rejects.toThrow('AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다.');
+
+    const failedRun = repos.analysisRuns.findById(analysisRun.id);
+    expect(failedRun?.status).toBe('failed');
+    expect(failedRun?.error).toEqual(
+      expect.objectContaining({
+        errorType: 'analysis_contract_invalid',
+        contractIssue: 'invalid_ruleset_field_evidence_source'
+      })
+    );
+    expect(repos.analysisEvidence.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
+  });
+
+  it('fails analysis when an OpenAI public ruleset field contains abnormal script characters', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const analysisRun = repos.analysisRuns.create({
+      id: 'analysis_run_invalid_ruleset_text_quality',
+      storeId: 'store_demo_cake',
+      collectionRunId: 'collection_run_demo_store_learning',
+      status: 'queued',
+      startedAt: null,
+      completedAt: null,
+      result: {
+        selectedItemIds: [
+          'collection_item_demo_blog',
+          'collection_item_demo_place_profile',
+          'collection_item_demo_place_review'
+        ]
+      },
+      error: null
+    });
+
+    await expect(
+      startAnalysisRun(repos, analysisRun.id, {
+        name: 'openAIAnalysisProvider',
+        mode: 'openai',
+        async analyze() {
+          return {
+            storePositioning: '개인별 тщ실한 care 서비스를 제공하는 매장',
+            keyStrengths: ['상담형 주문 제작'],
+            targetCustomers: ['기념일 케이크 고객'],
+            toneAndManner: '친절한 안내형',
+            blogWritingStyle: '후기 근거 중심',
+            seoKeywords: ['분당 케이크'],
+            ctaStyle: '예약 문의 유도',
+            negativeExpressions: ['효과보장'],
+            evidence: [
+              {
+                collectionItemId: 'collection_item_demo_blog',
+                evidenceType: 'blog_post',
+                summary: '블로그 근거',
+                score: 0.8
+              }
+            ],
+            rulesetFields: fullAnalyzerRulesetFields({
+              storePositioning: {
+                aiValue: '개인별 тщ실한 care 서비스를 제공하는 매장',
+                finalValue: '개인별 тщ실한 care 서비스를 제공하는 매장',
+                evidenceItemIds: ['collection_item_demo_blog'],
+                confidence: 0.82
+              },
+              reviewStrength: {
+                evidenceItemIds: ['collection_item_demo_place_review']
+              },
+              reviewWeakness: {
+                aiValue: '반복 약점 없음',
+                finalValue: '반복 약점 없음',
+                evidenceItemIds: ['collection_item_demo_place_review'],
+                confidence: 0.5
+              },
+              industryCommonRules: {
+                aiValue: '상담 필요성과 개인차 안내',
+                finalValue: '상담 필요성과 개인차 안내',
+                evidenceItemIds: [],
+                confidence: 1
+              },
+              negativeExpressions: {
+                aiValue: '효과보장',
+                finalValue: '효과보장',
+                evidenceItemIds: [],
+                confidence: 1
+              }
+            })
+          };
+        }
+      })
+    ).rejects.toThrow('AI 분석 결과 형식이 맞지 않아 저장하지 못했습니다.');
+
+    const failedRun = repos.analysisRuns.findById(analysisRun.id);
+    expect(failedRun?.status).toBe('failed');
+    expect(failedRun?.error).toEqual(
+      expect.objectContaining({
+        errorType: 'analysis_contract_invalid',
+        contractIssue: 'invalid_ruleset_field_text_quality'
+      })
+    );
+    expect(JSON.stringify(failedRun?.error)).not.toContain('тщ');
+    expect(repos.analysisEvidence.listByAnalysisRunId(analysisRun.id)).toHaveLength(0);
   });
 
   it('fails analysis before saving artifacts when analyzer evidence references unavailable items', async () => {

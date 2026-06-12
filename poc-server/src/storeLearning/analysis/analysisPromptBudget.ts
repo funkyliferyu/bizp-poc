@@ -106,8 +106,8 @@ export type AnalysisPromptBudgetMetadata = {
 
 export type AnalysisPromptInput = {
   task: string;
-  schemaVersion: 'sl_a1_blog_sop_input.v2';
-  outputSchemaRef: 'store_learning_analysis.v2';
+  schemaVersion: 'sl_a1_blog_sop_input.v3';
+  outputSchemaRef: 'store_learning_analysis.v3';
   constraints: string[];
   storeProfile: {
     id: string;
@@ -499,6 +499,23 @@ export function planAnalyzerRulesetFields(input: {
   };
 }
 
+function allowedEvidenceItemIdsForField(fieldKey: string, blogPosts: BlogPromptItem[], reviews: ReviewPromptItem[]) {
+  if (fieldKey === 'industryCommonRules' || fieldKey === 'negativeExpressions') return [];
+  if (REVIEW_FIELD_KEYS.has(fieldKey)) return reviews.map((item) => item.id);
+  return blogPosts.map((item) => item.id);
+}
+
+function attachAllowedEvidenceItemIds(
+  fields: AnalyzerRulesetFieldContract[],
+  blogPosts: BlogPromptItem[],
+  reviews: ReviewPromptItem[]
+) {
+  return fields.map((field) => ({
+    ...field,
+    allowedEvidenceItemIds: allowedEvidenceItemIdsForField(field.fieldKey, blogPosts, reviews)
+  }));
+}
+
 function buildPrompt(
   input: AnalyzerInput,
   selectedItems: AnalyzerInput['selectedItems'],
@@ -518,15 +535,20 @@ function buildPrompt(
   return {
     promptInput: {
       task: 'Analyze selected collected content for Store Learning & Blog Content Automation PoC.',
-      schemaVersion: 'sl_a1_blog_sop_input.v2',
-      outputSchemaRef: 'store_learning_analysis.v2',
+      schemaVersion: 'sl_a1_blog_sop_input.v3',
+      outputSchemaRef: 'store_learning_analysis.v3',
       constraints: [
         'Return Korean marketing strategy analysis only.',
         'Every evidence.collectionItemId must be one of the provided evidenceItemIds.',
         'Every requested ruleset field evidenceItemIds entry must be one of the provided evidenceItemIds.',
+        'For each ruleset field, evidenceItemIds must be a subset of that field contract allowedEvidenceItemIds.',
         'Do not invent customer reviews or collection items.',
         'Keep claims conservative and evidence-linked.',
-        'Populate every requested ruleset field once; do not populate blocked fields.'
+        'Use finalValue=null, evidenceItemIds=[], and sourceStatus=insufficient_evidence when evidence is not enough.',
+        'Use Place visitor review evidence only for reviewStrength and reviewWeakness; if only Blog evidence supports a review field, return null with insufficient_evidence.',
+        'Use owner Blog evidence for Blog SOP/write_common/write_blog fields.',
+        'Use sourceStatus=policy_default, policyRefs, usage=policy_guardrail, and empty evidenceItemIds for policy guardrails.',
+        'Do not treat the Korean word 부작용 by itself as forbidden; forbid definitive claims such as 부작용 없음, 효과보장, 100% 효과, 완전 제거.'
       ],
       storeProfile: {
         id: input.store.id,
@@ -541,7 +563,7 @@ function buildPrompt(
         reviews: !hasReviewText
       },
       requestedRulesetFieldKeys: fieldPlan.requestedRulesetFieldKeys,
-      requestedRulesetFields: fieldPlan.requestedRulesetFields,
+      requestedRulesetFields: attachAllowedEvidenceItemIds(fieldPlan.requestedRulesetFields, blogPosts, reviews),
       blockedFields: fieldPlan.blockedFields,
       industryPolicy: {
         isHealthcare: signals.length > 0,

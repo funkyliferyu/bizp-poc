@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { JsonValue } from '../../repositories/base.js';
 import type { CollectionItem } from '../../repositories/collection_items.js';
 import type { Store } from '../../repositories/stores.js';
 import type { LlmAuditMetadataProvider } from '../llmAudit/llmAuditMetadata.js';
@@ -11,6 +12,10 @@ const EvidenceSchema = z.object({
   score: z.number().min(0).max(1).nullable()
 });
 
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(JsonValueSchema), z.record(JsonValueSchema)])
+);
+
 const RulesetFieldSchema = z.object({
   fieldKey: z.string().min(1),
   aiValue: z.string().min(1),
@@ -19,6 +24,7 @@ const RulesetFieldSchema = z.object({
   source: z.string().min(1),
   locked: z.boolean(),
   evidenceItemIds: z.array(z.string().min(1)),
+  metadata: z.record(JsonValueSchema).optional(),
   confidence: z.number().min(0).max(1).nullable()
 });
 

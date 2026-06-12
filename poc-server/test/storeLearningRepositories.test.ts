@@ -48,7 +48,14 @@ describe('Store Learning repositories', () => {
         .map((row) => (row as { name: string }).name);
       expect(columns).toEqual(expect.arrayContaining(['status', 'selected_for_analysis', 'selection_reason', 'selected_at']));
       expect(rulesetFieldColumns).toEqual(
-        expect.arrayContaining(['ai_value', 'user_value', 'final_value', 'locked', 'evidence_item_ids_json'])
+        expect.arrayContaining([
+          'ai_value',
+          'user_value',
+          'final_value',
+          'locked',
+          'evidence_item_ids_json',
+          'metadata_json'
+        ])
       );
     } finally {
       connection.close();
@@ -178,6 +185,10 @@ describe('Store Learning repositories', () => {
         source: 'ai',
         locked: 0,
         evidenceItemIds: [collectionItem.id],
+        metadata: {
+          semanticFinalValue: '분당 커스텀 케이크 전문점',
+          sourceStatus: 'inferred_from_pattern'
+        },
         confidence: 0.88
       });
 
@@ -317,6 +328,10 @@ describe('Store Learning repositories', () => {
       expect(updatedRulesetField.fieldValue).toBe('분당 당일 제작 케이크 전문점');
       expect(updatedRulesetField.finalValue).toBe('분당 당일 제작 케이크 전문점');
       expect(updatedRulesetField.evidenceItemIds).toEqual([collectionItem.id]);
+      expect(updatedRulesetField.metadata).toEqual({
+        semanticFinalValue: '분당 커스텀 케이크 전문점',
+        sourceStatus: 'inferred_from_pattern'
+      });
       expect(updatedGeneration.status).toBe('approved_for_review');
       expect(approvedPost.status).toBe('publish_requested');
       expect(updatedMediaAsset.status).toBe('approved');
