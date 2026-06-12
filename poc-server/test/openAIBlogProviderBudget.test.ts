@@ -58,7 +58,7 @@ function ruleset(): MarketingRuleset {
   };
 }
 
-function field(fieldKey: string, finalValue: string): RulesetField {
+function field(fieldKey: string, finalValue: string, metadata: RulesetField['metadata'] = {}): RulesetField {
   return {
     id: `field_${fieldKey}`,
     rulesetId: 'ruleset_budget_test',
@@ -70,6 +70,7 @@ function field(fieldKey: string, finalValue: string): RulesetField {
     source: 'openai_analysis',
     locked: 0,
     evidenceItemIds: ['collection_item_demo_blog'],
+    metadata,
     confidence: 0.82,
     createdAt: timestamp,
     updatedAt: timestamp
@@ -84,6 +85,54 @@ function rulesetFields() {
     field('ctaStyle', '예약 가능 여부와 픽업 시간을 확인하도록 안내'),
     field('industryCommonRules', '업종 공통 필수 고지 없음'),
     field('negativeExpressions', '전국 최고, 무조건, 보장')
+  ];
+}
+
+function safeRulesetFields() {
+  return [
+    field('storePositioning', '분당 레터링 케이크 예약 전문점'),
+    field('blogWritingStyle', '후기 근거를 바탕으로 예약 전 확인사항을 정리하는 문체'),
+    field(
+      'reviewStrength',
+      '상담과 설명에 대한 긍정 언급',
+      {
+        semanticFinalValue: ['상담과 설명에 대한 긍정 언급'],
+        sourceStatus: 'inferred_from_pattern',
+        usage: 'internal_only',
+        policyRefs: []
+      }
+    ),
+    field(
+      'reviewWeakness',
+      '방문자 리뷰에서 반복되는 부정 패턴이 충분히 확인되지 않았습니다.',
+      {
+        semanticFinalValue: null,
+        sourceStatus: 'insufficient_evidence',
+        usage: 'internal_only',
+        reason: '방문자 리뷰에서 반복되는 부정 패턴이 충분히 확인되지 않았습니다.',
+        policyRefs: []
+      }
+    ),
+    field(
+      'negativeExpressions',
+      '효과보장, 부작용 없음',
+      {
+        semanticFinalValue: ['효과보장', '부작용 없음'],
+        sourceStatus: 'policy_default',
+        usage: 'policy_guardrail',
+        policyRefs: ['kr_medical_ad_policy.v1']
+      }
+    ),
+    field(
+      'industryCommonRules',
+      '개인별 결과 차이와 상담 필요성을 안내',
+      {
+        semanticFinalValue: ['개인별 결과 차이와 상담 필요성을 안내'],
+        sourceStatus: 'policy_default',
+        usage: 'policy_guardrail',
+        policyRefs: ['kr_medical_ad_policy.v1']
+      }
+    )
   ];
 }
 
@@ -264,6 +313,58 @@ describe('OpenAI blog provider prompt budget', () => {
       promptCharacterBudget: expect.any(Number),
       promptBudgetReason: expect.any(String)
     });
+  });
+
+  it('separates internal review insights and policy guardrails from public blog draft material', () => {
+    const result = buildBlogDraftPromptInput({
+      action: 'generate_blog_post',
+      store: store(),
+      ruleset: ruleset(),
+      rulesetFields: safeRulesetFields()
+    });
+    const prompt = result.promptInput as Record<string, unknown>;
+    const promptRuleset = prompt.ruleset as Record<string, unknown>;
+    const fields = promptRuleset.fields as Array<Record<string, unknown>>;
+    const internalInsights = promptRuleset.internalInsights as Array<Record<string, unknown>>;
+    const policyGuardrails = promptRuleset.policyGuardrails as Array<Record<string, unknown>>;
+    const serializedPublicFields = JSON.stringify(fields);
+
+    expect(fields).toEqual(expect.arrayContaining([expect.objectContaining({ fieldKey: 'storePositioning' })]));
+    expect(fields).not.toEqual(expect.arrayContaining([expect.objectContaining({ fieldKey: 'reviewStrength' })]));
+    expect(fields).not.toEqual(expect.arrayContaining([expect.objectContaining({ fieldKey: 'reviewWeakness' })]));
+    expect(serializedPublicFields).not.toContain('방문자 리뷰에서 반복되는 부정 패턴');
+    expect(internalInsights).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'reviewStrength',
+          usage: 'internal_only',
+          usableForGeneration: false
+        }),
+        expect.objectContaining({
+          fieldKey: 'reviewWeakness',
+          sourceStatus: 'insufficient_evidence',
+          usableForGeneration: false,
+          reason: '방문자 리뷰에서 반복되는 부정 패턴이 충분히 확인되지 않았습니다.'
+        })
+      ])
+    );
+    expect(policyGuardrails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'negativeExpressions',
+          finalValue: ['효과보장', '부작용 없음'],
+          sourceStatus: 'policy_default',
+          usage: 'policy_guardrail',
+          policyRefs: ['kr_medical_ad_policy.v1']
+        }),
+        expect.objectContaining({
+          fieldKey: 'industryCommonRules',
+          sourceStatus: 'policy_default',
+          usage: 'policy_guardrail',
+          policyRefs: ['kr_medical_ad_policy.v1']
+        })
+      ])
+    );
   });
 
   it('compacts SL-B2 regeneration article and media inputs before sending them to OpenAI', async () => {

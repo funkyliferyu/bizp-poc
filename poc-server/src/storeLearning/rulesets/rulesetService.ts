@@ -11,16 +11,14 @@ import {
   sourceMatrixForFieldKey,
   type RulesetEvidenceSourceMode
 } from './rulesetSourceMatrix.js';
+import {
+  readRulesetFieldMetadata,
+  type RulesetFieldSourceStatus
+} from './rulesetFieldMetadata.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
 type StoreRecord = NonNullable<ReturnType<Repositories['stores']['findById']>>;
 type SerializedRulesetField = ReturnType<typeof serializeField>;
-type RulesetFieldSourceStatus =
-  | 'direct_fact'
-  | 'inferred_from_pattern'
-  | 'computed'
-  | 'default_policy'
-  | 'insufficient_evidence';
 type WritingStyleCurrentValueStatus = 'inferred' | 'user_edited' | 'placeholder' | 'empty';
 type WritingStyleSuggestionJudgment = 'maintain' | 'improve';
 
@@ -277,6 +275,8 @@ function excerpt(value: string | null | undefined, maxLength = 160) {
 }
 
 function sourceStatusForField(field: RulesetField, fieldKey: string): RulesetFieldSourceStatus {
+  const metadataSourceStatus = readRulesetFieldMetadata(field.metadata).sourceStatus;
+  if (metadataSourceStatus) return metadataSourceStatus;
   const sourceMatrix = sourceMatrixForFieldKey(fieldKey);
   if (field.source === 'input_blocked') return 'insufficient_evidence';
   if (field.source === 'analysis_computed' || field.source === 'computed') return 'computed';
@@ -288,6 +288,7 @@ function sourceStatusForField(field: RulesetField, fieldKey: string): RulesetFie
 
 function serializeField(field: RulesetField, fieldKeyOverride?: string) {
   const fieldKey = fieldKeyOverride ?? field.fieldKey;
+  const metadata = readRulesetFieldMetadata(field.metadata);
   return {
     id: field.id,
     fieldKey,
@@ -296,6 +297,13 @@ function serializeField(field: RulesetField, fieldKeyOverride?: string) {
     finalValue: field.finalValue,
     source: field.source,
     sourceStatus: sourceStatusForField(field, fieldKey),
+    semanticFinalValue: Object.prototype.hasOwnProperty.call(metadata, 'semanticFinalValue')
+      ? metadata.semanticFinalValue
+      : undefined,
+    policyRefs: metadata.policyRefs ?? [],
+    usage: metadata.usage ?? null,
+    reason: metadata.reason ?? null,
+    validation: metadata.validation ?? null,
     locked: field.locked === 1,
     evidenceItemIds: asStringArray(field.evidenceItemIds),
     confidence: field.confidence,

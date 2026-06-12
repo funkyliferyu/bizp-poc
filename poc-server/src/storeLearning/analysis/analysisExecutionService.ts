@@ -12,6 +12,15 @@ import {
   canonicalRulesetFieldKey,
   sourceMatrixForFieldKey
 } from '../rulesets/rulesetSourceMatrix.js';
+import {
+  POLICY_GUARDRAIL_FIELD_KEYS,
+  REVIEW_INSIGHT_FIELD_KEYS,
+  policyRefsForMetadata,
+  readRulesetFieldMetadata,
+  semanticValueToDisplay,
+  sourceStatusForMetadata,
+  usageForMetadata
+} from '../rulesets/rulesetFieldMetadata.js';
 import type { BlockedAnalyzerRulesetField } from './analysisPromptBudget.js';
 import { createMockAnalysisProvider, type AnalysisProvider, validateAnalyzerOutput } from './analyzer.js';
 
@@ -113,7 +122,9 @@ type AnalysisContractIssue =
   | 'missing_required_ruleset_fields'
   | 'duplicate_ruleset_fields'
   | 'unknown_ruleset_fields'
-  | 'invalid_openai_ruleset_source';
+  | 'invalid_openai_ruleset_source'
+  | 'invalid_ruleset_field_evidence_source'
+  | 'invalid_ruleset_field_text_quality';
 
 class AnalysisContractError extends Error {
   readonly issue: AnalysisContractIssue;
@@ -321,6 +332,90 @@ function validateAnalyzerRulesetFieldContract(
   }
 }
 
+type CollectionItemSourceKind = 'owner_blog' | 'place_visitor_review' | 'place_profile' | 'other';
+
+function collectionItemSourceKind(item: CollectionItem): CollectionItemSourceKind {
+  if (item.channel === 'blog' && item.sourceType === 'post') return 'owner_blog';
+  if (item.channel === 'place' && item.sourceType === 'review') return 'place_visitor_review';
+  if (item.channel === 'place' && item.sourceType === 'profile') return 'place_profile';
+  return 'other';
+}
+
+function hasAbnormalScript(value: string) {
+  return /[\u0400-\u04FF\uFFFD]/u.test(value);
+}
+
+function requiresOwnerBlogEvidence(fieldKey: string) {
+  const section = sourceMatrixForFieldKey(fieldKey)?.section;
+  return section === 'write_common' || section === 'write_blog';
+}
+
+function validateOpenAIRulesetFieldQuality(
+  output: ReturnType<typeof validateAnalyzerOutput>,
+  selectedItems: CollectionItem[],
+  provider: AnalysisProvider
+) {
+  if (provider.mode !== 'openai') return;
+  const itemKindById = new Map(selectedItems.map((item) => [item.id, collectionItemSourceKind(item)]));
+  let invalidSourceCount = 0;
+  let invalidTextCount = 0;
+
+  for (const field of output.rulesetFields) {
+    const metadata = readRulesetFieldMetadata(field.metadata);
+    const sourceStatus = sourceStatusForMetadata(metadata, field.fieldKey) ?? 'inferred_from_pattern';
+    const usage = usageForMetadata(metadata, field.fieldKey);
+    const evidenceItemIds = asStringArray(field.evidenceItemIds);
+
+    if (POLICY_GUARDRAIL_FIELD_KEYS.has(field.fieldKey)) {
+      const policyRefs = policyRefsForMetadata(metadata, field.fieldKey);
+      if (
+        evidenceItemIds.length > 0 ||
+        (sourceStatus !== 'policy_default' && sourceStatus !== 'default_policy') ||
+        usage !== 'policy_guardrail' ||
+        policyRefs.length === 0
+      ) {
+        invalidSourceCount += 1;
+      }
+      continue;
+    }
+
+    if (sourceStatus === 'insufficient_evidence') {
+      if (evidenceItemIds.length > 0) invalidSourceCount += 1;
+      continue;
+    }
+
+    if (REVIEW_INSIGHT_FIELD_KEYS.has(field.fieldKey)) {
+      if (
+        evidenceItemIds.length === 0 ||
+        evidenceItemIds.some((itemId) => itemKindById.get(itemId) !== 'place_visitor_review')
+      ) {
+        invalidSourceCount += 1;
+      }
+    } else if (
+      requiresOwnerBlogEvidence(field.fieldKey) &&
+      evidenceItemIds.length > 0 &&
+      evidenceItemIds.some((itemId) => itemKindById.get(itemId) !== 'owner_blog')
+    ) {
+      invalidSourceCount += 1;
+    }
+
+    const semanticValue = Object.prototype.hasOwnProperty.call(metadata, 'semanticFinalValue')
+      ? metadata.semanticFinalValue
+      : field.finalValue || field.aiValue;
+    const displayValue = semanticValueToDisplay(semanticValue, metadata.reason ?? '');
+    if (usage !== 'internal_only' && hasAbnormalScript(displayValue)) {
+      invalidTextCount += 1;
+    }
+  }
+
+  if (invalidSourceCount > 0) {
+    throw new AnalysisContractError('invalid_ruleset_field_evidence_source', invalidSourceCount);
+  }
+  if (invalidTextCount > 0) {
+    throw new AnalysisContractError('invalid_ruleset_field_text_quality', invalidTextCount);
+  }
+}
+
 function blockedFieldFinalValue(field: BlockedAnalyzerRulesetField) {
   if (field.reason === 'review_text_unavailable') {
     return `${field.label}은(는) 수집된 리뷰 본문 입력 데이터가 부족해 AI가 추론하지 않았습니다.`;
@@ -349,6 +444,18 @@ function appendBlockedInputRulesetFields(
           source: 'input_blocked',
           locked: false,
           evidenceItemIds: [],
+          metadata: {
+            semanticAiValue: null,
+            semanticFinalValue: null,
+            sourceStatus: 'insufficient_evidence',
+            usage: 'internal_only',
+            reason: finalValue,
+            policyRefs: [],
+            validation: {
+              status: 'warn',
+              notes: [field.reason]
+            }
+          },
           confidence: null
         };
       })
@@ -497,6 +604,7 @@ export async function startAnalysisRun(
     updateAnalysisProgress(repos, analysisRun.id, 'validating', 'running');
     validateAnalyzerRulesetFieldContract(output, provider);
     validateAnalyzerReferences(output, selectedItems);
+    validateOpenAIRulesetFieldQuality(output, selectedItems, provider);
     updateAnalysisProgress(repos, analysisRun.id, 'evidence', 'running');
     const fieldEvidenceByItemId = fieldEvidenceByCollectionItemId(output);
     const evidenceRows = output.evidence.map((evidence, index) =>
@@ -577,6 +685,7 @@ export async function startAnalysisRun(
         source: field.source,
         locked: field.locked ? 1 : 0,
         evidenceItemIds: field.evidenceItemIds,
+        metadata: field.metadata ?? {},
         confidence: field.confidence
       })
     );

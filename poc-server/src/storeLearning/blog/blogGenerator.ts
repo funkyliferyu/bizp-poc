@@ -9,6 +9,14 @@ import type { createStoreLearningRepositories } from '../../repositories/storeLe
 import type { Store } from '../../repositories/stores.js';
 import { getLatestAnalysisArtifacts } from '../analysis/analysisExecutionService.js';
 import { recordLlmAuditLog } from '../llmAudit/llmAuditRecorder.js';
+import {
+  REVIEW_INSIGHT_FIELD_KEYS,
+  readRulesetFieldMetadata,
+  semanticFinalValueForField,
+  semanticValueToDisplay,
+  sourceStatusForMetadata,
+  usageForMetadata
+} from '../rulesets/rulesetFieldMetadata.js';
 import type { BlogPromptBudgetMetadata } from './blogPromptBudget.js';
 import {
   BlogDraftSectionSchema,
@@ -193,7 +201,15 @@ function serializeMediaAsset(asset: MediaAsset) {
 function fieldValue(fields: RulesetField[], keys: string[], fallback: string) {
   for (const key of keys) {
     const field = fields.find((item) => item.fieldKey === key);
-    const value = field?.finalValue || field?.fieldValue || field?.aiValue;
+    if (!field) continue;
+    const metadata = readRulesetFieldMetadata(field.metadata);
+    const usage = usageForMetadata(metadata, field.fieldKey);
+    const sourceStatus = sourceStatusForMetadata(metadata, field.fieldKey);
+    if (usage === 'internal_only' || REVIEW_INSIGHT_FIELD_KEYS.has(field.fieldKey)) continue;
+    if (sourceStatus === 'insufficient_evidence') continue;
+    const semanticFinalValue = semanticFinalValueForField(field);
+    if (Object.prototype.hasOwnProperty.call(metadata, 'semanticFinalValue') && semanticFinalValue === null) continue;
+    const value = semanticValueToDisplay(semanticFinalValue, '') || field.finalValue || field.fieldValue || field.aiValue;
     if (value) return value;
   }
   return fallback;

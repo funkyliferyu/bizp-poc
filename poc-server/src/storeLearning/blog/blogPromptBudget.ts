@@ -4,6 +4,15 @@ import type { MediaAsset } from '../../repositories/media_assets.js';
 import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
 import type { Store } from '../../repositories/stores.js';
+import {
+  POLICY_GUARDRAIL_FIELD_KEYS,
+  REVIEW_INSIGHT_FIELD_KEYS,
+  readRulesetFieldMetadata,
+  semanticFinalValueForField,
+  semanticValueToDisplay,
+  sourceStatusForMetadata,
+  usageForMetadata
+} from '../rulesets/rulesetFieldMetadata.js';
 import type { BlogDraftProviderInput, BlogSeoProviderInput } from './blogProvider.js';
 
 type BlogPromptBudgetOptions = {
@@ -144,12 +153,26 @@ function compactStore(store: Store) {
 }
 
 function compactRulesetField(field: RulesetField, valueCharacterBudget: number) {
-  const finalValue = field.finalValue || field.fieldValue || field.aiValue;
+  const metadata = readRulesetFieldMetadata(field.metadata);
+  const sourceStatus = sourceStatusForMetadata(metadata, field.fieldKey);
+  const usage = usageForMetadata(metadata, field.fieldKey);
+  const semanticFinalValue = semanticFinalValueForField(field);
+  const hasSemanticNull = Object.prototype.hasOwnProperty.call(metadata, 'semanticFinalValue') && semanticFinalValue === null;
+  const usableForGeneration = usage === 'public_copy_source' && sourceStatus !== 'insufficient_evidence' && !hasSemanticNull;
+  const displayFinalValue = semanticValueToDisplay(semanticFinalValue, metadata.reason ?? '');
+  const finalValue = Array.isArray(semanticFinalValue)
+    ? semanticFinalValue.map((item) => truncate(String(item), valueCharacterBudget)).filter(Boolean)
+    : truncate(displayFinalValue, valueCharacterBudget);
   return {
     fieldKey: field.fieldKey,
-    finalValue: truncate(finalValue, valueCharacterBudget),
+    finalValue,
     source: field.source,
-    locked: Boolean(field.locked)
+    locked: Boolean(field.locked),
+    sourceStatus,
+    usage,
+    policyRefs: metadata.policyRefs ?? [],
+    reason: metadata.reason ?? null,
+    usableForGeneration
   };
 }
 
@@ -162,13 +185,28 @@ function compactRuleset(ruleset: MarketingRuleset | null, fields: RulesetField[]
     return null;
   }
   const rawRuleset = asRecord(ruleset.ruleset);
+  const compactedFields = promptRulesetFields(fields).map((field) => compactRulesetField(field, valueCharacterBudget));
+  const internalInsights = compactedFields.filter(
+    (field) => field.usage === 'internal_only' || REVIEW_INSIGHT_FIELD_KEYS.has(field.fieldKey)
+  );
+  const policyGuardrails = compactedFields.filter(
+    (field) => field.usage === 'policy_guardrail' || POLICY_GUARDRAIL_FIELD_KEYS.has(field.fieldKey)
+  );
   return {
     id: ruleset.id,
     status: ruleset.status,
     version: ruleset.version,
     summary: compactMetadata(rawRuleset as JsonValue, RULESET_SUMMARY_KEYS),
-    fields: promptRulesetFields(fields).map((field) => compactRulesetField(field, valueCharacterBudget))
+    fields: compactedFields.filter((field) => !internalInsights.some((insight) => insight.fieldKey === field.fieldKey)),
+    internalInsights,
+    policyGuardrails
   };
+}
+
+function compactPromptRulesetFields(fields: RulesetField[], valueCharacterBudget: number) {
+  return promptRulesetFields(fields)
+    .map((field) => compactRulesetField(field, valueCharacterBudget))
+    .filter((field) => field.usage !== 'internal_only' && !REVIEW_INSIGHT_FIELD_KEYS.has(field.fieldKey));
 }
 
 function compactArticle(articleInput: JsonValue | unknown, limits: BlogPromptBuildLimits) {
@@ -363,9 +401,7 @@ export function buildBlogDraftPromptInput(input: BlogDraftProviderInput, options
   const fitted = fitPromptToBudget(
     (limits) => {
       const promptMediaAssets = input.mediaAssets?.slice(0, limits.mediaAssetLimit) ?? [];
-      const rulesetFields = promptRulesetFields(input.rulesetFields).map((field) =>
-        compactRulesetField(field, limits.rulesetFieldCharacterBudget)
-      );
+      const rulesetFields = compactPromptRulesetFields(input.rulesetFields, limits.rulesetFieldCharacterBudget);
       const currentPost = compactCurrentPost(input.currentPost, input.currentArticle, limits);
       return {
         task:
@@ -419,9 +455,7 @@ export function buildBlogSeoPromptInput(input: BlogSeoProviderInput, options: Bl
   const fitted = fitPromptToBudget(
     (limits) => {
       const promptMediaAssets = input.mediaAssets.slice(0, limits.mediaAssetLimit);
-      const rulesetFields = promptRulesetFields(input.rulesetFields).map((field) =>
-        compactRulesetField(field, limits.rulesetFieldCharacterBudget)
-      );
+      const rulesetFields = compactPromptRulesetFields(input.rulesetFields, limits.rulesetFieldCharacterBudget);
       return {
         task: 'Score this Korean Naver Blog draft for SEO and approval readiness.',
         constraints: [

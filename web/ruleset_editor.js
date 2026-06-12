@@ -155,7 +155,7 @@
     if (locked || source === 'user_edited') return { text: '수정됨', className: 'src-edited' };
     if (sourceStatus === 'direct_fact') return { text: 'Place 수집', className: 'src-place' };
     if (sourceStatus === 'computed') return { text: '서버 산출', className: 'src-ai' };
-    if (sourceStatus === 'default_policy') return { text: '기본 정책', className: 'src-ai' };
+    if (sourceStatus === 'default_policy' || sourceStatus === 'policy_default') return { text: '기본 정책', className: 'src-ai' };
     if (sourceStatus === 'insufficient_evidence') return { text: '근거 부족', className: 'src-ai' };
     return { text: 'AI 분석', className: 'src-ai' };
   }
@@ -197,6 +197,7 @@
     const sourceBadge = document.createElement('span');
     sourceBadge.className = source.className;
     sourceBadge.textContent = source.text;
+    if (rulesetField.reason) sourceBadge.title = rulesetField.reason;
     label.append(' ', sourceBadge);
     if (rulesetField.locked) {
       const lockBadge = document.createElement('span');

@@ -149,8 +149,8 @@ describe('analysis prompt budget', () => {
     expect(serialized).not.toContain('renderedHtml');
     expect(serialized).not.toContain('https://cdn.example.com');
     expect(prompt).toMatchObject({
-      schemaVersion: 'sl_a1_blog_sop_input.v2',
-      outputSchemaRef: 'store_learning_analysis.v2',
+      schemaVersion: 'sl_a1_blog_sop_input.v3',
+      outputSchemaRef: 'store_learning_analysis.v3',
       storeProfile: expect.objectContaining({
         id: 'store_test',
         facts: expect.objectContaining({

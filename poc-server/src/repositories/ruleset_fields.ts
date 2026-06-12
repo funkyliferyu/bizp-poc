@@ -11,6 +11,7 @@ export type RulesetField = BaseEntity & {
   source: string;
   locked: number;
   evidenceItemIds: JsonValue;
+  metadata?: JsonValue;
   confidence: number | null;
 };
 
@@ -25,6 +26,7 @@ const columns = [
   'source',
   'locked',
   'evidenceItemIds',
+  'metadata',
   'confidence',
   'createdAt',
   'updatedAt'
@@ -34,7 +36,7 @@ export function createRulesetFieldsRepository(connection: DbConnection) {
   const repository = createRepository<RulesetField>(connection, {
     tableName: 'ruleset_fields',
     columns,
-    jsonColumns: ['evidenceItemIds'],
+    jsonColumns: ['evidenceItemIds', 'metadata'],
     columnOverrides: {
       evidenceItemIds: 'evidence_item_ids_json'
     }

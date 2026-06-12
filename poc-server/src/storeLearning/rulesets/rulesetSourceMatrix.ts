@@ -26,6 +26,7 @@ export type AnalyzerRulesetFieldContract = Pick<
 > & {
   expectedOutput: string;
   evidenceGuidance: string;
+  allowedEvidenceItemIds?: string[];
 };
 
 export type RulesetEvidenceSourceMode = 'blog' | 'review' | 'mixed';

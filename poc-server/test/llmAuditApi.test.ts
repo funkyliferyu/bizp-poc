@@ -36,7 +36,7 @@ describe('LLM audit log API', () => {
       responseCompletedAt: '2026-06-12T01:00:01.000Z',
       durationMs: 1000,
       inputBudget: { promptItemCount: 1 },
-      promptInputJson: { schemaVersion: 'sl_a1_blog_sop_input.v2' },
+      promptInputJson: { schemaVersion: 'sl_a1_blog_sop_input.v3' },
       responseFormatJson: { name: 'store_learning_analysis', strict: true },
       rawRequestedJson: null,
       rawParsedOutputJson: null,
