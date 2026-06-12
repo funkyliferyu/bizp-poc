@@ -127,9 +127,10 @@
       ? `<div class="formula-v2-meta"><strong>Pattern</strong> ${escapeHtml(detail)}</div>`
       : `<div class="formula-v2-meta">${escapeHtml(detail)}</div>`;
     const descriptionLine = item.description ? `<div class="formula-v2-meta">${escapeHtml(item.description)}</div>` : '';
+    const titleSuffix = titleName ? ` · ${escapeHtml(titleName)}` : '';
     return `
       <div class="formula-v2-card">
-        <div class="formula-v2-card-title">${escapeHtml(label)} · ${escapeHtml(titleName)}</div>
+        <div class="formula-v2-card-title">${escapeHtml(label)}${titleSuffix}</div>
         ${descriptionLine}
         ${detailLine}
         <div class="formula-v2-meta">
