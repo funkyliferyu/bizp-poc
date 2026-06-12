@@ -9,6 +9,15 @@ Branch:
 - `codex/blog-formula-v2-quality-contract`, created from validated `develop`
   at `977b624 docs: record pr49 develop validation`.
 
+PR:
+
+- [#50](https://github.com/funkyliferyu/bizp-poc/pull/50), merged to
+  `develop` as `1d929d1` on 2026-06-13.
+
+Develop integration:
+
+- Fresh `develop` validation passed after PR #50 merge.
+
 Scope:
 
 - Applied a Formula Quality Contract to the SL-F1 extraction lane: the
@@ -110,6 +119,12 @@ Result:
 - PASS, `node --check web/blog_formula_v2.js`.
 - PASS, `node --check web/ruleset_editor.js`.
 - PASS, `git diff --check` (no whitespace errors).
+- PASS, post-merge `develop` validation (after `1d929d1`) repeated the
+  focused V2 suite (10 files, 52 tests), TypeScript typecheck, safe-mock
+  temp-DB demo (`providerMode = safe_mock`, formula set
+  `v2_formula_set_1781305639828_740585f2`, `validationStatus =
+  needs_human_review`), full test suite (52 files / 330 tests passed, 3
+  files / 6 tests skipped), browser JS syntax checks, and `git diff --check`.
 
 Boundary checks:
 

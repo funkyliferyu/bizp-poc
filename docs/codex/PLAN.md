@@ -53,14 +53,13 @@ The next todo is the first milestone below that is not `Validated on develop`.
 If its PR is open, the todo is to review, merge or retarget that PR, then
 validate on `develop`; it is not to skip ahead.
 
-Current next todo as of 2026-06-12:
+Current next todo as of 2026-06-13:
 
-1. Blog Formula V2 OpenAI formula extraction provider is merged and validated
-   on `develop` through [PR #49](https://github.com/funkyliferyu/bizp-poc/pull/49),
-   merge `c76c052`.
-2. The user approved a Blog Formula V2 quality-contract follow-up (13f)
-   before milestone 14. The first not-validated milestone is 13f; milestone 14
-   (final docs/validation cleanup or promotion prep) remains gated on explicit
+1. Blog Formula V2 Formula Quality Contract is merged and validated on
+   `develop` through [PR #50](https://github.com/funkyliferyu/bizp-poc/pull/50),
+   merge `1d929d1`.
+2. The first not-validated milestone is now 14 (final docs/validation cleanup
+   or `develop` -> `main` promotion prep), which remains gated on explicit
    user publication approval.
 3. Keep V2 draft generation deterministic until the user explicitly approves
    OpenAI V2 draft generation or Hybrid/combined V1+V2 generation.
@@ -95,7 +94,7 @@ Current next todo as of 2026-06-12:
 | 13c | Blog SOP 룰셋 계약 적용 | Validated on develop | [plan](NEXT_SESSION_BLOG_SOP_RULESET_PLAN.md), PR #47, merge `b695643` | Develop validation recorded 2026-06-12 |
 | 13d | Blog Formula V2 deterministic 실험 레인 | Validated on develop | [handoff](../BLOG_FORMULA_V2_HANDOFF.md), PR #48, merge `c8f1b52` | Develop validation recorded 2026-06-12 |
 | 13e | Blog Formula V2 OpenAI 포뮬라 추출 provider | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_FORMULA_PROVIDER_PLAN.md), [#49](https://github.com/funkyliferyu/bizp-poc/pull/49), merge `c76c052` | Develop validation recorded 2026-06-12 |
-| 13f | Blog Formula V2 Formula Quality Contract | Implementation PR open | [plan](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md) | Pending |
+| 13f | Blog Formula V2 Formula Quality Contract | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md), [#50](https://github.com/funkyliferyu/bizp-poc/pull/50), merge `1d929d1` | Develop validation recorded 2026-06-13 |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist

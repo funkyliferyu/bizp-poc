@@ -10,6 +10,11 @@ V2 deterministic draft generator, not a generic marketing summary.
 
 Plan: [NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md)
 
+PR:
+
+- [#50](https://github.com/funkyliferyu/bizp-poc/pull/50), merged to
+  `develop` as `1d929d1` on 2026-06-13
+
 Implemented:
 
 - Upgraded the stored Blog Formula V2 schema to generation-ready
@@ -75,6 +80,9 @@ Result:
 - PASS, JS syntax checks for `web/blog_formula_v2.js` and
   `web/ruleset_editor.js`.
 - PASS, `git diff --check` (no whitespace errors).
+- PASS, post-merge develop validation repeated the focused V2 suite,
+  TypeScript typecheck, safe-mock temp-DB demo, full test suite, browser JS
+  syntax checks, and `git diff --check` on `develop` after merge `1d929d1`.
 
 Current notes:
 
@@ -90,12 +98,12 @@ Current notes:
 
 Next execution briefing:
 
-- Open a PR to `develop`, then run post-merge develop validation (repeat the
-  Step 1 command block above on `develop`) and record it in
-  `docs/codex/VALIDATION.md` and this file.
-- Next ledger item after 13f validates on develop is milestone 14: final
-  docs/validation cleanup or `develop` -> `main` promotion prep, gated on
-  explicit user publication approval.
+- Next ledger item is milestone 14: final docs/validation cleanup or
+  `develop` -> `main` promotion prep, gated on explicit user publication
+  approval.
+- If the user wants another product iteration before publication, the natural
+  follow-up is to compare deterministic, safe_mock, and OpenAI formula outputs
+  on real owner Blog fixtures using the new v2.1 formula blocks.
 - Do not add OpenAI V2 draft generation or Hybrid/combined V1+V2 generation
   until the user explicitly approves that scope.
 
