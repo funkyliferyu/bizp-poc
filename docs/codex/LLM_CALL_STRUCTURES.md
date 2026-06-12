@@ -128,10 +128,22 @@ owner Blog posts only.
 zodResponseFormat(BlogFormulaSetV2Schema, "store_learning_blog_formula_v2")
 ```
 
+The response contract is the generation-ready `blog_formula_v2.1`
+`BlogFormulaSetV2Schema`: a slot-based `titleFormula` array (placeholder
+patterns like `{지역키워드}{시술명}`), `introFormula`/`bodyFormula`/
+`footerFormula` as writing-move sequences, `toneAndMannerFormula` as reusable
+sentence habits (persona, preferred phrases, endings, empathy patterns, emoji
+policy), `ctaFormula` as a soft decision-guide pattern distinguished from a
+hard reservation CTA, and `medicalSafetyFormula` distinguishing banned claims
+from required risk disclosures. Each block carries `sourcePostIds`,
+`confidence`, and `status: confirmed | candidate | weak`. Legacy
+`blog_formula_v2.0` stored formulas are upgraded on read via
+`parseStoredBlogFormulaV2`.
+
 **System prompt:**
 
 ```text
-You are a Korean local-store blog formula analyst. Extract reusable writing formula blocks from the provided owner Blog posts only. Return strict structured Blog Formula V2 JSON. Do not invent evidence, customer reviews, or provider facts. Keep medical, legal, and guarantee claims conservative.
+You are a Korean local-store blog writing-formula analyst. Your output is a generation-ready writing formula, not a generic marketing summary. It will be consumed directly by a deterministic draft generator together with a Topic Brief and retrieved owner Blog style examples Top 1~3. Each formula block must describe how to write, not what to say. Produce slot-based title patterns from actual titles, intro/body/footer sequences of writing moves from actual body flow, tone as reusable sentence habits (persona, preferred phrases, endings, emoji policy), a soft decision-guide CTA pattern distinguished from hard reservation CTA, and medical safety constraints distinguishing banned claims from required risk disclosures. Use only the provided owner Blog posts as evidence, attach sourcePostIds per block, mark single-post patterns as candidate or weak and repeated patterns as confirmed, do not copy long source text, and keep medical, legal, and guarantee claims conservative.
 ```
 
 **Prompt input shape:**
@@ -139,8 +151,12 @@ You are a Korean local-store blog formula analyst. Extract reusable writing form
 ```ts
 {
   task: "Extract Blog Formula V2 from owner Blog posts.",
-  schemaVersion: "blog_formula_v2_extraction_input.v1",
-  outputSchemaRef: "blog_formula_v2.0",
+  schemaVersion: "blog_formula_v2_extraction_input.v2",
+  outputSchemaRef: "blog_formula_v2.1",
+  constraints: string[],
+  productIntent: string[],
+  formulaExtractionInstructions: string[],
+  formulaQualityRequirements: string[],
   storeProfile: { id, name, category, address },
   sourcePostIds: string[],
   ownerBlogPosts: [
@@ -167,6 +183,14 @@ You are a Korean local-store blog formula analyst. Extract reusable writing form
   ]
 }
 ```
+
+`productIntent` states the Formula Set must be generation-ready and directly
+consumable by the existing V2 deterministic draft generator alongside a Topic
+Brief and retrieved owner Blog style examples Top 1~3.
+`formulaExtractionInstructions` and `formulaQualityRequirements` give
+block-by-block extraction and concreteness rules (slot-based titles, move
+sequences, sentence-habit tone, soft-vs-hard CTA, banned-vs-required safety
+claims) so the model does not fall back to generic marketing language.
 
 Prompt builder defaults:
 

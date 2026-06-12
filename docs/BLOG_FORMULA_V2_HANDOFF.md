@@ -110,6 +110,64 @@ needs_human_review
 failed
 ```
 
+## Formula Quality Contract
+
+SL-F1's purpose is not a generic marketing summary. The Product Intent
+embedded in the SL-F1 prompt states:
+
+- The extracted Formula Set must be a generation-ready writing formula that
+  can be directly consumed by the existing V2 deterministic draft generator
+  together with a Topic Brief and retrieved owner Blog style examples Top
+  1~3.
+- The Formula Set must preserve how the store's existing Naver Blog posts are
+  written: title construction, intro moves, body development, heading style,
+  tone and sentence rhythm, soft CTA pattern, footer/disclaimer pattern, and
+  medical safety constraints.
+
+Stored formula sets use schema `formula_v2.1`
+(`BLOG_FORMULA_V2_VERSION = 'formula_v2.1'`) with this block structure:
+
+- `titleFormula`: array of slot-based patterns (`{지역키워드}{시술명}` style
+  placeholders), each with its own `sourcePostIds`/`confidence`/`status`
+- `introFormula` / `bodyFormula` / `footerFormula`: writing-move `sequence`
+  arrays describing how the section unfolds
+- `headingFormula`: array of subheading `patterns`
+- `toneAndMannerFormula`: persona, style, `preferredPhrases`, `endingStyle`,
+  `empathyPatterns`, and `emojiPolicy` (reusable sentence habits, not generic
+  adjectives)
+- `ctaFormula`: `primaryStyle`, `softPatterns` (soft decision-guide CTA), and
+  `hardReservationAllowed`
+- `medicalSafetyFormula`: `bannedClaims` vs `requiredDisclosures` plus
+  `reviewUsagePolicy`
+
+`parseStoredBlogFormulaV2` (`poc-server/src/storeLearning/blogFormulaV2/types.ts`)
+safe-parses `formula_v2.1` and upgrades legacy `formula_v2.0` stored formula
+sets on read, so older rows keep working with the current draft generator.
+
+`evaluateBlogFormulaV2Quality`
+(`poc-server/src/storeLearning/blogFormulaV2/formulaQuality.ts`) runs after
+extraction and flags issues such as empty/non-slot-based title patterns,
+intro/body sequences that are too short, missing tone sentence habits, empty
+CTA soft patterns, and vague stock phrases (e.g. "정보 제공 중심", "친근한
+톤"). The result is stored as `qualityIssues` inside
+`v2_blog_formula_runs.validation`, alongside the existing
+`needs_human_review` status — extraction is not blocked, but reviewers can see
+exactly which blocks fell short of the contract.
+
+`generateBlogFormulaV2Draft`
+(`poc-server/src/storeLearning/blogFormulaV2/blogFormulaV2Service.ts`) now
+reads the parsed formula set directly: it fills `titleFormula` slot patterns
+from the Topic Brief, inserts a `toneAndMannerFormula.preferredPhrases` entry,
+appends a `ctaFormula.softPatterns` entry to the CTA paragraph, and ensures
+`medicalSafetyFormula.requiredDisclosures` are present in the disclosure line.
+`styleComplianceReport.appliedBlocks` and `safetyCheck.requiredDisclosures`
+are derived from the formula set rather than hardcoded.
+
+End-to-end coverage for this contract — extract → retrieve samples → generate
+draft → validate, for both `safe_mock` and OpenAI (fake client) providers, plus
+a V1-table-isolation check — lives in
+`poc-server/test/blogFormulaV2RoundTrip.test.ts`.
+
 ## Demo
 
 Run with a temp DB when validating without mutating local data:

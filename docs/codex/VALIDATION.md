@@ -1,5 +1,133 @@
 # Validation
 
+## Blog Formula V2 Formula Quality Contract Validation
+
+Date: 2026-06-13
+
+Branch:
+
+- `codex/blog-formula-v2-quality-contract`, created from validated `develop`
+  at `977b624 docs: record pr49 develop validation`.
+
+Scope:
+
+- Applied a Formula Quality Contract to the SL-F1 extraction lane: the
+  extracted Formula Set is now a generation-ready writing formula consumable
+  by the existing V2 deterministic draft generator, not a generic marketing
+  summary.
+- Upgraded the stored Blog Formula V2 schema to generation-ready `formula_v2.1`
+  with legacy `formula_v2.0` upgrade-on-read via `parseStoredBlogFormulaV2`.
+- Added `evaluateBlogFormulaV2Quality` deterministic quality guardrail,
+  results stored as `qualityIssues` in `v2_blog_formula_runs.validation`.
+- Embedded Product Intent / formula extraction instructions / formula quality
+  requirements into the SL-F1 prompt (`blog_formula_v2_extraction_input.v2`,
+  `outputSchemaRef = blog_formula_v2.1`).
+- Rewrote the OpenAI provider system prompt and response format to the v2.1
+  contract.
+- Added `buildGenerationReadyMockFormula`, shared by the deterministic
+  extractor and `safe_mock` provider.
+- `generateBlogFormulaV2Draft` now consumes the parsed formula set (slot-filled
+  titles, tone phrase, soft CTA, required disclosures) for both v2.1 and
+  legacy v2.0 stored formulas.
+- `web/blog_formula_v2.js` renders the v2.1 array/sequence-shaped formula
+  blocks via a generic `formulaBlockDetail`/`renderFormulaCard` pair.
+- Added `poc-server/test/blogFormulaV2RoundTrip.test.ts`: end-to-end
+  extract -> retrieve samples -> generate draft -> validate coverage for
+  `safe_mock` and OpenAI (fake client) providers, plus a V1-table-isolation
+  check.
+
+TDD evidence (RED/GREEN per task):
+
+- Task 1 (schema v2.1 + legacy upgrade), `npm test -- --run test/blogFormulaV2Schema.test.ts`:
+  RED — failed because `BlogFormulaSetV2Schema` did not accept the v2.1 shape
+  (slot-array title formula, sequence-based intro/body/footer, tone habits,
+  soft/hard CTA split, banned-vs-required safety split) and
+  `parseStoredBlogFormulaV2`/`BLOG_FORMULA_V2_VERSION = 'formula_v2.1'` did not
+  exist. GREEN — passed after the v2.1 schema and legacy-upgrade parser were
+  added.
+- Task 2 (quality evaluator), `npm test -- --run test/blogFormulaV2Quality.test.ts`:
+  RED — failed because `formulaQuality.ts`/`evaluateBlogFormulaV2Quality` did
+  not exist. GREEN — passed after adding the deterministic issue checks
+  (empty/non-slot titles, short intro/body sequences, missing tone habits,
+  empty CTA soft patterns, vague stock phrases).
+- Task 3 (SL-F1 prompt intent), `npm test -- --run test/blogFormulaV2Prompt.test.ts`:
+  RED — failed because the prompt input lacked `productIntent`,
+  `formulaExtractionInstructions`, `formulaQualityRequirements`, and the
+  bumped `schemaVersion`/`outputSchemaRef`. GREEN — passed after embedding
+  those fields and bumping `BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION` to
+  `blog_formula_v2_extraction_input.v2` and `outputSchemaRef` to
+  `blog_formula_v2.1`.
+- Task 4 (OpenAI provider v2.1 prompt/response), `npm test -- --run test/blogFormulaV2Provider.test.ts`:
+  RED — failed because the OpenAI provider system prompt and response format
+  still targeted the v2.0 generic-summary contract. GREEN — passed after
+  rewriting the system prompt to the v2.1 generation-ready contract and using
+  `BlogFormulaSetV2Schema` v2.1 for `zodResponseFormat`.
+- Task 5 (shared mock formula builder), `npm test -- --run test/blogFormulaV2Demo.test.ts test/blogFormulaV2Services.test.ts`:
+  RED — failed because the deterministic extractor and `safe_mock` provider
+  produced different/legacy-shaped formula sets. GREEN — passed after adding
+  `buildGenerationReadyMockFormula` and using it from both paths.
+- Task 6 (draft generator consumes formula set), `npm test -- --run test/blogFormulaV2Services.test.ts`:
+  RED — failed because `generateBlogFormulaV2Draft` only used `formulaSet.id`
+  and `appliedBlocks`/`safetyCheck.requiredDisclosures` were hardcoded. GREEN —
+  passed after `buildDraftOutput` consumed `parseStoredBlogFormulaV2` output
+  (slot-filled titles, tone phrase, soft CTA, required disclosures) for both
+  v2.1 and legacy v2.0 stored formulas.
+- Task 7 (V2 tab renders v2.1 blocks), `npm test -- --run test/blogFormulaV2Page.test.ts`:
+  RED — failed because `web/blog_formula_v2.js` rendering assumed the v2.0
+  single-pattern block shape and did not handle `titleFormula` arrays,
+  sequences, `softPatterns`, `preferredPhrases`, or `bannedClaims`. GREEN —
+  passed after adding `formulaBlockDetail`/`renderFormulaCard` and rewriting
+  `renderFormulaCards` to `flatMap` over the v2.1 block shapes.
+- Task 8 (round-trip compatibility), `npm test -- --run test/blogFormulaV2RoundTrip.test.ts`:
+  RED — failed because the file did not exist. GREEN — passed (3/3) on first
+  implementation; no production code changes were needed, confirming Tasks
+  1-6 already closed the compatibility gap.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/blogFormulaV2Schema.test.ts test/blogFormulaV2Quality.test.ts test/blogFormulaV2Prompt.test.ts test/blogFormulaV2Provider.test.ts test/blogFormulaV2Api.test.ts test/blogFormulaV2Services.test.ts test/blogFormulaV2Demo.test.ts test/blogFormulaV2Page.test.ts test/blogFormulaV2RoundTrip.test.ts test/blogFormulaV2Repositories.test.ts
+npm run typecheck
+STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-quality-contract.sqlite BLOG_FORMULA_V2_PROVIDER_MODE=safe_mock npm run demo:blog-formula-v2
+npm test
+cd ..
+node --check web/blog_formula_v2.js
+node --check web/ruleset_editor.js
+git diff --check
+```
+
+Result:
+
+- PASS, focused V2 suite: 10 files, 52 tests.
+- PASS, TypeScript typecheck.
+- PASS, safe-mock temp-DB demo produced `providerMode = safe_mock`, a
+  `formula_v2.1`-shaped formula set
+  (`v2_formula_set_1781304378036_dec5c125`), and `validationStatus =
+  needs_human_review`.
+- PASS, full test suite: 52 files passed, 3 live-provider files skipped by
+  default; 330 tests passed, 6 skipped.
+- PASS, `node --check web/blog_formula_v2.js`.
+- PASS, `node --check web/ruleset_editor.js`.
+- PASS, `git diff --check` (no whitespace errors).
+
+Boundary checks:
+
+- `.DS_Store` remains an out-of-scope local modification and was not staged.
+- `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` remains unstaged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Diff scope limited to
+  `poc-server/src/storeLearning/blogFormulaV2/`, `poc-server/test/`,
+  `web/blog_formula_v2.js`, and `docs/`.
+- V2 writes remain in `v2_` tables; the round-trip test asserts
+  `marketing_rulesets` is byte-for-byte unchanged before/after a full
+  extract -> retrieve -> generate -> validate cycle.
+- No OpenAI V2 draft generation, no Hybrid/combined V1+V2 generation, and no
+  browser-side Naver/OpenAI/provider calls were added.
+- Live OpenAI smoke was skipped; the round-trip and provider tests use
+  injected fake OpenAI clients.
+
 ## Blog Formula V2 OpenAI Formula Provider Validation
 
 Date: 2026-06-12
