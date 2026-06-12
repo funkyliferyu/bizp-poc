@@ -37,9 +37,17 @@ type OpenAIBlogFormulaProviderOptions = {
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const systemPrompt =
-  'You are a Korean local-store blog formula analyst. Extract reusable writing formula blocks from the provided owner Blog posts only. ' +
-  'Return strict structured Blog Formula V2 JSON. Do not invent evidence, customer reviews, or provider facts. ' +
-  'Keep medical, legal, and guarantee claims conservative.';
+  'You are a Korean local-store blog writing-formula analyst. ' +
+  'Your output is a generation-ready writing formula, not a generic marketing summary. ' +
+  'It will be consumed directly by a deterministic draft generator together with a Topic Brief and retrieved owner Blog style examples Top 1~3. ' +
+  'Each formula block must describe how to write, not what to say. ' +
+  'Produce slot-based title patterns from actual titles, intro/body/footer sequences of writing moves from actual body flow, ' +
+  'tone as reusable sentence habits (persona, preferred phrases, endings, emoji policy), ' +
+  'a soft decision-guide CTA pattern distinguished from hard reservation CTA, ' +
+  'and medical safety constraints distinguishing banned claims from required risk disclosures. ' +
+  'Use only the provided owner Blog posts as evidence, attach sourcePostIds per block, ' +
+  'mark single-post patterns as candidate or weak and repeated patterns as confirmed, ' +
+  'do not copy long source text, and keep medical, legal, and guarantee claims conservative.';
 
 function provenance(model: string): BlogFormulaV2ProviderProvenance {
   return {

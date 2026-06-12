@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { createOpenAIBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/openAIBlogFormulaProvider.js';
 import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
 import { BlogFormulaSetV2Schema } from '../src/storeLearning/blogFormulaV2/types.js';
+import { generationReadyFormulaFixture } from './blogFormulaV2Schema.test.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,65 +45,8 @@ function providerInput() {
   };
 }
 
-function formulaOutput(sourcePostIds = ['collection_item_owner_1', 'collection_item_owner_2']) {
-  const common = {
-    sourcePostIds,
-    confidence: 0.82,
-    status: 'confirmed' as const
-  };
-
-  return BlogFormulaSetV2Schema.parse({
-    schemaVersion: 'blog_formula_v2.0',
-    titleFormula: {
-      ...common,
-      name: '검색 걱정 선반영 제목',
-      description: '주요 키워드와 걱정을 앞에 두는 제목 공식입니다.',
-      pattern: '{메인키워드} 전 확인할 걱정과 기준'
-    },
-    introFormula: {
-      ...common,
-      name: '걱정 공감형 도입',
-      description: '첫 문단에서 검색자의 걱정을 인정하고 확인 기준을 예고합니다.',
-      pattern: '걱정 공감 → 확인 기준 예고'
-    },
-    bodyFormula: {
-      ...common,
-      name: '원리 기준형 본문',
-      description: '원리, 판단 기준, 주의사항 순서로 전개합니다.',
-      pattern: '원리 → 개인별 판단 기준 → 주의사항'
-    },
-    headingFormula: {
-      ...common,
-      name: '질문형 소제목',
-      description: '질문형 소제목으로 독자의 다음 궁금증을 이어갑니다.',
-      pattern: '질문형 소제목 3개'
-    },
-    toneAndMannerFormula: {
-      ...common,
-      name: '차분한 상담 안내 톤',
-      description: '과장 없이 상담 기준을 설명합니다.',
-      pattern: '차분함, 구체성, 보장 회피'
-    },
-    ctaFormula: {
-      ...common,
-      name: '상담 확인형 CTA',
-      description: '본인 상태 확인을 위한 상담을 권합니다.',
-      pattern: '상태 확인 → 상담 권유'
-    },
-    footerFormula: {
-      ...common,
-      name: '안전 고지 푸터',
-      description: '의료정보 목적과 개인차를 반복 고지합니다.',
-      pattern: '의료정보 목적 + 개인차 + 상담'
-    },
-    medicalSafetyFormula: {
-      ...common,
-      name: '의료 안전 공식',
-      description: '효과 보장과 부작용 부정을 피합니다.',
-      pattern: '개인차 → 부작용 가능성 → 의료진 상담',
-      requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담']
-    }
-  });
+function formulaOutput() {
+  return BlogFormulaSetV2Schema.parse(generationReadyFormulaFixture);
 }
 
 describe('Blog Formula V2 providers', () => {
@@ -121,7 +65,7 @@ describe('Blog Formula V2 providers', () => {
       noExternalCalls: true
     });
     expect(BlogFormulaSetV2Schema.parse(result.output)).toBeTruthy();
-    expect(result.output.titleFormula.sourcePostIds).toEqual([
+    expect(result.output.titleFormula[0].sourcePostIds).toEqual([
       'collection_item_owner_1',
       'collection_item_owner_2'
     ]);
@@ -160,7 +104,7 @@ describe('Blog Formula V2 providers', () => {
     });
 
     expect(result.promptInput.sourcePostIds).toHaveLength(8);
-    expect(result.output.titleFormula.sourcePostIds).toEqual(result.promptInput.sourcePostIds);
+    expect(result.output.titleFormula[0].sourcePostIds).toEqual(result.promptInput.sourcePostIds);
     expect(result.inputBudget.omittedSourcePostIds).toHaveLength(1);
   });
 
@@ -190,7 +134,7 @@ describe('Blog Formula V2 providers', () => {
       mode: 'openai',
       model: 'gpt-test-formula',
       callId: 'SL-F1',
-      promptShapeVersion: 'blog_formula_v2_extraction_input.v1',
+      promptShapeVersion: 'blog_formula_v2_extraction_input.v2',
       noExternalCalls: false
     });
     expect(result.output).toEqual(parsedOutput);
@@ -203,17 +147,17 @@ describe('Blog Formula V2 providers', () => {
         }
       }
     });
-    expect(JSON.stringify(requestPayload)).toContain('Korean local-store blog formula analyst');
-    expect(JSON.stringify(requestPayload)).toContain('blog_formula_v2_extraction_input.v1');
+    expect(JSON.stringify(requestPayload)).toContain('Korean local-store blog writing-formula analyst');
+    expect(JSON.stringify(requestPayload)).toContain('blog_formula_v2_extraction_input.v2');
 
     const auditMetadata = provider.getLastAuditMetadata?.();
     expect(auditMetadata).toMatchObject({
       inputBudget: expect.objectContaining({
-        schemaVersion: 'blog_formula_v2_extraction_input.v1',
+        schemaVersion: 'blog_formula_v2_extraction_input.v2',
         sourcePostCount: 2
       }),
       promptInputJson: expect.objectContaining({
-        schemaVersion: 'blog_formula_v2_extraction_input.v1'
+        schemaVersion: 'blog_formula_v2_extraction_input.v2'
       }),
       responseFormatJson: expect.objectContaining({
         name: 'store_learning_blog_formula_v2',
@@ -226,6 +170,71 @@ describe('Blog Formula V2 providers', () => {
       errorJson: null
     });
     expect(auditMetadata?.durationMs).toEqual(expect.any(Number));
+  });
+
+  it('sends a generation-ready system prompt to OpenAI', async () => {
+    const { store, ownerBlogPosts: posts } = providerInput();
+    let captured: any = null;
+    const fakeClient = {
+      beta: {
+        chat: {
+          completions: {
+            parse: async (params: unknown) => {
+              captured = params;
+              return { choices: [{ message: { parsed: generationReadyFormulaFixture } }] };
+            }
+          }
+        }
+      }
+    };
+    const provider = createOpenAIBlogFormulaV2Provider({ client: fakeClient });
+    await provider.extractFormula({ store, ownerBlogPosts: posts });
+    const systemMessage = captured.messages[0].content as string;
+    expect(systemMessage).toContain('generation-ready');
+    expect(systemMessage).toContain('not a generic marketing summary');
+    expect(systemMessage).toContain('how to write, not what to say');
+    expect(systemMessage).toContain('slot-based title');
+    expect(systemMessage).toContain('soft decision-guide CTA');
+  });
+
+  it('requests the v2.1 formula response format', async () => {
+    const { store, ownerBlogPosts: posts } = providerInput();
+    let captured: any = null;
+    const fakeClient = {
+      beta: {
+        chat: {
+          completions: {
+            parse: async (params: unknown) => {
+              captured = params;
+              return { choices: [{ message: { parsed: generationReadyFormulaFixture } }] };
+            }
+          }
+        }
+      }
+    };
+    const provider = createOpenAIBlogFormulaV2Provider({ client: fakeClient });
+    await provider.extractFormula({ store, ownerBlogPosts: posts });
+    const schema = captured.response_format.json_schema.schema;
+    expect(schema.properties.titleFormula.type).toBe('array');
+    expect(schema.properties.introFormula.properties.sequence.type).toBe('array');
+    expect(schema.properties.medicalSafetyFormula.properties.bannedClaims.type).toBe('array');
+    expect(schema.properties.toneAndMannerFormula.properties.preferredPhrases.type).toBe('array');
+  });
+
+  it('rejects a legacy v2.0 parsed output', async () => {
+    const { store, ownerBlogPosts: posts } = providerInput();
+    const legacyParsed = { schemaVersion: 'blog_formula_v2.0' };
+    const fakeClient = {
+      beta: {
+        chat: {
+          completions: {
+            parse: async () => ({ choices: [{ message: { parsed: legacyParsed } }] })
+          }
+        }
+      }
+    };
+    const provider = createOpenAIBlogFormulaV2Provider({ client: fakeClient });
+    await expect(provider.extractFormula({ store, ownerBlogPosts: posts })).rejects.toThrow();
   });
 
   it('rejects invalid OpenAI output and stores sanitized provider errors', async () => {
