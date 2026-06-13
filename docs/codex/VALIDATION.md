@@ -23,6 +23,11 @@ Scope:
 - The runner fails fast when the store has no real `owner_blog_post` items
   (it does not seed mock posts) and records `openai` as skipped when no
   server-side key is available.
+- Wired the V2 tab "포뮬라 추출" button to the server-side `openai` provider
+  (`web/blog_formula_v2.js` POSTs `{ providerMode: 'openai' }`) and added a
+  progress overlay with an elapsed-time counter for the ~30-60s live call.
+  Root cause fixed: the button previously sent no body and fell through to
+  the instant `deterministic` path, so the UI had never run the live lane.
 
 TDD evidence (RED/GREEN):
 
@@ -34,6 +39,12 @@ TDD evidence (RED/GREEN):
   RED — failed because `compareBlogFormulaV2Providers.ts` did not exist.
   GREEN — passed (in-memory DB, injected fake OpenAI client; skipped-openai
   path; fail-fast-on-empty-store path) after adding the runner.
+- UI (extract button + overlay),
+  `npm test -- --run test/blogFormulaV2Page.test.ts`: RED — failed because the
+  JS sent no `providerMode` and no overlay element/handlers existed. GREEN —
+  passed after the button POSTed `{ providerMode: 'openai' }` and the
+  `#v2ExtractOverlay` element + `showExtractOverlay`/`hideExtractOverlay`
+  elapsed-timer handlers were added.
 
 Validation commands:
 
@@ -55,10 +66,14 @@ STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-comparison.sqlite BLOG_FORMULA_
 Result:
 
 - PASS, full test suite: 54 files passed, 3 live-provider files skipped by
-  default; 337 tests passed, 6 skipped.
+  default; 339 tests passed, 6 skipped (includes 2 new V2-tab page tests).
 - PASS, TypeScript typecheck.
 - PASS, `node --check web/blog_formula_v2.js`,
   `node --check web/ruleset_editor.js`, and `git diff --check`.
+- Verified the V2 tab extract button against the running server:
+  `POST /extract {"providerMode":"openai"}` returned
+  `formulaSet.model = gpt-4o-mini`, `version = formula_v2.1`, 8 source posts
+  in ~41s, vs ~0.1s for the body-less deterministic path.
 - Live comparison on `store_1020864025` (테라스의원, 50 real owner posts):
   - `deterministic`: `blog_formula_v2.1`, 0 quality issues.
   - `safe_mock`: `blog_formula_v2.1`, 0 quality issues (shared mock builder).

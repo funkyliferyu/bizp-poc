@@ -87,6 +87,13 @@ style extraction and retrieval.
 The tab is backed by `web/blog_formula_v2.js`, which calls only the V2
 `poc-server` API namespace.
 
+The "포뮬라 추출" button POSTs `{ providerMode: 'openai' }` to `/extract`, so
+it runs the live server-side OpenAI SL-F1 lane (not the instant deterministic
+path). Because a live call takes ~30-60s, the tab shows a progress overlay
+(`#v2ExtractOverlay`) with a spinner and elapsed-time counter while the call
+is in flight, and surfaces the returned model in the "생성 모델" stat. The
+browser holds no provider credentials; the call goes through `poc-server`.
+
 V1 writing-style fields remain under the existing `글쓰기 스타일` tab and keep
 using `ruleset_editor.js`.
 
