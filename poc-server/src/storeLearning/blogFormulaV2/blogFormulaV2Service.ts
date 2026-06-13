@@ -17,6 +17,10 @@ import {
   type BlogTopicBriefInput
 } from './types.js';
 import { BLOG_FORMULA_V2_CALL_ID, BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION } from './blogFormulaPrompt.js';
+import {
+  BLOG_FORMULA_V2_DRAFT_CALL_ID,
+  BLOG_FORMULA_V2_DRAFT_PROMPT_SCHEMA_VERSION
+} from './blogDraftPrompt.js';
 import { assembleDraftOutput, buildDeterministicDraftCreative, deriveDraftReports } from './draftOutput.js';
 import { evaluateBlogFormulaV2Quality } from './formulaQuality.js';
 import { buildGenerationReadyMockFormula } from './mockFormulaBuilder.js';
@@ -24,6 +28,10 @@ import type {
   BlogFormulaV2Provider,
   BlogFormulaV2ProviderProvenance
 } from './providers/blogFormulaV2Provider.js';
+import type {
+  BlogDraftV2Provider,
+  BlogDraftV2ProviderProvenance
+} from './providers/blogDraftV2Provider.js';
 import { listOwnerBlogPostsForFormulaV2, type OwnerBlogPostV2 } from './sourcePosts.js';
 import { validateBlogFormulaV2DraftText } from './validator.js';
 
@@ -596,6 +604,128 @@ export function generateBlogFormulaV2Draft(
     draftGeneration,
     output
   };
+}
+
+function draftProvenanceFromProvider(provider: BlogDraftV2Provider): BlogDraftV2ProviderProvenance {
+  return {
+    name: provider.name,
+    mode: provider.mode,
+    model: provider.model,
+    callId: BLOG_FORMULA_V2_DRAFT_CALL_ID,
+    promptShapeVersion: BLOG_FORMULA_V2_DRAFT_PROMPT_SCHEMA_VERSION,
+    noExternalCalls: provider.mode !== 'openai'
+  };
+}
+
+export async function generateBlogFormulaV2DraftWithProvider(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  input: GenerateDraftInput,
+  provider: BlogDraftV2Provider
+) {
+  const store = requireStore(repos, storeId);
+  const formulaSet = requireFormulaSet(repos, storeId, input.formulaSetId);
+  const topicBrief = requireTopicBrief(repos, storeId, input.topicBriefId);
+  const retrievalRun = repos.v2BlogRetrievalRuns.findById(input.retrievalRunId);
+  if (!retrievalRun || retrievalRun.storeId !== storeId) {
+    throw new Error(`Blog Formula V2 retrieval run not found: ${input.retrievalRunId}`);
+  }
+  const topicBriefInput = topicBriefInputFromRecord(topicBrief);
+  const samples = samplesForRetrievalRun(repos, retrievalRun.id);
+  const formula = parseStoredBlogFormulaV2(formulaSet.formula);
+
+  try {
+    const providerResult = await provider.generateDraft({
+      store: providerInputStore(store),
+      formula,
+      topicBrief: topicBriefInput,
+      samples
+    });
+    const reports = deriveDraftReports({
+      formulaSetId: formulaSet.id,
+      formula,
+      topicBrief: topicBriefInput,
+      samples,
+      selectedTitle: providerResult.creative.selectedTitle,
+      blogDraft: providerResult.creative.blogDraft
+    });
+    const output = assembleDraftOutput(providerResult.creative, reports, providerResult.modelReportedCompliance);
+    const draftGeneration = repos.v2BlogDraftGenerations.create({
+      id: makeId('v2_draft_generation'),
+      storeId,
+      generationMode: 'v2_formula',
+      formulaSetId: formulaSet.id,
+      topicBriefId: topicBrief.id,
+      retrievalRunId: retrievalRun.id,
+      input: toJsonValue({
+        generationMode: 'v2_formula',
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id,
+        provider: providerResult.provider,
+        inputBudget: providerResult.inputBudget,
+        promptInput: providerResult.promptInput
+      }),
+      output: toJsonValue(output),
+      selectedTitle: output.selectedTitle,
+      blogDraft: output.blogDraft,
+      model: providerResult.provider.model,
+      status: 'generated'
+    });
+
+    recordLlmAuditLog(repos, {
+      storeId,
+      relatedEntityType: 'v2_blog_draft_generation',
+      relatedEntityId: draftGeneration.id,
+      provider,
+      model: providerResult.provider.model,
+      action: 'blog_formula_v2_generate_draft',
+      status: 'completed',
+      inputBudget: providerResult.inputBudget,
+      parsedOutputJson: output
+    });
+
+    return {
+      draftGeneration,
+      output,
+      provider: providerResult.provider
+    };
+  } catch (error) {
+    const errorJson = sanitizedProviderError(error);
+    const fallbackProvider = draftProvenanceFromProvider(provider);
+    const draftGeneration = repos.v2BlogDraftGenerations.create({
+      id: makeId('v2_draft_generation'),
+      storeId,
+      generationMode: 'v2_formula',
+      formulaSetId: formulaSet.id,
+      topicBriefId: topicBrief.id,
+      retrievalRunId: retrievalRun.id,
+      input: toJsonValue({
+        generationMode: 'v2_formula',
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id,
+        provider: fallbackProvider
+      }),
+      output: toJsonValue({ provider: fallbackProvider, error: errorJson }),
+      selectedTitle: null,
+      blogDraft: null,
+      model: provider.model,
+      status: 'failed'
+    });
+
+    recordLlmAuditLog(repos, {
+      storeId,
+      relatedEntityType: 'v2_blog_draft_generation',
+      relatedEntityId: draftGeneration.id,
+      provider,
+      model: provider.model,
+      action: 'blog_formula_v2_generate_draft',
+      status: 'failed',
+      errorJson
+    });
+    throw error;
+  }
 }
 
 export function validateBlogFormulaV2Draft(
