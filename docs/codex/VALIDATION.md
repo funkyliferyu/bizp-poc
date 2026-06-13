@@ -10,6 +10,17 @@ Branch:
   `develop` at `820afb9 docs: record blog formula v2 quality contract develop
   validation`.
 
+Develop integration:
+
+- Merged to `develop` via [PR #51](https://github.com/funkyliferyu/bizp-poc/pull/51),
+  merge commit `a173dbb`.
+- Post-merge develop validation (this section's commands) re-run on `develop`
+  after merge: full suite 339 passed / 6 skipped, typecheck PASS, browser JS
+  checks + `git diff --check` PASS, and the live comparison runner on a
+  `/tmp` snapshot of the real DB compared all three modes
+  (`deterministic` / `safe_mock` / `openai`) successfully (this openai run
+  reported 0 quality issues — live output varies run to run).
+
 Scope:
 
 - Added a read-only provider comparison utility for SL-F1: a pure report
