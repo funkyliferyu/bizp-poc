@@ -208,6 +208,33 @@ export const BlogRetrievedSampleV2Schema = z.object({
   bodyText: z.string()
 });
 
+// The model's self-reported compliance: only what a model can meaningfully
+// claim. Server-only facts (formulaSetId, sourcePostIds) are NOT requested
+// from the model — the server fills those in the authoritative report.
+export const ModelReportedComplianceV2Schema = z.object({
+  styleComplianceReport: z.object({
+    appliedBlocks: z.array(z.string())
+  }),
+  safetyCheck: z.object({
+    requiredDisclosures: z.array(z.string()),
+    bannedPhrasesAvoided: z.boolean()
+  }),
+  seoCheck: z.object({
+    mainKeywordInTitle: z.boolean(),
+    mainKeywordInIntro: z.boolean(),
+    secondaryKeywordsUsed: z.array(z.string())
+  })
+});
+
+// SL-G1 OpenAI response_format schema (what the model fills). Kept free of
+// array min/max constraints so it stays compatible with OpenAI structured
+// outputs. The model returns creative content plus its own compliance claims.
+export const BlogDraftModelResponseV2Schema = ModelReportedComplianceV2Schema.extend({
+  titleCandidates: z.array(z.string()),
+  selectedTitle: z.string(),
+  blogDraft: z.string()
+});
+
 export const BlogDraftOutputV2Schema = z.object({
   titleCandidates: z.array(z.string()).min(1),
   selectedTitle: z.string(),
@@ -225,7 +252,11 @@ export const BlogDraftOutputV2Schema = z.object({
     mainKeywordInTitle: z.boolean(),
     mainKeywordInIntro: z.boolean(),
     secondaryKeywordsUsed: z.array(z.string())
-  })
+  }),
+  // Server-authoritative reports stay at the top level. The model's
+  // self-reported versions are carried here for human comparison (null on the
+  // deterministic path).
+  modelReportedCompliance: ModelReportedComplianceV2Schema.nullable().optional()
 });
 
 export const BlogDraftValidationIssueV2Schema = z.object({
@@ -245,4 +276,6 @@ export const BlogDraftValidationResultV2Schema = z.object({
 export type BlogFormulaSetV2 = z.infer<typeof BlogFormulaSetV2Schema>;
 export type BlogRetrievedSampleV2 = z.infer<typeof BlogRetrievedSampleV2Schema>;
 export type BlogDraftOutputV2 = z.infer<typeof BlogDraftOutputV2Schema>;
+export type ModelReportedComplianceV2 = z.infer<typeof ModelReportedComplianceV2Schema>;
+export type BlogDraftModelResponseV2 = z.infer<typeof BlogDraftModelResponseV2Schema>;
 export type BlogDraftValidationResultV2 = z.infer<typeof BlogDraftValidationResultV2Schema>;
