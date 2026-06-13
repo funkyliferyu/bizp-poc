@@ -217,9 +217,44 @@ Still out of scope:
 - Hybrid or combined V1/V2 generation
 - V2 writes to `marketing_rulesets` or `ruleset_fields`
 
+## Provider Comparison On Real Owner Posts
+
+Run with a snapshot copy of the real DB so local data is never mutated:
+
+```bash
+sqlite3 poc-server/data/store-learning.sqlite "VACUUM INTO '/tmp/bizp-blog-formula-v2-comparison.sqlite'"
+cd poc-server
+STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-comparison.sqlite \
+BLOG_FORMULA_V2_STORE_ID=store_1020864025 \
+npm run compare:blog-formula-v2
+```
+
+The runner (`poc-server/src/compareBlogFormulaV2Providers.ts`, report builder
+`providerComparison.ts`) extracts a formula set in `deterministic`,
+`safe_mock`, and `openai` modes against the same store, evaluates each with
+`evaluateBlogFormulaV2Quality`, prints a JSON summary, and writes a markdown
+report (default `/tmp/blog-formula-v2-provider-comparison.md`). It does not
+seed mock posts — it fails fast if the store has no real
+`owner_blog_post` items. The `openai` mode is recorded as skipped when no
+server-side key is available.
+
+2026-06-13 run on `store_1020864025` (테라스의원, 50 real owner posts):
+
+- `deterministic` / `safe_mock`: shared generation-ready mock formula,
+  0 quality issues each (expected — same `buildGenerationReadyMockFormula`).
+- `openai` (`gpt-4o-mini`, live): schema-valid `blog_formula_v2.1` output on
+  the first attempt. 4 slot-based title patterns derived from real titles.
+  All 8 blocks `confirmed` (confidence 0.75-0.9). The quality evaluator
+  flagged 1 real issue: `body_sequence_too_short` (3 writing moves, and the
+  moves were on the generic side), demonstrating the 13f contract catches
+  genuine weaknesses in live output.
+- The live run wrote a completed `llm_audit_logs` row
+  (`action = "blog_formula_v2_extract"`) and recorded `qualityIssues` in
+  `v2_blog_formula_runs.validation`.
+
 Recommended next product follow-up if the user wants another V2 iteration:
 
-- compare deterministic, safe_mock, and OpenAI formula outputs on real owner
-  Blog fixtures
 - decide whether V2 formula extraction should become reviewer-facing in the UI
   or remain API/demo-only for one more iteration
+- consider whether `body_sequence_too_short`-class issues should trigger an
+  automatic re-extraction prompt hint or stay reviewer-facing only

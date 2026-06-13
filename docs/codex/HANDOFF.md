@@ -1,5 +1,84 @@
 # Codex Handoff
 
+## TASK 13G BLOG FORMULA V2 PROVIDER COMPARISON
+
+Branch `codex/blog-formula-v2-provider-comparison` was created from validated
+`develop` at `820afb9 docs: record blog formula v2 quality contract develop
+validation`. This is the user-approved 13f follow-up: compare
+`deterministic`, `safe_mock`, and live `openai` SL-F1 formula extraction on
+real collected owner Blog posts, scored with the 13f Formula Quality
+Contract.
+
+Plan: [NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md](NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md)
+
+Implemented:
+
+- Added pure report builder
+  `poc-server/src/storeLearning/blogFormulaV2/providerComparison.ts`
+  (`buildBlogFormulaV2ProviderComparison`): per-mode block status/confidence,
+  title patterns, quality issue codes, and a summary (quality issue totals,
+  blocks whose status differs across modes, skipped modes) plus a markdown
+  rendering. No DB or I/O in this module.
+- Added runner `poc-server/src/compareBlogFormulaV2Providers.ts` and npm
+  script `compare:blog-formula-v2`. The runner is a thin shell over existing
+  service code: it extracts a formula set in each mode via
+  `extractBlogFormulaV2` / `extractBlogFormulaV2WithProvider`, parses with
+  `parseStoredBlogFormulaV2`, scores with `evaluateBlogFormulaV2Quality`,
+  prints a JSON summary, and writes a markdown report. It does NOT seed mock
+  posts (unlike the demo) — it fails fast when the store has no real
+  `owner_blog_post` items, and records `openai` as skipped when no
+  server-side key is present.
+- No change to extraction/draft/validation service behavior; the runner only
+  reads existing behavior and aggregates results.
+
+Validation:
+
+- RED/GREEN report builder:
+  `cd poc-server && npm test -- --run test/blogFormulaV2ProviderComparison.test.ts`
+- RED/GREEN runner (in-memory DB, injected fake OpenAI client):
+  `cd poc-server && npm test -- --run test/blogFormulaV2CompareRunner.test.ts`
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test`
+- `node --check web/blog_formula_v2.js`
+- `node --check web/ruleset_editor.js`
+- `git diff --check`
+- Live comparison on a snapshot copy of the real DB:
+  `sqlite3 poc-server/data/store-learning.sqlite "VACUUM INTO '/tmp/bizp-blog-formula-v2-comparison.sqlite'"`
+  then
+  `STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-comparison.sqlite BLOG_FORMULA_V2_STORE_ID=store_1020864025 npm run compare:blog-formula-v2`
+
+Result:
+
+- PASS, full test suite: 54 files passed, 3 live-provider files skipped by
+  default; 337 tests passed, 6 skipped.
+- PASS, TypeScript typecheck, browser JS syntax checks, `git diff --check`.
+- Live comparison on `store_1020864025` (테라스의원, 50 real owner posts):
+  `deterministic` and `safe_mock` each produced a `blog_formula_v2.1`
+  formula set with 0 quality issues (shared mock builder); live `openai`
+  (`gpt-4o-mini`) produced a schema-valid `blog_formula_v2.1` set on the
+  first attempt with 4 slot-based title patterns and 1 real quality issue
+  (`body_sequence_too_short`), and wrote a completed `llm_audit_logs` row
+  (`action = "blog_formula_v2_extract"`).
+
+Current notes:
+
+- This task adds a read-only comparison utility; no service behavior changed.
+- No OpenAI V2 draft generation and no Hybrid/combined V1+V2 generation were
+  added.
+- V2 still writes only to `v2_` tables; the live run used a `/tmp` snapshot
+  copy of the real DB and never mutated `poc-server/data/store-learning.sqlite`.
+- Live OpenAI usage was limited to one SL-F1 extraction on the comparison
+  store, explicitly user-approved for this task.
+- Keep `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` unstaged.
+
+Next execution briefing:
+
+- Open a PR to `develop`, then run post-merge develop validation and record
+  it in `docs/codex/VALIDATION.md` and this file.
+- Next ledger item after 13g validates on develop is milestone 14: final
+  docs/validation cleanup or `develop` -> `main` promotion prep, gated on
+  explicit user publication approval.
+
 ## TASK 13F BLOG FORMULA V2 FORMULA QUALITY CONTRACT
 
 Branch `codex/blog-formula-v2-quality-contract` was created from validated
