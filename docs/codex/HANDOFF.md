@@ -1,5 +1,108 @@
 # Codex Handoff
 
+## TASK 13G BLOG FORMULA V2 PROVIDER COMPARISON
+
+Branch `codex/blog-formula-v2-provider-comparison` was created from validated
+`develop` at `820afb9 docs: record blog formula v2 quality contract develop
+validation`. This is the user-approved 13f follow-up: compare
+`deterministic`, `safe_mock`, and live `openai` SL-F1 formula extraction on
+real collected owner Blog posts, scored with the 13f Formula Quality
+Contract.
+
+Plan: [NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md](NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md)
+
+Implemented:
+
+- Added pure report builder
+  `poc-server/src/storeLearning/blogFormulaV2/providerComparison.ts`
+  (`buildBlogFormulaV2ProviderComparison`): per-mode block status/confidence,
+  title patterns, quality issue codes, and a summary (quality issue totals,
+  blocks whose status differs across modes, skipped modes) plus a markdown
+  rendering. No DB or I/O in this module.
+- Added runner `poc-server/src/compareBlogFormulaV2Providers.ts` and npm
+  script `compare:blog-formula-v2`. The runner is a thin shell over existing
+  service code: it extracts a formula set in each mode via
+  `extractBlogFormulaV2` / `extractBlogFormulaV2WithProvider`, parses with
+  `parseStoredBlogFormulaV2`, scores with `evaluateBlogFormulaV2Quality`,
+  prints a JSON summary, and writes a markdown report. It does NOT seed mock
+  posts (unlike the demo) — it fails fast when the store has no real
+  `owner_blog_post` items, and records `openai` as skipped when no
+  server-side key is present.
+- No change to extraction/draft/validation service behavior; the runner only
+  reads existing behavior and aggregates results.
+- Wired the V2 tab "포뮬라 추출" button to the server-side `openai` provider:
+  `web/blog_formula_v2.js` now POSTs `{ providerMode: 'openai' }` to
+  `/extract` (previously sent no body and silently fell through to the
+  instant `deterministic` path, so the UI had never exercised the live
+  OpenAI lane). Added a progress overlay (`#v2ExtractOverlay` in
+  `07_마케팅전략룰셋.html`) with a spinner, status text, and an elapsed-time
+  counter, since a live SL-F1 call takes ~30-60s; the button is disabled
+  while the call is in flight, and the "생성 모델" stat shows the returned
+  model (e.g. `gpt-4o-mini`). No provider credentials in the browser; the
+  call still goes through `poc-server`.
+
+Validation:
+
+- RED/GREEN report builder:
+  `cd poc-server && npm test -- --run test/blogFormulaV2ProviderComparison.test.ts`
+- RED/GREEN runner (in-memory DB, injected fake OpenAI client):
+  `cd poc-server && npm test -- --run test/blogFormulaV2CompareRunner.test.ts`
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test`
+- `node --check web/blog_formula_v2.js`
+- `node --check web/ruleset_editor.js`
+- `git diff --check`
+- Live comparison on a snapshot copy of the real DB:
+  `sqlite3 poc-server/data/store-learning.sqlite "VACUUM INTO '/tmp/bizp-blog-formula-v2-comparison.sqlite'"`
+  then
+  `STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-comparison.sqlite BLOG_FORMULA_V2_STORE_ID=store_1020864025 npm run compare:blog-formula-v2`
+
+Result:
+
+- PASS, full test suite: 54 files passed, 3 live-provider files skipped by
+  default; 339 tests passed, 6 skipped (includes 2 new V2-tab page tests for
+  the openai extract button + progress overlay).
+- PASS, TypeScript typecheck, browser JS syntax checks, `git diff --check`.
+- Live comparison on `store_1020864025` (테라스의원, 50 real owner posts):
+  `deterministic` and `safe_mock` each produced a `blog_formula_v2.1`
+  formula set with 0 quality issues (shared mock builder); live `openai`
+  (`gpt-4o-mini`) produced a schema-valid `blog_formula_v2.1` set on the
+  first attempt with 4 slot-based title patterns and 1 real quality issue
+  (`body_sequence_too_short`), and wrote a completed `llm_audit_logs` row
+  (`action = "blog_formula_v2_extract"`).
+- Verified the V2 tab extract button end to end against the running server:
+  `POST /extract {"providerMode":"openai"}` returned
+  `formulaSet.model = gpt-4o-mini`, `version = formula_v2.1`, 8 source posts,
+  in ~41s (vs ~0.1s for the body-less deterministic path).
+
+Current notes:
+
+- The comparison runner is read-only; the only service-adjacent change is the
+  V2 tab extract button now requesting the `openai` provider (the route and
+  service already supported `providerMode`).
+- No OpenAI V2 *draft generation* and no Hybrid/combined V1+V2 generation were
+  added in this task. NOTE: on 2026-06-13 the user approved building the full
+  OpenAI blog-generation process next (see PLAN.md next-todo and the next
+  session plan), so `generate-draft` via OpenAI is now in-scope for the
+  follow-up session, not this one.
+- V2 still writes only to `v2_` tables; the live run used a `/tmp` snapshot
+  copy of the real DB and never mutated `poc-server/data/store-learning.sqlite`.
+- Browser holds no provider credentials; the extract call goes through
+  `poc-server`.
+- Keep `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` unstaged.
+
+Next execution briefing:
+
+- 13g is merged to `develop` (PR #51) with post-merge develop validation
+  recorded below and in `docs/codex/VALIDATION.md`.
+- Next work (user-approved 2026-06-13): build the full OpenAI blog-generation
+  process end to end — OpenAI-backed `generate-draft` (SL-G* call) consuming
+  the extracted formula set + retrieved samples + topic brief — wiring the V2
+  tab "초안 생성" button to it with the same progress-overlay pattern.
+  Strategy: build the whole process first, then iterate on quality.
+- Milestone 14 (`develop` -> `main` promotion) remains gated on explicit user
+  publication approval.
+
 ## TASK 13F BLOG FORMULA V2 FORMULA QUALITY CONTRACT
 
 Branch `codex/blog-formula-v2-quality-contract` was created from validated

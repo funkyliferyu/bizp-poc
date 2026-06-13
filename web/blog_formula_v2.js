@@ -54,6 +54,47 @@
     setText('v2FormulaMessage', message);
   }
 
+  let extractElapsedTimer = null;
+  let extractElapsedStartedAt = null;
+
+  function formatElapsed(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function showExtractOverlay(statusText) {
+    const overlay = field('v2ExtractOverlay');
+    if (overlay) {
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    setText('v2ExtractOverlayStatus', statusText || 'OpenAI가 owner 블로그를 분석하고 있습니다.');
+    const button = field('v2FormulaExtractButton');
+    if (button) button.disabled = true;
+    extractElapsedStartedAt = Date.now();
+    const tick = () => {
+      setText('v2ExtractOverlayElapsed', `경과 ${formatElapsed(Date.now() - extractElapsedStartedAt)}`);
+    };
+    tick();
+    if (extractElapsedTimer) window.clearInterval(extractElapsedTimer);
+    extractElapsedTimer = window.setInterval(tick, 1000);
+  }
+
+  function hideExtractOverlay() {
+    const overlay = field('v2ExtractOverlay');
+    if (overlay) {
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    const button = field('v2FormulaExtractButton');
+    if (button) button.disabled = false;
+    if (extractElapsedTimer) window.clearInterval(extractElapsedTimer);
+    extractElapsedTimer = null;
+    extractElapsedStartedAt = null;
+  }
+
   function topicBriefFromForm() {
     return {
       topic: inputValue('v2-topic'),
@@ -251,19 +292,27 @@
   async function extractBlogFormulaV2() {
     const storeId = blogFormulaV2CurrentStoreId();
     try {
-      setMessage('포뮬라를 추출하는 중입니다.');
-      const response = await fetch(`/api/stores/${storeId}/v2/blog-formula/extract`, { method: 'POST' });
+      setMessage('OpenAI로 포뮬라를 추출하는 중입니다.');
+      showExtractOverlay('OpenAI가 owner 블로그를 분석하고 있습니다.');
+      const response = await fetch(`/api/stores/${storeId}/v2/blog-formula/extract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerMode: 'openai' })
+      });
       if (!response.ok) throw new Error('extract failed');
       const payload = await response.json();
       state.formulaSetId = payload.formulaSet?.id || null;
       renderStatus({ formulaSet: payload.formulaSet, sourcePosts: payload.sourcePosts, independentFromV1: true, status: { sourceOwnerBlogPostCount: payload.sourcePosts?.length || 0 } });
       renderSourcePosts(payload.sourcePosts || []);
       renderFormulaCards(payload.formulaSet);
-      setMessage('Blog Formula V2 추출이 완료되었습니다.');
+      const model = payload.provider?.model || payload.formulaSet?.model || '-';
+      setMessage(`Blog Formula V2 추출이 완료되었습니다. (모델 ${model})`);
       return payload;
     } catch {
-      setMessage('포뮬라 추출에 실패했습니다.');
+      setMessage('포뮬라 추출에 실패했습니다. OpenAI 키와 서버 상태를 확인하세요.');
       return null;
+    } finally {
+      hideExtractOverlay();
     }
   }
 

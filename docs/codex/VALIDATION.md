@@ -1,5 +1,105 @@
 # Validation
 
+## Blog Formula V2 Provider Comparison Validation
+
+Date: 2026-06-13
+
+Branch:
+
+- `codex/blog-formula-v2-provider-comparison`, created from validated
+  `develop` at `820afb9 docs: record blog formula v2 quality contract develop
+  validation`.
+
+Scope:
+
+- Added a read-only provider comparison utility for SL-F1: a pure report
+  builder (`providerComparison.ts`) and a runner
+  (`compareBlogFormulaV2Providers.ts`, npm `compare:blog-formula-v2`) that
+  extracts a formula set in `deterministic`, `safe_mock`, and `openai` modes
+  on the same store, scores each with `evaluateBlogFormulaV2Quality`, and
+  emits a JSON summary plus a markdown report.
+- The runner reuses existing extraction/parse/quality code; no
+  extraction/draft/validation service behavior was changed.
+- The runner fails fast when the store has no real `owner_blog_post` items
+  (it does not seed mock posts) and records `openai` as skipped when no
+  server-side key is available.
+- Wired the V2 tab "포뮬라 추출" button to the server-side `openai` provider
+  (`web/blog_formula_v2.js` POSTs `{ providerMode: 'openai' }`) and added a
+  progress overlay with an elapsed-time counter for the ~30-60s live call.
+  Root cause fixed: the button previously sent no body and fell through to
+  the instant `deterministic` path, so the UI had never run the live lane.
+
+TDD evidence (RED/GREEN):
+
+- Task 1 (report builder), `npm test -- --run test/blogFormulaV2ProviderComparison.test.ts`:
+  RED — failed because `providerComparison.ts` did not exist. GREEN — passed
+  after adding the per-mode rows, summary (quality totals, status-difference
+  blocks, skipped modes), and markdown rendering.
+- Task 2 (runner), `npm test -- --run test/blogFormulaV2CompareRunner.test.ts`:
+  RED — failed because `compareBlogFormulaV2Providers.ts` did not exist.
+  GREEN — passed (in-memory DB, injected fake OpenAI client; skipped-openai
+  path; fail-fast-on-empty-store path) after adding the runner.
+- UI (extract button + overlay),
+  `npm test -- --run test/blogFormulaV2Page.test.ts`: RED — failed because the
+  JS sent no `providerMode` and no overlay element/handlers existed. GREEN —
+  passed after the button POSTed `{ providerMode: 'openai' }` and the
+  `#v2ExtractOverlay` element + `showExtractOverlay`/`hideExtractOverlay`
+  elapsed-timer handlers were added.
+
+Validation commands:
+
+```bash
+cd poc-server
+npm test -- --run test/blogFormulaV2ProviderComparison.test.ts test/blogFormulaV2CompareRunner.test.ts
+npm run typecheck
+npm test
+cd ..
+node --check web/blog_formula_v2.js
+node --check web/ruleset_editor.js
+git diff --check
+# live comparison on a snapshot copy of the real DB:
+sqlite3 poc-server/data/store-learning.sqlite "VACUUM INTO '/tmp/bizp-blog-formula-v2-comparison.sqlite'"
+cd poc-server
+STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-comparison.sqlite BLOG_FORMULA_V2_STORE_ID=store_1020864025 npm run compare:blog-formula-v2
+```
+
+Result:
+
+- PASS, full test suite: 54 files passed, 3 live-provider files skipped by
+  default; 339 tests passed, 6 skipped (includes 2 new V2-tab page tests).
+- PASS, TypeScript typecheck.
+- PASS, `node --check web/blog_formula_v2.js`,
+  `node --check web/ruleset_editor.js`, and `git diff --check`.
+- Verified the V2 tab extract button against the running server:
+  `POST /extract {"providerMode":"openai"}` returned
+  `formulaSet.model = gpt-4o-mini`, `version = formula_v2.1`, 8 source posts
+  in ~41s, vs ~0.1s for the body-less deterministic path.
+- Live comparison on `store_1020864025` (테라스의원, 50 real owner posts):
+  - `deterministic`: `blog_formula_v2.1`, 0 quality issues.
+  - `safe_mock`: `blog_formula_v2.1`, 0 quality issues (shared mock builder).
+  - `openai` (`gpt-4o-mini`, live): schema-valid `blog_formula_v2.1` on the
+    first attempt, 4 slot-based title patterns, all 8 blocks `confirmed`
+    (confidence 0.75-0.9), 1 real quality issue `body_sequence_too_short`.
+  - The live run wrote a completed `llm_audit_logs` row
+    (`action = "blog_formula_v2_extract"`) and recorded `qualityIssues` in
+    `v2_blog_formula_runs.validation`.
+
+Boundary checks:
+
+- `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` remain unstaged.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- Diff scope limited to
+  `poc-server/src/storeLearning/blogFormulaV2/providerComparison.ts`,
+  `poc-server/src/compareBlogFormulaV2Providers.ts`,
+  `poc-server/package.json`, `poc-server/test/`, and `docs/`.
+- The live comparison ran against a `/tmp` snapshot copy; the real local DB
+  `poc-server/data/store-learning.sqlite` was not mutated.
+- No OpenAI V2 draft generation, no Hybrid/combined V1+V2 generation, and no
+  browser-side Naver/OpenAI/provider calls were added.
+- Live OpenAI usage was limited to one user-approved SL-F1 extraction on the
+  comparison store.
+
 ## Blog Formula V2 Formula Quality Contract Validation
 
 Date: 2026-06-13

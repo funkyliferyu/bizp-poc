@@ -58,18 +58,28 @@ Current next todo as of 2026-06-13:
 1. Blog Formula V2 Formula Quality Contract is merged and validated on
    `develop` through [PR #50](https://github.com/funkyliferyu/bizp-poc/pull/50),
    merge `1d929d1`.
-2. The first not-validated milestone is now 14 (final docs/validation cleanup
-   or `develop` -> `main` promotion prep), which remains gated on explicit
-   user publication approval.
-3. Keep V2 draft generation deterministic until the user explicitly approves
-   OpenAI V2 draft generation or Hybrid/combined V1+V2 generation.
-4. Keep the current ruleset preview endpoint as deterministic server/mock
+2. Blog Formula V2 provider comparison (13g) is merged and validated on
+   `develop` through [PR #51](https://github.com/funkyliferyu/bizp-poc/pull/51).
+   It added a read-only comparison runner and wired the V2 tab "포뮬라 추출"
+   button to the live `openai` provider with a progress overlay.
+3. NEXT (user-approved 2026-06-13): build the full OpenAI blog-generation
+   process end to end — OpenAI-backed `generate-draft` consuming the formula
+   set + retrieved samples + topic brief, wired to the V2 tab "초안 생성"
+   button with the same progress-overlay pattern. Strategy: build the whole
+   process first, then iterate on quality. This supersedes the prior "keep V2
+   draft generation deterministic" gate for the V2 lane.
+4. The first not-validated milestone after the OpenAI generation work is 14
+   (final docs/validation cleanup or `develop` -> `main` promotion prep),
+   which remains gated on explicit user publication approval.
+5. Hybrid/combined V1+V2 generation is still out of scope until the user
+   explicitly approves it separately.
+6. Keep the current ruleset preview endpoint as deterministic server/mock
    output unless the user explicitly approves a separate OpenAI preview
    provider task.
-5. Keep `web/llm호출.html` as the temporary reviewer-facing verification table
+7. Keep `web/llm호출.html` as the temporary reviewer-facing verification table
    until the LLM provenance work either replaces it or the user says to remove
    it.
-6. Prepare the `develop` -> `main` promotion path only after the user approves
+8. Prepare the `develop` -> `main` promotion path only after the user approves
    publication timing.
 
 ## Milestone Ledger
@@ -95,6 +105,7 @@ Current next todo as of 2026-06-13:
 | 13d | Blog Formula V2 deterministic 실험 레인 | Validated on develop | [handoff](../BLOG_FORMULA_V2_HANDOFF.md), PR #48, merge `c8f1b52` | Develop validation recorded 2026-06-12 |
 | 13e | Blog Formula V2 OpenAI 포뮬라 추출 provider | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_FORMULA_PROVIDER_PLAN.md), [#49](https://github.com/funkyliferyu/bizp-poc/pull/49), merge `c76c052` | Develop validation recorded 2026-06-12 |
 | 13f | Blog Formula V2 Formula Quality Contract | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md), [#50](https://github.com/funkyliferyu/bizp-poc/pull/50), merge `1d929d1` | Develop validation recorded 2026-06-13 |
+| 13g | Blog Formula V2 provider 비교 + 추출 버튼 openai 연결 | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md), [#51](https://github.com/funkyliferyu/bizp-poc/pull/51) | Develop validation recorded 2026-06-13 |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist

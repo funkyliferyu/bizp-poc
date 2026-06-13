@@ -60,4 +60,32 @@ describe('Blog Formula V2 static UI lane', () => {
     expect(js).toContain('preferredPhrases');
     expect(js).toContain('bannedClaims');
   });
+
+  it('runs the extract button through the server-side openai provider with a progress overlay', () => {
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    // The extract button must ask the poc-server route for the openai provider,
+    // not fall through to the instant deterministic path.
+    expect(js).toContain("providerMode: 'openai'");
+    expect(js).toMatch(/body:\s*JSON\.stringify\(\{\s*providerMode: 'openai'\s*\}\)/);
+
+    // A long (~30-60s) call needs a visible in-progress overlay with an elapsed timer.
+    expect(js).toContain('v2ExtractOverlay');
+    expect(js).toContain('showExtractOverlay');
+    expect(js).toContain('hideExtractOverlay');
+    expect(js).toContain('setInterval');
+
+    // The browser still never holds provider credentials.
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
+
+  it('defines the extract progress overlay element on the V2 tab', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const formulaSection = extractSection(html, '<!-- Blog Formula V2 -->', '<!-- 유사업체비교 -->');
+
+    expect(formulaSection).toContain('id="v2ExtractOverlay"');
+    expect(formulaSection).toContain('id="v2ExtractOverlayStatus"');
+    expect(formulaSection).toContain('id="v2ExtractOverlayElapsed"');
+  });
 });
