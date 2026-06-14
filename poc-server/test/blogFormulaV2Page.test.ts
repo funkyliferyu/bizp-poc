@@ -117,4 +117,24 @@ describe('Blog Formula V2 static UI lane', () => {
     expect(formulaSection).toContain('id="v2OverlayTitle"');
     expect(formulaSection).toContain('id="v2DraftCompliancePanel"');
   });
+
+  it('defines the topic brief library dropdown and extend button on the V2 tab', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const formulaSection = extractSection(html, '<!-- Blog Formula V2 -->', '<!-- 유사업체비교 -->');
+
+    expect(formulaSection).toContain('id="v2TopicBriefLibrary"');
+    expect(formulaSection).toContain('id="v2TopicBriefExtendButton"');
+    expect(formulaSection).toContain('토픽 브리프 라이브러리');
+  });
+
+  it('wires the topic brief library to the form and the extend endpoint', () => {
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    expect(js).toContain('fetch(`/api/stores/${storeId}/v2/blog-formula/topic-brief-sets/extend`');
+    expect(js).toContain('topicBriefSets');
+    expect(js).toContain('topicBriefSetRemainingCount');
+    expect(js).toContain('v2TopicBriefLibrary');
+    expect(js).toContain('applyTopicBriefSet');
+    expect(() => new Function(js)).not.toThrow();
+  });
 });

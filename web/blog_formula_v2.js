@@ -5,7 +5,8 @@
     topicBriefId: null,
     retrievalRunId: null,
     draftGenerationId: null,
-    latestSamples: []
+    latestSamples: [],
+    topicBriefSets: []
   };
 
   function field(id) {
@@ -140,6 +141,82 @@
     };
   }
 
+  function setInputValue(id, value) {
+    const element = field(id);
+    if (element) element.value = value ?? '';
+  }
+
+  function topicBriefSetSummary(set) {
+    return set.mainAngle || set.coreConcern || set.mainKeyword || set.topic;
+  }
+
+  function renderTopicBriefLibrary(payload) {
+    const select = field('v2TopicBriefLibrary');
+    state.topicBriefSets = (payload && payload.topicBriefSets) || [];
+    if (select) {
+      const counts = {};
+      const totals = {};
+      state.topicBriefSets.forEach((set) => {
+        totals[set.topic] = (totals[set.topic] || 0) + 1;
+      });
+      const circled = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+      const options = state.topicBriefSets.map((set, index) => {
+        counts[set.topic] = (counts[set.topic] || 0) + 1;
+        const order = totals[set.topic] > 1 ? ` ${circled[counts[set.topic] - 1] || counts[set.topic]}` : '';
+        const label = `${set.topic}${order} · ${topicBriefSetSummary(set)}`;
+        return `<option value="${escapeHtml(index)}">${escapeHtml(label)}</option>`;
+      });
+      select.innerHTML = '<option value="">직접 입력</option>' + options.join('');
+    }
+    const remaining = (payload && payload.status && payload.status.topicBriefSetRemainingCount) || 0;
+    const button = field('v2TopicBriefExtendButton');
+    if (button) {
+      button.style.display = remaining > 0 ? '' : 'none';
+      button.textContent = `더 많은 블로그에서 포뮬라 생성 (남은 ${remaining}건)`;
+    }
+  }
+
+  function applyTopicBriefSet(indexValue) {
+    if (indexValue === '' || indexValue === null || indexValue === undefined) return;
+    const set = state.topicBriefSets[Number(indexValue)];
+    if (!set) return;
+    setInputValue('v2-topic', set.topic);
+    setInputValue('v2-main-keyword', set.mainKeyword);
+    setInputValue('v2-secondary-keywords', (set.secondaryKeywords || []).join(', '));
+    setInputValue('v2-target-reader', set.targetReader || '');
+    setInputValue('v2-core-concern', set.coreConcern || '');
+    setInputValue('v2-main-angle', set.mainAngle || '');
+    setInputValue('v2-must-include', (set.mustInclude || []).join(', '));
+    setInputValue('v2-must-avoid', (set.mustAvoid || []).join(', '));
+    setInputValue('v2-cta-direction', set.ctaDirection || '');
+    setMessage(`토픽 브리프 "${set.topic}"를 소재 Brief에 적용했습니다.`);
+  }
+
+  async function extendTopicBriefSetLibrary() {
+    const storeId = blogFormulaV2CurrentStoreId();
+    const button = field('v2TopicBriefExtendButton');
+    if (button) button.disabled = true;
+    try {
+      setMessage('추가 블로그에서 토픽 브리프를 생성하는 중입니다.');
+      const response = await fetch(`/api/stores/${storeId}/v2/blog-formula/topic-brief-sets/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) throw new Error('extend failed');
+      const result = await response.json();
+      renderTopicBriefLibrary({
+        topicBriefSets: result.topicBriefSets,
+        status: { topicBriefSetRemainingCount: result.remainingCount }
+      });
+      setMessage(`토픽 브리프 ${result.added.length}건을 추가했습니다. (남은 ${result.remainingCount}건)`);
+    } catch {
+      setMessage('토픽 브리프 추가 생성에 실패했습니다.');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   function renderStatus(payload) {
     const formulaSet = payload?.formulaSet;
     const latestDraft = payload?.latestDraftGeneration;
@@ -244,6 +321,7 @@
     renderStatus(payload);
     renderSourcePosts(payload?.sourcePosts || []);
     renderFormulaCards(payload?.formulaSet);
+    renderTopicBriefLibrary(payload);
     if (payload?.latestDraftGeneration?.output) renderDraft(payload.latestDraftGeneration.output);
     if (payload?.latestValidation?.validation) renderValidation(payload.latestValidation.validation);
   }
@@ -394,6 +472,7 @@
       renderFormulaCards(payload.formulaSet);
       const model = payload.provider?.model || payload.formulaSet?.model || '-';
       setMessage(`Blog Formula V2 추출이 완료되었습니다. (모델 ${model})`);
+      await loadBlogFormulaV2();
       return payload;
     } catch {
       setMessage('포뮬라 추출에 실패했습니다. OpenAI 키와 서버 상태를 확인하세요.');
@@ -505,6 +584,8 @@
   window.retrieveBlogFormulaV2Samples = retrieveBlogFormulaV2Samples;
   window.generateBlogFormulaV2Draft = generateBlogFormulaV2Draft;
   window.validateBlogFormulaV2Draft = validateBlogFormulaV2Draft;
+  window.applyTopicBriefSet = applyTopicBriefSet;
+  window.extendTopicBriefSetLibrary = extendTopicBriefSetLibrary;
 
   document.addEventListener('DOMContentLoaded', () => {
     loadBlogFormulaV2();
