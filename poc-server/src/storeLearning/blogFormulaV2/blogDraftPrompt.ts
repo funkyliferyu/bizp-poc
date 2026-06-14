@@ -27,6 +27,7 @@ const productIntent = [
 
 const generationInstructions = [
   'Fill the slot-based titleFormula patterns with the Topic Brief to produce titleCandidates, then pick the strongest as selectedTitle.',
+  'Open blogDraft with one of formula.introFormula.selfIntroductionPatterns, if that list is non-empty: take a pattern\'s template, replace {storeName} with storeProfile.name and {directorName} with the pattern\'s own directorName, and use the filled line verbatim as the first sentence. Choose a pattern with probability roughly proportional to its usageRatio (the highest-usageRatio pattern is this store\'s most common opener and should be used most often). Never invent a different self-introduction phrase (e.g. generic staff titles such as "의료진입니다"). If selfIntroductionPatterns is empty, write a natural greeting using storeProfile.name.',
   'Follow the introFormula and bodyFormula move sequences and the headingFormula style when composing blogDraft.',
   'Apply toneAndMannerFormula sentence habits (persona, preferred phrases, endings, empathy patterns, emoji policy).',
   'Close with a soft decision-guide CTA from ctaFormula, not a hard reservation push, unless hardReservationAllowed is true.',

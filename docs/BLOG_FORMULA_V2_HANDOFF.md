@@ -117,6 +117,8 @@ The deterministic validator checks:
 - sample copy overlap warnings
 - hardcoded operating-hours warnings
 - main keyword placement in title and intro
+- self-introduction opener mismatch against the store's known greeting
+  patterns (see "Self-Introduction Pattern Library" below)
 
 Validation status is one of:
 
@@ -326,3 +328,83 @@ Manual live confirmation (only when explicitly requested) on a `/tmp` snapshot
 DB: drive `/extract` then `/generate-draft {"providerMode":"openai"}` against
 the running server and confirm a `gpt-4o-mini` draft plus a completed
 `llm_audit_logs` row (`action = "blog_formula_v2_generate_draft"`).
+
+## Self-Introduction Pattern Library
+
+Live `openai` extraction on `store_1020864025` (테라스의원) surfaced a
+hallucination: generated drafts opened with "안녕하세요. 😊 테라스 의원의
+의료진입니다." — a phrase that never appears in any of the store's 50 real
+`owner_blog_post` items. The root cause is that `introFormula.sequence` only
+describes abstract writing moves (e.g. "인사 → 주제 제시"), with no concrete
+self-introduction text for the draft generator or model to reuse.
+
+`poc-server/src/storeLearning/blogFormulaV2/selfIntroductionPatterns.ts`
+discovers the store's *actual* repeating greeting openers from its own post
+history and stores them with usage ratios, so generation reuses them
+proportionally instead of inventing new ones:
+
+- `analyzeSelfIntroductionPatterns(posts, storeName)` scans each post for an
+  opening "안녕하세요" near the store's own name (zero-width-space tolerant —
+  Naver's mobile editor pads body text with U+200B/U+200C/U+200D/U+FEFF) and
+  classifies it as:
+  - `store_director_greeting`: `"안녕하세요. {storeName} 대표원장
+    {directorName}입니다."` — director name extracted via
+    `(?:대표)?원장\s*([가-힣]{2,4})입니다` (or the reversed `{name} 원장입니다`
+    order)
+  - `store_name_greeting`: `"안녕하세요. {storeName}입니다."` — fallback when
+    no director name is detected
+  - Posts with no greeting near the store's name are excluded entirely.
+    `usageRatio` is each pattern's share among posts that DO have a
+    detectable opener, sorted descending, so the ratios sum to ~1 and the
+    first entry is the store's most common opener.
+- `fillSelfIntroductionTemplate(pattern, storeName)` fills `{storeName}` /
+  `{directorName}` into the template.
+- `matchesAnySelfIntroductionPattern(blogDraft, patterns, storeName)` checks
+  (whitespace/zero-width-space insensitive) whether a draft's opening
+  reproduces one of the filled patterns; returns `true` when `patterns` is
+  empty (nothing to constrain against).
+
+Schema (`types.ts`, still `formula_v2.1`): `introFormula` gains
+`selfIntroductionPatterns: SelfIntroductionPatternV2[]` (`.default([])`, so
+legacy/upgraded/older-stored formulas parse cleanly with `[]`). This field is
+always computed server-side from the store's own post history — both
+`extractBlogFormulaV2` and `extractBlogFormulaV2WithProvider` overwrite
+whatever the deterministic builder or model returns with
+`analyzeSelfIntroductionPatterns(posts, store.name)`, since neither can know
+real historical ratios.
+
+OpenAI structured outputs reject `.optional()`/`.default()` fields, so
+`BlogFormulaSetV2ResponseFormatSchema` (an `introFormula` variant without
+`selfIntroductionPatterns`) is used only for `zodResponseFormat` in
+`openAIBlogFormulaProvider.ts`; the actual `.parse()` of the model's response
+still uses the full `BlogFormulaSetV2Schema`, and the field is overwritten
+immediately afterwards regardless.
+
+Draft generation, both paths:
+
+- Deterministic (`buildDeterministicDraftCreative` in `draftOutput.ts`):
+  prepends `fillSelfIntroductionTemplate(patterns[0], storeName)` (the
+  highest-`usageRatio` pattern) as the first paragraph of `blogDraft`, when
+  `selfIntroductionPatterns` is non-empty.
+- OpenAI SL-G1 (`blogDraftPrompt.ts`): a new generation instruction tells the
+  model to open `blogDraft` with a pattern from
+  `formula.introFormula.selfIntroductionPatterns`, chosen with probability
+  roughly proportional to its `usageRatio`, filled verbatim as the first
+  sentence — never inventing a different self-introduction phrase (e.g.
+  generic staff titles such as "의료진입니다").
+
+Validation: `validateBlogFormulaV2DraftText` accepts optional
+`selfIntroductionPatterns` / `storeName`; when patterns are non-empty and a
+draft's opener matches none of them, it pushes a `self_introduction_pattern_mismatch`
+issue (`severity: 'warning'` → overall `needs_human_review`, consistent with
+the build-first-then-flag philosophy). `validateBlogFormulaV2Draft` (the
+`draftGenerationId` service path) loads the draft's formula set and passes
+`formula.introFormula.selfIntroductionPatterns` + `store.name` through; the
+ad-hoc (no `draftGenerationId`) path has no formula reference, so the check is
+skipped.
+
+Coverage: `poc-server/test/selfIntroductionPatterns.test.ts` (pattern
+discovery, template filling, match checking) and the `Self-introduction
+pattern library` describe block in `poc-server/test/blogFormulaV2Services.test.ts`
+(end-to-end: extraction populates ratios, deterministic draft opens with the
+top pattern, validation flags a mismatched opener and passes a matching one).

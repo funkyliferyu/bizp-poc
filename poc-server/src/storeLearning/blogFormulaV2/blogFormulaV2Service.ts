@@ -33,6 +33,7 @@ import type {
   BlogDraftV2ProviderProvenance
 } from './providers/blogDraftV2Provider.js';
 import { listOwnerBlogPostsForFormulaV2, type OwnerBlogPostV2 } from './sourcePosts.js';
+import { analyzeSelfIntroductionPatterns } from './selfIntroductionPatterns.js';
 import { validateBlogFormulaV2DraftText } from './validator.js';
 
 type StoreLearningRepositories = ReturnType<typeof createStoreLearningRepositories>;
@@ -179,11 +180,12 @@ export function getBlogFormulaV2Payload(repos: StoreLearningRepositories, storeI
 }
 
 export function extractBlogFormulaV2(repos: StoreLearningRepositories, storeId: string) {
-  requireStore(repos, storeId);
+  const store = requireStore(repos, storeId);
   const posts = listOwnerBlogPostsForFormulaV2(repos, storeId);
   if (posts.length === 0) throw new Error(`No owner_blog_post content available for Blog Formula V2: ${storeId}`);
 
   const formula = buildGenerationReadyMockFormula(posts);
+  formula.introFormula.selfIntroductionPatterns = analyzeSelfIntroductionPatterns(posts, store.name);
   const qualityIssues = evaluateBlogFormulaV2Quality(formula);
   const formulaSet = repos.v2BlogFormulaSets.create({
     id: makeId('v2_formula_set'),
@@ -256,6 +258,9 @@ export async function extractBlogFormulaV2WithProvider(
       ownerBlogPosts: posts
     });
     const formula = BlogFormulaSetV2Schema.parse(providerResult.output);
+    // Self-introduction patterns are discovered deterministically from the
+    // store's own post history, not left to the model.
+    formula.introFormula.selfIntroductionPatterns = analyzeSelfIntroductionPatterns(posts, store.name);
     const qualityIssues = evaluateBlogFormulaV2Quality(formula);
     const providerSourcePostIds = providerResult.promptInput.sourcePostIds;
     const postsById = new Map(posts.map((post) => [post.collectionItemId, post]));
@@ -550,9 +555,10 @@ function buildDraftOutput(
   formulaSetId: string,
   formula: BlogFormulaSetV2,
   topicBrief: BlogTopicBriefInput,
-  samples: BlogRetrievedSampleV2[]
+  samples: BlogRetrievedSampleV2[],
+  storeName: string
 ): BlogDraftOutputV2 {
-  const creative = buildDeterministicDraftCreative(formula, topicBrief, samples);
+  const creative = buildDeterministicDraftCreative(formula, topicBrief, samples, storeName);
   const reports = deriveDraftReports({
     formulaSetId,
     formula,
@@ -569,7 +575,7 @@ export function generateBlogFormulaV2Draft(
   storeId: string,
   input: GenerateDraftInput
 ) {
-  requireStore(repos, storeId);
+  const store = requireStore(repos, storeId);
   const formulaSet = requireFormulaSet(repos, storeId, input.formulaSetId);
   const topicBrief = requireTopicBrief(repos, storeId, input.topicBriefId);
   const retrievalRun = repos.v2BlogRetrievalRuns.findById(input.retrievalRunId);
@@ -579,7 +585,7 @@ export function generateBlogFormulaV2Draft(
   const topicBriefInput = topicBriefInputFromRecord(topicBrief);
   const samples = samplesForRetrievalRun(repos, retrievalRun.id);
   const formula = parseStoredBlogFormulaV2(formulaSet.formula);
-  const output = buildDraftOutput(formulaSet.id, formula, topicBriefInput, samples);
+  const output = buildDraftOutput(formulaSet.id, formula, topicBriefInput, samples, store.name);
   const draftGeneration = repos.v2BlogDraftGenerations.create({
     id: makeId('v2_draft_generation'),
     storeId,
@@ -733,12 +739,13 @@ export function validateBlogFormulaV2Draft(
   storeId: string,
   input: ValidateDraftInput
 ) {
-  requireStore(repos, storeId);
+  const store = requireStore(repos, storeId);
   let draftGenerationId: string | null = null;
   let selectedTitle: string;
   let blogDraft: string;
   let topicBriefInput: BlogTopicBriefInput;
   let samples: BlogRetrievedSampleV2[] = [];
+  let formula: BlogFormulaSetV2 | null = null;
 
   if ('draftGenerationId' in input) {
     const draft = repos.v2BlogDraftGenerations.findById(input.draftGenerationId);
@@ -749,6 +756,8 @@ export function validateBlogFormulaV2Draft(
     if (!draft.topicBriefId) throw new Error(`Blog Formula V2 draft has no topic brief: ${draft.id}`);
     topicBriefInput = topicBriefInputFromRecord(requireTopicBrief(repos, storeId, draft.topicBriefId));
     samples = draft.retrievalRunId ? samplesForRetrievalRun(repos, draft.retrievalRunId) : [];
+    const formulaSet = draft.formulaSetId ? repos.v2BlogFormulaSets.findById(draft.formulaSetId) : null;
+    formula = formulaSet ? parseStoredBlogFormulaV2(formulaSet.formula) : null;
   } else {
     selectedTitle = input.selectedTitle;
     blogDraft = input.blogDraft;
@@ -759,7 +768,9 @@ export function validateBlogFormulaV2Draft(
     selectedTitle,
     blogDraft,
     topicBrief: topicBriefInput,
-    retrievedSamples: samples
+    retrievedSamples: samples,
+    selfIntroductionPatterns: formula?.introFormula.selfIntroductionPatterns,
+    storeName: store.name
   });
 
   const validationRecord = draftGenerationId

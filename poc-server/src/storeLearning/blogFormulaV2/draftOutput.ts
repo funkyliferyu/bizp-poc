@@ -1,3 +1,4 @@
+import { fillSelfIntroductionTemplate } from './selfIntroductionPatterns.js';
 import {
   BlogDraftOutputV2Schema,
   type BlogDraftOutputV2,
@@ -52,7 +53,8 @@ function fillTitleSlots(pattern: string, brief: BlogTopicBriefInput) {
 export function buildDeterministicDraftCreative(
   formula: BlogFormulaSetV2,
   topicBrief: BlogTopicBriefInput,
-  samples: BlogRetrievedSampleV2[]
+  samples: BlogRetrievedSampleV2[],
+  storeName: string
 ): BlogDraftCreativeV2 {
   const fallbackTitle = `${topicBrief.mainKeyword} 걱정 없이 확인할 점`;
   const secondary = topicBrief.secondaryKeywords.slice(0, 2).join(', ');
@@ -87,7 +89,11 @@ export function buildDeterministicDraftCreative(
       ? `${baseDisclosureLine} (${missingDisclosures.join(', ')})`
       : baseDisclosureLine;
 
+  const topGreetingPattern = formula.introFormula.selfIntroductionPatterns[0];
+  const greetingLine = topGreetingPattern ? fillSelfIntroductionTemplate(topGreetingPattern, storeName) : null;
+
   const blogDraft = [
+    ...(greetingLine ? [greetingLine] : []),
     `${topicBrief.mainKeyword}을 검색하는 ${targetReader}이라면 ${concern}가 가장 먼저 떠오를 수 있습니다.`,
     `${preferredPhrase ? `${preferredPhrase} ` : ''}오늘은 ${angle}하는 방향으로 ${topicBrief.topic} 상담 전 확인할 내용을 정리하겠습니다.`,
     `먼저 기존 블로그에서는 ${sampleTitles.join(', ') || '고객 걱정과 판단 기준'}처럼 걱정을 먼저 다루고 원리와 주의사항을 이어서 설명하는 흐름이 반복됩니다.`,

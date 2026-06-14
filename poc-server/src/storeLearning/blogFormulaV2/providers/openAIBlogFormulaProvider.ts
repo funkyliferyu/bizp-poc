@@ -14,7 +14,7 @@ import {
   BLOG_FORMULA_V2_RESPONSE_FORMAT_NAME,
   buildBlogFormulaV2PromptInput
 } from '../blogFormulaPrompt.js';
-import { BlogFormulaSetV2Schema } from '../types.js';
+import { BlogFormulaSetV2ResponseFormatSchema, BlogFormulaSetV2Schema } from '../types.js';
 import type {
   BlogFormulaV2Provider,
   BlogFormulaV2ProviderProvenance
@@ -79,7 +79,7 @@ export function createOpenAIBlogFormulaV2Provider(
 
       const prompt = buildBlogFormulaV2PromptInput(input);
       lastAuditMetadata = null;
-      const responseFormat = zodResponseFormat(BlogFormulaSetV2Schema, BLOG_FORMULA_V2_RESPONSE_FORMAT_NAME);
+      const responseFormat = zodResponseFormat(BlogFormulaSetV2ResponseFormatSchema, BLOG_FORMULA_V2_RESPONSE_FORMAT_NAME);
       const provider = provenance(model);
       const requestPayload = {
         model,

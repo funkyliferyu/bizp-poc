@@ -95,7 +95,7 @@ describe('deriveDraftReports (server-authoritative)', () => {
 
 describe('buildDeterministicDraftCreative', () => {
   it('produces non-empty title candidates and a draft body', () => {
-    const creative = buildDeterministicDraftCreative(formula, topicBrief, samples);
+    const creative = buildDeterministicDraftCreative(formula, topicBrief, samples, '테라스의원');
     expect(creative.titleCandidates.length).toBeGreaterThan(0);
     expect(creative.selectedTitle.length).toBeGreaterThan(0);
     expect(creative.blogDraft.length).toBeGreaterThan(0);

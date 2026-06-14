@@ -31,7 +31,7 @@ export function createSafeMockBlogDraftV2Provider(): BlogDraftV2Provider {
         topicBrief: input.topicBrief,
         samples: input.samples
       });
-      const creative = buildDeterministicDraftCreative(input.formula, input.topicBrief, input.samples);
+      const creative = buildDeterministicDraftCreative(input.formula, input.topicBrief, input.samples, input.store.name ?? '');
       const reports = deriveDraftReports({
         formulaSetId: 'safe_mock',
         formula: input.formula,
