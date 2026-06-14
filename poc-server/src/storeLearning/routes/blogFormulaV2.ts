@@ -3,12 +3,14 @@ import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import {
+  extendBlogFormulaV2TopicBriefSets,
   extractBlogFormulaV2,
   extractBlogFormulaV2WithProvider,
   generateBlogFormulaV2Draft,
   generateBlogFormulaV2DraftWithProvider,
   getBlogFormulaV2Draft,
   getBlogFormulaV2Payload,
+  getTopicBriefSetProviderModeForStore,
   listBlogFormulaV2Drafts,
   retrieveBlogFormulaV2Samples,
   validateBlogFormulaV2Draft
@@ -18,6 +20,7 @@ import {
   type BlogFormulaV2ProviderFactoryOptions
 } from '../blogFormulaV2/providers/providerFactory.js';
 import { createBlogDraftV2ProviderForMode } from '../blogFormulaV2/providers/draftProviderFactory.js';
+import { createTopicBriefSetProviderForMode } from '../blogFormulaV2/providers/topicBriefSetProviderFactory.js';
 import { BlogTopicBriefInputSchema } from '../blogFormulaV2/types.js';
 
 type BlogFormulaV2RoutesOptions = {
@@ -54,6 +57,10 @@ const ValidateDraftBodySchema = z.union([
   })
 ]);
 
+const ExtendTopicBriefSetsBodySchema = z.object({
+  formulaSetId: z.string().trim().min(1).optional()
+});
+
 export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }: BlogFormulaV2RoutesOptions) {
   const router = express.Router({ mergeParams: true });
   const repos = createStoreLearningRepositories(connection);
@@ -61,6 +68,27 @@ export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }
   function storeId(req: express.Request) {
     const value = req.params.storeId;
     return Array.isArray(value) ? value[0] ?? '' : value ?? '';
+  }
+
+  function topicBriefSetFactoryOptions() {
+    return {
+      env: providerFactoryOptions?.env,
+      openAIClient: providerFactoryOptions?.openAIClient,
+      model: providerFactoryOptions?.model
+    };
+  }
+
+  async function populateFirstTopicBriefSetBatch(
+    storeIdValue: string,
+    formulaSetId: string,
+    providerMode: 'deterministic' | 'safe_mock' | 'openai' | 'auto' | undefined
+  ) {
+    try {
+      const provider = createTopicBriefSetProviderForMode(providerMode, topicBriefSetFactoryOptions());
+      await extendBlogFormulaV2TopicBriefSets(repos, storeIdValue, { formulaSetId, provider });
+    } catch {
+      // best-effort: the topic brief library stays empty and is retryable via the extend route
+    }
   }
 
   router.get('/', (req, res, next) => {
@@ -77,11 +105,11 @@ export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }
       const provider = createBlogFormulaV2ProviderForMode(body.providerMode, {
         ...(providerFactoryOptions ?? {})
       });
-      if (!provider) {
-        res.json(extractBlogFormulaV2(repos, storeId(req)));
-        return;
-      }
-      res.json(await extractBlogFormulaV2WithProvider(repos, storeId(req), provider));
+      const result = provider
+        ? await extractBlogFormulaV2WithProvider(repos, storeId(req), provider)
+        : extractBlogFormulaV2(repos, storeId(req));
+      await populateFirstTopicBriefSetBatch(storeId(req), result.formulaSet.id, body.providerMode);
+      res.json(result);
     } catch (error) {
       next(error);
     }
@@ -116,6 +144,21 @@ export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }
     try {
       const body = ValidateDraftBodySchema.parse(req.body);
       res.json(validateBlogFormulaV2Draft(repos, storeId(req), body));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/topic-brief-sets/extend', async (req, res, next) => {
+    try {
+      const body = ExtendTopicBriefSetsBodySchema.parse(req.body ?? {});
+      const mode = getTopicBriefSetProviderModeForStore(repos, storeId(req), body.formulaSetId);
+      const provider = createTopicBriefSetProviderForMode(mode, topicBriefSetFactoryOptions());
+      const result = await extendBlogFormulaV2TopicBriefSets(repos, storeId(req), {
+        formulaSetId: body.formulaSetId,
+        provider
+      });
+      res.json(result);
     } catch (error) {
       next(error);
     }

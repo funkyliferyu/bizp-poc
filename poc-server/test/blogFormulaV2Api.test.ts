@@ -266,7 +266,16 @@ describe('Blog Formula V2 API', () => {
           beta: {
             chat: {
               completions: {
-                parse: async () => {
+                parse: async (params: unknown) => {
+                  const responseFormatName = (
+                    params as { response_format?: { json_schema?: { name?: string } } }
+                  )?.response_format?.json_schema?.name;
+                  if (responseFormatName === 'store_learning_blog_topic_brief_set_v2') {
+                    // The /extract route also fires an SL-F2 first-batch call that reuses this
+                    // same OpenAI client. Return a valid empty topic-brief response so it does
+                    // not count as an SL-F1 call and does not throw.
+                    return { choices: [{ message: { parsed: { topicBriefSets: [] } } }] };
+                  }
                   parseCallCount += 1;
                   return { choices: [{ message: { parsed: formulaOutput() } }] };
                 }
@@ -348,7 +357,16 @@ describe('Blog Formula V2 API', () => {
           beta: {
             chat: {
               completions: {
-                parse: async () => {
+                parse: async (params: unknown) => {
+                  const responseFormatName = (
+                    params as { response_format?: { json_schema?: { name?: string } } }
+                  )?.response_format?.json_schema?.name;
+                  if (responseFormatName === 'store_learning_blog_topic_brief_set_v2') {
+                    // The /extract route also fires an SL-F2 first-batch call that reuses this
+                    // same OpenAI client. Return a valid empty topic-brief response so it does
+                    // not count as an SL-F1 call and does not throw.
+                    return { choices: [{ message: { parsed: { topicBriefSets: [] } } }] };
+                  }
                   parseCallCount += 1;
                   return { choices: [{ message: { parsed: formulaOutput() } }] };
                 }
@@ -537,5 +555,33 @@ describe('Blog Formula V2 API', () => {
     expect(generated.provider).toBeUndefined();
     expect(generated.output.modelReportedCompliance ?? null).toBeNull();
     expect(countRows(connection, 'llm_audit_logs')).toBe(0);
+  });
+
+  it('populates the first topic brief set batch on deterministic extract and exposes it via GET', async () => {
+    await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, { method: 'POST' });
+
+    const getResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula`);
+    const payload = await readJson(getResponse);
+
+    expect(Array.isArray(payload.topicBriefSets)).toBe(true);
+    expect(payload.topicBriefSets.length).toBe(4); // fixture has 4 owner posts
+    expect(payload.status.topicBriefSetRemainingCount).toBe(0);
+    expect(payload.topicBriefSets[0].topic).toBeTruthy();
+  });
+
+  it('extends the topic brief set library via POST /topic-brief-sets/extend', async () => {
+    await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, { method: 'POST' });
+
+    const extendResponse = await fetch(
+      `${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/topic-brief-sets/extend`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }
+    );
+    const extended = await readJson(extendResponse);
+
+    expect(extendResponse.status).toBe(200);
+    // all 4 fixture posts were already covered by the first batch on extract
+    expect(extended.added).toHaveLength(0);
+    expect(extended.topicBriefSets).toHaveLength(4);
+    expect(extended.remainingCount).toBe(0);
   });
 });
