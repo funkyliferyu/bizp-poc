@@ -7,6 +7,46 @@ import {
   getBlogFormulaV2Payload,
   getTopicBriefSetProviderModeForStore
 } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
+import type { TopicBriefSetProvider } from '../src/storeLearning/blogFormulaV2/providers/topicBriefSetProvider.js';
+
+// A stub provider that returns a topic-brief set for only a subset of the batch,
+// to verify remainingCount reflects actually-covered posts (not batch size).
+function stubProviderCovering(coveredPostIds: string[]): TopicBriefSetProvider {
+  return {
+    name: 'stub-topic-brief-set-provider',
+    mode: 'safe_mock',
+    model: 'stub',
+    async extractTopicBriefSets(input) {
+      const sets = input.posts
+        .filter((post) => coveredPostIds.includes(post.collectionItemId))
+        .map((post) => ({
+          sourcePostIds: [post.collectionItemId],
+          confidence: 0.7,
+          status: 'candidate' as const,
+          topic: '리팟레이저',
+          mainKeyword: '리팟레이저',
+          secondaryKeywords: [],
+          targetReader: null,
+          coreConcern: null,
+          mainAngle: null,
+          mustInclude: [],
+          mustAvoid: [],
+          ctaDirection: null
+        }));
+      return {
+        sets,
+        provider: {
+          name: 'stub-topic-brief-set-provider',
+          mode: 'safe_mock',
+          model: 'stub',
+          callId: 'SL-F2',
+          promptShapeVersion: 'blog_topic_brief_set_v2_extraction_input.v1',
+          noExternalCalls: true
+        }
+      };
+    }
+  };
+}
 
 const STORE_ID = 'store_topic_brief_sets';
 const RUN_ID = 'run_topic_brief_sets';
@@ -100,6 +140,22 @@ describe('extendBlogFormulaV2TopicBriefSets', () => {
     const again = await extendBlogFormulaV2TopicBriefSets(repos, STORE_ID, { formulaSetId, provider: null });
     expect(again.added).toHaveLength(0);
     expect(again.remainingCount).toBe(0);
+  });
+
+  it('reports remainingCount from covered posts when a provider returns fewer sets than the batch', async () => {
+    const { repos, formulaSetId } = setup(3);
+    const provider = stubProviderCovering(['post_0', 'post_1']); // covers 2 of the 3 batched posts
+
+    const result = await extendBlogFormulaV2TopicBriefSets(repos, STORE_ID, { formulaSetId, provider });
+    expect(result.added).toHaveLength(2);
+    expect(result.topicBriefSets).toHaveLength(2);
+    expect(result.remainingCount).toBe(1); // post_2 was batched but not returned, so still uncovered
+
+    // a follow-up extend (heuristic) picks up the post the provider skipped
+    const second = await extendBlogFormulaV2TopicBriefSets(repos, STORE_ID, { formulaSetId, provider: null });
+    expect(second.added).toHaveLength(1);
+    expect(second.added[0].sourcePostIds[0]).toBe('post_2');
+    expect(second.remainingCount).toBe(0);
   });
 });
 

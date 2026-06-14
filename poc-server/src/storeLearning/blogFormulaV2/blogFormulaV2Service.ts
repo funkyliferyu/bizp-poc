@@ -457,6 +457,10 @@ type ExtendTopicBriefSetsOptions = {
   provider?: TopicBriefSetProvider | null;
 };
 
+// SL-F2 topic-brief extraction is intentionally best-effort and has no audit/run
+// trace of its own: callers (the /extract and /topic-brief-sets/extend routes)
+// invoke this so that a provider error just propagates and leaves the library
+// partial and retryable, rather than failing the surrounding formula flow.
 export async function extendBlogFormulaV2TopicBriefSets(
   repos: StoreLearningRepositories,
   storeId: string,
@@ -479,33 +483,39 @@ export async function extendBlogFormulaV2TopicBriefSets(
   }
 
   const candidates = await produceTopicBriefSetCandidates(store, batch, options.provider ?? null);
-  const added = candidates.map((candidate) =>
-    serializeTopicBriefSet(
-      repos.v2BlogTopicBriefSets.create({
-        id: makeId('v2_topic_brief_set'),
-        formulaSetId: formulaSet.id,
-        storeId,
-        sourcePostId: candidate.sourcePostIds[0],
-        topic: candidate.topic,
-        mainKeyword: candidate.mainKeyword,
-        secondaryKeywords: candidate.secondaryKeywords,
-        targetReader: candidate.targetReader,
-        coreConcern: candidate.coreConcern,
-        mainAngle: candidate.mainAngle,
-        mustInclude: candidate.mustInclude,
-        mustAvoid: candidate.mustAvoid,
-        ctaDirection: candidate.ctaDirection,
-        confidence: candidate.confidence,
-        status: candidate.status
-      })
-    )
-  );
+  const added = candidates
+    .filter((candidate) => candidate.sourcePostIds.length > 0)
+    .map((candidate) =>
+      serializeTopicBriefSet(
+        repos.v2BlogTopicBriefSets.create({
+          id: makeId('v2_topic_brief_set'),
+          formulaSetId: formulaSet.id,
+          storeId,
+          sourcePostId: candidate.sourcePostIds[0],
+          topic: candidate.topic,
+          mainKeyword: candidate.mainKeyword,
+          secondaryKeywords: candidate.secondaryKeywords,
+          targetReader: candidate.targetReader,
+          coreConcern: candidate.coreConcern,
+          mainAngle: candidate.mainAngle,
+          mustInclude: candidate.mustInclude,
+          mustAvoid: candidate.mustAvoid,
+          ctaDirection: candidate.ctaDirection,
+          confidence: candidate.confidence,
+          status: candidate.status
+        })
+      )
+    );
 
-  const topicBriefSets = repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id).map(serializeTopicBriefSet);
+  // Recompute coverage from the persisted rows (distinct sourcePostId) so the
+  // count stays correct even when a provider returns fewer or duplicate sets
+  // than the batch size. This matches getBlogFormulaV2Payload's basis exactly.
+  const allRows = repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id);
+  const coveredPostCount = new Set(allRows.map((row) => row.sourcePostId)).size;
   return {
     added,
-    topicBriefSets,
-    remainingCount: remaining.length - batch.length
+    topicBriefSets: allRows.map(serializeTopicBriefSet),
+    remainingCount: Math.max(0, allPosts.length - coveredPostCount)
   };
 }
 
