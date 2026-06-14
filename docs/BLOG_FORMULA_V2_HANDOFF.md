@@ -408,3 +408,93 @@ discovery, template filling, match checking) and the `Self-introduction
 pattern library` describe block in `poc-server/test/blogFormulaV2Services.test.ts`
 (end-to-end: extraction populates ratios, deterministic draft opens with the
 top pattern, validation flags a mismatched opener and passes a matching one).
+
+## Topic Brief Library
+
+To support long-running blog programs, a store needs more than a single
+hand-typed "소재 Brief": it needs a reusable library of topic-brief *sets* mined
+from its own `owner_blog_post` history, grouped by topic (e.g. for 테라스의원:
+리팟레이저 ①/②/③, 인모드 세트, 울쎄라 세트). Each set carries the same fields as
+the manual 소재 Brief form, so picking one auto-fills that form and the existing
+retrieve-samples → generate-draft → validate-draft flow is unchanged.
+
+Granularity is **1 owner blog post = 1 topic-brief set** (`sourcePostIds` always
+holds exactly that one post). Sets are stored one-row-per-post in the new
+`v2_blog_topic_brief_sets` table, FK'd to `v2_blog_formula_sets` with
+`UNIQUE (formula_set_id, source_post_id)` so a post is never mined twice into the
+same formula set. The row mirrors `BlogTopicBriefInput` (topic, mainKeyword,
+secondaryKeywords, targetReader, coreConcern, mainAngle, mustInclude, mustAvoid,
+ctaDirection) plus `FormulaEvidence` (confidence, status). `TopicBriefSetV2` /
+`TopicBriefSetCandidate` (= the same shape minus the persisted `id`) live in
+`types.ts`.
+
+Extraction is a dedicated call, **SL-F2** (separate from SL-F1 so the 8-block
+formula extraction is untouched and SL-F2 can run repeatedly in batches):
+
+- `topicBriefSetPrompt.ts` — `buildTopicBriefSetV2PromptInput(store, posts)`,
+  `BLOG_TOPIC_BRIEF_SET_V2_CALL_ID = 'SL-F2'`, `TOPIC_BRIEF_SET_BATCH_SIZE = 10`,
+  per-post body truncation (no character-budget trimming).
+- OpenAI path: `providers/openAITopicBriefSetProvider.ts` returns one set per
+  post (model echoes each post `id`); the provider keeps only items whose `id`
+  is in the batch and tags each with `sourcePostIds:[id]`, `confidence: 0.7`,
+  `status: 'candidate'`. Response shape is `TopicBriefSetV2ResponseFormatSchema`
+  (no server-only fields, `.nullable()` not `.optional()`), mirroring the
+  self-introduction response-format split.
+- Deterministic / safe_mock path: `topicBriefSetHeuristic.ts`
+  `buildHeuristicTopicBriefSets` derives topic/mainKeyword/secondaryKeywords from
+  `store.metadata.representativeKeywords` matched against title/body, with generic
+  interpretive defaults, `confidence: 0.4`, `status: 'candidate'`.
+- `providers/topicBriefSetProviderFactory.ts`
+  `createTopicBriefSetProviderForMode(mode, options)` returns `null` for
+  `deterministic`/undefined (the service runs the heuristic inline), the safe_mock
+  provider, the OpenAI provider, or auto-by-`OPENAI_API_KEY` — mirroring the
+  SL-F1 provider factory.
+
+Batching / extend (`extendBlogFormulaV2TopicBriefSets` in `blogFormulaV2Service.ts`):
+loads owner posts (newest-first), computes the set of already-covered
+`source_post_id`s for the formula set, takes the next ≤10 uncovered posts,
+produces candidates (heuristic when `provider` is null, else the provider),
+inserts one row per candidate (skipping any with empty `sourcePostIds`), and
+returns `{ added, topicBriefSets, remainingCount }`. `remainingCount` is computed
+from the *persisted* distinct `source_post_id` count (`allPosts.length −
+coveredAfter`), so it stays correct even when a provider returns fewer or
+duplicate sets than the batch — matching `getBlogFormulaV2Payload`'s basis. SL-F2
+is intentionally **best-effort and has no audit/run trace of its own**: a provider
+error propagates and simply leaves the library partial and retryable, rather than
+failing the surrounding formula flow.
+
+Provider-mode reuse: `getTopicBriefSetProviderModeForStore` reads the formula
+set's latest run `output.provider.mode` (deterministic runs have no `provider`
+field → `undefined` → heuristic), so the "extend" action reuses whatever provider
+the original `/extract` used.
+
+Endpoints / payload:
+
+- `POST /extract` populates the **first** batch (≤10) best-effort right after the
+  formula set is created, using a topic-brief provider matching the requested
+  formula `providerMode`. (Orchestrated in the route, not the service `extract*`
+  functions, so the synchronous deterministic `extractBlogFormulaV2` stays
+  synchronous and provider construction stays where the factory options live.)
+- `POST /topic-brief-sets/extend` (body `{ formulaSetId? }`, defaults to latest)
+  mines the next batch of 10 by recency, appending/merging — never replacing —
+  reusing the original provider mode.
+- `GET /` payload gains `topicBriefSets: TopicBriefSetV2[]` and
+  `status.topicBriefSetRemainingCount`.
+
+UI (`web/07_마케팅전략룰셋.html` + `web/blog_formula_v2.js`): the 소재 Brief panel
+gains a single "토픽 브리프 라이브러리" dropdown (first option "직접 입력", then
+one option per set labelled `topic + ①②③ + angle/concern summary`, same-topic
+entries numbered client-side) that fills the form via `applyTopicBriefSet` (the
+inverse of `topicBriefFromForm`), plus a "더 많은 블로그에서 포뮬라 생성" button
+shown while `topicBriefSetRemainingCount > 0` that POSTs to the extend endpoint
+and re-renders. A successful `/extract` refreshes the library via `loadBlogFormulaV2`.
+
+Coverage: `blogFormulaV2TopicBriefSetRepository.test.ts` (table + UNIQUE),
+`topicBriefSetSchema.test.ts`, `topicBriefSetPrompt.test.ts`,
+`topicBriefSetHeuristic.test.ts` (heuristic + safe_mock provider),
+`topicBriefSetOpenAIProvider.test.ts`, `topicBriefSetProviderFactory.test.ts`,
+`blogFormulaV2TopicBriefSets.test.ts` (extend batching/append/dedup, the
+provider-partial-return `remainingCount` case, payload fields, provider-mode
+resolution), and added cases in `blogFormulaV2Api.test.ts` (first batch on
+extract + extend endpoint) and `blogFormulaV2Page.test.ts` (dropdown/button +
+JS wiring).
