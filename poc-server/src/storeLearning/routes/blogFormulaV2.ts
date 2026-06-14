@@ -70,12 +70,14 @@ export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }
     return Array.isArray(value) ? value[0] ?? '' : value ?? '';
   }
 
+  // Spread (rather than an explicit-key literal) so the `openAIClient` key is
+  // only present when it was actually provided — mirroring the SL-F1 `/extract`
+  // call site. An always-present `openAIClient: undefined` key would make the
+  // factory's `'openAIClient' in options` check true and inject `client:
+  // undefined`, which then suppresses the provider's getOpenAIClient() fallback
+  // and breaks the OpenAI SL-F2 path in production (no injected client).
   function topicBriefSetFactoryOptions() {
-    return {
-      env: providerFactoryOptions?.env,
-      openAIClient: providerFactoryOptions?.openAIClient,
-      model: providerFactoryOptions?.model
-    };
+    return { ...(providerFactoryOptions ?? {}) };
   }
 
   async function populateFirstTopicBriefSetBatch(

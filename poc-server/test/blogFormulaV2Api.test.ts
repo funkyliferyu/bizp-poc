@@ -584,4 +584,76 @@ describe('Blog Formula V2 API', () => {
     expect(extended.topicBriefSets).toHaveLength(4);
     expect(extended.remainingCount).toBe(0);
   });
+
+  it('populates topic brief sets via the OpenAI SL-F2 provider through /extract (openai)', async () => {
+    const ownerPostIds = [
+      'collection_item_v2_owner_1',
+      'collection_item_v2_owner_2',
+      'collection_item_v2_owner_3',
+      'collection_item_v2_owner_4'
+    ];
+    await restartServer({
+      providerFactoryOptions: {
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'gpt-test-formula' },
+        openAIClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async (params: unknown) => {
+                  const responseFormatName = (
+                    params as { response_format?: { json_schema?: { name?: string } } }
+                  )?.response_format?.json_schema?.name;
+                  if (responseFormatName === 'store_learning_blog_topic_brief_set_v2') {
+                    return {
+                      choices: [
+                        {
+                          message: {
+                            parsed: {
+                              topicBriefSets: ownerPostIds.map((id) => ({
+                                id,
+                                topic: '리팟레이저',
+                                mainKeyword: '리팟레이저 부작용',
+                                secondaryKeywords: ['흑자 제거'],
+                                targetReader: '리팟레이저 정보를 찾는 고객',
+                                coreConcern: '부작용 걱정',
+                                mainAngle: '원리 설명 중심',
+                                mustInclude: ['개인차'],
+                                mustAvoid: [],
+                                ctaDirection: '상담 안내'
+                              }))
+                            }
+                          }
+                        }
+                      ]
+                    };
+                  }
+                  return { choices: [{ message: { parsed: formulaOutput() } }] };
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'openai' })
+    });
+
+    const getResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula`);
+    const payload = await readJson(getResponse);
+
+    // The OpenAI SL-F2 first-batch must run through route -> factory -> provider
+    // and populate the library (this path is broken if the factory options carry
+    // an always-present openAIClient key).
+    expect(payload.topicBriefSets).toHaveLength(4);
+    expect(payload.status.topicBriefSetRemainingCount).toBe(0);
+    expect(payload.topicBriefSets[0]).toMatchObject({
+      topic: '리팟레이저',
+      mainKeyword: '리팟레이저 부작용',
+      status: 'candidate'
+    });
+  });
 });
