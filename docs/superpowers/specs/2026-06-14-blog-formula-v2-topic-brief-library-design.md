@@ -212,10 +212,13 @@ reading the formula set's extraction run
 mode resolves to `deterministic`. The route then builds the matching
 `TopicBriefSetV2Provider` via the factory and passes it in.
 
-**First batch on extraction**: `extractBlogFormulaV2` and
-`extractBlogFormulaV2WithProvider` call `extendBlogFormulaV2TopicBriefSets` once
-(first ≤10 posts) right after the formula set is created — passing the same
-provider just used (or `null` for deterministic).
+**First batch on extraction**: the `/extract` route calls
+`extendBlogFormulaV2TopicBriefSets` once (first ≤10 posts) right after the formula
+set is created, building a topic-brief-set provider that matches the requested
+formula provider mode (or `null` for deterministic). Orchestration lives in the
+route rather than the service `extract*` functions so the synchronous
+deterministic `extractBlogFormulaV2` stays synchronous and provider construction
+stays where the factory options already exist.
 
 **Error handling**: SL-F2 is best-effort and non-fatal. If the OpenAI call or
 schema parse throws, the surrounding `/extract` still succeeds; the library is
