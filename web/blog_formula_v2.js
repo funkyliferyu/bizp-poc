@@ -54,8 +54,9 @@
     setText('v2FormulaMessage', message);
   }
 
-  let extractElapsedTimer = null;
-  let extractElapsedStartedAt = null;
+  let overlayElapsedTimer = null;
+  let overlayElapsedStartedAt = null;
+  let overlayButtonId = null;
 
   function formatElapsed(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -64,35 +65,65 @@
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
-  function showExtractOverlay(statusText) {
+  // Shared progress overlay for the long (~30-60s) openai calls. The extract and
+  // draft flows reuse the same #v2ExtractOverlay element with a different title
+  // and the button they should disable while the call is in flight.
+  function showProgressOverlay(options) {
     const overlay = field('v2ExtractOverlay');
     if (overlay) {
       overlay.classList.add('active');
       overlay.setAttribute('aria-hidden', 'false');
     }
-    setText('v2ExtractOverlayStatus', statusText || 'OpenAI가 owner 블로그를 분석하고 있습니다.');
-    const button = field('v2FormulaExtractButton');
+    if (options && options.title) setText('v2OverlayTitle', options.title);
+    setText('v2ExtractOverlayStatus', (options && options.status) || 'OpenAI가 분석하고 있습니다.');
+    overlayButtonId = (options && options.buttonId) || null;
+    const button = overlayButtonId ? field(overlayButtonId) : null;
     if (button) button.disabled = true;
-    extractElapsedStartedAt = Date.now();
+    overlayElapsedStartedAt = Date.now();
     const tick = () => {
-      setText('v2ExtractOverlayElapsed', `경과 ${formatElapsed(Date.now() - extractElapsedStartedAt)}`);
+      setText('v2ExtractOverlayElapsed', `경과 ${formatElapsed(Date.now() - overlayElapsedStartedAt)}`);
     };
     tick();
-    if (extractElapsedTimer) window.clearInterval(extractElapsedTimer);
-    extractElapsedTimer = window.setInterval(tick, 1000);
+    if (overlayElapsedTimer) window.clearInterval(overlayElapsedTimer);
+    overlayElapsedTimer = window.setInterval(tick, 1000);
   }
 
-  function hideExtractOverlay() {
+  function hideProgressOverlay() {
     const overlay = field('v2ExtractOverlay');
     if (overlay) {
       overlay.classList.remove('active');
       overlay.setAttribute('aria-hidden', 'true');
     }
-    const button = field('v2FormulaExtractButton');
+    const button = overlayButtonId ? field(overlayButtonId) : null;
     if (button) button.disabled = false;
-    if (extractElapsedTimer) window.clearInterval(extractElapsedTimer);
-    extractElapsedTimer = null;
-    extractElapsedStartedAt = null;
+    overlayButtonId = null;
+    if (overlayElapsedTimer) window.clearInterval(overlayElapsedTimer);
+    overlayElapsedTimer = null;
+    overlayElapsedStartedAt = null;
+  }
+
+  function showExtractOverlay(statusText) {
+    showProgressOverlay({
+      title: 'AI가 블로그 포뮬라를 추출하는 중',
+      status: statusText || 'OpenAI가 owner 블로그를 분석하고 있습니다.',
+      buttonId: 'v2FormulaExtractButton'
+    });
+  }
+
+  function hideExtractOverlay() {
+    hideProgressOverlay();
+  }
+
+  function showDraftOverlay(statusText) {
+    showProgressOverlay({
+      title: 'AI가 블로그 초안을 생성하는 중',
+      status: statusText || 'OpenAI가 포뮬라와 유사 블로그로 초안을 작성하고 있습니다.',
+      buttonId: 'v2GenerateButton'
+    });
+  }
+
+  function hideDraftOverlay() {
+    hideProgressOverlay();
   }
 
   function topicBriefFromForm() {
@@ -252,6 +283,62 @@
     `;
   }
 
+  function yesNo(value) {
+    return value ? '예' : '아니오';
+  }
+
+  function joinList(value) {
+    return Array.isArray(value) && value.length ? value.join(', ') : '-';
+  }
+
+  function complianceRow(label, modelValue, serverValue) {
+    return `
+      <div class="formula-v2-sample">
+        <div class="formula-v2-sample-title">${escapeHtml(label)}</div>
+        <div class="formula-v2-meta">모델 자가보고: ${escapeHtml(modelValue)}</div>
+        <div class="formula-v2-meta">서버 검증: ${escapeHtml(serverValue)}</div>
+      </div>
+    `;
+  }
+
+  // Shows the model's self-reported compliance next to the server-derived
+  // authoritative compliance so a human can compare the two.
+  function renderComplianceComparison(output) {
+    const target = field('v2DraftCompliancePanel');
+    if (!target) return;
+    if (!output) {
+      target.innerHTML = 'OpenAI 초안을 생성하면 모델 자가보고와 서버 검증 결과를 나란히 비교할 수 있습니다.';
+      return;
+    }
+    const server = {
+      bannedPhrasesAvoided: output.safetyCheck && output.safetyCheck.bannedPhrasesAvoided,
+      requiredDisclosures: (output.safetyCheck && output.safetyCheck.requiredDisclosures) || [],
+      appliedBlocks: (output.styleComplianceReport && output.styleComplianceReport.appliedBlocks) || [],
+      mainKeywordInTitle: output.seoCheck && output.seoCheck.mainKeywordInTitle,
+      mainKeywordInIntro: output.seoCheck && output.seoCheck.mainKeywordInIntro,
+      secondaryKeywordsUsed: (output.seoCheck && output.seoCheck.secondaryKeywordsUsed) || []
+    };
+    const model = output.modelReportedCompliance;
+    if (!model) {
+      target.innerHTML =
+        '<div class="formula-v2-meta">deterministic 초안에는 모델 자가보고가 없어 서버 검증만 표시합니다.</div>'
+        + `<div class="formula-v2-meta">금지표현 회피(서버): ${yesNo(server.bannedPhrasesAvoided)}</div>`
+        + `<div class="formula-v2-meta">필수 고지(서버): ${escapeHtml(joinList(server.requiredDisclosures))}</div>`;
+      return;
+    }
+    const modelSafety = model.safetyCheck || {};
+    const modelStyle = model.styleComplianceReport || {};
+    const modelSeo = model.seoCheck || {};
+    target.innerHTML = [
+      complianceRow('금지표현 회피', yesNo(modelSafety.bannedPhrasesAvoided), yesNo(server.bannedPhrasesAvoided)),
+      complianceRow('필수 고지', joinList(modelSafety.requiredDisclosures), joinList(server.requiredDisclosures)),
+      complianceRow('적용 포뮬라 블록', joinList(modelStyle.appliedBlocks), joinList(server.appliedBlocks)),
+      complianceRow('제목 메인키워드', yesNo(modelSeo.mainKeywordInTitle), yesNo(server.mainKeywordInTitle)),
+      complianceRow('도입부 메인키워드', yesNo(modelSeo.mainKeywordInIntro), yesNo(server.mainKeywordInIntro)),
+      complianceRow('사용된 서브키워드', joinList(modelSeo.secondaryKeywordsUsed), joinList(server.secondaryKeywordsUsed))
+    ].join('');
+  }
+
   function renderValidation(validation) {
     const target = field('v2ValidationPanel');
     if (!target) return;
@@ -358,26 +445,33 @@
       if (!retrieved) return null;
     }
     try {
-      setMessage('V2 초안을 생성하는 중입니다.');
+      setMessage('OpenAI로 V2 초안을 생성하는 중입니다.');
+      showDraftOverlay('OpenAI가 포뮬라와 유사 블로그로 초안을 작성하고 있습니다.');
       const response = await fetch(`/api/stores/${storeId}/v2/blog-formula/generate-draft`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formulaSetId: state.formulaSetId,
           topicBriefId: state.topicBriefId,
-          retrievalRunId: state.retrievalRunId
+          retrievalRunId: state.retrievalRunId,
+          providerMode: 'openai'
         })
       });
       if (!response.ok) throw new Error('generate failed');
       const payload = await response.json();
       state.draftGenerationId = payload.draftGeneration?.id || null;
       setText('v2DraftStatus', payload.draftGeneration?.status || '-');
+      const model = payload.provider?.model || payload.draftGeneration?.model || '-';
+      setText('v2FormulaModel', model);
       renderDraft(payload.output);
-      setMessage('V2 초안 생성이 완료되었습니다.');
+      renderComplianceComparison(payload.output);
+      setMessage(`V2 초안 생성이 완료되었습니다. (모델 ${model})`);
       return payload;
     } catch {
-      setMessage('V2 초안 생성에 실패했습니다.');
+      setMessage('V2 초안 생성에 실패했습니다. OpenAI 키와 서버 상태를 확인하세요.');
       return null;
+    } finally {
+      hideDraftOverlay();
     }
   }
 

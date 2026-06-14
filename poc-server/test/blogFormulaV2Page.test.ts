@@ -88,4 +88,33 @@ describe('Blog Formula V2 static UI lane', () => {
     expect(formulaSection).toContain('id="v2ExtractOverlayStatus"');
     expect(formulaSection).toContain('id="v2ExtractOverlayElapsed"');
   });
+
+  it('runs the draft button through the server-side openai provider with a progress overlay', () => {
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    // The draft button must ask the poc-server route for the openai provider.
+    expect(js).toMatch(/generate-draft[\s\S]*?providerMode: 'openai'/);
+
+    // The long openai draft call reuses the same progress overlay (with elapsed timer)
+    // and disables the generate button while in flight.
+    expect(js).toContain('showDraftOverlay');
+    expect(js).toContain('hideDraftOverlay');
+    expect(js).toContain('v2GenerateButton');
+
+    // It renders the model self-report next to the server-derived report for human comparison.
+    expect(js).toContain('renderComplianceComparison');
+    expect(js).toContain('modelReportedCompliance');
+
+    // The browser still never holds provider credentials.
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
+
+  it('defines the shared overlay title and the compliance comparison panel on the V2 tab', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const formulaSection = extractSection(html, '<!-- Blog Formula V2 -->', '<!-- 유사업체비교 -->');
+
+    expect(formulaSection).toContain('id="v2OverlayTitle"');
+    expect(formulaSection).toContain('id="v2DraftCompliancePanel"');
+  });
 });

@@ -674,7 +674,7 @@
       <div class="formula-v2-overlay" id="v2ExtractOverlay" aria-hidden="true" role="status" aria-live="polite">
         <div class="formula-v2-overlay-box">
           <div class="formula-v2-spinner"></div>
-          <div class="formula-v2-overlay-title">AI가 블로그 포뮬라를 추출하는 중</div>
+          <div class="formula-v2-overlay-title" id="v2OverlayTitle">AI가 블로그 포뮬라를 추출하는 중</div>
           <div class="formula-v2-overlay-status" id="v2ExtractOverlayStatus">OpenAI가 owner 블로그를 분석하고 있습니다.</div>
           <div class="formula-v2-overlay-elapsed" id="v2ExtractOverlayElapsed">경과 00:00</div>
           <div class="formula-v2-overlay-note">OpenAI 호출은 보통 30~60초가 걸립니다. 창을 닫지 말고 기다려 주세요.</div>
@@ -752,6 +752,11 @@
               <div id="v2DraftPreview">초안 생성 결과가 없습니다.</div>
             </div>
           </div>
+        </div>
+
+        <div class="formula-v2-panel" style="margin-top:14px">
+          <div class="formula-v2-panel-head">컴플라이언스 비교 (모델 자가보고 vs 서버 검증)</div>
+          <div class="formula-v2-panel-body" id="v2DraftCompliancePanel">OpenAI 초안을 생성하면 모델 자가보고와 서버 검증 결과를 나란히 비교할 수 있습니다.</div>
         </div>
 
         <div class="formula-v2-panel" style="margin-top:14px">
