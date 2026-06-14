@@ -1,5 +1,53 @@
 # Validation
 
+## Blog Formula V2 OpenAI Draft Generation Validation (13h)
+
+Date: 2026-06-14
+
+Branch:
+
+- `codex/blog-formula-v2-openai-draft`, created from validated `develop` at
+  `e010c9a docs: record blog formula v2 provider comparison develop
+  validation`.
+
+Develop integration:
+
+- Pending. Feature-branch validation below passed; PR to `develop` and
+  post-merge develop validation are gated on user confirmation (outward-facing
+  push/PR).
+
+Scope:
+
+- Added an OpenAI-backed `generate-draft` path (new `SL-G1` call) consuming the
+  extracted `formula_v2.1` set + retrieved owner-blog samples Top 1~3 + topic
+  brief, mirroring the `SL-F1` extract provider pattern
+  (deterministic/safe_mock/openai/auto, `llm_audit_logs`).
+- The OpenAI path persists BOTH the model's self-reported compliance and the
+  server-derived authoritative compliance (`modelReportedCompliance`) for human
+  comparison; `validate-draft` stays the deterministic quality gate
+  (build-first: persist then flag).
+- `safetyCheck.bannedPhrasesAvoided` is now derived by scanning the draft
+  against `medicalSafetyFormula.bannedClaims` (was hardcoded `true`).
+- Wired the V2 tab "초안 생성" button to the openai provider with a generalized
+  progress overlay and a model-vs-server compliance comparison panel.
+
+Feature-branch validation (run on `codex/blog-formula-v2-openai-draft`):
+
+- `cd poc-server && npm run typecheck` → PASS.
+- `cd poc-server && npm test` → 59 files passed, 3 live-provider files skipped;
+  367 passed, 6 skipped.
+- `STORE_LEARNING_DB_PATH=/tmp/bizp-blog-formula-v2-13h-demo.sqlite npm run
+  demo:blog-formula-v2` → deterministic extract → retrieve → generate →
+  validate end to end, `validationStatus = needs_human_review`.
+- `node --check web/blog_formula_v2.js`, `node --check web/ruleset_editor.js`,
+  `git diff --check` → PASS.
+- No real OpenAI calls in the suite: every openai-path test injects a fake
+  `beta.chat.completions.parse` client.
+
+Out of scope (unchanged): OpenAI `retrieve-samples`/`validate-draft`, prompt/
+quality tuning of the draft, Hybrid/combined V1+V2 generation,
+`develop` -> `main` promotion (user-gated).
+
 ## Blog Formula V2 Provider Comparison Validation
 
 Date: 2026-06-13

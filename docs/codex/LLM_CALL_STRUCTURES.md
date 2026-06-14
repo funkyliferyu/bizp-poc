@@ -12,14 +12,16 @@
 similar-company benchmark fixture, image prompt regeneration, RAG document
 generation, review-weakness backfill, static/server-derived writing-style
 suggestions, and Blog Formula V2 deterministic/safe-mock extraction,
-retrieval, draft generation, and validation do not call OpenAI.
+retrieval and validation do not call OpenAI. Blog Formula V2 draft generation
+calls OpenAI only on the explicit `openai`/`auto` provider path (`SL-G1`); its
+deterministic and safe-mock paths do not.
 
-**Blog Formula V2 OpenAI call:** Blog Formula V2 formula extraction (`SL-F1`)
-calls OpenAI only through `poc-server` when `providerMode = "openai"` or
-`providerMode = "auto"` with a server-side `OPENAI_API_KEY`. Missing
-`providerMode` and `providerMode = "deterministic"` preserve the deterministic
-path, and explicit `openai` fails instead of silently falling back when the
-server-side OpenAI client is unavailable.
+**Blog Formula V2 OpenAI calls:** Blog Formula V2 formula extraction (`SL-F1`)
+and draft generation (`SL-G1`) call OpenAI only through `poc-server` when
+`providerMode = "openai"` or `providerMode = "auto"` with a server-side
+`OPENAI_API_KEY`. Missing `providerMode` and `providerMode = "deterministic"`
+preserve the deterministic path, and explicit `openai` fails instead of
+silently falling back when the server-side OpenAI client is unavailable.
 
 ---
 
@@ -32,6 +34,7 @@ server-side OpenAI client is unavailable.
 | SL-B2 | Structured blog text regeneration | Store Learning Blog | `POST /api/blog-posts/:postId/regenerate-text` | `client.beta.chat.completions.parse` | `BlogProviderDraftOutputSchema` |
 | SL-S1 | Structured SEO scoring | Store Learning Blog | `POST /api/blog-posts/:postId/seo-score` | `client.beta.chat.completions.parse` | `SeoScoreOutputSchema` |
 | SL-F1 | Structured formula extraction | Blog Formula V2 | `POST /api/stores/:storeId/v2/blog-formula/extract` with `providerMode = "openai"` or `auto` with key | `client.beta.chat.completions.parse` | `BlogFormulaSetV2Schema` |
+| SL-G1 | Structured blog draft generation | Blog Formula V2 | `POST /api/stores/:storeId/v2/blog-formula/generate-draft` with `providerMode = "openai"` or `auto` with key | `client.beta.chat.completions.parse` | `BlogDraftModelResponseV2Schema` |
 | RT-P1 | Runtime model probe | Runtime health | `POST /api/runtime/openai-probe` | `client.models.retrieve` | No prompt / no generated content |
 | LEG-M1 | Legacy structured extraction | Event-to-Operation legacy | `POST /api/memory/build` | `client.beta.chat.completions.parse` | `BusinessMemorySchema.omit({ generationTrace: true })` |
 | LEG-C1 | Legacy structured channel generation | Event-to-Operation legacy | `POST /api/events/:eventId/run` | `client.beta.chat.completions.parse` | `ChannelOutputsSchema` |
@@ -212,6 +215,126 @@ OpenAI extraction records `llm_audit_logs` with:
 Invalid OpenAI output is rejected by `BlogFormulaSetV2Schema`; the server
 stores a failed `v2_blog_formula_runs` row with `formula_set_id = NULL`, does
 not create a V2 formula set, and records a failed audit row.
+
+---
+
+## Type SL-G1: Blog Formula V2 Structured Draft Generation
+
+**Call ID:** `SL-G1`
+
+**Purpose:** Generate a new Korean Naver Blog draft by applying an extracted
+Blog Formula V2 formula set, the topic brief, and the retrieved owner Blog
+style examples Top 1~3.
+
+**Provider:** `openAIBlogDraftV2Provider`
+
+**Key files:**
+
+- `poc-server/src/storeLearning/blogFormulaV2/blogDraftPrompt.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/draftOutput.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/providers/openAIBlogDraftProvider.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/providers/safeMockBlogDraftProvider.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/providers/draftProviderFactory.ts`
+- `poc-server/src/storeLearning/blogFormulaV2/blogFormulaV2Service.ts`
+- `poc-server/src/storeLearning/routes/blogFormulaV2.ts`
+
+**Provider modes on `POST /generate-draft`:**
+
+- missing or `deterministic`: existing deterministic V2 draft generation, no
+  OpenAI, no `llm_audit_logs` row.
+- `safe_mock`: provider-shaped path with no external calls, no
+  `llm_audit_logs` row. Returns deterministic creative content plus a mock
+  self-report.
+- `openai`: explicit server-side OpenAI draft generation; if the server-side
+  OpenAI client is unavailable, the draft generation is stored as `failed` and
+  a failed audit row is recorded.
+- `auto`: uses OpenAI when `OPENAI_API_KEY` is configured server-side, else
+  uses `safe_mock`.
+
+**Response format:**
+
+```ts
+zodResponseFormat(BlogDraftModelResponseV2Schema, "store_learning_blog_formula_v2_draft")
+```
+
+The model returns only what a model can meaningfully self-report:
+`titleCandidates`, `selectedTitle`, `blogDraft`, and its own
+`styleComplianceReport.appliedBlocks` / `safetyCheck` / `seoCheck`. Server-only
+facts (`formulaSetId`, `sourcePostIds`) are not requested from the model. The
+schema intentionally avoids array min/max constraints to stay compatible with
+OpenAI structured outputs.
+
+**Two-report comparison contract:**
+
+The persisted draft `output` (`BlogDraftOutputV2`) keeps the existing contract
+and adds an optional `modelReportedCompliance`:
+
+- `output.styleComplianceReport` / `safetyCheck` / `seoCheck` are
+  **server-derived authoritative** reports, computed by `deriveDraftReports`
+  from the formula set, topic brief, and the generated title/body.
+  `safetyCheck.bannedPhrasesAvoided` is computed by scanning the draft against
+  `medicalSafetyFormula.bannedClaims`.
+- `output.modelReportedCompliance` carries the **model's self-reported**
+  versions of the same three reports for human comparison. It is `null` on the
+  deterministic path.
+
+`validate-draft` stays the deterministic quality gate over the generated
+draft (build-first: persist then flag).
+
+**System prompt:**
+
+```text
+You are a Korean local-store blog content strategist. You write a NEW Naver Blog draft by applying the provided Blog Formula V2 writing formula, a Topic Brief, and retrieved owner Blog style examples Top 1~3. The formula tells you HOW this store writes (title slots, intro/body/footer move sequences, heading style, tone habits, soft CTA, footer/disclaimer, medical safety); reproduce that style for the new topic. Use the style examples for structure and tone only — never copy their sentences. Place the main keyword in the title and first paragraph, weave secondary keywords in naturally, include the required medical disclosures, and never use banned claims or the brief mustAvoid phrases. Do not hardcode operating hours or invent treatment outcomes, rankings, or guarantees. Return validated structured draft data only; keep the draft approval-pending.
+```
+
+**Prompt input shape:**
+
+```ts
+{
+  task: "Write a new Korean Naver Blog draft by applying the Blog Formula V2.",
+  schemaVersion: "blog_formula_v2_draft_input.v1",
+  outputSchemaRef: "store_learning_blog_formula_v2_draft",
+  constraints: string[],
+  productIntent: string[],
+  generationInstructions: string[],
+  qualityRequirements: string[],
+  storeProfile: { id, name, category, address },
+  formula: BlogFormulaSetV2,
+  topicBrief: BlogTopicBriefInput,
+  styleSamples: [
+    { rank, collectionItemId, title, sourceUrl, whySelected, charCount, includedCharCount, isTruncated, bodyText }
+  ],
+  requestedOutputBlocks: [
+    "titleCandidates", "selectedTitle", "blogDraft",
+    "styleComplianceReport", "safetyCheck", "seoCheck"
+  ]
+}
+```
+
+Prompt builder defaults:
+
+- max 3 style samples (the retrieval Top 1~3)
+- max 2,500 body characters per sample
+- max 7,500 aggregate sample body characters
+- max 30,000 serialized prompt characters
+
+`metadata` records `sampleCount`, `promptSampleCount`,
+`omittedSampleCollectionItemIds`, `promptCharacterCount`, and a
+`promptBudgetReason`.
+
+**Audit behavior:**
+
+OpenAI draft generation records `llm_audit_logs` with:
+
+- `related_entity_type = "v2_blog_draft_generation"`
+- `related_entity_id = v2_blog_draft_generations.id`
+- `action = "blog_formula_v2_generate_draft"`
+- `prompt_input_json`, `response_format_json`, raw requested JSON, raw parsed
+  output, normalized output when schema-valid, and sanitized error metadata
+
+Invalid OpenAI output is rejected by `BlogDraftModelResponseV2Schema`; the
+server stores a `failed` `v2_blog_draft_generations` row (null
+`selected_title`/`blog_draft`), records a failed audit row, and rethrows.
 
 ---
 

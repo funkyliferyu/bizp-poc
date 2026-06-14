@@ -111,7 +111,7 @@ Current next todo as of 2026-06-13:
 | 13e | Blog Formula V2 OpenAI 포뮬라 추출 provider | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_FORMULA_PROVIDER_PLAN.md), [#49](https://github.com/funkyliferyu/bizp-poc/pull/49), merge `c76c052` | Develop validation recorded 2026-06-12 |
 | 13f | Blog Formula V2 Formula Quality Contract | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md), [#50](https://github.com/funkyliferyu/bizp-poc/pull/50), merge `1d929d1` | Develop validation recorded 2026-06-13 |
 | 13g | Blog Formula V2 provider 비교 + 추출 버튼 openai 연결 | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md), [#51](https://github.com/funkyliferyu/bizp-poc/pull/51) | Develop validation recorded 2026-06-13 |
-| 13h | Blog Formula V2 OpenAI 초안 생성 (SL-G1) | Planned | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_DRAFT_PLAN.md), branch `codex/blog-formula-v2-openai-draft` | Pending feature-branch + develop validation |
+| 13h | Blog Formula V2 OpenAI 초안 생성 (SL-G1) | Feature-branch validated (pre-PR) | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_DRAFT_PLAN.md), branch `codex/blog-formula-v2-openai-draft` | Feature-branch validation recorded 2026-06-14; PR to develop pending user confirmation |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist

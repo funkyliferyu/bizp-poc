@@ -94,6 +94,15 @@ path). Because a live call takes ~30-60s, the tab shows a progress overlay
 is in flight, and surfaces the returned model in the "생성 모델" stat. The
 browser holds no provider credentials; the call goes through `poc-server`.
 
+The "V2 초안 생성" button POSTs `{ ..., providerMode: 'openai' }` to
+`/generate-draft`, running the live server-side OpenAI SL-G1 draft lane. It
+reuses the same progress overlay (now generalized via
+`showProgressOverlay`/`hideProgressOverlay` with an id'd `#v2OverlayTitle`),
+disables the generate button while in flight, and surfaces the draft model in
+the "생성 모델" stat. A "컴플라이언스 비교 (모델 자가보고 vs 서버 검증)" panel
+(`#v2DraftCompliancePanel`) renders the model self-report next to the
+server-derived authoritative report so a human can compare them.
+
 V1 writing-style fields remain under the existing `글쓰기 스타일` tab and keep
 using `ruleset_editor.js`.
 
@@ -265,3 +274,55 @@ Recommended next product follow-up if the user wants another V2 iteration:
   or remain API/demo-only for one more iteration
 - consider whether `body_sequence_too_short`-class issues should trigger an
   automatic re-extraction prompt hint or stay reviewer-facing only
+
+## OpenAI Draft Generation (SL-G1)
+
+`POST /generate-draft` now accepts an optional `providerMode`
+(`deterministic` | `safe_mock` | `openai` | `auto`), mirroring `/extract`:
+
+- missing/`deterministic`: existing deterministic V2 draft generation
+- `safe_mock`: provider-shaped path with no external calls
+- `openai`: server-side OpenAI SL-G1 draft generation only
+- `auto`: OpenAI when `OPENAI_API_KEY` exists server-side, otherwise `safe_mock`
+
+The OpenAI path uses:
+
+```text
+BlogDraftModelResponseV2Schema
+zodResponseFormat(..., "store_learning_blog_formula_v2_draft")
+llm_audit_logs.related_entity_type = "v2_blog_draft_generation"
+llm_audit_logs.action = "blog_formula_v2_generate_draft"
+```
+
+The draft provider only generates the creative content (`titleCandidates`,
+`selectedTitle`, `blogDraft`) plus its own self-reported compliance. The server
+then derives the authoritative `styleComplianceReport` / `safetyCheck` /
+`seoCheck` from the formula set + topic brief + generated text
+(`deriveDraftReports` in `draftOutput.ts`), and persists both:
+
+- `output.styleComplianceReport` / `safetyCheck` / `seoCheck`: server-derived
+  authoritative (the existing contract; `safetyCheck.bannedPhrasesAvoided` is
+  now actually computed against `medicalSafetyFormula.bannedClaims`).
+- `output.modelReportedCompliance`: the model's self-reported versions for
+  human comparison (`null` on the deterministic path).
+
+Build-first safety gate: a generated draft is always persisted
+(`status = 'generated'`); the deterministic `validate-draft` flags banned
+phrases / missing disclosures / broken unicode. Provider/parse failures persist
+a `failed` `v2_blog_draft_generations` row (null `selected_title`/`blog_draft`)
+plus a failed audit row, and rethrow. No schema migration was required —
+`output_json` carries `modelReportedCompliance` and the draft columns are
+nullable.
+
+Still out of scope:
+
+- OpenAI `retrieve-samples` / `validate-draft` (stay deterministic)
+- prompt/quality tuning of the OpenAI draft (build-first; tuning is follow-up)
+- Hybrid or combined V1/V2 generation
+- browser-side provider calls
+- V2 writes to `marketing_rulesets` or `ruleset_fields`
+
+Manual live confirmation (only when explicitly requested) on a `/tmp` snapshot
+DB: drive `/extract` then `/generate-draft {"providerMode":"openai"}` against
+the running server and confirm a `gpt-4o-mini` draft plus a completed
+`llm_audit_logs` row (`action = "blog_formula_v2_generate_draft"`).
