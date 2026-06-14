@@ -471,8 +471,11 @@
       renderSourcePosts(payload.sourcePosts || []);
       renderFormulaCards(payload.formulaSet);
       const model = payload.provider?.model || payload.formulaSet?.model || '-';
-      setMessage(`Blog Formula V2 추출이 완료되었습니다. (모델 ${model})`);
+      // Refresh first (this repopulates the topic brief library dropdown), then set
+      // the informative success message last so loadBlogFormulaV2's generic message
+      // does not overwrite it.
       await loadBlogFormulaV2();
+      setMessage(`Blog Formula V2 추출이 완료되었습니다. (모델 ${model})`);
       return payload;
     } catch {
       setMessage('포뮬라 추출에 실패했습니다. OpenAI 키와 서버 상태를 확인하세요.');
