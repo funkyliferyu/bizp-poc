@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { JsonValue } from '../../repositories/base.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import type { V2BlogTopicBriefSet } from '../../repositories/v2_blog_formula.js';
 import { recordLlmAuditLog } from '../llmAudit/llmAuditRecorder.js';
 import { sanitizedProviderError } from '../llmAudit/llmAuditMetadata.js';
 import {
@@ -9,12 +10,15 @@ import {
   BlogFormulaSetV2Schema,
   BlogRetrievedSampleV2Schema,
   BlogTopicBriefInputSchema,
+  TopicBriefSetV2Schema,
   parseStoredBlogFormulaV2,
   type BlogDraftOutputV2,
   type BlogDraftValidationResultV2,
   type BlogFormulaSetV2,
   type BlogRetrievedSampleV2,
-  type BlogTopicBriefInput
+  type BlogTopicBriefInput,
+  type TopicBriefSetCandidate,
+  type TopicBriefSetV2
 } from './types.js';
 import { BLOG_FORMULA_V2_CALL_ID, BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION } from './blogFormulaPrompt.js';
 import {
@@ -35,6 +39,12 @@ import type {
 import { listOwnerBlogPostsForFormulaV2, type OwnerBlogPostV2 } from './sourcePosts.js';
 import { analyzeSelfIntroductionPatterns } from './selfIntroductionPatterns.js';
 import { validateBlogFormulaV2DraftText } from './validator.js';
+import { buildHeuristicTopicBriefSets } from './topicBriefSetHeuristic.js';
+import { TOPIC_BRIEF_SET_BATCH_SIZE, type TopicBriefSetPromptStore } from './topicBriefSetPrompt.js';
+import type {
+  TopicBriefSetExtractProviderMode,
+  TopicBriefSetProvider
+} from './providers/topicBriefSetProvider.js';
 
 type StoreLearningRepositories = ReturnType<typeof createStoreLearningRepositories>;
 
@@ -110,6 +120,58 @@ function topicBriefInputFromRecord(record: ReturnType<StoreLearningRepositories[
   });
 }
 
+function representativeKeywordsFromStore(store: ReturnType<typeof requireStore>): string[] {
+  const metadata = store.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return [];
+  return asStringArray((metadata as Record<string, JsonValue>).representativeKeywords);
+}
+
+function topicBriefSetStore(store: ReturnType<typeof requireStore>): TopicBriefSetPromptStore {
+  return {
+    id: store.id,
+    name: store.name,
+    category: store.category,
+    representativeKeywords: representativeKeywordsFromStore(store)
+  };
+}
+
+function serializeTopicBriefSet(record: V2BlogTopicBriefSet): TopicBriefSetV2 {
+  return TopicBriefSetV2Schema.parse({
+    id: record.id,
+    sourcePostIds: [record.sourcePostId],
+    confidence: record.confidence,
+    status: record.status,
+    topic: record.topic,
+    mainKeyword: record.mainKeyword,
+    secondaryKeywords: asStringArray(record.secondaryKeywords),
+    targetReader: record.targetReader,
+    coreConcern: record.coreConcern,
+    mainAngle: record.mainAngle,
+    mustInclude: asStringArray(record.mustInclude),
+    mustAvoid: asStringArray(record.mustAvoid),
+    ctaDirection: record.ctaDirection
+  });
+}
+
+function readProviderMode(output: JsonValue | undefined | null): string | undefined {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return undefined;
+  const provider = (output as Record<string, JsonValue>).provider;
+  if (!provider || typeof provider !== 'object' || Array.isArray(provider)) return undefined;
+  const mode = (provider as Record<string, JsonValue>).mode;
+  return typeof mode === 'string' ? mode : undefined;
+}
+
+async function produceTopicBriefSetCandidates(
+  store: ReturnType<typeof requireStore>,
+  posts: OwnerBlogPostV2[],
+  provider: TopicBriefSetProvider | null
+): Promise<TopicBriefSetCandidate[]> {
+  const promptStore = topicBriefSetStore(store);
+  if (!provider) return buildHeuristicTopicBriefSets(promptStore, posts);
+  const result = await provider.extractTopicBriefSets({ store: promptStore, posts });
+  return result.sets;
+}
+
 function tokenize(value: string) {
   return value
     .toLowerCase()
@@ -162,6 +224,10 @@ export function getBlogFormulaV2Payload(repos: StoreLearningRepositories, storeI
     ? latestByCreatedAt(repos.v2BlogDraftValidations.listByDraftGenerationId(latestDraftGeneration.id))
     : null;
   const ownerPosts = listOwnerBlogPostsForFormulaV2(repos, storeId);
+  const topicBriefSetRows = formulaSet ? repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id) : [];
+  const topicBriefSets = topicBriefSetRows.map(serializeTopicBriefSet);
+  const coveredPostCount = new Set(topicBriefSetRows.map((row) => row.sourcePostId)).size;
+  const topicBriefSetRemainingCount = formulaSet ? Math.max(0, ownerPosts.length - coveredPostCount) : 0;
 
   return {
     lane: 'blog_formula_v2',
@@ -170,10 +236,12 @@ export function getBlogFormulaV2Payload(repos: StoreLearningRepositories, storeI
       formulaSetStatus: formulaSet?.status ?? 'none',
       sourceOwnerBlogPostCount: ownerPosts.length,
       model: formulaSet?.model ?? BLOG_FORMULA_V2_MODEL,
-      reviewStatus: latestValidation?.status ?? 'not_validated'
+      reviewStatus: latestValidation?.status ?? 'not_validated',
+      topicBriefSetRemainingCount
     },
     formulaSet,
     sourcePosts: formulaSet ? repos.v2BlogFormulaSourcePosts.listByFormulaSetId(formulaSet.id) : [],
+    topicBriefSets,
     latestDraftGeneration,
     latestValidation
   };
@@ -370,6 +438,75 @@ export async function extractBlogFormulaV2WithProvider(
     });
     throw error;
   }
+}
+
+export function getTopicBriefSetProviderModeForStore(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  formulaSetId?: string
+): TopicBriefSetExtractProviderMode | undefined {
+  const formulaSet = requireFormulaSet(repos, storeId, formulaSetId);
+  const latestRun = latestByCreatedAt(repos.v2BlogFormulaRuns.listByFormulaSetId(formulaSet.id));
+  const mode = readProviderMode(latestRun?.output);
+  if (mode === 'safe_mock' || mode === 'openai' || mode === 'deterministic') return mode;
+  return undefined;
+}
+
+type ExtendTopicBriefSetsOptions = {
+  formulaSetId?: string;
+  provider?: TopicBriefSetProvider | null;
+};
+
+export async function extendBlogFormulaV2TopicBriefSets(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  options: ExtendTopicBriefSetsOptions = {}
+) {
+  const store = requireStore(repos, storeId);
+  const formulaSet = requireFormulaSet(repos, storeId, options.formulaSetId);
+  const allPosts = listOwnerBlogPostsForFormulaV2(repos, storeId);
+  const existing = repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id);
+  const covered = new Set(existing.map((row) => row.sourcePostId));
+  const remaining = allPosts.filter((post) => !covered.has(post.collectionItemId));
+  const batch = remaining.slice(0, TOPIC_BRIEF_SET_BATCH_SIZE);
+
+  if (batch.length === 0) {
+    return {
+      added: [] as TopicBriefSetV2[],
+      topicBriefSets: existing.map(serializeTopicBriefSet),
+      remainingCount: 0
+    };
+  }
+
+  const candidates = await produceTopicBriefSetCandidates(store, batch, options.provider ?? null);
+  const added = candidates.map((candidate) =>
+    serializeTopicBriefSet(
+      repos.v2BlogTopicBriefSets.create({
+        id: makeId('v2_topic_brief_set'),
+        formulaSetId: formulaSet.id,
+        storeId,
+        sourcePostId: candidate.sourcePostIds[0],
+        topic: candidate.topic,
+        mainKeyword: candidate.mainKeyword,
+        secondaryKeywords: candidate.secondaryKeywords,
+        targetReader: candidate.targetReader,
+        coreConcern: candidate.coreConcern,
+        mainAngle: candidate.mainAngle,
+        mustInclude: candidate.mustInclude,
+        mustAvoid: candidate.mustAvoid,
+        ctaDirection: candidate.ctaDirection,
+        confidence: candidate.confidence,
+        status: candidate.status
+      })
+    )
+  );
+
+  const topicBriefSets = repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id).map(serializeTopicBriefSet);
+  return {
+    added,
+    topicBriefSets,
+    remainingCount: remaining.length - batch.length
+  };
 }
 
 function scorePost(post: OwnerBlogPostV2, topicBrief: BlogTopicBriefInput): BlogRetrievedSampleV2['scoring'] {
