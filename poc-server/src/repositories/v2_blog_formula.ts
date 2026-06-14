@@ -44,6 +44,23 @@ export type V2BlogTopicBrief = BaseEntity & {
   ctaDirection: string | null;
 };
 
+export type V2BlogTopicBriefSet = BaseEntity & {
+  formulaSetId: string;
+  storeId: string;
+  sourcePostId: string;
+  topic: string;
+  mainKeyword: string;
+  secondaryKeywords: JsonValue;
+  targetReader: string | null;
+  coreConcern: string | null;
+  mainAngle: string | null;
+  mustInclude: JsonValue;
+  mustAvoid: JsonValue;
+  ctaDirection: string | null;
+  confidence: number;
+  status: string;
+};
+
 export type V2BlogRetrievalRun = BaseEntity & {
   storeId: string;
   topicBriefId: string;
@@ -135,6 +152,26 @@ const topicBriefColumns = [
   'mustInclude',
   'mustAvoid',
   'ctaDirection',
+  'createdAt',
+  'updatedAt'
+] as const;
+
+const topicBriefSetColumns = [
+  'id',
+  'formulaSetId',
+  'storeId',
+  'sourcePostId',
+  'topic',
+  'mainKeyword',
+  'secondaryKeywords',
+  'targetReader',
+  'coreConcern',
+  'mainAngle',
+  'mustInclude',
+  'mustAvoid',
+  'ctaDirection',
+  'confidence',
+  'status',
   'createdAt',
   'updatedAt'
 ] as const;
@@ -255,6 +292,24 @@ export function createV2BlogTopicBriefsRepository(connection: DbConnection) {
   return {
     ...repository,
     listByStoreId: (storeId: string) => repository.findManyBy('storeId', storeId)
+  };
+}
+
+export function createV2BlogTopicBriefSetsRepository(connection: DbConnection) {
+  const repository = createRepository<V2BlogTopicBriefSet>(connection, {
+    tableName: 'v2_blog_topic_brief_sets',
+    columns: topicBriefSetColumns,
+    jsonColumns: ['secondaryKeywords', 'mustInclude', 'mustAvoid'],
+    columnOverrides: {
+      secondaryKeywords: 'secondary_keywords_json',
+      mustInclude: 'must_include_json',
+      mustAvoid: 'must_avoid_json'
+    }
+  });
+  return {
+    ...repository,
+    listByStoreId: (storeId: string) => repository.findManyBy('storeId', storeId),
+    listByFormulaSetId: (formulaSetId: string) => repository.findManyBy('formulaSetId', formulaSetId)
   };
 }
 

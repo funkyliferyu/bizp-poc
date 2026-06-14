@@ -321,6 +321,30 @@ CREATE TABLE IF NOT EXISTS v2_blog_topic_briefs (
 
 CREATE INDEX IF NOT EXISTS idx_v2_blog_topic_briefs_store_id ON v2_blog_topic_briefs(store_id);
 
+CREATE TABLE IF NOT EXISTS v2_blog_topic_brief_sets (
+  id TEXT PRIMARY KEY,
+  formula_set_id TEXT NOT NULL REFERENCES v2_blog_formula_sets(id) ON DELETE CASCADE,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  source_post_id TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  main_keyword TEXT NOT NULL,
+  secondary_keywords_json TEXT NOT NULL DEFAULT '[]',
+  target_reader TEXT,
+  core_concern TEXT,
+  main_angle TEXT,
+  must_include_json TEXT NOT NULL DEFAULT '[]',
+  must_avoid_json TEXT NOT NULL DEFAULT '[]',
+  cta_direction TEXT,
+  confidence REAL NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (formula_set_id, source_post_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_v2_blog_topic_brief_sets_formula_set_id ON v2_blog_topic_brief_sets(formula_set_id);
+CREATE INDEX IF NOT EXISTS idx_v2_blog_topic_brief_sets_store_id ON v2_blog_topic_brief_sets(store_id);
+
 CREATE TABLE IF NOT EXISTS v2_blog_retrieval_runs (
   id TEXT PRIMARY KEY,
   store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,

@@ -23,6 +23,7 @@ import {
   createV2BlogFormulaSourcePostsRepository,
   createV2BlogRetrievedSamplesRepository,
   createV2BlogRetrievalRunsRepository,
+  createV2BlogTopicBriefSetsRepository,
   createV2BlogTopicBriefsRepository
 } from './v2_blog_formula.js';
 
@@ -45,6 +46,7 @@ export function createStoreLearningRepositories(connection: DbConnection) {
     v2BlogFormulaRuns: createV2BlogFormulaRunsRepository(connection),
     v2BlogFormulaSourcePosts: createV2BlogFormulaSourcePostsRepository(connection),
     v2BlogTopicBriefs: createV2BlogTopicBriefsRepository(connection),
+    v2BlogTopicBriefSets: createV2BlogTopicBriefSetsRepository(connection),
     v2BlogRetrievalRuns: createV2BlogRetrievalRunsRepository(connection),
     v2BlogRetrievedSamples: createV2BlogRetrievedSamplesRepository(connection),
     v2BlogDraftGenerations: createV2BlogDraftGenerationsRepository(connection),
