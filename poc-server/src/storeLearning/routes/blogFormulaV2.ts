@@ -6,6 +6,7 @@ import {
   extractBlogFormulaV2,
   extractBlogFormulaV2WithProvider,
   generateBlogFormulaV2Draft,
+  generateBlogFormulaV2DraftWithProvider,
   getBlogFormulaV2Draft,
   getBlogFormulaV2Payload,
   listBlogFormulaV2Drafts,
@@ -16,6 +17,7 @@ import {
   createBlogFormulaV2ProviderForMode,
   type BlogFormulaV2ProviderFactoryOptions
 } from '../blogFormulaV2/providers/providerFactory.js';
+import { createBlogDraftV2ProviderForMode } from '../blogFormulaV2/providers/draftProviderFactory.js';
 import { BlogTopicBriefInputSchema } from '../blogFormulaV2/types.js';
 
 type BlogFormulaV2RoutesOptions = {
@@ -37,7 +39,8 @@ const RetrieveSamplesBodySchema = z.object({
 const GenerateDraftBodySchema = z.object({
   formulaSetId: z.string().trim().min(1).optional(),
   topicBriefId: z.string().trim().min(1),
-  retrievalRunId: z.string().trim().min(1)
+  retrievalRunId: z.string().trim().min(1),
+  providerMode: z.enum(['deterministic', 'safe_mock', 'openai', 'auto']).optional()
 });
 
 const ValidateDraftBodySchema = z.union([
@@ -93,10 +96,17 @@ export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }
     }
   });
 
-  router.post('/generate-draft', (req, res, next) => {
+  router.post('/generate-draft', async (req, res, next) => {
     try {
       const body = GenerateDraftBodySchema.parse(req.body);
-      res.json(generateBlogFormulaV2Draft(repos, storeId(req), body));
+      const provider = createBlogDraftV2ProviderForMode(body.providerMode, {
+        ...(providerFactoryOptions ?? {})
+      });
+      if (!provider) {
+        res.json(generateBlogFormulaV2Draft(repos, storeId(req), body));
+        return;
+      }
+      res.json(await generateBlogFormulaV2DraftWithProvider(repos, storeId(req), body, provider));
     } catch (error) {
       next(error);
     }

@@ -39,6 +39,40 @@ function formulaOutput(sourcePostIds = [
   });
 }
 
+function draftModelOutput() {
+  return {
+    titleCandidates: ['리팟레이저 부작용 걱정 없이 확인할 점'],
+    selectedTitle: '리팟레이저 부작용 걱정 없이 확인할 점',
+    blogDraft:
+      '리팟레이저 부작용을 검색하는 분이라면 재발이 걱정될 수 있습니다.\n\n개인차가 있어 의료진 상담 후 결정하시길 권합니다. 부작용 가능성도 함께 확인하세요.',
+    styleComplianceReport: { appliedBlocks: ['titleFormula', 'bodyFormula', 'medicalSafetyFormula'] },
+    safetyCheck: { requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담'], bannedPhrasesAvoided: true },
+    seoCheck: { mainKeywordInTitle: true, mainKeywordInIntro: true, secondaryKeywordsUsed: [] }
+  };
+}
+
+async function extractAndRetrieve(baseUrl: string, storeId: string) {
+  const extractResponse = await fetch(`${baseUrl}/api/stores/${storeId}/v2/blog-formula/extract`, { method: 'POST' });
+  const extracted = await readJson(extractResponse);
+  const retrieveResponse = await fetch(`${baseUrl}/api/stores/${storeId}/v2/blog-formula/retrieve-samples`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      formulaSetId: extracted.formulaSet.id,
+      topicBrief: {
+        topic: '리팟레이저',
+        mainKeyword: '리팟레이저 부작용',
+        secondaryKeywords: ['색소침착'],
+        mustInclude: ['개인차', '부작용 가능성', '의료진 상담'],
+        mustAvoid: []
+      },
+      maxSamples: 3
+    })
+  });
+  const retrieved = await readJson(retrieveResponse);
+  return { extracted, retrieved };
+}
+
 describe('Blog Formula V2 API', () => {
   const futureCombinedMode = ['hybrid', 'v1', 'v2'].join('_');
   let connection: DbConnection;
@@ -421,5 +455,87 @@ describe('Blog Formula V2 API', () => {
       action: 'blog_formula_v2_extract',
       status: 'failed'
     });
+  });
+
+  it('generates a draft through providerMode=openai and returns the model self-report plus a generate-draft audit row', async () => {
+    let parseCallCount = 0;
+    await restartServer({
+      providerFactoryOptions: {
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'gpt-test-draft' },
+        openAIClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async () => {
+                  parseCallCount += 1;
+                  return { choices: [{ message: { parsed: draftModelOutput() } }] };
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const { extracted, retrieved } = await extractAndRetrieve(baseUrl, BLOG_FORMULA_V2_STORE_ID);
+    const generateResponse = await fetch(
+      `${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/generate-draft`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formulaSetId: extracted.formulaSet.id,
+          topicBriefId: retrieved.topicBrief.id,
+          retrievalRunId: retrieved.retrievalRun.id,
+          providerMode: 'openai'
+        })
+      }
+    );
+    const generated = await readJson(generateResponse);
+
+    expect(generateResponse.status).toBe(200);
+    expect(parseCallCount).toBe(1);
+    expect(generated.draftGeneration).toMatchObject({
+      generationMode: 'v2_formula',
+      status: 'generated',
+      model: 'gpt-test-draft'
+    });
+    expect(generated.provider).toMatchObject({ mode: 'openai', callId: 'SL-G1', noExternalCalls: false });
+    expect(generated.output.modelReportedCompliance).not.toBeNull();
+    expect(generated.output.styleComplianceReport.formulaSetId).toBe(extracted.formulaSet.id);
+
+    const repos = createStoreLearningRepositories(connection);
+    const draftLog = repos.llmAuditLogs.latest().find((log) => log.action === 'blog_formula_v2_generate_draft');
+    expect(draftLog).toMatchObject({
+      relatedEntityType: 'v2_blog_draft_generation',
+      relatedEntityId: generated.draftGeneration.id,
+      status: 'completed',
+      model: 'gpt-test-draft'
+    });
+    expect(countRows(connection, 'marketing_rulesets')).toBe(0);
+    expect(countRows(connection, 'ruleset_fields')).toBe(0);
+  });
+
+  it('keeps generate-draft deterministic with no model self-report when providerMode is omitted', async () => {
+    const { extracted, retrieved } = await extractAndRetrieve(baseUrl, BLOG_FORMULA_V2_STORE_ID);
+    const generateResponse = await fetch(
+      `${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/generate-draft`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formulaSetId: extracted.formulaSet.id,
+          topicBriefId: retrieved.topicBrief.id,
+          retrievalRunId: retrieved.retrievalRun.id
+        })
+      }
+    );
+    const generated = await readJson(generateResponse);
+
+    expect(generateResponse.status).toBe(200);
+    expect(generated.draftGeneration).toMatchObject({ status: 'generated', model: 'deterministic-blog-formula-v2' });
+    expect(generated.provider).toBeUndefined();
+    expect(generated.output.modelReportedCompliance ?? null).toBeNull();
+    expect(countRows(connection, 'llm_audit_logs')).toBe(0);
   });
 });
