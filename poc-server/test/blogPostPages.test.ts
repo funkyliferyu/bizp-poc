@@ -52,6 +52,13 @@ describe('blog post list page API wiring', () => {
     const blogManagement = readFileSync(path.join(webRoot, '02_블로그관리.html'), 'utf8');
     const js = readFileSync(path.join(webRoot, 'blog_posts.js'), 'utf8');
 
+    expect(blogManagement).toContain('최종 업데이트: <strong id="blog-auto-last-updated"');
+    expect(blogManagement).toContain('id="blog-auto-next-run"');
+    expect(blogManagement).toContain('id="blog-auto-next-run-input"');
+    expect(blogManagement).not.toContain('성과 데이터 마지막 업데이트');
+    expect(js).toContain('AUTO_GENERATION_INTERVAL_DAYS = 14');
+    expect(js).toContain('formatAutoDate');
+    expect(js).toContain('updateAutoGenerationSchedule');
     expect(blogManagement).toContain('id="blog-v2-batch-generate-btn"');
     expect(blogManagement).toContain('생성배치 실행');
     expect(blogManagement).toContain('id="blog-v2-batch-modal"');

@@ -11,6 +11,9 @@
   const blogPendingAction = document.getElementById('blog-pending-action');
   const aiContentPendingCount = document.getElementById('ai-content-pending-count');
   const aiContentSourceNote = document.getElementById('ai-content-source-note');
+  const autoLastUpdated = document.getElementById('blog-auto-last-updated');
+  const autoNextRun = document.getElementById('blog-auto-next-run');
+  const autoNextRunInput = document.getElementById('blog-auto-next-run-input');
   const generateButton = document.getElementById('blog-generate-btn');
   const v2BatchButton = document.getElementById('blog-v2-batch-generate-btn');
   const v2BatchModal = document.getElementById('blog-v2-batch-modal');
@@ -20,6 +23,7 @@
   const v2BatchSpinner = document.getElementById('blog-v2-batch-spinner');
   const v2BatchElapsed = document.getElementById('blog-v2-batch-elapsed');
   const v2BatchStepLabels = ['1/3', '2/3', '3/3'];
+  const AUTO_GENERATION_INTERVAL_DAYS = 14;
   let batchStartedAt = 0;
   let batchTimer = null;
 
@@ -90,6 +94,35 @@
 
   function emptyRow(colspan, message) {
     return `<tr><td class="td-empty" colspan="${colspan}" style="text-align:center;padding:24px">${escapeHtml(message)}</td></tr>`;
+  }
+
+  function formatAutoDate(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function addDays(value, days) {
+    const date = new Date(value.getTime());
+    date.setDate(date.getDate() + days);
+    return date;
+  }
+
+  function latestPostDate(posts) {
+    const timestamps = posts
+      .map((post) => new Date(post.createdAt || post.updatedAt || '').getTime())
+      .filter((timestamp) => Number.isFinite(timestamp));
+    return timestamps.length ? new Date(Math.max(...timestamps)) : new Date();
+  }
+
+  function updateAutoGenerationSchedule(posts) {
+    const lastUpdated = latestPostDate(posts);
+    const nextRun = addDays(lastUpdated, AUTO_GENERATION_INTERVAL_DAYS);
+    const lastUpdatedText = formatAutoDate(lastUpdated);
+    const nextRunText = formatAutoDate(nextRun);
+    if (autoLastUpdated) autoLastUpdated.textContent = lastUpdatedText;
+    if (autoNextRun) autoNextRun.textContent = nextRunText;
+    if (autoNextRunInput) autoNextRunInput.value = nextRunText;
   }
 
   function elapsedLabel(ms) {
@@ -225,10 +258,12 @@
       const payload = await response.json();
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
       const apiLinkedPosts = posts.filter((post) => post.generationSource?.type === 'blog_formula_v2');
+      updateAutoGenerationSchedule(apiLinkedPosts);
       renderBlogManagement(apiLinkedPosts);
       renderAiContentList(apiLinkedPosts);
       updateSummary(null, apiLinkedPosts);
     } catch (error) {
+      updateAutoGenerationSchedule([]);
       const message = error instanceof Error ? error.message : '블로그 목록을 불러오지 못했습니다.';
       if (blogList) blogList.innerHTML = emptyRow(7, message);
       if (aiContentList) aiContentList.innerHTML = emptyRow(4, message);

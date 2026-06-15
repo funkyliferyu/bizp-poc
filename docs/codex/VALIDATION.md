@@ -70,6 +70,9 @@ Manual-smoke follow-up on 2026-06-15:
   based on API-linked generated rows only.
 - The batch modal now shows a spinner and elapsed timer while sequential
   generation is running.
+- The Blog Management auto-generation summary now says `최종 업데이트`, uses
+  the latest Blog Formula V2 generated row date (or today before any linked
+  rows exist), and calculates the next run as 14 days later.
 - Fresh validation after the follow-up: `cd poc-server && npx tsc --noEmit -p
   tsconfig.json && npx vitest run` -> PASS: 67 files passed, 3 skipped; 416
   tests passed, 6 skipped. `node --check ../web/blog_posts.js` and

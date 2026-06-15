@@ -325,12 +325,14 @@ describe('web static flow connectivity', () => {
     expect(settings).toContain('<summary class="auto-gen-summary"');
     expect(settings).not.toMatch(/<details[^>]*\sopen\b/);
     expect(settings).toContain('class="auto-gen-summary-main"');
-    expect(settings).toContain('성과 데이터 마지막 업데이트');
+    expect(settings).toContain('최종 업데이트');
+    expect(settings).toContain('id="blog-auto-last-updated"');
     expect(settings).toContain('class="auto-gen-summary-chips"');
     expect(settings).toContain('자동 생성');
     expect(settings).toContain('2주마다');
     expect(settings).toContain('2건');
-    expect(settings).toContain('2026.05.30');
+    expect(settings).toContain('id="blog-auto-next-run"');
+    expect(settings).toContain('2026.06.29');
     expect(settings).toContain('발행 방식');
     expect(settings).toContain('상세 설정');
     expect(settings).toContain('class="auto-gen-detail-panel"');
