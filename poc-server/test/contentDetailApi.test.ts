@@ -5,11 +5,81 @@ import { createDatabaseConnection, type DbConnection } from '../src/db/connectio
 import { migrateDatabase } from '../src/db/migrate.js';
 import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 import { seedDemoStore } from '../src/seedStoreLearning.js';
+import { extractBlogFormulaV2WithProvider } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
+import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
 import { createBlogPostRoutes } from '../src/storeLearning/routes/blogPosts.js';
+import { createStoreRoutes } from '../src/storeLearning/routes/stores.js';
+import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 
 async function readJson(response: Response) {
   const text = await response.text();
   return text ? JSON.parse(text) : null;
+}
+
+function fakeV2DraftClient() {
+  return {
+    beta: {
+      chat: {
+        completions: {
+          parse: async () => ({
+            choices: [
+              {
+                message: {
+                  parsed: {
+                    titleCandidates: ['리팟레이저 상담 전 확인할 점'],
+                    selectedTitle: '리팟레이저 상담 전 확인할 점',
+                    blogDraft: [
+                      '리팟레이저 상담을 고민하는 분에게 필요한 기준을 먼저 정리합니다. 개인차와 부작용 가능성은 의료진 상담으로 확인해야 합니다.',
+                      '기존 블로그 흐름처럼 걱정 지점을 먼저 다루고 리팟레이저 원리와 판단 기준을 차분히 이어갑니다.',
+                      '상담 전에는 기대 범위와 회복 과정, 예약 가능 여부를 함께 확인하는 것이 좋습니다.'
+                    ].join('\n\n'),
+                    styleComplianceReport: { appliedBlocks: ['titleFormula', 'bodyFormula', 'ctaFormula'] },
+                    safetyCheck: {
+                      requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담'],
+                      bannedPhrasesAvoided: true
+                    },
+                    seoCheck: {
+                      mainKeywordInTitle: true,
+                      mainKeywordInIntro: true,
+                      secondaryKeywordsUsed: []
+                    }
+                  }
+                }
+              }
+            ]
+          })
+        }
+      }
+    }
+  };
+}
+
+async function seedV2GenerationInputs(connection: DbConnection) {
+  seedBlogFormulaV2Fixture(connection);
+  const repos = createStoreLearningRepositories(connection);
+  const { formulaSet } = await extractBlogFormulaV2WithProvider(
+    repos,
+    BLOG_FORMULA_V2_STORE_ID,
+    createSafeMockBlogFormulaV2Provider()
+  );
+  repos.v2BlogTopicBriefSets.create({
+    id: 'topic_set_detail_ripot',
+    formulaSetId: formulaSet.id,
+    storeId: BLOG_FORMULA_V2_STORE_ID,
+    sourcePostId: 'collection_item_v2_owner_1',
+    topic: '리팟레이저',
+    mainKeyword: '리팟레이저',
+    secondaryKeywords: ['색소침착'],
+    targetReader: '리팟레이저 상담을 고민하는 고객',
+    coreConcern: '부작용 가능성',
+    mainAngle: '상담 전 확인 기준 안내',
+    mustInclude: ['개인차', '부작용 가능성', '의료진 상담'],
+    mustAvoid: ['효과보장'],
+    ctaDirection: '상담으로 본인 상태를 확인하도록 안내',
+    confidence: 0.7,
+    status: 'candidate'
+  });
+  return { formulaSetId: formulaSet.id };
 }
 
 describe('content detail API', () => {
@@ -96,6 +166,59 @@ describe('content detail API', () => {
     });
     expect(post?.title).toBe(body.blogPost.title);
     expect(scores.at(-1)?.totalScore).toBe(body.seoScore.totalScore);
+  });
+
+  it('returns V2-generated article detail with paragraph-specific image descriptions', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    const { formulaSetId } = await seedV2GenerationInputs(connection);
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/stores',
+      createStoreRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-v2-draft-model' },
+        blogDraftV2ProviderOptions: {
+          openAIClient: fakeV2DraftClient(),
+          model: 'test-v2-draft-model'
+        }
+      })
+    );
+    app.use('/api/blog-posts', createBlogPostRoutes({ connection, env: {} }));
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const generateResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/blog-posts/generate-from-v2-formula`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        formulaSetId,
+        topicBriefSetId: 'topic_set_detail_ripot',
+        providerMode: 'openai'
+      })
+    });
+    const generated = await readJson(generateResponse);
+    const detailResponse = await fetch(`${baseUrl}/api/blog-posts/${generated.blogPost.id}`);
+    const detail = await readJson(detailResponse);
+
+    expect(generateResponse.status).toBe(200);
+    expect(detailResponse.status).toBe(200);
+    expect(detail.article.bodySections.length).toBeGreaterThanOrEqual(3);
+    expect(detail.article.bodyText).toContain('리팟레이저 상담을 고민하는 분');
+    expect(detail.mediaAssets).toHaveLength(3);
+    expect(detail.mediaAssets[0].prompt).toContain('리팟레이저');
+    expect(detail.mediaAssets[0].prompt).not.toMatch(/placeholder/i);
+    expect(detail.seoScore.rubric.imageAltPrompt.feedback).toEqual(expect.any(String));
   });
 
   it('regenerates text and SEO through the OpenAI blog provider with an LLM audit log when configured', async () => {

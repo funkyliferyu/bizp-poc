@@ -50,8 +50,9 @@
   <div class="topbar-breadcrumb">마케팅 채널관리 &rsaquo; <span>블로그 관리</span></div>
 </div>
 <div class="main-content">
-  <div class="blog-page-head">
+  <div class="blog-page-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
     <div class="page-title" style="margin-bottom:0">블로그 관리</div>
+    <button class="btn btn-primary btn-sm" id="blog-v2-batch-generate-btn">생성배치 실행</button>
   </div>
 
   <!-- 승인 대기 alert (승인 대기 건 있을 때만 노출) -->
@@ -256,6 +257,16 @@
     <button class="pg-btn">2</button>
     <button class="pg-btn">3</button>
     <button class="pg-btn"><span class="icon-chevron-right" data-icon="chevron-right" data-size="12" data-color="currentColor"></span></button>
+  </div>
+</div>
+<div id="blog-v2-batch-modal" class="modal-backdrop" style="display:none" role="status" aria-live="polite">
+  <div class="modal modal-sm">
+    <div class="modal-title">블로그 생성배치 실행 중</div>
+    <div class="modal-desc" id="blog-v2-batch-modal-desc">토픽 브리프를 확인하고 있습니다.</div>
+    <div id="blog-v2-batch-steps" style="display:grid;gap:8px;margin-top:12px"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-ghost btn-sm" id="blog-v2-batch-modal-close" type="button" style="display:none">확인</button>
+    </div>
   </div>
 </div>
 <script src="blog_posts.js"></script>

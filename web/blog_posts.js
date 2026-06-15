@@ -12,6 +12,12 @@
   const aiContentPendingCount = document.getElementById('ai-content-pending-count');
   const aiContentSourceNote = document.getElementById('ai-content-source-note');
   const generateButton = document.getElementById('blog-generate-btn');
+  const v2BatchButton = document.getElementById('blog-v2-batch-generate-btn');
+  const v2BatchModal = document.getElementById('blog-v2-batch-modal');
+  const v2BatchModalDesc = document.getElementById('blog-v2-batch-modal-desc');
+  const v2BatchSteps = document.getElementById('blog-v2-batch-steps');
+  const v2BatchModalClose = document.getElementById('blog-v2-batch-modal-close');
+  const v2BatchStepLabels = ['1/3', '2/3', '3/3'];
 
   if (!blogList && !aiContentList && !generateButton) return;
 
@@ -80,6 +86,30 @@
 
   function emptyRow(colspan, message) {
     return `<tr><td class="td-empty" colspan="${colspan}" style="text-align:center;padding:24px">${escapeHtml(message)}</td></tr>`;
+  }
+
+  function setBatchModal(open, message, closable = false) {
+    if (v2BatchModal) v2BatchModal.style.display = open ? 'flex' : 'none';
+    if (v2BatchModalDesc) v2BatchModalDesc.textContent = message || '';
+    if (v2BatchModalClose) v2BatchModalClose.style.display = open && closable ? 'inline-flex' : 'none';
+  }
+
+  function renderBatchSteps(candidates, activeIndex, completedIds) {
+    if (!v2BatchSteps) return;
+    v2BatchSteps.innerHTML = candidates
+      .map((candidate, index) => {
+        const done = completedIds.has(candidate.id);
+        const active = index === activeIndex;
+        const label = done ? '완료' : active ? '생성 중' : '대기';
+        const color = done ? '#2F9E44' : active ? '#3B5BDB' : '#6B7280';
+        return `
+          <div class="auto-gen-chip" data-topic-brief-set-id="${escapeHtml(candidate.id)}" style="justify-content:space-between;height:auto;min-height:28px">
+            <span>${escapeHtml(v2BatchStepLabels[index] || `${index + 1}/3`)} ${escapeHtml(candidate.topic || candidate.mainKeyword || '토픽')}</span>
+            <strong style="color:${color}">${label}</strong>
+          </div>
+        `;
+      })
+      .join('');
   }
 
   function renderBlogManagement(posts) {
@@ -174,6 +204,53 @@
     }
   }
 
+  async function loadV2BatchCandidates() {
+    const response = await fetch(`/api/stores/${storeId}/blog-posts/v2-batch-candidates`);
+    if (!response.ok) throw new Error(`토픽 브리프 후보를 불러오지 못했습니다. (${response.status})`);
+    const payload = await response.json();
+    return Array.isArray(payload.topicBriefSets) ? payload.topicBriefSets.slice(0, 3) : [];
+  }
+
+  async function generateV2Batch() {
+    const completedIds = new Set();
+    const originalText = v2BatchButton ? v2BatchButton.textContent : '';
+    if (v2BatchButton) {
+      v2BatchButton.disabled = true;
+      v2BatchButton.textContent = '생성 중';
+    }
+    try {
+      setBatchModal(true, '토픽 브리프를 확인하고 있습니다.');
+      const candidates = await loadV2BatchCandidates();
+      if (candidates.length < 3) {
+        renderBatchSteps(candidates, -1, completedIds);
+        setBatchModal(true, '생성 가능한 토픽 브리프가 3건 미만입니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.', true);
+        return;
+      }
+      for (let index = 0; index < 3; index += 1) {
+        renderBatchSteps(candidates, index, completedIds);
+        setBatchModal(true, `${v2BatchStepLabels[index]} 블로그 초안을 생성하고 있습니다.`);
+        const response = await fetch(`/api/stores/${storeId}/blog-posts/generate-from-v2-formula`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topicBriefSetId: candidates[index].id, providerMode: 'openai' })
+        });
+        if (!response.ok) throw new Error(`${index + 1}번째 블로그 초안을 생성하지 못했습니다. (${response.status})`);
+        completedIds.add(candidates[index].id);
+      }
+      renderBatchSteps(candidates, -1, completedIds);
+      setBatchModal(true, '3/3 블로그 초안 생성이 완료되었습니다. 목록을 새로고침합니다.');
+      await loadPosts();
+      window.setTimeout(() => setBatchModal(false, ''), 800);
+    } catch (error) {
+      setBatchModal(true, error instanceof Error ? error.message : '생성배치 실행에 실패했습니다.', true);
+    } finally {
+      if (v2BatchButton) {
+        v2BatchButton.disabled = false;
+        v2BatchButton.textContent = originalText;
+      }
+    }
+  }
+
   if (generateButton) {
     generateButton.addEventListener('click', async () => {
       generateButton.disabled = true;
@@ -194,6 +271,13 @@
         generateButton.textContent = originalText;
       }
     });
+  }
+
+  if (v2BatchButton) {
+    v2BatchButton.addEventListener('click', generateV2Batch);
+  }
+  if (v2BatchModalClose) {
+    v2BatchModalClose.addEventListener('click', () => setBatchModal(false, ''));
   }
 
   document.addEventListener('DOMContentLoaded', loadPosts);

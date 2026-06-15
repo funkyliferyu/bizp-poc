@@ -5,12 +5,108 @@ import { createDatabaseConnection, type DbConnection } from '../src/db/connectio
 import { migrateDatabase } from '../src/db/migrate.js';
 import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 import { seedDemoStore } from '../src/seedStoreLearning.js';
+import {
+  extractBlogFormulaV2WithProvider
+} from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
+import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
 import { createBlogPostRoutes } from '../src/storeLearning/routes/blogPosts.js';
 import { createStoreRoutes } from '../src/storeLearning/routes/stores.js';
+import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 
 async function readJson(response: Response) {
   const text = await response.text();
   return text ? JSON.parse(text) : null;
+}
+
+function fakeV2DraftClient() {
+  let callCount = 0;
+  return {
+    beta: {
+      chat: {
+        completions: {
+          parse: async () => {
+            callCount += 1;
+            const topics = ['리팟레이저', '써마지', '울쎄라'];
+            const topic = topics[(callCount - 1) % topics.length];
+            return {
+              choices: [
+                {
+                  message: {
+                    parsed: {
+                      titleCandidates: [`${topic} 상담 전 확인할 점`],
+                      selectedTitle: `${topic} 상담 전 확인할 점`,
+                      blogDraft: [
+                        `${topic}을 고민하는 고객에게 필요한 기준을 먼저 정리합니다. 개인차와 부작용 가능성을 의료진 상담으로 확인해야 합니다.`,
+                        `${topic} 선택 전에는 기존 블로그처럼 걱정 지점을 먼저 설명하고 원리와 판단 기준을 차분히 이어갑니다.`,
+                        `${topic} 상담에서는 기대 범위와 회복 과정, 피해야 할 표현을 함께 확인한 뒤 예약 가능 여부를 안내합니다.`
+                      ].join('\n\n'),
+                      styleComplianceReport: { appliedBlocks: ['titleFormula', 'bodyFormula', 'ctaFormula'] },
+                      safetyCheck: {
+                        requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담'],
+                        bannedPhrasesAvoided: true
+                      },
+                      seoCheck: {
+                        mainKeywordInTitle: true,
+                        mainKeywordInIntro: true,
+                        secondaryKeywordsUsed: []
+                      }
+                    }
+                  }
+                }
+              ]
+            };
+          }
+        }
+      }
+    }
+  };
+}
+
+async function seedV2FormulaAndTopicBriefSets(connection: DbConnection) {
+  seedBlogFormulaV2Fixture(connection);
+  const repos = createStoreLearningRepositories(connection);
+  const { formulaSet } = await extractBlogFormulaV2WithProvider(
+    repos,
+    BLOG_FORMULA_V2_STORE_ID,
+    createSafeMockBlogFormulaV2Provider()
+  );
+  const topics = [
+    ['topic_set_ripot', 'collection_item_v2_owner_1', '리팟레이저', '리팟레이저 부작용'],
+    ['topic_set_thermage', 'collection_item_v2_owner_3', '써마지', '광화문써마지'],
+    ['topic_set_ulthera', 'collection_item_v2_owner_4', '울쎄라', '울쎄라600샷가격'],
+    ['topic_set_ripot_2', 'collection_item_v2_owner_2', '리팟레이저', '흑자 제거']
+  ];
+  for (const [id, sourcePostId, topic, mainKeyword] of topics) {
+    repos.v2BlogTopicBriefSets.create({
+      id,
+      formulaSetId: formulaSet.id,
+      storeId: BLOG_FORMULA_V2_STORE_ID,
+      sourcePostId,
+      topic,
+      mainKeyword,
+      secondaryKeywords: ['개인차', '상담'],
+      targetReader: `${topic} 정보를 찾는 고객`,
+      coreConcern: `${topic} 전 확인할 걱정`,
+      mainAngle: `${topic} 상담 전 판단 기준 안내`,
+      mustInclude: ['개인차', '부작용 가능성', '의료진 상담'],
+      mustAvoid: ['효과보장'],
+      ctaDirection: '상담으로 본인 상태를 확인하도록 안내',
+      confidence: 0.7,
+      status: 'candidate'
+    });
+  }
+  repos.blogPosts.create({
+    id: 'existing_pending_blog_post',
+    storeId: BLOG_FORMULA_V2_STORE_ID,
+    contentGenerationId: null,
+    status: 'pending_approval',
+    title: '기존 승인 대기 글',
+    article: { title: '기존 승인 대기 글', bodySections: [{ heading: '기존', body: '기존 글입니다.' }] },
+    publishedUrl: null,
+    scheduledAt: null,
+    publishedAt: null
+  });
+  return { repos, formulaSetId: formulaSet.id };
 }
 
 describe('ruleset based blog generation API', () => {
@@ -140,6 +236,112 @@ describe('ruleset based blog generation API', () => {
         contentGenerationId: 'content_generation_demo_blog'
       }
     });
+  });
+
+  it('generates one approval-pending blog post from a Blog Formula V2 topic brief while keeping existing posts', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    const { formulaSetId } = await seedV2FormulaAndTopicBriefSets(connection);
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/stores',
+      createStoreRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-v2-draft-model' },
+        blogDraftV2ProviderOptions: {
+          openAIClient: fakeV2DraftClient(),
+          model: 'test-v2-draft-model'
+        }
+      })
+    );
+    app.use('/api/blog-posts', createBlogPostRoutes({ connection }));
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/blog-posts/generate-from-v2-formula`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        formulaSetId,
+        topicBriefSetId: 'topic_set_ripot',
+        providerMode: 'openai'
+      })
+    });
+    const body = await readJson(response);
+    const repos = createStoreLearningRepositories(connection);
+    const existingPost = repos.blogPosts.findById('existing_pending_blog_post');
+    const generation = repos.contentGenerations.findById(body.contentGeneration.id);
+    const mediaAssets = repos.mediaAssets.listByBlogPostId(body.blogPost.id);
+
+    expect(response.status).toBe(200);
+    expect(existingPost).toMatchObject({ status: 'pending_approval', title: '기존 승인 대기 글' });
+    expect(body.blogPost).toMatchObject({
+      status: 'pending_approval',
+      contentGenerationId: body.contentGeneration.id,
+      title: '리팟레이저 상담 전 확인할 점'
+    });
+    expect(generation?.prompt).toMatchObject({
+      mode: 'openai',
+      action: 'generate_blog_post_from_v2_formula',
+      v2FormulaSetId: formulaSetId,
+      v2TopicBriefSetId: 'topic_set_ripot',
+      v2DraftGenerationId: expect.any(String)
+    });
+    expect(generation?.output).toMatchObject({
+      generator: 'openai_blog_formula_v2',
+      v2DraftOutput: expect.objectContaining({
+        selectedTitle: '리팟레이저 상담 전 확인할 점'
+      })
+    });
+    expect(body.v2DraftGenerationId).toEqual(expect.any(String));
+    expect(body.topicBriefSetId).toBe('topic_set_ripot');
+    expect(body.mediaAssets).toHaveLength(3);
+    expect(mediaAssets).toHaveLength(3);
+    expect(mediaAssets.map((asset) => asset.status)).toEqual(['placeholder', 'placeholder', 'placeholder']);
+    expect(mediaAssets.map((asset) => asset.prompt).join('\n')).not.toMatch(/placeholder/i);
+    expect(mediaAssets[0].prompt).toContain('리팟레이저');
+    expect(body.seoScore.totalScore).toEqual(expect.any(Number));
+  });
+
+  it('returns up to three V2 batch candidates and prefers distinct topics without creating posts', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    await seedV2FormulaAndTopicBriefSets(connection);
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/stores', createStoreRoutes({ connection, env: {} }));
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const beforeCount = createStoreLearningRepositories(connection).blogPosts.listByStoreId(BLOG_FORMULA_V2_STORE_ID).length;
+    const response = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/blog-posts/v2-batch-candidates`);
+    const body = await readJson(response);
+    const afterCount = createStoreLearningRepositories(connection).blogPosts.listByStoreId(BLOG_FORMULA_V2_STORE_ID).length;
+
+    expect(response.status).toBe(200);
+    expect(body.topicBriefSets).toHaveLength(3);
+    expect(body.topicBriefSets.map((set: { topic: string }) => set.topic)).toEqual(['리팟레이저', '써마지', '울쎄라']);
+    expect(body.topicBriefSets.map((set: { id: string }) => set.id)).toEqual(['topic_set_ripot', 'topic_set_thermage', 'topic_set_ulthera']);
+    expect(afterCount).toBe(beforeCount);
   });
 
   it('generates an approval-pending blog post through the OpenAI blog provider with an LLM audit log when configured', async () => {

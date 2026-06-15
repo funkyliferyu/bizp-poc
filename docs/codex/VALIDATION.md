@@ -1,5 +1,62 @@
 # Validation
 
+## Blog Formula V2 Blog Management Batch Generation Validation (13i)
+
+Date: 2026-06-15
+
+Branch:
+
+- `codex/blog-formula-v2-batch-blog-posts`, created from `develop` after
+  PR #53 merge.
+
+Develop integration:
+
+- Pending. Feature-branch validation below passed; PR to `develop` and
+  post-merge develop validation are the next gate.
+
+Scope:
+
+- Added a Blog Management demo batch button (`생성배치 실행`) that appends
+  three new approval-pending posts while keeping existing approval-pending
+  posts intact.
+- Added sequential batch progress UI for the three generated posts.
+- Added server APIs to select up to three Blog Formula V2 topic-brief
+  candidates and generate approval-pending blog posts from the V2 formula +
+  topic brief path.
+- Replaced content-detail mock article data for this lane with persisted
+  V2-generated article data; SEO score remains the existing mock rubric.
+- Persisted paragraph-specific image descriptions as image prompt media assets
+  instead of generic placeholders.
+
+TDD evidence (RED/GREEN):
+
+- Baseline focused suite before adding tests:
+  `cd poc-server && npx vitest run test/blogGenerationApi.test.ts
+  test/blogPostPages.test.ts test/contentDetailApi.test.ts` -> PASS
+  (15 tests).
+- RED after adding tests: page test failed because the batch UI hooks did not
+  exist, and API/detail tests failed on missing V2 blog-post generation
+  endpoints.
+- GREEN after implementation: same focused suite -> PASS (19 tests).
+
+Feature-branch validation:
+
+- `cd poc-server && npx tsc --noEmit -p tsconfig.json` -> PASS.
+- `cd poc-server && npx vitest run` -> PASS: 67 files passed, 3 skipped;
+  416 tests passed, 6 skipped.
+- `cd poc-server && node --check ../web/blog_posts.js` -> PASS.
+- `cd poc-server && node --check ../web/content_detail.js` -> PASS.
+- `git diff --check` -> PASS.
+
+Boundary checks:
+
+- Existing approval-pending posts are preserved; the new batch lane appends
+  three generated V2 posts.
+- Browser code calls only `poc-server` APIs and does not expose provider keys.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` were left untouched.
+
 ## Blog Formula V2 OpenAI Draft Generation Validation (13h)
 
 Date: 2026-06-14
