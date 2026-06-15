@@ -11,7 +11,8 @@ Branch:
 
 Develop integration:
 
-- Pending. Feature-branch validation below passed; PR to `develop` and
+- Draft PR [#54](https://github.com/funkyliferyu/bizp-poc/pull/54) is open
+  against `develop`. Feature-branch validation below passed; PR merge and
   post-merge develop validation are the next gate.
 
 Scope:

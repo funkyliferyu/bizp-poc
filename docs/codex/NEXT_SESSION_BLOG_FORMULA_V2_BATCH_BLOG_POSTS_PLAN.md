@@ -13,8 +13,10 @@
 ## Execution Status
 
 - Feature branch: `codex/blog-formula-v2-batch-blog-posts`
-- Status: Implemented and feature-branch validated on 2026-06-15.
-- Next gate: open/merge PR to `develop`, then re-run develop validation.
+- PR: [#54](https://github.com/funkyliferyu/bizp-poc/pull/54)
+- Status: Implemented, feature-branch validated, and opened as draft PR on
+  2026-06-15.
+- Next gate: review/merge PR #54 to `develop`, then re-run develop validation.
 
 ## Decisions
 
