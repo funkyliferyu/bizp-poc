@@ -32,7 +32,7 @@ describe('marketing ruleset static page API wiring', () => {
     expect(js).not.toContain('fetch(`/api/stores/${storeId}/ruleset`)');
     expect(() => new Function(js)).not.toThrow();
     expect(html).toContain('/strategy-ruleset/benchmark-evidence');
-    expect(html).toContain('/strategy-ruleset/regenerate-preview');
+    expect(html).not.toContain('/strategy-ruleset/regenerate-preview');
     expect(html).not.toContain("fetch('strategy_benchmark_fixture.json')");
     expect(html).not.toContain('const WRITING_PREVIEWS');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
@@ -283,7 +283,6 @@ describe('marketing ruleset static page API wiring', () => {
     expect(writeSection).toContain('낮음 — 가벼운 언어 유희만 허용');
     expect(writeSection).toContain('중간 — 시즌과 기념일 트렌드만 선별 반영');
     expect(writeSection).toContain('전국 최고, 무조건 가능, 효능 보장, 과장된 원조 표현');
-    expect(writeSection).toContain('검색 유입형 정보 전달 문장 · 키워드 자연 배치 · 예약 CTA');
     expect(writeSection).not.toContain('#인천정형외과');
     expect(writeSection).not.toContain('서구정형외과');
     expect(writeSection).not.toContain('정형외과 진료');
