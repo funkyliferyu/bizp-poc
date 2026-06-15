@@ -174,6 +174,17 @@
       button.style.display = remaining > 0 ? '' : 'none';
       button.textContent = `더 많은 블로그에서 포뮬라 생성 (남은 ${remaining}건)`;
     }
+    // An empty dropdown alone looks broken (e.g. a formula set whose briefs have
+    // not been mined yet, or a first-batch that failed server-side). Show an
+    // explicit notice telling the user the library is empty and how to fill it.
+    const notice = field('v2TopicBriefEmptyNotice');
+    if (notice) {
+      const isEmpty = state.topicBriefSets.length === 0;
+      notice.style.display = isEmpty ? '' : 'none';
+      notice.textContent = remaining > 0
+        ? "아직 생성된 토픽 브리프가 없습니다. 위 '더 많은 블로그에서 포뮬라 생성' 버튼으로 라이브러리를 채워주세요."
+        : '포뮬라를 추출하면 토픽 브리프 라이브러리가 채워집니다.';
+    }
   }
 
   function applyTopicBriefSet(indexValue) {
@@ -194,9 +205,15 @@
 
   async function extendTopicBriefSetLibrary() {
     const storeId = blogFormulaV2CurrentStoreId();
-    const button = field('v2TopicBriefExtendButton');
-    if (button) button.disabled = true;
     try {
+      // SL-F2 can run a slow (~30-60s) server-side openai batch, so reuse the
+      // shared progress overlay (spinner + elapsed timer) and let it disable the
+      // extend button while the call is in flight.
+      showProgressOverlay({
+        title: 'AI가 토픽 브리프를 생성하는 중',
+        status: '추가 블로그에서 토픽 브리프를 생성하고 있습니다.',
+        buttonId: 'v2TopicBriefExtendButton'
+      });
       setMessage('추가 블로그에서 토픽 브리프를 생성하는 중입니다.');
       const response = await fetch(`/api/stores/${storeId}/v2/blog-formula/topic-brief-sets/extend`, {
         method: 'POST',
@@ -213,7 +230,7 @@
     } catch {
       setMessage('토픽 브리프 추가 생성에 실패했습니다.');
     } finally {
-      if (button) button.disabled = false;
+      hideProgressOverlay();
     }
   }
 
@@ -322,8 +339,15 @@
     renderSourcePosts(payload?.sourcePosts || []);
     renderFormulaCards(payload?.formulaSet);
     renderTopicBriefLibrary(payload);
-    if (payload?.latestDraftGeneration?.output) renderDraft(payload.latestDraftGeneration.output);
-    if (payload?.latestValidation?.validation) renderValidation(payload.latestValidation.validation);
+    // Render the persisted draft and its compliance comparison on load (not only
+    // right after generating), so a reloaded page shows the same panels. Each
+    // renderer handles a null argument with its own empty state.
+    const draftOutput = payload?.latestDraftGeneration?.output || null;
+    renderDraft(draftOutput);
+    renderComplianceComparison(draftOutput);
+    renderValidation(payload?.latestValidation?.validation || null, {
+      hasDraft: Boolean(payload?.latestDraftGeneration)
+    });
   }
 
   function renderSamples(samples) {
@@ -417,11 +441,15 @@
     ].join('');
   }
 
-  function renderValidation(validation) {
+  function renderValidation(validation, options) {
     const target = field('v2ValidationPanel');
     if (!target) return;
     if (!validation) {
-      target.innerHTML = '검수 결과가 없습니다.';
+      // Distinguish "no draft yet" from "draft generated but not yet checked":
+      // the latter points the user at the separate 초안 검수 step.
+      target.innerHTML = options && options.hasDraft
+        ? "아직 검수하지 않은 초안입니다. '초안 검수' 버튼을 눌러 검수 결과를 확인하세요."
+        : '검수 결과가 없습니다.';
       return;
     }
     target.innerHTML = `

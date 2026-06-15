@@ -137,4 +137,44 @@ describe('Blog Formula V2 static UI lane', () => {
     expect(js).toContain('applyTopicBriefSet');
     expect(() => new Function(js)).not.toThrow();
   });
+
+  it('renders the compliance comparison from the persisted draft on load, not only after generating', () => {
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    // A reloaded page with an existing draft must show the model-vs-server
+    // compliance comparison next to the draft, so renderPayload (the load path)
+    // has to surface it — not only the post-generation handler. Scope to the
+    // renderPayload body so this asserts a call, not the later definition.
+    const renderPayloadBody = js.match(/function renderPayload\(payload\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(renderPayloadBody).toContain('renderComplianceComparison');
+  });
+
+  it('shows the shared progress overlay while extending the topic brief library', () => {
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    // The extend call can run a slow openai SL-F2 batch, so it needs the same
+    // visible progress overlay (with elapsed timer) the extract/draft flows use.
+    expect(js).toMatch(/async function extendTopicBriefSetLibrary[\s\S]*?showProgressOverlay/);
+    expect(js).toMatch(/async function extendTopicBriefSetLibrary[\s\S]*?hideProgressOverlay/);
+  });
+
+  it('surfaces an empty-library notice pointing to the extend button', () => {
+    const html = readFileSync(path.join(webRoot, '07_마케팅전략룰셋.html'), 'utf8');
+    const formulaSection = extractSection(html, '<!-- Blog Formula V2 -->', '<!-- 유사업체비교 -->');
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    // When a formula set has no mined topic briefs yet, the dropdown alone looks
+    // broken; an explicit notice tells the user the library is empty and how to
+    // fill it.
+    expect(formulaSection).toContain('id="v2TopicBriefEmptyNotice"');
+    expect(js).toContain('v2TopicBriefEmptyNotice');
+  });
+
+  it('prompts the user to run validation when the latest draft has not been validated', () => {
+    const js = readFileSync(path.join(webRoot, 'blog_formula_v2.js'), 'utf8');
+
+    // A generated-but-unvalidated draft must not show the same bare "no result"
+    // text as "no draft at all" — it should point the user at the 초안 검수 step.
+    expect(js).toContain('검수하지 않은 초안');
+  });
 });

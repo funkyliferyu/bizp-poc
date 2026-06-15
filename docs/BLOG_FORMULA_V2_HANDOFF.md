@@ -103,6 +103,14 @@ the "생성 모델" stat. A "컴플라이언스 비교 (모델 자가보고 vs �
 (`#v2DraftCompliancePanel`) renders the model self-report next to the
 server-derived authoritative report so a human can compare them.
 
+On page load `renderPayload` re-renders the latest persisted draft, its
+compliance comparison, and the latest validation — so a reloaded page shows the
+same panels as right after generating. Previously `renderPayload` rendered only
+the draft, so the compliance panel kept its placeholder after a reload. When the
+latest draft has not been validated yet, the validation panel shows a "run
+초안 검수" prompt instead of the bare "검수 결과가 없습니다." text (validation
+stays a separate, deterministic, manual step — it is not auto-run on load).
+
 V1 writing-style fields remain under the existing `글쓰기 스타일` tab and keep
 using `ruleset_editor.js`.
 
@@ -475,6 +483,9 @@ Endpoints / payload:
   formula `providerMode`. (Orchestrated in the route, not the service `extract*`
   functions, so the synchronous deterministic `extractBlogFormulaV2` stays
   synchronous and provider construction stays where the factory options live.)
+  A first-batch failure is logged (`console.warn`) rather than swallowed
+  silently, so an empty library right after extract is diagnosable; it still
+  leaves the library empty-but-retryable via the extend route.
 - `POST /topic-brief-sets/extend` (body `{ formulaSetId? }`, defaults to latest)
   mines the next batch of 10 by recency, appending/merging — never replacing —
   reusing the original provider mode.
@@ -487,7 +498,13 @@ one option per set labelled `topic + ①②③ + angle/concern summary`, same-to
 entries numbered client-side) that fills the form via `applyTopicBriefSet` (the
 inverse of `topicBriefFromForm`), plus a "더 많은 블로그에서 포뮬라 생성" button
 shown while `topicBriefSetRemainingCount > 0` that POSTs to the extend endpoint
-and re-renders. A successful `/extract` refreshes the library via `loadBlogFormulaV2`.
+and re-renders. The extend action shows the shared progress overlay
+(`showProgressOverlay`/`hideProgressOverlay`, spinner + elapsed timer) while it
+runs, since the SL-F2 batch can be a slow server-side openai call. When the
+library is empty, a `#v2TopicBriefEmptyNotice` element explains that no topic
+briefs exist yet and points to the extend button, instead of leaving just an
+empty dropdown. A successful `/extract` refreshes the library via
+`loadBlogFormulaV2`.
 
 Coverage: `blogFormulaV2TopicBriefSetRepository.test.ts` (table + UNIQUE),
 `topicBriefSetSchema.test.ts`, `topicBriefSetPrompt.test.ts`,
@@ -497,4 +514,6 @@ Coverage: `blogFormulaV2TopicBriefSetRepository.test.ts` (table + UNIQUE),
 provider-partial-return `remainingCount` case, payload fields, provider-mode
 resolution), and added cases in `blogFormulaV2Api.test.ts` (first batch on
 extract + extend endpoint) and `blogFormulaV2Page.test.ts` (dropdown/button +
-JS wiring).
+JS wiring, plus the empty-library notice, the extend progress overlay,
+compliance-comparison rendering on load, and the unvalidated-draft validation
+prompt).
