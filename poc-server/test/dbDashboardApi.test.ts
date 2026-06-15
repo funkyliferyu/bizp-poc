@@ -193,7 +193,7 @@ describe('SQL DB dashboard API', () => {
     expect(existsSync(rag.reviewsPath)).toBe(false);
   });
 
-  it('resets Place and Blog rows without deleting the store registration', async () => {
+  it('resets Place and Blog learning rows without deleting generated blog posts', async () => {
     seedDashboardStore(connection);
 
     const placeResponse = await fetch(`${baseUrl}/api/store-learning/db-dashboard/reset`, {
@@ -216,9 +216,32 @@ describe('SQL DB dashboard API', () => {
         storeId: 'store_dashboard',
         learnedPlaceCount: 0,
         learnedBlogCount: 0,
+        generatedBlogPostCount: 1
+      })
+    );
+  });
+
+  it('resets generated blog posts independently and keeps Blog learning rows', async () => {
+    seedDashboardStore(connection);
+
+    const response = await fetch(`${baseUrl}/api/store-learning/db-dashboard/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId: 'store_dashboard', target: 'generated_blog' })
+    });
+    expect(response.status).toBe(200);
+
+    const repos = createStoreLearningRepositories(connection);
+    const dashboard = await readJson(await fetch(`${baseUrl}/api/store-learning/db-dashboard`));
+    expect(dashboard.stores[0]).toEqual(
+      expect.objectContaining({
+        storeId: 'store_dashboard',
+        learnedBlogCount: 1,
         generatedBlogPostCount: 0
       })
     );
+    expect(repos.blogPosts.listByStoreId('store_dashboard')).toHaveLength(0);
+    expect(repos.contentGenerations.listByStoreId('store_dashboard')).toHaveLength(0);
   });
 
   it('deletes the store registration itself when target is all', async () => {

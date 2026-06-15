@@ -4,11 +4,21 @@
   const refreshButton = document.getElementById('db-dashboard-refresh');
 
   const resetLabels = {
-    all: '전체삭제',
+    all: '삭제',
+    place: '초기화',
+    blog: '초기화',
+    rag_info: '초기화',
+    rag_reviews: '초기화',
+    generated_blog: '초기화'
+  };
+
+  const resetTargetNames = {
+    all: '전체',
     place: '플레이스',
     blog: '블로그',
-    rag_info: 'RAG인포',
-    rag_reviews: 'RAG리뷰'
+    rag_info: 'RAG 인포',
+    rag_reviews: 'RAG 리뷰',
+    generated_blog: '생성 블로그'
   };
 
   function escapeHtml(value) {
@@ -24,6 +34,19 @@
     return `<span class="state ${enabled ? 'state-ok' : 'state-empty'}">${enabled ? '있음' : '없음'}</span>`;
   }
 
+  function resetButton(target, storeId, dangerClass = 'btn-danger-soft') {
+    return `<button class="btn btn-sm ${dangerClass} reset-under-value" type="button" data-reset-target="${target}" data-store-id="${storeId}">${resetLabels[target] || '초기화'}</button>`;
+  }
+
+  function metricCell(valueHtml, target, storeId) {
+    return `
+      <div class="metric-cell">
+        <div class="metric-value">${valueHtml}</div>
+        ${resetButton(target, storeId)}
+      </div>
+    `;
+  }
+
   function setStatus(message) {
     if (statusLine) statusLine.textContent = message;
   }
@@ -37,24 +60,20 @@
     tableBody.innerHTML = stores
       .map((store) => {
         const storeId = escapeHtml(store.storeId);
-        const buttons = Object.entries(resetLabels)
-          .map(([target, label]) => {
-            const dangerClass = target === 'all' ? 'btn-danger-strong' : 'btn-danger-soft';
-            return `<button class="btn btn-sm ${dangerClass}" type="button" data-reset-target="${target}" data-store-id="${storeId}">${label}</button>`;
-          })
-          .join('');
         return `
           <tr>
+            <td class="delete-cell">
+              <button class="btn btn-sm btn-danger-strong" type="button" data-reset-target="all" data-store-id="${storeId}">삭제</button>
+            </td>
             <td>
               <div class="store-name">${escapeHtml(store.storeName)}</div>
               <div class="store-id">${storeId}</div>
             </td>
-            <td><span class="num">${Number(store.learnedPlaceCount ?? 0)}</span>건</td>
-            <td><span class="num">${Number(store.learnedBlogCount ?? 0)}</span>건</td>
-            <td>${stateBadge(Boolean(store.ragInfoExists))}</td>
-            <td>${stateBadge(Boolean(store.ragReviewsExists))}</td>
-            <td><span class="num">${Number(store.generatedBlogPostCount ?? 0)}</span>건</td>
-            <td><div class="actions">${buttons}</div></td>
+            <td>${metricCell(`<span class="num">${Number(store.learnedPlaceCount ?? 0)}</span>건`, 'place', storeId)}</td>
+            <td>${metricCell(`<span class="num">${Number(store.learnedBlogCount ?? 0)}</span>건`, 'blog', storeId)}</td>
+            <td>${metricCell(stateBadge(Boolean(store.ragInfoExists)), 'rag_info', storeId)}</td>
+            <td>${metricCell(stateBadge(Boolean(store.ragReviewsExists)), 'rag_reviews', storeId)}</td>
+            <td>${metricCell(`<span class="num">${Number(store.generatedBlogPostCount ?? 0)}</span>건`, 'generated_blog', storeId)}</td>
           </tr>
         `;
       })
@@ -73,9 +92,9 @@
 
   function confirmReset(storeId, target) {
     if (target === 'all') {
-      return window.confirm(`[전체삭제]\n${storeId} 스토어 등록 자체를 삭제합니다.\n등록 단계부터 다시 진행하기 위한 용도입니다. 계속할까요?`);
+      return window.confirm(`[삭제]\n${storeId} 스토어 등록 자체를 삭제합니다.\n등록 단계부터 다시 진행하기 위한 용도입니다. 계속할까요?`);
     }
-    return window.confirm(`${storeId}의 ${resetLabels[target] || target} 데이터를 초기화할까요?`);
+    return window.confirm(`${storeId}의 ${resetTargetNames[target] || target} 데이터를 초기화할까요?`);
   }
 
   async function resetTarget(storeId, target) {
@@ -96,7 +115,7 @@
     if (!storeId || !target || !confirmReset(storeId, target)) return;
     button.disabled = true;
     try {
-      setStatus(`${storeId} · ${resetLabels[target] || target} 초기화 중입니다.`);
+      setStatus(`${storeId} · ${resetTargetNames[target] || target} 초기화 중입니다.`);
       await resetTarget(storeId, target);
       await loadDashboard();
     } catch (error) {

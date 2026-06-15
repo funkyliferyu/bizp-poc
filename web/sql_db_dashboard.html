@@ -7,15 +7,15 @@
   <link rel="stylesheet" href="common.css">
   <style>
     body{background:#F5F7FB;color:#111827}
-    .page{max-width:1180px;margin:0 auto;padding:28px 20px 40px}
-    .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+    .page{max-width:1180px;margin:0 auto;padding:48px 20px 40px}
+    .dashboard-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:16px;margin-bottom:18px}
     .eyebrow{font-size:12px;font-weight:700;color:#64748B;margin-bottom:8px}
     h1{font-size:22px;margin:0;color:#111827}
     .subtitle{margin-top:8px;font-size:13px;color:#64748B;line-height:1.5}
     .panel{background:#fff;border:1px solid #DDE5F0;border-radius:8px;overflow:hidden}
     .table-wrap{overflow-x:auto}
-    table{width:100%;border-collapse:collapse;min-width:980px}
-    th,td{padding:12px 14px;border-bottom:1px solid #E5EAF2;text-align:left;font-size:13px;vertical-align:middle}
+    table{width:100%;border-collapse:collapse;min-width:860px}
+    th,td{padding:11px 12px;border-bottom:1px solid #E5EAF2;text-align:left;font-size:13px;vertical-align:top}
     th{background:#F8FAFC;color:#64748B;font-size:12px;font-weight:800}
     tr:last-child td{border-bottom:0}
     .store-name{font-weight:800;color:#111827}
@@ -24,16 +24,24 @@
     .state{display:inline-flex;align-items:center;justify-content:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:800}
     .state-ok{background:#DCFCE7;color:#15803D}
     .state-empty{background:#EEF2F7;color:#64748B}
-    .actions{display:flex;gap:6px;flex-wrap:wrap}
+    .delete-cell{width:72px}
+    .metric-cell{display:grid;gap:7px;justify-items:start;align-content:start;min-height:54px}
+    .metric-value{min-height:24px;display:flex;align-items:center;gap:2px}
+    .reset-under-value{height:24px;padding:0 8px;font-size:11px}
     .btn-danger-soft{border:1px solid #FCA5A5;background:#FFF7F7;color:#DC2626}
     .btn-danger-strong{border:1px solid #DC2626;background:#DC2626;color:#fff}
     .status-line{padding:12px 14px;border-top:1px solid #E5EAF2;color:#64748B;font-size:12px}
     .empty{padding:32px;text-align:center;color:#64748B}
+    @media (max-width:720px){
+      .page{padding-top:36px}
+      .dashboard-header{grid-template-columns:1fr}
+      #db-dashboard-refresh{justify-self:start}
+    }
   </style>
 </head>
 <body>
   <main class="page">
-    <div class="topbar">
+    <div class="dashboard-header">
       <div>
         <div class="eyebrow">Store Learning POC · DB Utilities</div>
         <h1>SQL DB 대시보드</h1>
@@ -47,13 +55,13 @@
         <table>
           <thead>
             <tr>
+              <th>삭제</th>
               <th>스토어</th>
-              <th>학습 플레이스</th>
-              <th>학습 블로그</th>
+              <th>플레이스</th>
+              <th>블로그</th>
               <th>RAG 인포</th>
               <th>RAG 리뷰</th>
               <th>생성 블로그</th>
-              <th>초기화</th>
             </tr>
           </thead>
           <tbody id="db-dashboard-table-body">

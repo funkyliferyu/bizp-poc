@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { DbConnection } from '../../db/connection.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 
-export type DbDashboardResetTarget = 'all' | 'place' | 'blog' | 'rag_info' | 'rag_reviews';
+export type DbDashboardResetTarget = 'all' | 'place' | 'blog' | 'rag_info' | 'rag_reviews' | 'generated_blog';
 
 type CountRow = {
   count: number;
@@ -111,11 +111,14 @@ function resetBlog(connection: DbConnection, storeId: string) {
   runDelete(connection, 'DELETE FROM v2_blog_formula_source_posts WHERE store_id = ?', storeId);
   runDelete(connection, 'DELETE FROM v2_blog_formula_runs WHERE store_id = ?', storeId);
   runDelete(connection, 'DELETE FROM v2_blog_formula_sets WHERE store_id = ?', storeId);
+  runDelete(connection, "DELETE FROM collection_items WHERE store_id = ? AND channel = 'blog'", storeId);
+}
+
+function resetGeneratedBlog(connection: DbConnection, storeId: string) {
   runDelete(connection, 'DELETE FROM seo_scores WHERE blog_post_id IN (SELECT id FROM blog_posts WHERE store_id = ?)', storeId);
-  runDelete(connection, 'DELETE FROM media_assets WHERE store_id = ?', storeId);
+  runDelete(connection, 'DELETE FROM media_assets WHERE blog_post_id IN (SELECT id FROM blog_posts WHERE store_id = ?)', storeId);
   runDelete(connection, 'DELETE FROM blog_posts WHERE store_id = ?', storeId);
   runDelete(connection, "DELETE FROM content_generations WHERE store_id = ? AND content_type = 'blog_post'", storeId);
-  runDelete(connection, "DELETE FROM collection_items WHERE store_id = ? AND channel = 'blog'", storeId);
 }
 
 function resetAll(connection: DbConnection, storeId: string, ragOutputRoot?: string) {
@@ -139,6 +142,7 @@ export function resetSqlDbDashboardStore(
   if (input.target === 'blog') resetBlog(connection, input.storeId);
   if (input.target === 'rag_info') deleteRagInfo(options.ragOutputRoot, input.storeId);
   if (input.target === 'rag_reviews') deleteRagReviews(options.ragOutputRoot, input.storeId);
+  if (input.target === 'generated_blog') resetGeneratedBlog(connection, input.storeId);
 
   return {
     storeId: input.storeId,
