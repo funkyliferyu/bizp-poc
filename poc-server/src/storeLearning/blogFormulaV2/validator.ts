@@ -1,4 +1,5 @@
-import type { BlogTopicBriefInput } from './types.js';
+import { matchesAnySelfIntroductionPattern } from './selfIntroductionPatterns.js';
+import type { BlogTopicBriefInput, SelfIntroductionPatternV2 } from './types.js';
 import { BlogDraftValidationResultV2Schema, type BlogDraftValidationResultV2 } from './types.js';
 
 type RetrievedSampleForValidation = {
@@ -12,6 +13,8 @@ export type BlogFormulaV2DraftTextInput = {
   blogDraft: string;
   topicBrief: BlogTopicBriefInput;
   retrievedSamples?: RetrievedSampleForValidation[];
+  selfIntroductionPatterns?: SelfIntroductionPatternV2[];
+  storeName?: string;
 };
 
 const bannedMedicalAdPhrases = [
@@ -109,6 +112,19 @@ export function validateBlogFormulaV2DraftText(input: BlogFormulaV2DraftTextInpu
       severity: 'warning',
       message: '검색 샘플과 겹치는 핵심 표현이 많아 문장 복사 여부를 검토해야 합니다.',
       evidence: overlapEvidence
+    });
+  }
+
+  if (
+    input.selfIntroductionPatterns &&
+    input.selfIntroductionPatterns.length > 0 &&
+    input.storeName &&
+    !matchesAnySelfIntroductionPattern(input.blogDraft, input.selfIntroductionPatterns, input.storeName)
+  ) {
+    issues.push({
+      code: 'self_introduction_pattern_mismatch',
+      severity: 'warning',
+      message: '본문 도입부 인사가 기존 블로그의 자기소개 패턴(introFormula.selfIntroductionPatterns)과 일치하지 않습니다.'
     });
   }
 

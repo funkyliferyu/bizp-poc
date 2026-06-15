@@ -7,12 +7,16 @@ type StoreLearningRepositories = ReturnType<typeof createStoreLearningRepositori
 import {
   extractBlogFormulaV2WithProvider,
   generateBlogFormulaV2Draft,
+  generateBlogFormulaV2DraftWithProvider,
   retrieveBlogFormulaV2Samples,
   validateBlogFormulaV2Draft
 } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
 import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
 import { createOpenAIBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/openAIBlogFormulaProvider.js';
+import { createSafeMockBlogDraftV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogDraftProvider.js';
+import { createOpenAIBlogDraftV2Provider } from '../src/storeLearning/blogFormulaV2/providers/openAIBlogDraftProvider.js';
 import type { BlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/blogFormulaV2Provider.js';
+import type { BlogDraftV2Provider } from '../src/storeLearning/blogFormulaV2/providers/blogDraftV2Provider.js';
 import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 import { generationReadyFormulaFixture } from './fixtures/blogFormulaV2Fixtures.js';
 
@@ -72,6 +76,47 @@ async function runRoundTrip(repos: StoreLearningRepositories, storeId: string, p
   expect(styleExampleIds.some((id) => reviewItemIds.includes(id))).toBe(false);
 }
 
+async function runProviderDraftRoundTrip(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  draftProvider: BlogDraftV2Provider
+) {
+  const { formulaSet } = await extractBlogFormulaV2WithProvider(repos, storeId, createSafeMockBlogFormulaV2Provider());
+  const { topicBrief, retrievalRun, samples } = retrieveBlogFormulaV2Samples(repos, storeId, {
+    formulaSetId: formulaSet.id,
+    topicBrief: ripotTopicBrief,
+    maxSamples: 3
+  });
+  expect(samples.length).toBeGreaterThanOrEqual(1);
+
+  const { draftGeneration, output } = await generateBlogFormulaV2DraftWithProvider(
+    repos,
+    storeId,
+    { formulaSetId: formulaSet.id, topicBriefId: topicBrief.id, retrievalRunId: retrievalRun.id },
+    draftProvider
+  );
+  expect(output.selectedTitle.length).toBeGreaterThan(0);
+  expect(output.blogDraft.length).toBeGreaterThan(0);
+  expect(output.modelReportedCompliance).not.toBeNull();
+  // server-derived authoritative report
+  expect(output.styleComplianceReport.formulaSetId).toBe(formulaSet.id);
+
+  // validate-draft stays the deterministic quality gate over the generated draft.
+  const { validation } = validateBlogFormulaV2Draft(repos, storeId, { draftGenerationId: draftGeneration.id });
+  expect(['pass', 'needs_human_review', 'failed']).toContain(validation.status);
+
+  // No visitor review leaked into the style examples.
+  const styleExampleIds = output.styleComplianceReport.sourcePostIds;
+  const reviewItemIds = repos.collectionItems
+    .listByStoreId(storeId)
+    .filter((item) => {
+      const metadata = item.metadata as Record<string, unknown> | null;
+      return metadata?.sourceKind === 'place_visitor_review';
+    })
+    .map((item) => item.id);
+  expect(styleExampleIds.some((id) => reviewItemIds.includes(id))).toBe(false);
+}
+
 describe('Blog Formula V2 round-trip compatibility', () => {
   let connection: DbConnection;
   let repos: StoreLearningRepositories;
@@ -116,5 +161,42 @@ describe('Blog Formula V2 round-trip compatibility', () => {
     const rulesetsBefore = JSON.stringify(repos.marketingRulesets.listByStoreId(storeId));
     await runRoundTrip(repos, storeId, createSafeMockBlogFormulaV2Provider());
     expect(JSON.stringify(repos.marketingRulesets.listByStoreId(storeId))).toBe(rulesetsBefore);
+  });
+
+  it('safe_mock draft provider runs extract -> retrieve -> generate -> validate end to end', async () => {
+    await runProviderDraftRoundTrip(repos, storeId, createSafeMockBlogDraftV2Provider());
+  });
+
+  it('fake-openai draft provider runs extract -> retrieve -> generate -> validate end to end', async () => {
+    const draftClient = {
+      beta: {
+        chat: {
+          completions: {
+            parse: async () => ({
+              choices: [
+                {
+                  message: {
+                    parsed: {
+                      titleCandidates: ['리팟레이저 부작용 걱정 없이 확인할 점'],
+                      selectedTitle: '리팟레이저 부작용 걱정 없이 확인할 점',
+                      blogDraft:
+                        '리팟레이저 부작용을 검색하는 분이라면 개인차가 있어 걱정될 수 있습니다.\n\n부작용 가능성도 있으니 의료진 상담 후 결정하시길 권합니다.',
+                      styleComplianceReport: { appliedBlocks: ['titleFormula', 'bodyFormula', 'medicalSafetyFormula'] },
+                      safetyCheck: {
+                        requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담'],
+                        bannedPhrasesAvoided: true
+                      },
+                      seoCheck: { mainKeywordInTitle: true, mainKeywordInIntro: true, secondaryKeywordsUsed: [] }
+                    }
+                  }
+                }
+              ]
+            })
+          }
+        }
+      }
+    };
+
+    await runProviderDraftRoundTrip(repos, storeId, createOpenAIBlogDraftV2Provider({ client: draftClient, model: 'gpt-test-draft' }));
   });
 });

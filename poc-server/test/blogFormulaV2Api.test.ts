@@ -39,6 +39,40 @@ function formulaOutput(sourcePostIds = [
   });
 }
 
+function draftModelOutput() {
+  return {
+    titleCandidates: ['리팟레이저 부작용 걱정 없이 확인할 점'],
+    selectedTitle: '리팟레이저 부작용 걱정 없이 확인할 점',
+    blogDraft:
+      '리팟레이저 부작용을 검색하는 분이라면 재발이 걱정될 수 있습니다.\n\n개인차가 있어 의료진 상담 후 결정하시길 권합니다. 부작용 가능성도 함께 확인하세요.',
+    styleComplianceReport: { appliedBlocks: ['titleFormula', 'bodyFormula', 'medicalSafetyFormula'] },
+    safetyCheck: { requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담'], bannedPhrasesAvoided: true },
+    seoCheck: { mainKeywordInTitle: true, mainKeywordInIntro: true, secondaryKeywordsUsed: [] }
+  };
+}
+
+async function extractAndRetrieve(baseUrl: string, storeId: string) {
+  const extractResponse = await fetch(`${baseUrl}/api/stores/${storeId}/v2/blog-formula/extract`, { method: 'POST' });
+  const extracted = await readJson(extractResponse);
+  const retrieveResponse = await fetch(`${baseUrl}/api/stores/${storeId}/v2/blog-formula/retrieve-samples`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      formulaSetId: extracted.formulaSet.id,
+      topicBrief: {
+        topic: '리팟레이저',
+        mainKeyword: '리팟레이저 부작용',
+        secondaryKeywords: ['색소침착'],
+        mustInclude: ['개인차', '부작용 가능성', '의료진 상담'],
+        mustAvoid: []
+      },
+      maxSamples: 3
+    })
+  });
+  const retrieved = await readJson(retrieveResponse);
+  return { extracted, retrieved };
+}
+
 describe('Blog Formula V2 API', () => {
   const futureCombinedMode = ['hybrid', 'v1', 'v2'].join('_');
   let connection: DbConnection;
@@ -232,7 +266,16 @@ describe('Blog Formula V2 API', () => {
           beta: {
             chat: {
               completions: {
-                parse: async () => {
+                parse: async (params: unknown) => {
+                  const responseFormatName = (
+                    params as { response_format?: { json_schema?: { name?: string } } }
+                  )?.response_format?.json_schema?.name;
+                  if (responseFormatName === 'store_learning_blog_topic_brief_set_v2') {
+                    // The /extract route also fires an SL-F2 first-batch call that reuses this
+                    // same OpenAI client. Return a valid empty topic-brief response so it does
+                    // not count as an SL-F1 call and does not throw.
+                    return { choices: [{ message: { parsed: { topicBriefSets: [] } } }] };
+                  }
                   parseCallCount += 1;
                   return { choices: [{ message: { parsed: formulaOutput() } }] };
                 }
@@ -314,7 +357,16 @@ describe('Blog Formula V2 API', () => {
           beta: {
             chat: {
               completions: {
-                parse: async () => {
+                parse: async (params: unknown) => {
+                  const responseFormatName = (
+                    params as { response_format?: { json_schema?: { name?: string } } }
+                  )?.response_format?.json_schema?.name;
+                  if (responseFormatName === 'store_learning_blog_topic_brief_set_v2') {
+                    // The /extract route also fires an SL-F2 first-batch call that reuses this
+                    // same OpenAI client. Return a valid empty topic-brief response so it does
+                    // not count as an SL-F1 call and does not throw.
+                    return { choices: [{ message: { parsed: { topicBriefSets: [] } } }] };
+                  }
                   parseCallCount += 1;
                   return { choices: [{ message: { parsed: formulaOutput() } }] };
                 }
@@ -420,6 +472,188 @@ describe('Blog Formula V2 API', () => {
       relatedEntityId: failedRun?.id,
       action: 'blog_formula_v2_extract',
       status: 'failed'
+    });
+  });
+
+  it('generates a draft through providerMode=openai and returns the model self-report plus a generate-draft audit row', async () => {
+    let parseCallCount = 0;
+    await restartServer({
+      providerFactoryOptions: {
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'gpt-test-draft' },
+        openAIClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async () => {
+                  parseCallCount += 1;
+                  return { choices: [{ message: { parsed: draftModelOutput() } }] };
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const { extracted, retrieved } = await extractAndRetrieve(baseUrl, BLOG_FORMULA_V2_STORE_ID);
+    const generateResponse = await fetch(
+      `${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/generate-draft`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formulaSetId: extracted.formulaSet.id,
+          topicBriefId: retrieved.topicBrief.id,
+          retrievalRunId: retrieved.retrievalRun.id,
+          providerMode: 'openai'
+        })
+      }
+    );
+    const generated = await readJson(generateResponse);
+
+    expect(generateResponse.status).toBe(200);
+    expect(parseCallCount).toBe(1);
+    expect(generated.draftGeneration).toMatchObject({
+      generationMode: 'v2_formula',
+      status: 'generated',
+      model: 'gpt-test-draft'
+    });
+    expect(generated.provider).toMatchObject({ mode: 'openai', callId: 'SL-G1', noExternalCalls: false });
+    expect(generated.output.modelReportedCompliance).not.toBeNull();
+    expect(generated.output.styleComplianceReport.formulaSetId).toBe(extracted.formulaSet.id);
+
+    const repos = createStoreLearningRepositories(connection);
+    const draftLog = repos.llmAuditLogs.latest().find((log) => log.action === 'blog_formula_v2_generate_draft');
+    expect(draftLog).toMatchObject({
+      relatedEntityType: 'v2_blog_draft_generation',
+      relatedEntityId: generated.draftGeneration.id,
+      status: 'completed',
+      model: 'gpt-test-draft'
+    });
+    expect(countRows(connection, 'marketing_rulesets')).toBe(0);
+    expect(countRows(connection, 'ruleset_fields')).toBe(0);
+  });
+
+  it('keeps generate-draft deterministic with no model self-report when providerMode is omitted', async () => {
+    const { extracted, retrieved } = await extractAndRetrieve(baseUrl, BLOG_FORMULA_V2_STORE_ID);
+    const generateResponse = await fetch(
+      `${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/generate-draft`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formulaSetId: extracted.formulaSet.id,
+          topicBriefId: retrieved.topicBrief.id,
+          retrievalRunId: retrieved.retrievalRun.id
+        })
+      }
+    );
+    const generated = await readJson(generateResponse);
+
+    expect(generateResponse.status).toBe(200);
+    expect(generated.draftGeneration).toMatchObject({ status: 'generated', model: 'deterministic-blog-formula-v2' });
+    expect(generated.provider).toBeUndefined();
+    expect(generated.output.modelReportedCompliance ?? null).toBeNull();
+    expect(countRows(connection, 'llm_audit_logs')).toBe(0);
+  });
+
+  it('populates the first topic brief set batch on deterministic extract and exposes it via GET', async () => {
+    await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, { method: 'POST' });
+
+    const getResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula`);
+    const payload = await readJson(getResponse);
+
+    expect(Array.isArray(payload.topicBriefSets)).toBe(true);
+    expect(payload.topicBriefSets.length).toBe(4); // fixture has 4 owner posts
+    expect(payload.status.topicBriefSetRemainingCount).toBe(0);
+    expect(payload.topicBriefSets[0].topic).toBeTruthy();
+  });
+
+  it('extends the topic brief set library via POST /topic-brief-sets/extend', async () => {
+    await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, { method: 'POST' });
+
+    const extendResponse = await fetch(
+      `${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/topic-brief-sets/extend`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }
+    );
+    const extended = await readJson(extendResponse);
+
+    expect(extendResponse.status).toBe(200);
+    // all 4 fixture posts were already covered by the first batch on extract
+    expect(extended.added).toHaveLength(0);
+    expect(extended.topicBriefSets).toHaveLength(4);
+    expect(extended.remainingCount).toBe(0);
+  });
+
+  it('populates topic brief sets via the OpenAI SL-F2 provider through /extract (openai)', async () => {
+    const ownerPostIds = [
+      'collection_item_v2_owner_1',
+      'collection_item_v2_owner_2',
+      'collection_item_v2_owner_3',
+      'collection_item_v2_owner_4'
+    ];
+    await restartServer({
+      providerFactoryOptions: {
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'gpt-test-formula' },
+        openAIClient: {
+          beta: {
+            chat: {
+              completions: {
+                parse: async (params: unknown) => {
+                  const responseFormatName = (
+                    params as { response_format?: { json_schema?: { name?: string } } }
+                  )?.response_format?.json_schema?.name;
+                  if (responseFormatName === 'store_learning_blog_topic_brief_set_v2') {
+                    return {
+                      choices: [
+                        {
+                          message: {
+                            parsed: {
+                              topicBriefSets: ownerPostIds.map((id) => ({
+                                id,
+                                topic: '리팟레이저',
+                                mainKeyword: '리팟레이저 부작용',
+                                secondaryKeywords: ['흑자 제거'],
+                                targetReader: '리팟레이저 정보를 찾는 고객',
+                                coreConcern: '부작용 걱정',
+                                mainAngle: '원리 설명 중심',
+                                mustInclude: ['개인차'],
+                                mustAvoid: [],
+                                ctaDirection: '상담 안내'
+                              }))
+                            }
+                          }
+                        }
+                      ]
+                    };
+                  }
+                  return { choices: [{ message: { parsed: formulaOutput() } }] };
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerMode: 'openai' })
+    });
+
+    const getResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/v2/blog-formula`);
+    const payload = await readJson(getResponse);
+
+    // The OpenAI SL-F2 first-batch must run through route -> factory -> provider
+    // and populate the library (this path is broken if the factory options carry
+    // an always-present openAIClient key).
+    expect(payload.topicBriefSets).toHaveLength(4);
+    expect(payload.status.topicBriefSetRemainingCount).toBe(0);
+    expect(payload.topicBriefSets[0]).toMatchObject({
+      topic: '리팟레이저',
+      mainKeyword: '리팟레이저 부작용',
+      status: 'candidate'
     });
   });
 });

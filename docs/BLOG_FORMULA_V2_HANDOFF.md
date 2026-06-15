@@ -94,6 +94,15 @@ path). Because a live call takes ~30-60s, the tab shows a progress overlay
 is in flight, and surfaces the returned model in the "생성 모델" stat. The
 browser holds no provider credentials; the call goes through `poc-server`.
 
+The "V2 초안 생성" button POSTs `{ ..., providerMode: 'openai' }` to
+`/generate-draft`, running the live server-side OpenAI SL-G1 draft lane. It
+reuses the same progress overlay (now generalized via
+`showProgressOverlay`/`hideProgressOverlay` with an id'd `#v2OverlayTitle`),
+disables the generate button while in flight, and surfaces the draft model in
+the "생성 모델" stat. A "컴플라이언스 비교 (모델 자가보고 vs 서버 검증)" panel
+(`#v2DraftCompliancePanel`) renders the model self-report next to the
+server-derived authoritative report so a human can compare them.
+
 V1 writing-style fields remain under the existing `글쓰기 스타일` tab and keep
 using `ruleset_editor.js`.
 
@@ -108,6 +117,8 @@ The deterministic validator checks:
 - sample copy overlap warnings
 - hardcoded operating-hours warnings
 - main keyword placement in title and intro
+- self-introduction opener mismatch against the store's known greeting
+  patterns (see "Self-Introduction Pattern Library" below)
 
 Validation status is one of:
 
@@ -265,3 +276,225 @@ Recommended next product follow-up if the user wants another V2 iteration:
   or remain API/demo-only for one more iteration
 - consider whether `body_sequence_too_short`-class issues should trigger an
   automatic re-extraction prompt hint or stay reviewer-facing only
+
+## OpenAI Draft Generation (SL-G1)
+
+`POST /generate-draft` now accepts an optional `providerMode`
+(`deterministic` | `safe_mock` | `openai` | `auto`), mirroring `/extract`:
+
+- missing/`deterministic`: existing deterministic V2 draft generation
+- `safe_mock`: provider-shaped path with no external calls
+- `openai`: server-side OpenAI SL-G1 draft generation only
+- `auto`: OpenAI when `OPENAI_API_KEY` exists server-side, otherwise `safe_mock`
+
+The OpenAI path uses:
+
+```text
+BlogDraftModelResponseV2Schema
+zodResponseFormat(..., "store_learning_blog_formula_v2_draft")
+llm_audit_logs.related_entity_type = "v2_blog_draft_generation"
+llm_audit_logs.action = "blog_formula_v2_generate_draft"
+```
+
+The draft provider only generates the creative content (`titleCandidates`,
+`selectedTitle`, `blogDraft`) plus its own self-reported compliance. The server
+then derives the authoritative `styleComplianceReport` / `safetyCheck` /
+`seoCheck` from the formula set + topic brief + generated text
+(`deriveDraftReports` in `draftOutput.ts`), and persists both:
+
+- `output.styleComplianceReport` / `safetyCheck` / `seoCheck`: server-derived
+  authoritative (the existing contract; `safetyCheck.bannedPhrasesAvoided` is
+  now actually computed against `medicalSafetyFormula.bannedClaims`).
+- `output.modelReportedCompliance`: the model's self-reported versions for
+  human comparison (`null` on the deterministic path).
+
+Build-first safety gate: a generated draft is always persisted
+(`status = 'generated'`); the deterministic `validate-draft` flags banned
+phrases / missing disclosures / broken unicode. Provider/parse failures persist
+a `failed` `v2_blog_draft_generations` row (null `selected_title`/`blog_draft`)
+plus a failed audit row, and rethrow. No schema migration was required —
+`output_json` carries `modelReportedCompliance` and the draft columns are
+nullable.
+
+Still out of scope:
+
+- OpenAI `retrieve-samples` / `validate-draft` (stay deterministic)
+- prompt/quality tuning of the OpenAI draft (build-first; tuning is follow-up)
+- Hybrid or combined V1/V2 generation
+- browser-side provider calls
+- V2 writes to `marketing_rulesets` or `ruleset_fields`
+
+Manual live confirmation (only when explicitly requested) on a `/tmp` snapshot
+DB: drive `/extract` then `/generate-draft {"providerMode":"openai"}` against
+the running server and confirm a `gpt-4o-mini` draft plus a completed
+`llm_audit_logs` row (`action = "blog_formula_v2_generate_draft"`).
+
+## Self-Introduction Pattern Library
+
+Live `openai` extraction on `store_1020864025` (테라스의원) surfaced a
+hallucination: generated drafts opened with "안녕하세요. 😊 테라스 의원의
+의료진입니다." — a phrase that never appears in any of the store's 50 real
+`owner_blog_post` items. The root cause is that `introFormula.sequence` only
+describes abstract writing moves (e.g. "인사 → 주제 제시"), with no concrete
+self-introduction text for the draft generator or model to reuse.
+
+`poc-server/src/storeLearning/blogFormulaV2/selfIntroductionPatterns.ts`
+discovers the store's *actual* repeating greeting openers from its own post
+history and stores them with usage ratios, so generation reuses them
+proportionally instead of inventing new ones:
+
+- `analyzeSelfIntroductionPatterns(posts, storeName)` scans each post for an
+  opening "안녕하세요" near the store's own name (zero-width-space tolerant —
+  Naver's mobile editor pads body text with U+200B/U+200C/U+200D/U+FEFF) and
+  classifies it as:
+  - `store_director_greeting`: `"안녕하세요. {storeName} 대표원장
+    {directorName}입니다."` — director name extracted via
+    `(?:대표)?원장\s*([가-힣]{2,4})입니다` (or the reversed `{name} 원장입니다`
+    order)
+  - `store_name_greeting`: `"안녕하세요. {storeName}입니다."` — fallback when
+    no director name is detected
+  - Posts with no greeting near the store's name are excluded entirely.
+    `usageRatio` is each pattern's share among posts that DO have a
+    detectable opener, sorted descending, so the ratios sum to ~1 and the
+    first entry is the store's most common opener.
+- `fillSelfIntroductionTemplate(pattern, storeName)` fills `{storeName}` /
+  `{directorName}` into the template.
+- `matchesAnySelfIntroductionPattern(blogDraft, patterns, storeName)` checks
+  (whitespace/zero-width-space insensitive) whether a draft's opening
+  reproduces one of the filled patterns; returns `true` when `patterns` is
+  empty (nothing to constrain against).
+
+Schema (`types.ts`, still `formula_v2.1`): `introFormula` gains
+`selfIntroductionPatterns: SelfIntroductionPatternV2[]` (`.default([])`, so
+legacy/upgraded/older-stored formulas parse cleanly with `[]`). This field is
+always computed server-side from the store's own post history — both
+`extractBlogFormulaV2` and `extractBlogFormulaV2WithProvider` overwrite
+whatever the deterministic builder or model returns with
+`analyzeSelfIntroductionPatterns(posts, store.name)`, since neither can know
+real historical ratios.
+
+OpenAI structured outputs reject `.optional()`/`.default()` fields, so
+`BlogFormulaSetV2ResponseFormatSchema` (an `introFormula` variant without
+`selfIntroductionPatterns`) is used only for `zodResponseFormat` in
+`openAIBlogFormulaProvider.ts`; the actual `.parse()` of the model's response
+still uses the full `BlogFormulaSetV2Schema`, and the field is overwritten
+immediately afterwards regardless.
+
+Draft generation, both paths:
+
+- Deterministic (`buildDeterministicDraftCreative` in `draftOutput.ts`):
+  prepends `fillSelfIntroductionTemplate(patterns[0], storeName)` (the
+  highest-`usageRatio` pattern) as the first paragraph of `blogDraft`, when
+  `selfIntroductionPatterns` is non-empty.
+- OpenAI SL-G1 (`blogDraftPrompt.ts`): a new generation instruction tells the
+  model to open `blogDraft` with a pattern from
+  `formula.introFormula.selfIntroductionPatterns`, chosen with probability
+  roughly proportional to its `usageRatio`, filled verbatim as the first
+  sentence — never inventing a different self-introduction phrase (e.g.
+  generic staff titles such as "의료진입니다").
+
+Validation: `validateBlogFormulaV2DraftText` accepts optional
+`selfIntroductionPatterns` / `storeName`; when patterns are non-empty and a
+draft's opener matches none of them, it pushes a `self_introduction_pattern_mismatch`
+issue (`severity: 'warning'` → overall `needs_human_review`, consistent with
+the build-first-then-flag philosophy). `validateBlogFormulaV2Draft` (the
+`draftGenerationId` service path) loads the draft's formula set and passes
+`formula.introFormula.selfIntroductionPatterns` + `store.name` through; the
+ad-hoc (no `draftGenerationId`) path has no formula reference, so the check is
+skipped.
+
+Coverage: `poc-server/test/selfIntroductionPatterns.test.ts` (pattern
+discovery, template filling, match checking) and the `Self-introduction
+pattern library` describe block in `poc-server/test/blogFormulaV2Services.test.ts`
+(end-to-end: extraction populates ratios, deterministic draft opens with the
+top pattern, validation flags a mismatched opener and passes a matching one).
+
+## Topic Brief Library
+
+To support long-running blog programs, a store needs more than a single
+hand-typed "소재 Brief": it needs a reusable library of topic-brief *sets* mined
+from its own `owner_blog_post` history, grouped by topic (e.g. for 테라스의원:
+리팟레이저 ①/②/③, 인모드 세트, 울쎄라 세트). Each set carries the same fields as
+the manual 소재 Brief form, so picking one auto-fills that form and the existing
+retrieve-samples → generate-draft → validate-draft flow is unchanged.
+
+Granularity is **1 owner blog post = 1 topic-brief set** (`sourcePostIds` always
+holds exactly that one post). Sets are stored one-row-per-post in the new
+`v2_blog_topic_brief_sets` table, FK'd to `v2_blog_formula_sets` with
+`UNIQUE (formula_set_id, source_post_id)` so a post is never mined twice into the
+same formula set. The row mirrors `BlogTopicBriefInput` (topic, mainKeyword,
+secondaryKeywords, targetReader, coreConcern, mainAngle, mustInclude, mustAvoid,
+ctaDirection) plus `FormulaEvidence` (confidence, status). `TopicBriefSetV2` /
+`TopicBriefSetCandidate` (= the same shape minus the persisted `id`) live in
+`types.ts`.
+
+Extraction is a dedicated call, **SL-F2** (separate from SL-F1 so the 8-block
+formula extraction is untouched and SL-F2 can run repeatedly in batches):
+
+- `topicBriefSetPrompt.ts` — `buildTopicBriefSetV2PromptInput(store, posts)`,
+  `BLOG_TOPIC_BRIEF_SET_V2_CALL_ID = 'SL-F2'`, `TOPIC_BRIEF_SET_BATCH_SIZE = 10`,
+  per-post body truncation (no character-budget trimming).
+- OpenAI path: `providers/openAITopicBriefSetProvider.ts` returns one set per
+  post (model echoes each post `id`); the provider keeps only items whose `id`
+  is in the batch and tags each with `sourcePostIds:[id]`, `confidence: 0.7`,
+  `status: 'candidate'`. Response shape is `TopicBriefSetV2ResponseFormatSchema`
+  (no server-only fields, `.nullable()` not `.optional()`), mirroring the
+  self-introduction response-format split.
+- Deterministic / safe_mock path: `topicBriefSetHeuristic.ts`
+  `buildHeuristicTopicBriefSets` derives topic/mainKeyword/secondaryKeywords from
+  `store.metadata.representativeKeywords` matched against title/body, with generic
+  interpretive defaults, `confidence: 0.4`, `status: 'candidate'`.
+- `providers/topicBriefSetProviderFactory.ts`
+  `createTopicBriefSetProviderForMode(mode, options)` returns `null` for
+  `deterministic`/undefined (the service runs the heuristic inline), the safe_mock
+  provider, the OpenAI provider, or auto-by-`OPENAI_API_KEY` — mirroring the
+  SL-F1 provider factory.
+
+Batching / extend (`extendBlogFormulaV2TopicBriefSets` in `blogFormulaV2Service.ts`):
+loads owner posts (newest-first), computes the set of already-covered
+`source_post_id`s for the formula set, takes the next ≤10 uncovered posts,
+produces candidates (heuristic when `provider` is null, else the provider),
+inserts one row per candidate (skipping any with empty `sourcePostIds`), and
+returns `{ added, topicBriefSets, remainingCount }`. `remainingCount` is computed
+from the *persisted* distinct `source_post_id` count (`allPosts.length −
+coveredAfter`), so it stays correct even when a provider returns fewer or
+duplicate sets than the batch — matching `getBlogFormulaV2Payload`'s basis. SL-F2
+is intentionally **best-effort and has no audit/run trace of its own**: a provider
+error propagates and simply leaves the library partial and retryable, rather than
+failing the surrounding formula flow.
+
+Provider-mode reuse: `getTopicBriefSetProviderModeForStore` reads the formula
+set's latest run `output.provider.mode` (deterministic runs have no `provider`
+field → `undefined` → heuristic), so the "extend" action reuses whatever provider
+the original `/extract` used.
+
+Endpoints / payload:
+
+- `POST /extract` populates the **first** batch (≤10) best-effort right after the
+  formula set is created, using a topic-brief provider matching the requested
+  formula `providerMode`. (Orchestrated in the route, not the service `extract*`
+  functions, so the synchronous deterministic `extractBlogFormulaV2` stays
+  synchronous and provider construction stays where the factory options live.)
+- `POST /topic-brief-sets/extend` (body `{ formulaSetId? }`, defaults to latest)
+  mines the next batch of 10 by recency, appending/merging — never replacing —
+  reusing the original provider mode.
+- `GET /` payload gains `topicBriefSets: TopicBriefSetV2[]` and
+  `status.topicBriefSetRemainingCount`.
+
+UI (`web/07_마케팅전략룰셋.html` + `web/blog_formula_v2.js`): the 소재 Brief panel
+gains a single "토픽 브리프 라이브러리" dropdown (first option "직접 입력", then
+one option per set labelled `topic + ①②③ + angle/concern summary`, same-topic
+entries numbered client-side) that fills the form via `applyTopicBriefSet` (the
+inverse of `topicBriefFromForm`), plus a "더 많은 블로그에서 포뮬라 생성" button
+shown while `topicBriefSetRemainingCount > 0` that POSTs to the extend endpoint
+and re-renders. A successful `/extract` refreshes the library via `loadBlogFormulaV2`.
+
+Coverage: `blogFormulaV2TopicBriefSetRepository.test.ts` (table + UNIQUE),
+`topicBriefSetSchema.test.ts`, `topicBriefSetPrompt.test.ts`,
+`topicBriefSetHeuristic.test.ts` (heuristic + safe_mock provider),
+`topicBriefSetOpenAIProvider.test.ts`, `topicBriefSetProviderFactory.test.ts`,
+`blogFormulaV2TopicBriefSets.test.ts` (extend batching/append/dedup, the
+provider-partial-return `remainingCount` case, payload fields, provider-mode
+resolution), and added cases in `blogFormulaV2Api.test.ts` (first batch on
+extract + extend endpoint) and `blogFormulaV2Page.test.ts` (dropdown/button +
+JS wiring).

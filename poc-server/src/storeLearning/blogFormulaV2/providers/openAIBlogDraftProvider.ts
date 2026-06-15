@@ -9,18 +9,19 @@ import {
   type LlmCallAuditMetadata
 } from '../../llmAudit/llmAuditMetadata.js';
 import {
-  BLOG_FORMULA_V2_CALL_ID,
-  BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION,
-  BLOG_FORMULA_V2_RESPONSE_FORMAT_NAME,
-  buildBlogFormulaV2PromptInput
-} from '../blogFormulaPrompt.js';
-import { BlogFormulaSetV2ResponseFormatSchema, BlogFormulaSetV2Schema } from '../types.js';
+  BLOG_FORMULA_V2_DRAFT_CALL_ID,
+  BLOG_FORMULA_V2_DRAFT_PROMPT_SCHEMA_VERSION,
+  BLOG_FORMULA_V2_DRAFT_RESPONSE_FORMAT_NAME,
+  buildBlogFormulaV2DraftPromptInput
+} from '../blogDraftPrompt.js';
+import { BlogDraftModelResponseV2Schema } from '../types.js';
 import type {
-  BlogFormulaV2Provider,
-  BlogFormulaV2ProviderProvenance
-} from './blogFormulaV2Provider.js';
+  BlogDraftV2GenerateInput,
+  BlogDraftV2Provider,
+  BlogDraftV2ProviderProvenance
+} from './blogDraftV2Provider.js';
 
-export type OpenAIBlogFormulaParseClient = {
+export type OpenAIBlogDraftParseClient = {
   beta: {
     chat: {
       completions: {
@@ -30,56 +31,57 @@ export type OpenAIBlogFormulaParseClient = {
   };
 };
 
-type OpenAIBlogFormulaProviderOptions = {
-  client?: OpenAIBlogFormulaParseClient | null;
+type OpenAIBlogDraftProviderOptions = {
+  client?: OpenAIBlogDraftParseClient | null;
   model?: string;
 };
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const systemPrompt =
-  'You are a Korean local-store blog writing-formula analyst. ' +
-  'Your output is a generation-ready writing formula, not a generic marketing summary. ' +
-  'It will be consumed directly by a deterministic draft generator together with a Topic Brief and retrieved owner Blog style examples Top 1~3. ' +
-  'Each formula block must describe how to write, not what to say. ' +
-  'Produce slot-based title patterns from actual titles, intro/body/footer sequences of writing moves from actual body flow, ' +
-  'tone as reusable sentence habits (persona, preferred phrases, endings, emoji policy), ' +
-  'a soft decision-guide CTA pattern distinguished from hard reservation CTA, ' +
-  'and medical safety constraints distinguishing banned claims from required risk disclosures. ' +
-  'Use only the provided owner Blog posts as evidence, attach sourcePostIds per block, ' +
-  'mark single-post patterns as candidate or weak and repeated patterns as confirmed, ' +
-  'do not copy long source text, and keep medical, legal, and guarantee claims conservative.';
+  'You are a Korean local-store blog content strategist. ' +
+  'You write a NEW Naver Blog draft by applying the provided Blog Formula V2 writing formula, a Topic Brief, and retrieved owner Blog style examples Top 1~3. ' +
+  'The formula tells you HOW this store writes (title slots, intro/body/footer move sequences, heading style, tone habits, soft CTA, footer/disclaimer, medical safety); reproduce that style for the new topic. ' +
+  'Use the style examples for structure and tone only — never copy their sentences. ' +
+  'Place the main keyword in the title and first paragraph, weave secondary keywords in naturally, include the required medical disclosures, and never use banned claims or the brief mustAvoid phrases. ' +
+  'Do not hardcode operating hours or invent treatment outcomes, rankings, or guarantees. ' +
+  'Return validated structured draft data only; keep the draft approval-pending.';
 
-function provenance(model: string): BlogFormulaV2ProviderProvenance {
+function provenance(model: string): BlogDraftV2ProviderProvenance {
   return {
-    name: 'openAIBlogFormulaV2Provider',
+    name: 'openAIBlogDraftV2Provider',
     mode: 'openai',
     model,
-    callId: BLOG_FORMULA_V2_CALL_ID,
-    promptShapeVersion: BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION,
+    callId: BLOG_FORMULA_V2_DRAFT_CALL_ID,
+    promptShapeVersion: BLOG_FORMULA_V2_DRAFT_PROMPT_SCHEMA_VERSION,
     noExternalCalls: false
   };
 }
 
-export function createOpenAIBlogFormulaV2Provider(
-  options: OpenAIBlogFormulaProviderOptions = {}
-): BlogFormulaV2Provider {
+export function createOpenAIBlogDraftV2Provider(
+  options: OpenAIBlogDraftProviderOptions = {}
+): BlogDraftV2Provider {
   const model = options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
   let lastAuditMetadata: LlmCallAuditMetadata | null = null;
 
   return {
-    name: 'openAIBlogFormulaV2Provider',
+    name: 'openAIBlogDraftV2Provider',
     mode: 'openai',
     model,
     getLastAuditMetadata: () => lastAuditMetadata,
-    async extractFormula(input) {
+    async generateDraft(input: BlogDraftV2GenerateInput) {
       const client = 'client' in options ? options.client : getOpenAIClient();
       if (!client) {
         throw new Error('OpenAI client is unavailable');
       }
 
-      const prompt = buildBlogFormulaV2PromptInput(input);
+      const prompt = buildBlogFormulaV2DraftPromptInput({
+        store: input.store,
+        formula: input.formula,
+        topicBrief: input.topicBrief,
+        samples: input.samples
+      });
       lastAuditMetadata = null;
-      const responseFormat = zodResponseFormat(BlogFormulaSetV2ResponseFormatSchema, BLOG_FORMULA_V2_RESPONSE_FORMAT_NAME);
+      const responseFormat = zodResponseFormat(BlogDraftModelResponseV2Schema, BLOG_FORMULA_V2_DRAFT_RESPONSE_FORMAT_NAME);
       const provider = provenance(model);
       const requestPayload = {
         model,
@@ -101,7 +103,17 @@ export function createOpenAIBlogFormulaV2Provider(
       try {
         const completion = await client.beta.chat.completions.parse(requestPayload);
         parsedOutput = completion.choices[0]?.message.parsed ?? null;
-        const output = BlogFormulaSetV2Schema.parse(parsedOutput);
+        const modelResponse = BlogDraftModelResponseV2Schema.parse(parsedOutput);
+        const creative = {
+          titleCandidates: modelResponse.titleCandidates,
+          selectedTitle: modelResponse.selectedTitle,
+          blogDraft: modelResponse.blogDraft
+        };
+        const modelReportedCompliance = {
+          styleComplianceReport: modelResponse.styleComplianceReport,
+          safetyCheck: modelResponse.safetyCheck,
+          seoCheck: modelResponse.seoCheck
+        };
         const responseCompletedAt = nowIso();
         lastAuditMetadata = {
           requestStartedAt,
@@ -109,16 +121,17 @@ export function createOpenAIBlogFormulaV2Provider(
           durationMs: durationMs(requestStartedAt, responseCompletedAt),
           inputBudget: toJsonValue(prompt.metadata),
           promptInputJson: toJsonValue(prompt.promptInput),
-          responseFormatJson: summarizeResponseFormat(responseFormat, BLOG_FORMULA_V2_RESPONSE_FORMAT_NAME),
+          responseFormatJson: summarizeResponseFormat(responseFormat, BLOG_FORMULA_V2_DRAFT_RESPONSE_FORMAT_NAME),
           rawRequestedJson: toJsonValue(requestPayload),
           rawParsedOutputJson: toJsonValue(parsedOutput),
-          normalizedOutputJson: toJsonValue(output),
-          parsedOutputJson: toJsonValue(output),
+          normalizedOutputJson: toJsonValue(modelResponse),
+          parsedOutputJson: toJsonValue(modelResponse),
           errorJson: null,
           providerMetadataJson: toJsonValue(provider)
         };
         return {
-          output,
+          creative,
+          modelReportedCompliance,
           provider,
           inputBudget: prompt.metadata,
           promptInput: prompt.promptInput
@@ -131,7 +144,7 @@ export function createOpenAIBlogFormulaV2Provider(
           durationMs: durationMs(requestStartedAt, responseCompletedAt),
           inputBudget: toJsonValue(prompt.metadata),
           promptInputJson: toJsonValue(prompt.promptInput),
-          responseFormatJson: summarizeResponseFormat(responseFormat, BLOG_FORMULA_V2_RESPONSE_FORMAT_NAME),
+          responseFormatJson: summarizeResponseFormat(responseFormat, BLOG_FORMULA_V2_DRAFT_RESPONSE_FORMAT_NAME),
           rawRequestedJson: toJsonValue(requestPayload),
           rawParsedOutputJson: toJsonValue(parsedOutput),
           normalizedOutputJson: null,

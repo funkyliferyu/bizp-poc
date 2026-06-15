@@ -18,7 +18,13 @@ type LlmAuditProvider = LlmAuditMetadataProvider & {
 
 type RecordLlmAuditLogInput = {
   storeId: string | null;
-  relatedEntityType: 'analysis_run' | 'content_generation' | 'blog_post' | 'seo_score' | 'v2_blog_formula_run';
+  relatedEntityType:
+    | 'analysis_run'
+    | 'content_generation'
+    | 'blog_post'
+    | 'seo_score'
+    | 'v2_blog_formula_run'
+    | 'v2_blog_draft_generation';
   relatedEntityId: string | null;
   provider: LlmAuditProvider;
   model?: string | null;

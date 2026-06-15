@@ -1,5 +1,87 @@
 # Codex Handoff
 
+## TASK 13H BLOG FORMULA V2 OPENAI DRAFT GENERATION
+
+Branch `codex/blog-formula-v2-openai-draft` was created from validated
+`develop` at `e010c9a docs: record blog formula v2 provider comparison develop
+validation`. This is the user-approved next milestone (2026-06-13/06-14): make
+the V2 lane generate a real OpenAI blog draft end to end via a new `SL-G1`
+draft call, with the same provider pattern as `SL-F1` extract. Strategy: build
+the whole process first, then iterate on quality.
+
+Plan: [NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_DRAFT_PLAN.md](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_DRAFT_PLAN.md)
+
+Implemented (TDD, RED→GREEN per task):
+
+- `blogDraftPrompt.ts` (`SL-G1`): draft prompt builder consuming formula set +
+  topic brief + retrieved samples Top 1~3, with sample/body/prompt character
+  budgets and `promptBudgetReason` metadata.
+- `types.ts`: `BlogDraftModelResponseV2Schema` (OpenAI response_format, no
+  array min/max so it stays structured-output compatible) and
+  `ModelReportedComplianceV2Schema`; `BlogDraftOutputV2Schema` gains an
+  optional/nullable `modelReportedCompliance`.
+- `draftOutput.ts`: split deterministic creative generation
+  (`buildDeterministicDraftCreative`) from server-authoritative report
+  derivation (`deriveDraftReports`) plus `assembleDraftOutput`.
+  `safetyCheck.bannedPhrasesAvoided` is now actually computed against
+  `medicalSafetyFormula.bannedClaims` (was hardcoded `true`).
+- Draft provider boundary mirroring extract: `providers/blogDraftV2Provider.ts`
+  (interface), `openAIBlogDraftProvider.ts` (calls
+  `client.beta.chat.completions.parse`, captures audit metadata),
+  `safeMockBlogDraftProvider.ts`, `draftProviderFactory.ts`
+  (deterministic→null, safe_mock, openai, auto).
+- Service `generateBlogFormulaV2DraftWithProvider` (async): runs the provider,
+  derives the authoritative reports from the model's title/body, assembles the
+  output with the model self-report attached, persists a
+  `v2_blog_draft_generation` row, and records an `llm_audit_logs` row
+  (`action = blog_formula_v2_generate_draft`,
+  `related_entity_type = v2_blog_draft_generation`) for openai only. Failures
+  persist a failed draft row + failed audit row and rethrow. The deterministic
+  `generateBlogFormulaV2Draft` was rewired through the shared helpers.
+- Route: `POST /generate-draft` accepts optional `providerMode` and resolves a
+  draft provider (deterministic/omitted keeps the sync path).
+- Frontend: "V2 초안 생성" POSTs `providerMode: 'openai'`, reuses a generalized
+  progress overlay (`showProgressOverlay`/`hideProgressOverlay`, id'd
+  `#v2OverlayTitle`), and renders a model-vs-server compliance comparison
+  panel (`#v2DraftCompliancePanel`). No browser-side credentials.
+
+Two user decisions baked in (2026-06-13/06-14):
+
+- Persist BOTH the model self-reported compliance and the server-derived
+  authoritative compliance so a human can compare them.
+- Build-first safety gate: always persist, then let deterministic
+  `validate-draft` flag issues (no generation-time block/repair).
+
+Validation:
+
+- `cd poc-server && npm run typecheck`
+- `cd poc-server && npm test` → 59 files passed, 3 live-provider skipped; 367
+  passed, 6 skipped (adds the new SL-G1 prompt/provider/factory/service/route/
+  round-trip and V2-tab page tests).
+- `STORE_LEARNING_DB_PATH=/tmp/... npm run demo:blog-formula-v2` (deterministic
+  path intact end to end).
+- `node --check web/blog_formula_v2.js`, `node --check web/ruleset_editor.js`,
+  `git diff --check`.
+
+Current notes:
+
+- V2 still writes only to `v2_` tables + `llm_audit_logs`; round-trip test
+  asserts `marketing_rulesets`/`ruleset_fields` are untouched.
+- No schema migration: `output_json` carries `modelReportedCompliance`; the
+  draft columns are nullable for the failed path.
+- Keep `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` unstaged.
+
+Next execution briefing:
+
+- Pending: feature-branch validation recorded in `docs/codex/VALIDATION.md`,
+  PR to `develop`, and post-merge develop validation. (Outward-facing
+  push/PR is gated on user confirmation.)
+- Quality follow-up (after the process works end to end): prompt/quality
+  tuning of the OpenAI draft, optional live confirmation on a `/tmp` snapshot
+  DB.
+- Milestone 14 (`develop` -> `main` promotion) remains gated on explicit user
+  publication approval.
+
 ## TASK 13G BLOG FORMULA V2 PROVIDER COMPARISON
 
 Branch `codex/blog-formula-v2-provider-comparison` was created from validated

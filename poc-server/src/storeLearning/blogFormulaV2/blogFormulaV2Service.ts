@@ -1,31 +1,50 @@
 import { randomUUID } from 'node:crypto';
 import type { JsonValue } from '../../repositories/base.js';
 import type { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import type { V2BlogTopicBriefSet } from '../../repositories/v2_blog_formula.js';
 import { recordLlmAuditLog } from '../llmAudit/llmAuditRecorder.js';
 import { sanitizedProviderError } from '../llmAudit/llmAuditMetadata.js';
 import {
   BLOG_FORMULA_V2_MODEL,
   BLOG_FORMULA_V2_VERSION,
-  BlogDraftOutputV2Schema,
   BlogFormulaSetV2Schema,
   BlogRetrievedSampleV2Schema,
   BlogTopicBriefInputSchema,
+  TopicBriefSetV2Schema,
   parseStoredBlogFormulaV2,
   type BlogDraftOutputV2,
   type BlogDraftValidationResultV2,
   type BlogFormulaSetV2,
   type BlogRetrievedSampleV2,
-  type BlogTopicBriefInput
+  type BlogTopicBriefInput,
+  type TopicBriefSetCandidate,
+  type TopicBriefSetV2
 } from './types.js';
 import { BLOG_FORMULA_V2_CALL_ID, BLOG_FORMULA_V2_PROMPT_SCHEMA_VERSION } from './blogFormulaPrompt.js';
+import {
+  BLOG_FORMULA_V2_DRAFT_CALL_ID,
+  BLOG_FORMULA_V2_DRAFT_PROMPT_SCHEMA_VERSION
+} from './blogDraftPrompt.js';
+import { assembleDraftOutput, buildDeterministicDraftCreative, deriveDraftReports } from './draftOutput.js';
 import { evaluateBlogFormulaV2Quality } from './formulaQuality.js';
 import { buildGenerationReadyMockFormula } from './mockFormulaBuilder.js';
 import type {
   BlogFormulaV2Provider,
   BlogFormulaV2ProviderProvenance
 } from './providers/blogFormulaV2Provider.js';
+import type {
+  BlogDraftV2Provider,
+  BlogDraftV2ProviderProvenance
+} from './providers/blogDraftV2Provider.js';
 import { listOwnerBlogPostsForFormulaV2, type OwnerBlogPostV2 } from './sourcePosts.js';
+import { analyzeSelfIntroductionPatterns } from './selfIntroductionPatterns.js';
 import { validateBlogFormulaV2DraftText } from './validator.js';
+import { buildHeuristicTopicBriefSets } from './topicBriefSetHeuristic.js';
+import { TOPIC_BRIEF_SET_BATCH_SIZE, type TopicBriefSetPromptStore } from './topicBriefSetPrompt.js';
+import type {
+  TopicBriefSetExtractProviderMode,
+  TopicBriefSetProvider
+} from './providers/topicBriefSetProvider.js';
 
 type StoreLearningRepositories = ReturnType<typeof createStoreLearningRepositories>;
 
@@ -101,6 +120,58 @@ function topicBriefInputFromRecord(record: ReturnType<StoreLearningRepositories[
   });
 }
 
+function representativeKeywordsFromStore(store: ReturnType<typeof requireStore>): string[] {
+  const metadata = store.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return [];
+  return asStringArray((metadata as Record<string, JsonValue>).representativeKeywords);
+}
+
+function topicBriefSetStore(store: ReturnType<typeof requireStore>): TopicBriefSetPromptStore {
+  return {
+    id: store.id,
+    name: store.name,
+    category: store.category,
+    representativeKeywords: representativeKeywordsFromStore(store)
+  };
+}
+
+function serializeTopicBriefSet(record: V2BlogTopicBriefSet): TopicBriefSetV2 {
+  return TopicBriefSetV2Schema.parse({
+    id: record.id,
+    sourcePostIds: [record.sourcePostId],
+    confidence: record.confidence,
+    status: record.status,
+    topic: record.topic,
+    mainKeyword: record.mainKeyword,
+    secondaryKeywords: asStringArray(record.secondaryKeywords),
+    targetReader: record.targetReader,
+    coreConcern: record.coreConcern,
+    mainAngle: record.mainAngle,
+    mustInclude: asStringArray(record.mustInclude),
+    mustAvoid: asStringArray(record.mustAvoid),
+    ctaDirection: record.ctaDirection
+  });
+}
+
+function readProviderMode(output: JsonValue | undefined | null): string | undefined {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return undefined;
+  const provider = (output as Record<string, JsonValue>).provider;
+  if (!provider || typeof provider !== 'object' || Array.isArray(provider)) return undefined;
+  const mode = (provider as Record<string, JsonValue>).mode;
+  return typeof mode === 'string' ? mode : undefined;
+}
+
+async function produceTopicBriefSetCandidates(
+  store: ReturnType<typeof requireStore>,
+  posts: OwnerBlogPostV2[],
+  provider: TopicBriefSetProvider | null
+): Promise<TopicBriefSetCandidate[]> {
+  const promptStore = topicBriefSetStore(store);
+  if (!provider) return buildHeuristicTopicBriefSets(promptStore, posts);
+  const result = await provider.extractTopicBriefSets({ store: promptStore, posts });
+  return result.sets;
+}
+
 function tokenize(value: string) {
   return value
     .toLowerCase()
@@ -153,6 +224,10 @@ export function getBlogFormulaV2Payload(repos: StoreLearningRepositories, storeI
     ? latestByCreatedAt(repos.v2BlogDraftValidations.listByDraftGenerationId(latestDraftGeneration.id))
     : null;
   const ownerPosts = listOwnerBlogPostsForFormulaV2(repos, storeId);
+  const topicBriefSetRows = formulaSet ? repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id) : [];
+  const topicBriefSets = topicBriefSetRows.map(serializeTopicBriefSet);
+  const coveredPostCount = new Set(topicBriefSetRows.map((row) => row.sourcePostId)).size;
+  const topicBriefSetRemainingCount = formulaSet ? Math.max(0, ownerPosts.length - coveredPostCount) : 0;
 
   return {
     lane: 'blog_formula_v2',
@@ -161,21 +236,24 @@ export function getBlogFormulaV2Payload(repos: StoreLearningRepositories, storeI
       formulaSetStatus: formulaSet?.status ?? 'none',
       sourceOwnerBlogPostCount: ownerPosts.length,
       model: formulaSet?.model ?? BLOG_FORMULA_V2_MODEL,
-      reviewStatus: latestValidation?.status ?? 'not_validated'
+      reviewStatus: latestValidation?.status ?? 'not_validated',
+      topicBriefSetRemainingCount
     },
     formulaSet,
     sourcePosts: formulaSet ? repos.v2BlogFormulaSourcePosts.listByFormulaSetId(formulaSet.id) : [],
+    topicBriefSets,
     latestDraftGeneration,
     latestValidation
   };
 }
 
 export function extractBlogFormulaV2(repos: StoreLearningRepositories, storeId: string) {
-  requireStore(repos, storeId);
+  const store = requireStore(repos, storeId);
   const posts = listOwnerBlogPostsForFormulaV2(repos, storeId);
   if (posts.length === 0) throw new Error(`No owner_blog_post content available for Blog Formula V2: ${storeId}`);
 
   const formula = buildGenerationReadyMockFormula(posts);
+  formula.introFormula.selfIntroductionPatterns = analyzeSelfIntroductionPatterns(posts, store.name);
   const qualityIssues = evaluateBlogFormulaV2Quality(formula);
   const formulaSet = repos.v2BlogFormulaSets.create({
     id: makeId('v2_formula_set'),
@@ -248,6 +326,9 @@ export async function extractBlogFormulaV2WithProvider(
       ownerBlogPosts: posts
     });
     const formula = BlogFormulaSetV2Schema.parse(providerResult.output);
+    // Self-introduction patterns are discovered deterministically from the
+    // store's own post history, not left to the model.
+    formula.introFormula.selfIntroductionPatterns = analyzeSelfIntroductionPatterns(posts, store.name);
     const qualityIssues = evaluateBlogFormulaV2Quality(formula);
     const providerSourcePostIds = providerResult.promptInput.sourcePostIds;
     const postsById = new Map(posts.map((post) => [post.collectionItemId, post]));
@@ -357,6 +438,85 @@ export async function extractBlogFormulaV2WithProvider(
     });
     throw error;
   }
+}
+
+export function getTopicBriefSetProviderModeForStore(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  formulaSetId?: string
+): TopicBriefSetExtractProviderMode | undefined {
+  const formulaSet = requireFormulaSet(repos, storeId, formulaSetId);
+  const latestRun = latestByCreatedAt(repos.v2BlogFormulaRuns.listByFormulaSetId(formulaSet.id));
+  const mode = readProviderMode(latestRun?.output);
+  if (mode === 'safe_mock' || mode === 'openai' || mode === 'deterministic') return mode;
+  return undefined;
+}
+
+type ExtendTopicBriefSetsOptions = {
+  formulaSetId?: string;
+  provider?: TopicBriefSetProvider | null;
+};
+
+// SL-F2 topic-brief extraction is intentionally best-effort and has no audit/run
+// trace of its own: callers (the /extract and /topic-brief-sets/extend routes)
+// invoke this so that a provider error just propagates and leaves the library
+// partial and retryable, rather than failing the surrounding formula flow.
+export async function extendBlogFormulaV2TopicBriefSets(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  options: ExtendTopicBriefSetsOptions = {}
+) {
+  const store = requireStore(repos, storeId);
+  const formulaSet = requireFormulaSet(repos, storeId, options.formulaSetId);
+  const allPosts = listOwnerBlogPostsForFormulaV2(repos, storeId);
+  const existing = repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id);
+  const covered = new Set(existing.map((row) => row.sourcePostId));
+  const remaining = allPosts.filter((post) => !covered.has(post.collectionItemId));
+  const batch = remaining.slice(0, TOPIC_BRIEF_SET_BATCH_SIZE);
+
+  if (batch.length === 0) {
+    return {
+      added: [] as TopicBriefSetV2[],
+      topicBriefSets: existing.map(serializeTopicBriefSet),
+      remainingCount: 0
+    };
+  }
+
+  const candidates = await produceTopicBriefSetCandidates(store, batch, options.provider ?? null);
+  const added = candidates
+    .filter((candidate) => candidate.sourcePostIds.length > 0)
+    .map((candidate) =>
+      serializeTopicBriefSet(
+        repos.v2BlogTopicBriefSets.create({
+          id: makeId('v2_topic_brief_set'),
+          formulaSetId: formulaSet.id,
+          storeId,
+          sourcePostId: candidate.sourcePostIds[0],
+          topic: candidate.topic,
+          mainKeyword: candidate.mainKeyword,
+          secondaryKeywords: candidate.secondaryKeywords,
+          targetReader: candidate.targetReader,
+          coreConcern: candidate.coreConcern,
+          mainAngle: candidate.mainAngle,
+          mustInclude: candidate.mustInclude,
+          mustAvoid: candidate.mustAvoid,
+          ctaDirection: candidate.ctaDirection,
+          confidence: candidate.confidence,
+          status: candidate.status
+        })
+      )
+    );
+
+  // Recompute coverage from the persisted rows (distinct sourcePostId) so the
+  // count stays correct even when a provider returns fewer or duplicate sets
+  // than the batch size. This matches getBlogFormulaV2Payload's basis exactly.
+  const allRows = repos.v2BlogTopicBriefSets.listByFormulaSetId(formulaSet.id);
+  const coveredPostCount = new Set(allRows.map((row) => row.sourcePostId)).size;
+  return {
+    added,
+    topicBriefSets: allRows.map(serializeTopicBriefSet),
+    remainingCount: Math.max(0, allPosts.length - coveredPostCount)
+  };
 }
 
 function scorePost(post: OwnerBlogPostV2, topicBrief: BlogTopicBriefInput): BlogRetrievedSampleV2['scoring'] {
@@ -538,102 +698,23 @@ function samplesForRetrievalRun(repos: StoreLearningRepositories, retrievalRunId
     .filter((sample): sample is BlogRetrievedSampleV2 => sample !== null);
 }
 
-const SLOT_FILL_MAP: Record<string, (brief: BlogTopicBriefInput) => string> = {
-  시술명: (brief) => brief.topic,
-  주제: (brief) => brief.topic,
-  메인키워드: (brief) => brief.mainKeyword
-};
-
-function fillTitleSlots(pattern: string, brief: BlogTopicBriefInput) {
-  return pattern
-    .replace(/\{([^}]+)\}/gu, (_, rawSlot: string) => {
-      const slot = rawSlot.split('/')[0].trim();
-      const fill = SLOT_FILL_MAP[slot];
-      if (fill) return fill(brief);
-      if (rawSlot.includes('부작용') || rawSlot.includes('실패')) return brief.coreConcern ?? '부작용 걱정';
-      return brief.mainKeyword;
-    })
-    .replace(/\s{2,}/gu, ' ')
-    .trim();
-}
-
 function buildDraftOutput(
   formulaSetId: string,
   formula: BlogFormulaSetV2,
   topicBrief: BlogTopicBriefInput,
-  samples: BlogRetrievedSampleV2[]
+  samples: BlogRetrievedSampleV2[],
+  storeName: string
 ): BlogDraftOutputV2 {
-  const fallbackTitle = `${topicBrief.mainKeyword} 걱정 없이 확인할 점`;
-  const secondary = topicBrief.secondaryKeywords.slice(0, 2).join(', ');
-  const targetReader = topicBrief.targetReader ?? `${topicBrief.topic}을 고민하는 고객`;
-  const concern = topicBrief.coreConcern ?? `${topicBrief.mainKeyword} 관련 걱정`;
-  const angle = topicBrief.mainAngle ?? '원리와 상담 기준을 차분히 설명';
-  const sampleTitles = samples.map((sample) => sample.title).filter(Boolean).slice(0, 3);
-  const cta = topicBrief.ctaDirection ?? '상담 예약';
-
-  const slotFilledTitles = formula.titleFormula.map((title) => fillTitleSlots(title.pattern, topicBrief));
-  const fallbackTitleCandidates = [
-    fallbackTitle,
-    `${topicBrief.topic} 전 ${concern}를 먼저 확인해야 하는 이유`,
-    `${topicBrief.topic} 상담 전 알아둘 기준`
-  ];
-  const titleCandidates = Array.from(new Set([...slotFilledTitles, ...fallbackTitleCandidates]));
-  const selectedTitle =
-    titleCandidates.find(
-      (candidate) => candidate.includes(topicBrief.mainKeyword) || candidate.includes(topicBrief.topic)
-    ) ?? fallbackTitle;
-
-  const preferredPhrase = formula.toneAndMannerFormula.preferredPhrases[0];
-  const softCta = formula.ctaFormula.softPatterns[0];
-
-  const baseDisclosureLine =
-    '개인차가 있으며 피부 상태에 따라 붉어짐, 열감, 색소 변화 등 부작용 가능성이 있을 수 있으므로 의료진 상담 후 결정해 주세요.';
-  const missingDisclosures = formula.medicalSafetyFormula.requiredDisclosures.filter(
-    (disclosure) => !baseDisclosureLine.includes(disclosure)
-  );
-  const disclosureLine =
-    missingDisclosures.length > 0
-      ? `${baseDisclosureLine} (${missingDisclosures.join(', ')})`
-      : baseDisclosureLine;
-
-  return BlogDraftOutputV2Schema.parse({
-    titleCandidates,
-    selectedTitle,
-    blogDraft: [
-      `${topicBrief.mainKeyword}을 검색하는 ${targetReader}이라면 ${concern}가 가장 먼저 떠오를 수 있습니다.`,
-      `${preferredPhrase ? `${preferredPhrase} ` : ''}오늘은 ${angle}하는 방향으로 ${topicBrief.topic} 상담 전 확인할 내용을 정리하겠습니다.`,
-      `먼저 기존 블로그에서는 ${sampleTitles.join(', ') || '고객 걱정과 판단 기준'}처럼 걱정을 먼저 다루고 원리와 주의사항을 이어서 설명하는 흐름이 반복됩니다.`,
-      secondary
-        ? `${secondary} 같은 보조 키워드는 본문 중간에서 자연스럽게 연결하고, 같은 표현을 과하게 반복하지 않습니다.`
-        : '보조 키워드는 본문 흐름에 맞는 위치에만 자연스럽게 배치합니다.',
-      disclosureLine,
-      `${cta}을 원하시면 현재 피부 상태와 기대 범위를 함께 확인한 뒤 계획을 세우는 방식으로 안내드립니다.${softCta ? `\n\n${softCta}` : ''}`
-    ].join('\n\n'),
-    styleComplianceReport: {
-      formulaSetId,
-      sourcePostIds: samples.map((sample) => sample.collectionItemId),
-      appliedBlocks: [
-        'titleFormula',
-        'introFormula',
-        'bodyFormula',
-        'toneAndMannerFormula',
-        'ctaFormula',
-        'footerFormula',
-        'medicalSafetyFormula'
-      ]
-    },
-    safetyCheck: {
-      requiredDisclosures: formula.medicalSafetyFormula.requiredDisclosures,
-      bannedPhrasesAvoided: true
-    },
-    seoCheck: {
-      mainKeywordInTitle: selectedTitle.includes(topicBrief.mainKeyword),
-      mainKeywordInIntro: true,
-      secondaryKeywordsUsed: topicBrief.secondaryKeywords.filter((keyword) =>
-        `${selectedTitle} ${secondary}`.includes(keyword)
-      )
-    }
+  const creative = buildDeterministicDraftCreative(formula, topicBrief, samples, storeName);
+  const reports = deriveDraftReports({
+    formulaSetId,
+    formula,
+    topicBrief,
+    samples,
+    selectedTitle: creative.selectedTitle,
+    blogDraft: creative.blogDraft
   });
+  return assembleDraftOutput(creative, reports);
 }
 
 export function generateBlogFormulaV2Draft(
@@ -641,7 +722,7 @@ export function generateBlogFormulaV2Draft(
   storeId: string,
   input: GenerateDraftInput
 ) {
-  requireStore(repos, storeId);
+  const store = requireStore(repos, storeId);
   const formulaSet = requireFormulaSet(repos, storeId, input.formulaSetId);
   const topicBrief = requireTopicBrief(repos, storeId, input.topicBriefId);
   const retrievalRun = repos.v2BlogRetrievalRuns.findById(input.retrievalRunId);
@@ -651,7 +732,7 @@ export function generateBlogFormulaV2Draft(
   const topicBriefInput = topicBriefInputFromRecord(topicBrief);
   const samples = samplesForRetrievalRun(repos, retrievalRun.id);
   const formula = parseStoredBlogFormulaV2(formulaSet.formula);
-  const output = buildDraftOutput(formulaSet.id, formula, topicBriefInput, samples);
+  const output = buildDraftOutput(formulaSet.id, formula, topicBriefInput, samples, store.name);
   const draftGeneration = repos.v2BlogDraftGenerations.create({
     id: makeId('v2_draft_generation'),
     storeId,
@@ -678,17 +759,140 @@ export function generateBlogFormulaV2Draft(
   };
 }
 
+function draftProvenanceFromProvider(provider: BlogDraftV2Provider): BlogDraftV2ProviderProvenance {
+  return {
+    name: provider.name,
+    mode: provider.mode,
+    model: provider.model,
+    callId: BLOG_FORMULA_V2_DRAFT_CALL_ID,
+    promptShapeVersion: BLOG_FORMULA_V2_DRAFT_PROMPT_SCHEMA_VERSION,
+    noExternalCalls: provider.mode !== 'openai'
+  };
+}
+
+export async function generateBlogFormulaV2DraftWithProvider(
+  repos: StoreLearningRepositories,
+  storeId: string,
+  input: GenerateDraftInput,
+  provider: BlogDraftV2Provider
+) {
+  const store = requireStore(repos, storeId);
+  const formulaSet = requireFormulaSet(repos, storeId, input.formulaSetId);
+  const topicBrief = requireTopicBrief(repos, storeId, input.topicBriefId);
+  const retrievalRun = repos.v2BlogRetrievalRuns.findById(input.retrievalRunId);
+  if (!retrievalRun || retrievalRun.storeId !== storeId) {
+    throw new Error(`Blog Formula V2 retrieval run not found: ${input.retrievalRunId}`);
+  }
+  const topicBriefInput = topicBriefInputFromRecord(topicBrief);
+  const samples = samplesForRetrievalRun(repos, retrievalRun.id);
+  const formula = parseStoredBlogFormulaV2(formulaSet.formula);
+
+  try {
+    const providerResult = await provider.generateDraft({
+      store: providerInputStore(store),
+      formula,
+      topicBrief: topicBriefInput,
+      samples
+    });
+    const reports = deriveDraftReports({
+      formulaSetId: formulaSet.id,
+      formula,
+      topicBrief: topicBriefInput,
+      samples,
+      selectedTitle: providerResult.creative.selectedTitle,
+      blogDraft: providerResult.creative.blogDraft
+    });
+    const output = assembleDraftOutput(providerResult.creative, reports, providerResult.modelReportedCompliance);
+    const draftGeneration = repos.v2BlogDraftGenerations.create({
+      id: makeId('v2_draft_generation'),
+      storeId,
+      generationMode: 'v2_formula',
+      formulaSetId: formulaSet.id,
+      topicBriefId: topicBrief.id,
+      retrievalRunId: retrievalRun.id,
+      input: toJsonValue({
+        generationMode: 'v2_formula',
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id,
+        provider: providerResult.provider,
+        inputBudget: providerResult.inputBudget,
+        promptInput: providerResult.promptInput
+      }),
+      output: toJsonValue(output),
+      selectedTitle: output.selectedTitle,
+      blogDraft: output.blogDraft,
+      model: providerResult.provider.model,
+      status: 'generated'
+    });
+
+    recordLlmAuditLog(repos, {
+      storeId,
+      relatedEntityType: 'v2_blog_draft_generation',
+      relatedEntityId: draftGeneration.id,
+      provider,
+      model: providerResult.provider.model,
+      action: 'blog_formula_v2_generate_draft',
+      status: 'completed',
+      inputBudget: providerResult.inputBudget,
+      parsedOutputJson: output
+    });
+
+    return {
+      draftGeneration,
+      output,
+      provider: providerResult.provider
+    };
+  } catch (error) {
+    const errorJson = sanitizedProviderError(error);
+    const fallbackProvider = draftProvenanceFromProvider(provider);
+    const draftGeneration = repos.v2BlogDraftGenerations.create({
+      id: makeId('v2_draft_generation'),
+      storeId,
+      generationMode: 'v2_formula',
+      formulaSetId: formulaSet.id,
+      topicBriefId: topicBrief.id,
+      retrievalRunId: retrievalRun.id,
+      input: toJsonValue({
+        generationMode: 'v2_formula',
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id,
+        provider: fallbackProvider
+      }),
+      output: toJsonValue({ provider: fallbackProvider, error: errorJson }),
+      selectedTitle: null,
+      blogDraft: null,
+      model: provider.model,
+      status: 'failed'
+    });
+
+    recordLlmAuditLog(repos, {
+      storeId,
+      relatedEntityType: 'v2_blog_draft_generation',
+      relatedEntityId: draftGeneration.id,
+      provider,
+      model: provider.model,
+      action: 'blog_formula_v2_generate_draft',
+      status: 'failed',
+      errorJson
+    });
+    throw error;
+  }
+}
+
 export function validateBlogFormulaV2Draft(
   repos: StoreLearningRepositories,
   storeId: string,
   input: ValidateDraftInput
 ) {
-  requireStore(repos, storeId);
+  const store = requireStore(repos, storeId);
   let draftGenerationId: string | null = null;
   let selectedTitle: string;
   let blogDraft: string;
   let topicBriefInput: BlogTopicBriefInput;
   let samples: BlogRetrievedSampleV2[] = [];
+  let formula: BlogFormulaSetV2 | null = null;
 
   if ('draftGenerationId' in input) {
     const draft = repos.v2BlogDraftGenerations.findById(input.draftGenerationId);
@@ -699,6 +903,8 @@ export function validateBlogFormulaV2Draft(
     if (!draft.topicBriefId) throw new Error(`Blog Formula V2 draft has no topic brief: ${draft.id}`);
     topicBriefInput = topicBriefInputFromRecord(requireTopicBrief(repos, storeId, draft.topicBriefId));
     samples = draft.retrievalRunId ? samplesForRetrievalRun(repos, draft.retrievalRunId) : [];
+    const formulaSet = draft.formulaSetId ? repos.v2BlogFormulaSets.findById(draft.formulaSetId) : null;
+    formula = formulaSet ? parseStoredBlogFormulaV2(formulaSet.formula) : null;
   } else {
     selectedTitle = input.selectedTitle;
     blogDraft = input.blogDraft;
@@ -709,7 +915,9 @@ export function validateBlogFormulaV2Draft(
     selectedTitle,
     blogDraft,
     topicBrief: topicBriefInput,
-    retrievedSamples: samples
+    retrievedSamples: samples,
+    selfIntroductionPatterns: formula?.introFormula.selfIntroductionPatterns,
+    storeName: store.name
   });
 
   const validationRecord = draftGenerationId

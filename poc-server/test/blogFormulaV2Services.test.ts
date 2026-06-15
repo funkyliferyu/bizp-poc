@@ -6,7 +6,8 @@ import {
   extractBlogFormulaV2,
   extractBlogFormulaV2WithProvider,
   generateBlogFormulaV2Draft,
-  retrieveBlogFormulaV2Samples
+  retrieveBlogFormulaV2Samples,
+  validateBlogFormulaV2Draft
 } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
 import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
 import { evaluateBlogFormulaV2Quality } from '../src/storeLearning/blogFormulaV2/formulaQuality.js';
@@ -301,5 +302,176 @@ describe('Blog Formula V2 deterministic services', () => {
         'hardcoded_operating_hours'
       ])
     );
+  });
+});
+
+const SELF_INTRO_STORE_ID = 'store_self_intro_v2';
+const SELF_INTRO_DIRECTOR_GREETING = '안녕하세요. 테라스의원 대표원장 권유정입니다.';
+const SELF_INTRO_NAME_GREETING = '안녕하세요. 테라스의원입니다.';
+
+function seedSelfIntroductionFixture(connection: ReturnType<typeof createDatabaseConnection>) {
+  const repos = createStoreLearningRepositories(connection);
+  const storeId = SELF_INTRO_STORE_ID;
+  const runId = 'collection_run_self_intro_v2';
+
+  repos.stores.create({
+    id: storeId,
+    name: '테라스의원',
+    naverPlaceUrl: 'https://naver.me/test-terrace-2',
+    naverPlaceId: '1020864099',
+    category: '피부과',
+    address: '서울 강남구 테스트로 99',
+    phone: '02-000-1111',
+    description: '리팟레이저와 색소 진료를 안내하는 피부과입니다.',
+    metadata: {
+      representativeKeywords: ['리팟레이저', '흑자', '색소 치료'],
+      operatingHours: '월-금 10:00-19:00',
+      healthcare: true
+    },
+    createdAt: '2026-06-01T00:00:00.000Z',
+    updatedAt: '2026-06-01T00:00:00.000Z'
+  });
+
+  repos.collectionRuns.create({
+    id: runId,
+    storeId,
+    status: 'selection_ready',
+    mode: 'mock',
+    startedAt: '2026-06-01T00:00:01.000Z',
+    completedAt: '2026-06-01T00:00:02.000Z',
+    summary: { blog: { collected: 5 }, place: { collected: 0 } },
+    createdAt: '2026-06-01T00:00:01.000Z',
+    updatedAt: '2026-06-01T00:00:02.000Z'
+  });
+
+  const bodyTail =
+    '\n\n오늘은 리팟레이저 부작용을 검색하는 분들을 위해 장비 원리와 의료진 상담 기준을 먼저 설명드리겠습니다.\n\n개인의 피부 상태에 따라 붉어짐, 열감, 색소 변화가 생길 수 있어 의료진 상담 후 결정하는 것이 중요합니다.\n\n테라스의원은 진단 후 필요한 경우에만 치료 계획을 안내드립니다.';
+
+  const posts = [
+    { id: 'collection_item_self_intro_1', bodyText: SELF_INTRO_DIRECTOR_GREETING + bodyTail, publishedAt: '2026-05-30T03:00:00.000Z' },
+    { id: 'collection_item_self_intro_2', bodyText: SELF_INTRO_DIRECTOR_GREETING + bodyTail, publishedAt: '2026-05-28T03:00:00.000Z' },
+    { id: 'collection_item_self_intro_3', bodyText: SELF_INTRO_DIRECTOR_GREETING + bodyTail, publishedAt: '2026-05-26T03:00:00.000Z' },
+    { id: 'collection_item_self_intro_4', bodyText: SELF_INTRO_DIRECTOR_GREETING + bodyTail, publishedAt: '2026-05-24T03:00:00.000Z' },
+    { id: 'collection_item_self_intro_5', bodyText: SELF_INTRO_NAME_GREETING + bodyTail, publishedAt: '2026-05-22T03:00:00.000Z' }
+  ];
+
+  for (const [index, post] of posts.entries()) {
+    repos.collectionItems.create({
+      id: post.id,
+      runId,
+      storeId,
+      channel: 'blog',
+      sourceType: 'post',
+      status: 'collected',
+      sourceUrl: `https://blog.naver.com/terrace2/${index + 1}`,
+      title: `리팟레이저 부작용 안내 ${index + 1}`,
+      bodyText: post.bodyText,
+      selectedForAnalysis: 1,
+      selectionReason: 'Self-introduction pattern fixture',
+      selectedAt: '2026-06-01T00:00:10.000Z',
+      metadata: {
+        sourceKind: 'owner_blog_post',
+        sourceOwnership: 'owned',
+        bodyAvailability: 'available',
+        isTruncated: false,
+        publishedAt: post.publishedAt
+      },
+      createdAt: '2026-06-01T00:00:10.000Z',
+      updatedAt: '2026-06-01T00:00:10.000Z'
+    });
+  }
+
+  return { storeId, runId, postIds: posts.map((post) => post.id) };
+}
+
+describe('Self-introduction pattern library', () => {
+  it('extractBlogFormulaV2 discovers repeating self-introduction patterns weighted by usage', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      const fixture = seedSelfIntroductionFixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const { formulaSet } = extractBlogFormulaV2(repos, fixture.storeId);
+      const formula = parseStoredBlogFormulaV2(formulaSet.formula);
+      const patterns = formula.introFormula.selfIntroductionPatterns;
+
+      expect(patterns).toHaveLength(2);
+      expect(patterns[0]).toMatchObject({
+        id: 'store_director_greeting',
+        directorName: '권유정',
+        usageCount: 4,
+        usageRatio: 0.8,
+        status: 'confirmed'
+      });
+      expect(patterns[0].sourcePostIds).toHaveLength(4);
+      expect(patterns[1]).toMatchObject({
+        id: 'store_name_greeting',
+        directorName: null,
+        usageCount: 1,
+        usageRatio: 0.2,
+        status: 'candidate'
+      });
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('generateBlogFormulaV2Draft opens the deterministic draft with the store\'s most common self-introduction pattern', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      const fixture = seedSelfIntroductionFixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const { formulaSet } = extractBlogFormulaV2(repos, fixture.storeId);
+      const { topicBrief, retrievalRun } = retrieveBlogFormulaV2Samples(repos, fixture.storeId, {
+        formulaSetId: formulaSet.id,
+        topicBrief: topicBriefInput
+      });
+      const { output } = generateBlogFormulaV2Draft(repos, fixture.storeId, {
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id
+      });
+
+      expect(output.blogDraft.startsWith(SELF_INTRO_DIRECTOR_GREETING)).toBe(true);
+    } finally {
+      connection.close();
+    }
+  });
+
+  it('validateBlogFormulaV2Draft flags a self-introduction mismatch but not a matching opener', () => {
+    const connection = createDatabaseConnection({ filename: ':memory:' });
+    try {
+      migrateDatabase(connection);
+      const fixture = seedSelfIntroductionFixture(connection);
+      const repos = createStoreLearningRepositories(connection);
+
+      const { formulaSet } = extractBlogFormulaV2(repos, fixture.storeId);
+      const { topicBrief, retrievalRun } = retrieveBlogFormulaV2Samples(repos, fixture.storeId, {
+        formulaSetId: formulaSet.id,
+        topicBrief: topicBriefInput
+      });
+      const { draftGeneration } = generateBlogFormulaV2Draft(repos, fixture.storeId, {
+        formulaSetId: formulaSet.id,
+        topicBriefId: topicBrief.id,
+        retrievalRunId: retrievalRun.id
+      });
+
+      const matching = validateBlogFormulaV2Draft(repos, fixture.storeId, { draftGenerationId: draftGeneration.id });
+      expect(matching.validation.issues.map((issue) => issue.code)).not.toContain('self_introduction_pattern_mismatch');
+
+      repos.v2BlogDraftGenerations.update(draftGeneration.id, {
+        blogDraft:
+          '안녕하세요. 😊 테라스 의원의 의료진입니다.\n\n리팟레이저 부작용을 검색하는 분들은 개인차에 따라 부작용이 생길 수 있다는 점을 걱정합니다. 의료진 상담을 통해 본인에게 맞는 치료 계획을 확인하는 것이 중요합니다.'
+      });
+
+      const mismatch = validateBlogFormulaV2Draft(repos, fixture.storeId, { draftGenerationId: draftGeneration.id });
+      expect(mismatch.validation.issues.map((issue) => issue.code)).toContain('self_introduction_pattern_mismatch');
+      expect(mismatch.validation.status).toBe('needs_human_review');
+    } finally {
+      connection.close();
+    }
   });
 });

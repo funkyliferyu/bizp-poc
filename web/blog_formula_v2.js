@@ -5,7 +5,8 @@
     topicBriefId: null,
     retrievalRunId: null,
     draftGenerationId: null,
-    latestSamples: []
+    latestSamples: [],
+    topicBriefSets: []
   };
 
   function field(id) {
@@ -54,8 +55,9 @@
     setText('v2FormulaMessage', message);
   }
 
-  let extractElapsedTimer = null;
-  let extractElapsedStartedAt = null;
+  let overlayElapsedTimer = null;
+  let overlayElapsedStartedAt = null;
+  let overlayButtonId = null;
 
   function formatElapsed(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -64,35 +66,65 @@
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
-  function showExtractOverlay(statusText) {
+  // Shared progress overlay for the long (~30-60s) openai calls. The extract and
+  // draft flows reuse the same #v2ExtractOverlay element with a different title
+  // and the button they should disable while the call is in flight.
+  function showProgressOverlay(options) {
     const overlay = field('v2ExtractOverlay');
     if (overlay) {
       overlay.classList.add('active');
       overlay.setAttribute('aria-hidden', 'false');
     }
-    setText('v2ExtractOverlayStatus', statusText || 'OpenAI가 owner 블로그를 분석하고 있습니다.');
-    const button = field('v2FormulaExtractButton');
+    if (options && options.title) setText('v2OverlayTitle', options.title);
+    setText('v2ExtractOverlayStatus', (options && options.status) || 'OpenAI가 분석하고 있습니다.');
+    overlayButtonId = (options && options.buttonId) || null;
+    const button = overlayButtonId ? field(overlayButtonId) : null;
     if (button) button.disabled = true;
-    extractElapsedStartedAt = Date.now();
+    overlayElapsedStartedAt = Date.now();
     const tick = () => {
-      setText('v2ExtractOverlayElapsed', `경과 ${formatElapsed(Date.now() - extractElapsedStartedAt)}`);
+      setText('v2ExtractOverlayElapsed', `경과 ${formatElapsed(Date.now() - overlayElapsedStartedAt)}`);
     };
     tick();
-    if (extractElapsedTimer) window.clearInterval(extractElapsedTimer);
-    extractElapsedTimer = window.setInterval(tick, 1000);
+    if (overlayElapsedTimer) window.clearInterval(overlayElapsedTimer);
+    overlayElapsedTimer = window.setInterval(tick, 1000);
   }
 
-  function hideExtractOverlay() {
+  function hideProgressOverlay() {
     const overlay = field('v2ExtractOverlay');
     if (overlay) {
       overlay.classList.remove('active');
       overlay.setAttribute('aria-hidden', 'true');
     }
-    const button = field('v2FormulaExtractButton');
+    const button = overlayButtonId ? field(overlayButtonId) : null;
     if (button) button.disabled = false;
-    if (extractElapsedTimer) window.clearInterval(extractElapsedTimer);
-    extractElapsedTimer = null;
-    extractElapsedStartedAt = null;
+    overlayButtonId = null;
+    if (overlayElapsedTimer) window.clearInterval(overlayElapsedTimer);
+    overlayElapsedTimer = null;
+    overlayElapsedStartedAt = null;
+  }
+
+  function showExtractOverlay(statusText) {
+    showProgressOverlay({
+      title: 'AI가 블로그 포뮬라를 추출하는 중',
+      status: statusText || 'OpenAI가 owner 블로그를 분석하고 있습니다.',
+      buttonId: 'v2FormulaExtractButton'
+    });
+  }
+
+  function hideExtractOverlay() {
+    hideProgressOverlay();
+  }
+
+  function showDraftOverlay(statusText) {
+    showProgressOverlay({
+      title: 'AI가 블로그 초안을 생성하는 중',
+      status: statusText || 'OpenAI가 포뮬라와 유사 블로그로 초안을 작성하고 있습니다.',
+      buttonId: 'v2GenerateButton'
+    });
+  }
+
+  function hideDraftOverlay() {
+    hideProgressOverlay();
   }
 
   function topicBriefFromForm() {
@@ -107,6 +139,82 @@
       mustAvoid: splitList(inputValue('v2-must-avoid')),
       ctaDirection: inputValue('v2-cta-direction') || null
     };
+  }
+
+  function setInputValue(id, value) {
+    const element = field(id);
+    if (element) element.value = value ?? '';
+  }
+
+  function topicBriefSetSummary(set) {
+    return set.mainAngle || set.coreConcern || set.mainKeyword || set.topic;
+  }
+
+  function renderTopicBriefLibrary(payload) {
+    const select = field('v2TopicBriefLibrary');
+    state.topicBriefSets = (payload && payload.topicBriefSets) || [];
+    if (select) {
+      const counts = {};
+      const totals = {};
+      state.topicBriefSets.forEach((set) => {
+        totals[set.topic] = (totals[set.topic] || 0) + 1;
+      });
+      const circled = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+      const options = state.topicBriefSets.map((set, index) => {
+        counts[set.topic] = (counts[set.topic] || 0) + 1;
+        const order = totals[set.topic] > 1 ? ` ${circled[counts[set.topic] - 1] || counts[set.topic]}` : '';
+        const label = `${set.topic}${order} · ${topicBriefSetSummary(set)}`;
+        return `<option value="${escapeHtml(index)}">${escapeHtml(label)}</option>`;
+      });
+      select.innerHTML = '<option value="">직접 입력</option>' + options.join('');
+    }
+    const remaining = (payload && payload.status && payload.status.topicBriefSetRemainingCount) || 0;
+    const button = field('v2TopicBriefExtendButton');
+    if (button) {
+      button.style.display = remaining > 0 ? '' : 'none';
+      button.textContent = `더 많은 블로그에서 포뮬라 생성 (남은 ${remaining}건)`;
+    }
+  }
+
+  function applyTopicBriefSet(indexValue) {
+    if (indexValue === '' || indexValue === null || indexValue === undefined) return;
+    const set = state.topicBriefSets[Number(indexValue)];
+    if (!set) return;
+    setInputValue('v2-topic', set.topic);
+    setInputValue('v2-main-keyword', set.mainKeyword);
+    setInputValue('v2-secondary-keywords', (set.secondaryKeywords || []).join(', '));
+    setInputValue('v2-target-reader', set.targetReader || '');
+    setInputValue('v2-core-concern', set.coreConcern || '');
+    setInputValue('v2-main-angle', set.mainAngle || '');
+    setInputValue('v2-must-include', (set.mustInclude || []).join(', '));
+    setInputValue('v2-must-avoid', (set.mustAvoid || []).join(', '));
+    setInputValue('v2-cta-direction', set.ctaDirection || '');
+    setMessage(`토픽 브리프 "${set.topic}"를 소재 Brief에 적용했습니다.`);
+  }
+
+  async function extendTopicBriefSetLibrary() {
+    const storeId = blogFormulaV2CurrentStoreId();
+    const button = field('v2TopicBriefExtendButton');
+    if (button) button.disabled = true;
+    try {
+      setMessage('추가 블로그에서 토픽 브리프를 생성하는 중입니다.');
+      const response = await fetch(`/api/stores/${storeId}/v2/blog-formula/topic-brief-sets/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) throw new Error('extend failed');
+      const result = await response.json();
+      renderTopicBriefLibrary({
+        topicBriefSets: result.topicBriefSets,
+        status: { topicBriefSetRemainingCount: result.remainingCount }
+      });
+      setMessage(`토픽 브리프 ${result.added.length}건을 추가했습니다. (남은 ${result.remainingCount}건)`);
+    } catch {
+      setMessage('토픽 브리프 추가 생성에 실패했습니다.');
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   function renderStatus(payload) {
@@ -213,6 +321,7 @@
     renderStatus(payload);
     renderSourcePosts(payload?.sourcePosts || []);
     renderFormulaCards(payload?.formulaSet);
+    renderTopicBriefLibrary(payload);
     if (payload?.latestDraftGeneration?.output) renderDraft(payload.latestDraftGeneration.output);
     if (payload?.latestValidation?.validation) renderValidation(payload.latestValidation.validation);
   }
@@ -250,6 +359,62 @@
       <div class="formula-v2-meta">${(output.titleCandidates || []).map((title) => `<span class="formula-v2-badge">${escapeHtml(title)}</span>`).join('')}</div>
       <div class="formula-v2-draft" style="margin-top:10px">${escapeHtml(output.blogDraft)}</div>
     `;
+  }
+
+  function yesNo(value) {
+    return value ? '예' : '아니오';
+  }
+
+  function joinList(value) {
+    return Array.isArray(value) && value.length ? value.join(', ') : '-';
+  }
+
+  function complianceRow(label, modelValue, serverValue) {
+    return `
+      <div class="formula-v2-sample">
+        <div class="formula-v2-sample-title">${escapeHtml(label)}</div>
+        <div class="formula-v2-meta">모델 자가보고: ${escapeHtml(modelValue)}</div>
+        <div class="formula-v2-meta">서버 검증: ${escapeHtml(serverValue)}</div>
+      </div>
+    `;
+  }
+
+  // Shows the model's self-reported compliance next to the server-derived
+  // authoritative compliance so a human can compare the two.
+  function renderComplianceComparison(output) {
+    const target = field('v2DraftCompliancePanel');
+    if (!target) return;
+    if (!output) {
+      target.innerHTML = 'OpenAI 초안을 생성하면 모델 자가보고와 서버 검증 결과를 나란히 비교할 수 있습니다.';
+      return;
+    }
+    const server = {
+      bannedPhrasesAvoided: output.safetyCheck && output.safetyCheck.bannedPhrasesAvoided,
+      requiredDisclosures: (output.safetyCheck && output.safetyCheck.requiredDisclosures) || [],
+      appliedBlocks: (output.styleComplianceReport && output.styleComplianceReport.appliedBlocks) || [],
+      mainKeywordInTitle: output.seoCheck && output.seoCheck.mainKeywordInTitle,
+      mainKeywordInIntro: output.seoCheck && output.seoCheck.mainKeywordInIntro,
+      secondaryKeywordsUsed: (output.seoCheck && output.seoCheck.secondaryKeywordsUsed) || []
+    };
+    const model = output.modelReportedCompliance;
+    if (!model) {
+      target.innerHTML =
+        '<div class="formula-v2-meta">deterministic 초안에는 모델 자가보고가 없어 서버 검증만 표시합니다.</div>'
+        + `<div class="formula-v2-meta">금지표현 회피(서버): ${yesNo(server.bannedPhrasesAvoided)}</div>`
+        + `<div class="formula-v2-meta">필수 고지(서버): ${escapeHtml(joinList(server.requiredDisclosures))}</div>`;
+      return;
+    }
+    const modelSafety = model.safetyCheck || {};
+    const modelStyle = model.styleComplianceReport || {};
+    const modelSeo = model.seoCheck || {};
+    target.innerHTML = [
+      complianceRow('금지표현 회피', yesNo(modelSafety.bannedPhrasesAvoided), yesNo(server.bannedPhrasesAvoided)),
+      complianceRow('필수 고지', joinList(modelSafety.requiredDisclosures), joinList(server.requiredDisclosures)),
+      complianceRow('적용 포뮬라 블록', joinList(modelStyle.appliedBlocks), joinList(server.appliedBlocks)),
+      complianceRow('제목 메인키워드', yesNo(modelSeo.mainKeywordInTitle), yesNo(server.mainKeywordInTitle)),
+      complianceRow('도입부 메인키워드', yesNo(modelSeo.mainKeywordInIntro), yesNo(server.mainKeywordInIntro)),
+      complianceRow('사용된 서브키워드', joinList(modelSeo.secondaryKeywordsUsed), joinList(server.secondaryKeywordsUsed))
+    ].join('');
   }
 
   function renderValidation(validation) {
@@ -306,6 +471,10 @@
       renderSourcePosts(payload.sourcePosts || []);
       renderFormulaCards(payload.formulaSet);
       const model = payload.provider?.model || payload.formulaSet?.model || '-';
+      // Refresh first (this repopulates the topic brief library dropdown), then set
+      // the informative success message last so loadBlogFormulaV2's generic message
+      // does not overwrite it.
+      await loadBlogFormulaV2();
       setMessage(`Blog Formula V2 추출이 완료되었습니다. (모델 ${model})`);
       return payload;
     } catch {
@@ -358,26 +527,33 @@
       if (!retrieved) return null;
     }
     try {
-      setMessage('V2 초안을 생성하는 중입니다.');
+      setMessage('OpenAI로 V2 초안을 생성하는 중입니다.');
+      showDraftOverlay('OpenAI가 포뮬라와 유사 블로그로 초안을 작성하고 있습니다.');
       const response = await fetch(`/api/stores/${storeId}/v2/blog-formula/generate-draft`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formulaSetId: state.formulaSetId,
           topicBriefId: state.topicBriefId,
-          retrievalRunId: state.retrievalRunId
+          retrievalRunId: state.retrievalRunId,
+          providerMode: 'openai'
         })
       });
       if (!response.ok) throw new Error('generate failed');
       const payload = await response.json();
       state.draftGenerationId = payload.draftGeneration?.id || null;
       setText('v2DraftStatus', payload.draftGeneration?.status || '-');
+      const model = payload.provider?.model || payload.draftGeneration?.model || '-';
+      setText('v2FormulaModel', model);
       renderDraft(payload.output);
-      setMessage('V2 초안 생성이 완료되었습니다.');
+      renderComplianceComparison(payload.output);
+      setMessage(`V2 초안 생성이 완료되었습니다. (모델 ${model})`);
       return payload;
     } catch {
-      setMessage('V2 초안 생성에 실패했습니다.');
+      setMessage('V2 초안 생성에 실패했습니다. OpenAI 키와 서버 상태를 확인하세요.');
       return null;
+    } finally {
+      hideDraftOverlay();
     }
   }
 
@@ -411,6 +587,8 @@
   window.retrieveBlogFormulaV2Samples = retrieveBlogFormulaV2Samples;
   window.generateBlogFormulaV2Draft = generateBlogFormulaV2Draft;
   window.validateBlogFormulaV2Draft = validateBlogFormulaV2Draft;
+  window.applyTopicBriefSet = applyTopicBriefSet;
+  window.extendTopicBriefSetLibrary = extendTopicBriefSetLibrary;
 
   document.addEventListener('DOMContentLoaded', () => {
     loadBlogFormulaV2();
