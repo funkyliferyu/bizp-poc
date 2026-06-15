@@ -88,8 +88,14 @@ export function createBlogFormulaV2Routes({ connection, providerFactoryOptions }
     try {
       const provider = createTopicBriefSetProviderForMode(providerMode, topicBriefSetFactoryOptions());
       await extendBlogFormulaV2TopicBriefSets(repos, storeIdValue, { formulaSetId, provider });
-    } catch {
-      // best-effort: the topic brief library stays empty and is retryable via the extend route
+    } catch (error) {
+      // best-effort: the topic brief library stays empty and is retryable via the
+      // extend route. Surface the failure in server logs instead of swallowing it
+      // silently, so an empty library right after extract is diagnosable.
+      console.warn(
+        `[blogFormulaV2] first topic-brief batch failed for store ${storeIdValue} formula set ${formulaSetId}:`,
+        error
+      );
     }
   }
 
