@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import path from 'node:path';
+import express from 'express';
+import { chromium } from 'playwright';
 
 const repoRoot = path.resolve('..');
 const webRoot = path.join(repoRoot, 'web');
@@ -42,5 +46,56 @@ describe('AI content detail page API wiring', () => {
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
+  });
+
+  it('trims paragraph excerpts from rendered image prompts in the article and image list', async () => {
+    const app = express();
+    app.get('/api/blog-posts/post_prompt_trim', (_req, res) => {
+      res.json({
+        blogPost: {
+          id: 'post_prompt_trim',
+          status: 'pending_approval',
+          title: '슈링크의 효과, 당신이 알아야 할 모든 것',
+          createdAt: '2026-06-15T00:00:00.000Z',
+          article: null
+        },
+        article: {
+          title: '슈링크의 효과, 당신이 알아야 할 모든 것',
+          bodySections: [{ heading: '슈링크 효과와 관리 필요성 상담 전 확인할 점', body: '안녕하세요. 테라스의원 대표원장 권유정입니다.' }]
+        },
+        mediaAssets: [
+          {
+            id: 'media_prompt_trim',
+            prompt:
+              '슈링크 효과 대표 이미지: "슈링크 효과와 관리 필요성 상담 전 확인할 점" 단락의 내용을 표현하는 이미지 설명 - 안녕하세요. 테라스의원 대표원장 권유정입니다.',
+            alt: null
+          }
+        ],
+        seoScore: { totalScore: 81, rubric: {} }
+      });
+    });
+    app.use(express.static(webRoot));
+
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const port = (server.address() as AddressInfo).port;
+    const browser = await chromium.launch({ headless: true });
+
+    try {
+      const page = await browser.newPage();
+      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_prompt_trim`);
+      await page.waitForSelector('[data-image-slot="1"]');
+
+      const inlinePrompt = await page.locator('[data-image-slot="1"]').textContent();
+      const cardPrompt = await page.locator('#content-image-list .img-card').textContent();
+
+      expect(inlinePrompt).toContain('단락의 내용을 표현하는 이미지 설명');
+      expect(cardPrompt).toContain('단락의 내용을 표현하는 이미지 설명');
+      expect(inlinePrompt).not.toContain('안녕하세요. 테라스의원');
+      expect(cardPrompt).not.toContain('안녕하세요. 테라스의원');
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    }
   });
 });
