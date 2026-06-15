@@ -31,7 +31,9 @@ function fakeV2DraftClient() {
                     blogDraft: [
                       '리팟레이저 상담을 고민하는 분에게 필요한 기준을 먼저 정리합니다. 개인차와 부작용 가능성은 의료진 상담으로 확인해야 합니다.',
                       '기존 블로그 흐름처럼 걱정 지점을 먼저 다루고 리팟레이저 원리와 판단 기준을 차분히 이어갑니다.',
-                      '상담 전에는 기대 범위와 회복 과정, 예약 가능 여부를 함께 확인하는 것이 좋습니다.'
+                      '상담 전에는 기대 범위와 회복 과정, 예약 가능 여부를 함께 확인하는 것이 좋습니다.',
+                      '원문 네 번째 문단은 상담 체크리스트를 더 자세히 풀어 설명합니다.',
+                      '원문 다섯 번째 문단은 마무리 CTA와 주의사항을 함께 안내합니다.'
                     ].join('\n\n'),
                     styleComplianceReport: { appliedBlocks: ['titleFormula', 'bodyFormula', 'ctaFormula'] },
                     safetyCheck: {
@@ -215,10 +217,103 @@ describe('content detail API', () => {
     expect(detailResponse.status).toBe(200);
     expect(detail.article.bodySections.length).toBeGreaterThanOrEqual(3);
     expect(detail.article.bodyText).toContain('리팟레이저 상담을 고민하는 분');
-    expect(detail.mediaAssets).toHaveLength(3);
+    expect(detail.article.bodyText).toContain('원문 네 번째 문단');
+    expect(detail.article.bodyText).toContain('원문 다섯 번째 문단');
+    expect(detail.mediaAssets).toHaveLength(detail.article.bodySections.length);
     expect(detail.mediaAssets[0].prompt).toContain('리팟레이저');
     expect(detail.mediaAssets[0].prompt).not.toMatch(/placeholder/i);
     expect(detail.seoScore.rubric.imageAltPrompt.feedback).toEqual(expect.any(String));
+  });
+
+  it('hydrates legacy V2 detail and preview from the full stored draft when saved article sections were truncated', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const timestamp = new Date().toISOString();
+    const legacyDraft = [
+      '레거시 첫 번째 문단입니다.',
+      '레거시 두 번째 문단입니다.',
+      '레거시 세 번째 문단입니다.',
+      '레거시 네 번째 문단은 이전 저장 article에는 없지만 원문에는 남아 있습니다.',
+      '레거시 다섯 번째 문단도 미리보기에서 보여야 합니다.'
+    ].join('\n\n');
+    const truncatedSections = [
+      { heading: '첫 번째', body: '레거시 첫 번째 문단입니다.' },
+      { heading: '두 번째', body: '레거시 두 번째 문단입니다.' },
+      { heading: '세 번째', body: '레거시 세 번째 문단입니다.' }
+    ];
+    repos.contentGenerations.create({
+      id: 'content_generation_legacy_v2_truncated',
+      storeId: 'store_demo_cake',
+      rulesetId: null,
+      status: 'generated',
+      contentType: 'blog_post',
+      prompt: {
+        action: 'generate_blog_post_from_v2_formula',
+        topicBrief: {
+          topic: '레거시 주제',
+          mainKeyword: '레거시 키워드',
+          secondaryKeywords: [],
+          targetReader: '검증 고객',
+          coreConcern: '검증',
+          mainAngle: '검증',
+          mustInclude: [],
+          mustAvoid: [],
+          ctaDirection: '상담 안내'
+        }
+      },
+      output: {
+        title: '레거시 V2 글',
+        metaDescription: '레거시 V2 글 요약입니다.',
+        bodySections: truncatedSections,
+        seoKeywords: ['레거시 키워드'],
+        cta: '상담으로 확인해 주세요.',
+        imagePrompts: truncatedSections.map((section) => `레거시 키워드 이미지: ${section.heading}`),
+        generator: 'openai_blog_formula_v2',
+        source: 'blog_formula_v2',
+        v2DraftOutput: {
+          titleCandidates: ['레거시 V2 글'],
+          selectedTitle: '레거시 V2 글',
+          blogDraft: legacyDraft
+        }
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+    repos.blogPosts.create({
+      id: 'blog_post_legacy_v2_truncated',
+      storeId: 'store_demo_cake',
+      contentGenerationId: 'content_generation_legacy_v2_truncated',
+      status: 'pending_approval',
+      title: '레거시 V2 글',
+      article: {
+        title: '레거시 V2 글',
+        metaDescription: '레거시 V2 글 요약입니다.',
+        bodySections: truncatedSections,
+        seoKeywords: ['레거시 키워드'],
+        cta: '상담으로 확인해 주세요.',
+        imagePrompts: truncatedSections.map((section) => `레거시 키워드 이미지: ${section.heading}`),
+        generator: 'openai_blog_formula_v2',
+        source: 'blog_formula_v2',
+        status: 'pending_approval'
+      },
+      publishedUrl: null,
+      scheduledAt: null,
+      publishedAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+
+    const detailResponse = await fetch(`${baseUrl}/api/blog-posts/blog_post_legacy_v2_truncated`);
+    const detail = await readJson(detailResponse);
+    const previewResponse = await fetch(`${baseUrl}/api/blog-posts/blog_post_legacy_v2_truncated/preview`);
+    const preview = await readJson(previewResponse);
+
+    expect(detailResponse.status).toBe(200);
+    expect(previewResponse.status).toBe(200);
+    expect(detail.article.bodyText).toContain('레거시 네 번째 문단');
+    expect(detail.article.bodyText).toContain('레거시 다섯 번째 문단');
+    expect(detail.mediaAssets).toHaveLength(detail.article.bodySections.length);
+    expect(preview.preview.bodySections).toHaveLength(detail.article.bodySections.length);
+    expect(preview.preview.html).toContain('레거시 다섯 번째 문단');
   });
 
   it('regenerates text and SEO through the OpenAI blog provider with an LLM audit log when configured', async () => {

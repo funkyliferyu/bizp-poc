@@ -14,6 +14,7 @@ import {
 } from '../blogFormulaV2/blogFormulaV2Service.js';
 import type { BlogDraftOutputV2, BlogTopicBriefInput } from '../blogFormulaV2/types.js';
 import { getBlogPostDetail, serializeBlogPost } from './blogGenerator.js';
+import { bodySectionsFromV2Draft, imagePromptForV2Section } from './blogFormulaV2DraftSections.js';
 
 type StoreLearningRepositories = ReturnType<typeof createStoreLearningRepositories>;
 
@@ -68,30 +69,6 @@ function topicBriefInputFromSet(row: V2BlogTopicBriefSet): BlogTopicBriefInput {
   };
 }
 
-function sectionHeading(index: number, topicBrief: BlogTopicBriefInput) {
-  const headings = [
-    `${topicBrief.topic} 상담 전 확인할 점`,
-    `${topicBrief.mainKeyword} 핵심 안내`,
-    topicBrief.ctaDirection ? '상담 전 확인사항' : '예약 전 확인사항'
-  ];
-  return headings[index] ?? `${topicBrief.topic} 추가 안내`;
-}
-
-function bodySectionsFromDraft(output: BlogDraftOutputV2, topicBrief: BlogTopicBriefInput) {
-  const paragraphs = output.blogDraft
-    .split(/\n{2,}/u)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
-  const padded = paragraphs.length >= 3 ? paragraphs : [...paragraphs];
-  while (padded.length < 3) {
-    padded.push(`${topicBrief.mainKeyword} 상담 전에는 개인차, 부작용 가능성, 의료진 상담 필요성을 함께 확인해 주세요.`);
-  }
-  return padded.slice(0, 3).map((body, index) => ({
-    heading: sectionHeading(index, topicBrief),
-    body
-  }));
-}
-
 function metaDescriptionFor(output: BlogDraftOutputV2, sections: Array<{ body: string }>) {
   const first = sections[0]?.body ?? output.blogDraft;
   return first.replace(/\s+/gu, ' ').slice(0, 120);
@@ -102,7 +79,7 @@ function articleFromV2Output(
   topicBrief: BlogTopicBriefInput,
   generator: string
 ) {
-  const bodySections = bodySectionsFromDraft(output, topicBrief);
+  const bodySections = bodySectionsFromV2Draft(output, topicBrief);
   const seoKeywords = Array.from(
     new Set([topicBrief.mainKeyword, topicBrief.topic, ...topicBrief.secondaryKeywords].filter(Boolean))
   ).slice(0, 8);
@@ -112,22 +89,12 @@ function articleFromV2Output(
     bodySections,
     seoKeywords,
     cta: topicBrief.ctaDirection ?? '상담으로 본인에게 맞는 계획을 확인해 주세요.',
-    imagePrompts: bodySections.map((section, index) => imagePromptForSection(section, topicBrief, index)),
+    imagePrompts: bodySections.map((section, index) => imagePromptForV2Section(section, topicBrief, index)),
     generatedFromRulesetId: null,
     generator,
     source: 'blog_formula_v2',
     status: 'pending_approval'
   };
-}
-
-function imagePromptForSection(
-  section: { heading: string; body: string },
-  topicBrief: BlogTopicBriefInput,
-  index: number
-) {
-  const placement = index === 0 ? '대표 이미지' : `본문 이미지 ${index + 1}`;
-  const bodySummary = section.body.replace(/\s+/gu, ' ').slice(0, 70);
-  return `${topicBrief.mainKeyword} ${placement}: "${section.heading}" 단락의 내용을 표현하는 이미지 설명 - ${bodySummary}`;
 }
 
 function seoScoreForArticle(article: ReturnType<typeof articleFromV2Output>, mediaPrompts: string[]) {

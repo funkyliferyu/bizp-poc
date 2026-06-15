@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { JsonValue } from '../../repositories/base.js';
 import type { BlogPost } from '../../repositories/blog_posts.js';
+import type { ContentGeneration } from '../../repositories/content_generations.js';
 import type { MediaAsset } from '../../repositories/media_assets.js';
 import type { MarketingRuleset } from '../../repositories/marketing_rulesets.js';
 import type { RulesetField } from '../../repositories/ruleset_fields.js';
@@ -26,6 +27,11 @@ import {
   type BlogContentProvider,
   type SeoScoreOutput
 } from './blogProvider.js';
+import {
+  bodySectionsFromV2Draft,
+  imagePromptForV2Section,
+  type V2DraftTopicContext
+} from './blogFormulaV2DraftSections.js';
 
 type Repositories = ReturnType<typeof createStoreLearningRepositories>;
 
@@ -119,10 +125,49 @@ function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-function normalizedArticle(post: BlogPost): NormalizedArticle {
+function topicBriefFromContentGeneration(post: BlogPost, contentGeneration: ContentGeneration | null): V2DraftTopicContext {
+  const prompt = asRecord(contentGeneration?.prompt);
+  const output = asRecord(contentGeneration?.output);
+  const promptTopicBrief = asRecord(prompt.topicBrief);
+  const outputTopicBrief = asRecord(output.topicBrief);
+  const topic = asString(promptTopicBrief.topic) || asString(outputTopicBrief.topic) || post.title;
+  const mainKeyword = asString(promptTopicBrief.mainKeyword) || asString(outputTopicBrief.mainKeyword) || topic;
+  return {
+    topic,
+    mainKeyword,
+    ctaDirection: asString(promptTopicBrief.ctaDirection) || asString(outputTopicBrief.ctaDirection) || null
+  };
+}
+
+function repairedV2DraftSections(
+  post: BlogPost,
+  contentGeneration: ContentGeneration | null,
+  currentSections: Array<{ heading: string; body: string }>
+) {
+  const output = asRecord(contentGeneration?.output);
+  const v2DraftOutput = asRecord(output.v2DraftOutput);
+  const blogDraft = asString(v2DraftOutput.blogDraft);
+  if (!blogDraft) return null;
+
+  const topicBrief = topicBriefFromContentGeneration(post, contentGeneration);
+  const bodySections = bodySectionsFromV2Draft({ blogDraft }, topicBrief);
+  const currentBodyText = currentSections.map((section) => `${section.heading}\n${section.body}`).join('\n\n');
+  const hasMissingDraftText = bodySections.some((section) => {
+    const sample = section.body.replace(/\s+/gu, ' ').slice(0, 30);
+    return sample && !currentBodyText.replace(/\s+/gu, ' ').includes(sample);
+  });
+  if (bodySections.length <= currentSections.length && !hasMissingDraftText) return null;
+
+  return {
+    bodySections,
+    imagePrompts: bodySections.map((section, index) => imagePromptForV2Section(section, topicBrief, index))
+  };
+}
+
+function normalizedArticle(post: BlogPost, contentGeneration: ContentGeneration | null = null): NormalizedArticle {
   const article = asRecord(post.article);
   const rawSections = jsonArray(article.bodySections);
-  const bodySections = rawSections
+  let bodySections = rawSections
     .map((section) => {
       const record = asRecord(section);
       return {
@@ -152,6 +197,9 @@ function normalizedArticle(post: BlogPost): NormalizedArticle {
     });
   }
 
+  const v2Repair = repairedV2DraftSections(post, contentGeneration, bodySections);
+  if (v2Repair) bodySections = v2Repair.bodySections;
+
   const bodyText = bodySections.map((section) => `${section.heading}\n${section.body}`).join('\n\n');
   const seoKeywords = jsonArray(article.seoKeywords)
     .map((keyword) => asString(keyword).trim())
@@ -161,9 +209,13 @@ function normalizedArticle(post: BlogPost): NormalizedArticle {
     '분당 케이크',
     '레터링 케이크'
   ]);
-  const imagePrompts = jsonArray(article.imagePrompts)
+  const storedImagePrompts = jsonArray(article.imagePrompts)
     .map((prompt) => asString(prompt).trim())
     .filter(Boolean);
+  const imagePrompts =
+    v2Repair && storedImagePrompts.length < bodySections.length
+      ? bodySections.map((_, index) => storedImagePrompts[index] || v2Repair.imagePrompts[index]).filter(Boolean)
+      : storedImagePrompts;
   const revisions = jsonArray(article.revisions)
     .map((revision) => asRecord(revision))
     .filter((revision) => Object.keys(revision).length > 0) as Array<Record<string, JsonValue>>;
@@ -196,6 +248,32 @@ function serializeMediaAsset(asset: MediaAsset) {
     alt: asString(metadata.alt) || prompt,
     placement: asString(metadata.placement) || null
   };
+}
+
+function serializeMediaAssetsForArticle(post: BlogPost, article: NormalizedArticle, mediaAssets: MediaAsset[]) {
+  const serialized = mediaAssets.map(serializeMediaAsset);
+  const extraPrompts = article.imagePrompts.slice(serialized.length);
+  return [
+    ...serialized,
+    ...extraPrompts.map((prompt, index) => {
+      const assetIndex = serialized.length + index;
+      const placement = assetIndex === 0 ? 'cover' : `body_${assetIndex}`;
+      return {
+        id: `virtual_media_asset_${post.id}_${assetIndex + 1}`,
+        storeId: post.storeId,
+        blogPostId: post.id,
+        assetType: 'image_prompt',
+        status: 'placeholder',
+        url: null,
+        prompt,
+        metadata: { prompt, placement },
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+        alt: prompt,
+        placement
+      };
+    })
+  ];
 }
 
 function fieldValue(fields: RulesetField[], keys: string[], fallback: string) {
@@ -449,9 +527,9 @@ function contentGenerationProvenance(contentGeneration: { prompt: JsonValue } | 
   };
 }
 
-function previewHtml(post: BlogPost, mediaAssets: MediaAsset[]) {
-  const article = normalizedArticle(post);
-  const media = mediaAssets.map(serializeMediaAsset);
+function previewHtml(post: BlogPost, mediaAssets: MediaAsset[], contentGeneration: ContentGeneration | null = null) {
+  const article = normalizedArticle(post, contentGeneration);
+  const media = serializeMediaAssetsForArticle(post, article, mediaAssets);
   const bodyHtml = article.bodySections
     .map((section, index) => {
       const prompt = media[index]?.prompt;
@@ -703,18 +781,18 @@ export function getBlogPostDetail(repos: Repositories, postId: string) {
   const post = repos.blogPosts.findById(postId);
   if (!post) return null;
   const blogPost = serializeBlogPost(repos, post.id);
-  const article = normalizedArticle(post);
   const rawMediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
   const latestSeoScore = latestByUpdatedAt(repos.seoScores.listByBlogPostId(post.id));
   const contentGeneration = post.contentGenerationId
     ? repos.contentGenerations.findById(post.contentGenerationId)
     : null;
+  const article = normalizedArticle(post, contentGeneration);
   return {
     blogPost,
     article,
     contentGeneration,
     contentProvenance: contentGenerationProvenance(contentGeneration),
-    mediaAssets: rawMediaAssets.map(serializeMediaAsset),
+    mediaAssets: serializeMediaAssetsForArticle(post, article, rawMediaAssets),
     seoScore: serializeSeoScore(latestSeoScore, post, rawMediaAssets)
   };
 }
@@ -995,9 +1073,10 @@ export function getBlogPostPreview(repos: Repositories, postId: string) {
   const post = repos.blogPosts.findById(postId);
   if (!post) return null;
   const mediaAssets = repos.mediaAssets.listByBlogPostId(post.id);
+  const contentGeneration = post.contentGenerationId ? repos.contentGenerations.findById(post.contentGenerationId) : null;
   return {
     blogPost: serializeBlogPost(repos, post.id),
-    preview: previewHtml(post, mediaAssets),
+    preview: previewHtml(post, mediaAssets, contentGeneration),
     seoScore: serializeSeoScore(latestByUpdatedAt(repos.seoScores.listByBlogPostId(post.id)), post, mediaAssets)
   };
 }
