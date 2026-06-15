@@ -806,7 +806,8 @@ export function createStoreRoutes({
   });
 
   router.get('/:storeId/blog-posts', (req, res) => {
-    const payload = listBlogPostsForStore(repos, req.params.storeId);
+    const source = req.query.source === 'blog_formula_v2' ? 'blog_formula_v2' : undefined;
+    const payload = listBlogPostsForStore(repos, req.params.storeId, { source });
     if (!payload) {
       res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
       return;

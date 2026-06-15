@@ -261,7 +261,13 @@
 </div>
 <div id="blog-v2-batch-modal" class="modal-backdrop" style="display:none" role="status" aria-live="polite">
   <div class="modal modal-sm">
-    <div class="modal-title">블로그 생성배치 실행 중</div>
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span style="display:inline-flex;align-items:center;gap:8px">
+        <span class="spinner" id="blog-v2-batch-spinner" aria-hidden="true"></span>
+        블로그 생성배치 실행 중
+      </span>
+      <span id="blog-v2-batch-elapsed" style="font-size:11px;font-weight:700;color:#6B7280">00:00</span>
+    </div>
     <div class="modal-desc" id="blog-v2-batch-modal-desc">토픽 브리프를 확인하고 있습니다.</div>
     <div id="blog-v2-batch-steps" style="display:grid;gap:8px;margin-top:12px"></div>
     <div class="modal-actions" style="margin-top:16px">

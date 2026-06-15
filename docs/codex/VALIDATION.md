@@ -58,6 +58,23 @@ Boundary checks:
   `web/event_operation_poc.html` changes.
 - `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` were left untouched.
 
+Manual-smoke follow-up on 2026-06-15:
+
+- Root cause of the "mock-looking" generated rows during manual smoke: the
+  rows observed in the snapshot were saved under `store_demo_cake`, while the
+  current `store_1020864025` Blog Formula V2 draft table contained
+  terrace-clinic drafts. The Blog Management list now requests
+  `source=blog_formula_v2` and renders only Blog Formula V2 API-linked posts.
+- `serializeBlogPost` now labels V2 batch posts as
+  `generationSource.type = blog_formula_v2` so the filtered list and counts are
+  based on API-linked generated rows only.
+- The batch modal now shows a spinner and elapsed timer while sequential
+  generation is running.
+- Fresh validation after the follow-up: `cd poc-server && npx tsc --noEmit -p
+  tsconfig.json && npx vitest run` -> PASS: 67 files passed, 3 skipped; 416
+  tests passed, 6 skipped. `node --check ../web/blog_posts.js` and
+  `git diff --check` -> PASS.
+
 ## Blog Formula V2 OpenAI Draft Generation Validation (13h)
 
 Date: 2026-06-14

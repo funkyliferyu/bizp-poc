@@ -17,7 +17,11 @@
   const v2BatchModalDesc = document.getElementById('blog-v2-batch-modal-desc');
   const v2BatchSteps = document.getElementById('blog-v2-batch-steps');
   const v2BatchModalClose = document.getElementById('blog-v2-batch-modal-close');
+  const v2BatchSpinner = document.getElementById('blog-v2-batch-spinner');
+  const v2BatchElapsed = document.getElementById('blog-v2-batch-elapsed');
   const v2BatchStepLabels = ['1/3', '2/3', '3/3'];
+  let batchStartedAt = 0;
+  let batchTimer = null;
 
   if (!blogList && !aiContentList && !generateButton) return;
 
@@ -86,6 +90,32 @@
 
   function emptyRow(colspan, message) {
     return `<tr><td class="td-empty" colspan="${colspan}" style="text-align:center;padding:24px">${escapeHtml(message)}</td></tr>`;
+  }
+
+  function elapsedLabel(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function updateBatchElapsed() {
+    if (v2BatchElapsed && batchStartedAt) v2BatchElapsed.textContent = elapsedLabel(Date.now() - batchStartedAt);
+  }
+
+  function startBatchTimer() {
+    batchStartedAt = Date.now();
+    if (v2BatchSpinner) v2BatchSpinner.style.display = 'inline-block';
+    updateBatchElapsed();
+    window.clearInterval(batchTimer);
+    batchTimer = window.setInterval(updateBatchElapsed, 1000);
+  }
+
+  function stopBatchTimer() {
+    window.clearInterval(batchTimer);
+    batchTimer = null;
+    updateBatchElapsed();
+    if (v2BatchSpinner) v2BatchSpinner.style.display = 'none';
   }
 
   function setBatchModal(open, message, closable = false) {
@@ -183,20 +213,21 @@
       const generatedCount = summary?.generatedDraftCount ?? posts.filter((post) => post.generationSource?.type !== 'manual').length;
       aiContentSourceNote.textContent =
         generatedCount > 0
-          ? `마케팅 룰셋 기반 생성 초안 ${generatedCount}건`
-          : '마케팅 룰셋 기반 생성 초안이 없습니다.';
+          ? `Blog Formula V2 연동 생성 초안 ${generatedCount}건`
+          : 'Blog Formula V2 연동 생성 초안이 없습니다.';
     }
   }
 
   async function loadPosts() {
     try {
-      const response = await fetch(`/api/stores/${storeId}/blog-posts`);
+      const response = await fetch(`/api/stores/${storeId}/blog-posts?source=blog_formula_v2`);
       if (!response.ok) throw new Error(`블로그 목록을 불러오지 못했습니다. (${response.status})`);
       const payload = await response.json();
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
-      renderBlogManagement(posts);
-      renderAiContentList(posts);
-      updateSummary(payload.summary, posts);
+      const apiLinkedPosts = posts.filter((post) => post.generationSource?.type === 'blog_formula_v2');
+      renderBlogManagement(apiLinkedPosts);
+      renderAiContentList(apiLinkedPosts);
+      updateSummary(null, apiLinkedPosts);
     } catch (error) {
       const message = error instanceof Error ? error.message : '블로그 목록을 불러오지 못했습니다.';
       if (blogList) blogList.innerHTML = emptyRow(7, message);
@@ -218,11 +249,13 @@
       v2BatchButton.disabled = true;
       v2BatchButton.textContent = '생성 중';
     }
+    startBatchTimer();
     try {
       setBatchModal(true, '토픽 브리프를 확인하고 있습니다.');
       const candidates = await loadV2BatchCandidates();
       if (candidates.length < 3) {
         renderBatchSteps(candidates, -1, completedIds);
+        stopBatchTimer();
         setBatchModal(true, '생성 가능한 토픽 브리프가 3건 미만입니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.', true);
         return;
       }
@@ -238,10 +271,12 @@
         completedIds.add(candidates[index].id);
       }
       renderBatchSteps(candidates, -1, completedIds);
+      stopBatchTimer();
       setBatchModal(true, '3/3 블로그 초안 생성이 완료되었습니다. 목록을 새로고침합니다.');
       await loadPosts();
       window.setTimeout(() => setBatchModal(false, ''), 800);
     } catch (error) {
+      stopBatchTimer();
       setBatchModal(true, error instanceof Error ? error.message : '생성배치 실행에 실패했습니다.', true);
     } finally {
       if (v2BatchButton) {

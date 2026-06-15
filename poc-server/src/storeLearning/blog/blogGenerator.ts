@@ -625,7 +625,16 @@ export function serializeBlogPost(repos: Repositories, postId: string) {
   const contentGeneration = post.contentGenerationId ? repos.contentGenerations.findById(post.contentGenerationId) : null;
   const generatedFromRulesetId =
     article.generatedFromRulesetId?.toString() || contentGeneration?.rulesetId?.toString() || null;
-  const generationSourceType = generatedFromRulesetId ? 'ruleset' : contentGeneration ? 'content_generation' : 'manual';
+  const contentGenerationPrompt = asRecord(contentGeneration?.prompt);
+  const contentGenerationAction = contentGenerationPrompt.action?.toString() ?? null;
+  const generationSourceType =
+    contentGenerationAction === 'generate_blog_post_from_v2_formula'
+      ? 'blog_formula_v2'
+      : generatedFromRulesetId
+        ? 'ruleset'
+        : contentGeneration
+          ? 'content_generation'
+          : 'manual';
   return {
     id: post.id,
     storeId: post.storeId,
@@ -637,7 +646,9 @@ export function serializeBlogPost(repos: Repositories, postId: string) {
     generationSource: {
       type: generationSourceType,
       label:
-        generationSourceType === 'ruleset'
+        generationSourceType === 'blog_formula_v2'
+          ? 'Blog Formula V2'
+          : generationSourceType === 'ruleset'
           ? '마케팅 룰셋 기반'
           : generationSourceType === 'content_generation'
             ? 'AI 생성'
@@ -658,14 +669,15 @@ export function serializeBlogPost(repos: Repositories, postId: string) {
   };
 }
 
-export function listBlogPostsForStore(repos: Repositories, storeId: string) {
+export function listBlogPostsForStore(repos: Repositories, storeId: string, options: { source?: 'blog_formula_v2' } = {}) {
   const store = repos.stores.findById(storeId);
   if (!store) return null;
   const posts = repos.blogPosts
     .listByStoreId(store.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((post) => serializeBlogPost(repos, post.id))
-    .filter((post): post is NonNullable<typeof post> => Boolean(post));
+    .filter((post): post is NonNullable<typeof post> => Boolean(post))
+    .filter((post) => (options.source === 'blog_formula_v2' ? post.generationSource.type === 'blog_formula_v2' : true));
   const pendingPosts = posts.filter((post) => post.status === 'pending_approval');
   const firstPendingPost = pendingPosts[0] ?? null;
   const generatedDraftCount = posts.filter((post) => post.generationSource.type !== 'manual').length;

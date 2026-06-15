@@ -288,7 +288,12 @@ describe('ruleset based blog generation API', () => {
     expect(body.blogPost).toMatchObject({
       status: 'pending_approval',
       contentGenerationId: body.contentGeneration.id,
-      title: '리팟레이저 상담 전 확인할 점'
+      title: '리팟레이저 상담 전 확인할 점',
+      generationSource: {
+        type: 'blog_formula_v2',
+        label: 'Blog Formula V2',
+        contentGenerationId: body.contentGeneration.id
+      }
     });
     expect(generation?.prompt).toMatchObject({
       mode: 'openai',
@@ -311,6 +316,17 @@ describe('ruleset based blog generation API', () => {
     expect(mediaAssets.map((asset) => asset.prompt).join('\n')).not.toMatch(/placeholder/i);
     expect(mediaAssets[0].prompt).toContain('리팟레이저');
     expect(body.seoScore.totalScore).toEqual(expect.any(Number));
+
+    const listResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/blog-posts?source=blog_formula_v2`);
+    const list = await readJson(listResponse);
+
+    expect(listResponse.status).toBe(200);
+    expect(list.posts.map((post: { id: string }) => post.id)).toEqual([body.blogPost.id]);
+    expect(list.summary).toMatchObject({
+      pendingApprovalCount: 1,
+      firstPendingApprovalPostId: body.blogPost.id,
+      generatedDraftCount: 1
+    });
   });
 
   it('returns up to three V2 batch candidates and prefers distinct topics without creating posts', async () => {

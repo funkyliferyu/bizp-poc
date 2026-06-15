@@ -22,7 +22,7 @@ describe('blog post list page API wiring', () => {
   it('calls only poc-server blog post APIs from browser code', () => {
     const js = readFileSync(path.join(webRoot, 'blog_posts.js'), 'utf8');
 
-    expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts`)');
+    expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts?source=blog_formula_v2`)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts/generate`');
     expect(js).toContain('09_AI콘텐츠생성_상세.html?postId=${post.id}');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
@@ -38,7 +38,8 @@ describe('blog post list page API wiring', () => {
     expect(blogManagement).toContain('id="blog-pending-alert"');
     expect(blogManagement).toContain('id="blog-pending-action"');
     expect(contentList).toContain('id="ai-content-source-note"');
-    expect(js).toContain('payload.summary');
+    expect(js).toContain('apiLinkedPosts');
+    expect(js).toContain("generationSource?.type === 'blog_formula_v2'");
     expect(js).toContain('firstPendingApprovalHref');
     expect(js).toContain('generationSource');
     expect(js).toContain('data-generation-source');
@@ -56,8 +57,15 @@ describe('blog post list page API wiring', () => {
     expect(blogManagement).toContain('id="blog-v2-batch-modal"');
     expect(blogManagement).toContain('id="blog-v2-batch-steps"');
     expect(blogManagement).toContain('id="blog-v2-batch-modal-close"');
+    expect(blogManagement).toContain('id="blog-v2-batch-spinner"');
+    expect(blogManagement).toContain('id="blog-v2-batch-elapsed"');
     expect(js).toContain('blog-v2-batch-generate-btn');
     expect(js).toContain('blog-v2-batch-modal-close');
+    expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts?source=blog_formula_v2`)');
+    expect(js).toContain('blog-v2-batch-elapsed');
+    expect(js).toContain('startBatchTimer');
+    expect(js).toContain('stopBatchTimer');
+    expect(js).toContain('apiLinkedPosts');
     expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts/v2-batch-candidates`)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts/generate-from-v2-formula`');
     expect(js).toContain("providerMode: 'openai'");
