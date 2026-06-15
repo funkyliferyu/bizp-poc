@@ -186,6 +186,8 @@ describe('web static flow connectivity', () => {
     expect(nav).toContain('event.preventDefault()');
     expect(nav).toContain('onclick="navigateMain(event,this)"');
     expect(nav).toContain('href="02_블로그관리.html" target="main" class="sb-item" onclick="navigateMain(event,this)"');
+    expect(nav).toContain('href="sql_db_dashboard.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)"');
+    expect(nav).toContain('LNB: DB관리');
     expect(nav).not.toContain('onclick="setActive(this)"');
   });
 

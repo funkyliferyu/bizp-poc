@@ -95,6 +95,37 @@ function seedDashboardStore(connection: DbConnection, storeId = 'store_dashboard
     selectedAt: null,
     metadata: {}
   });
+  const ruleset = repos.marketingRulesets.create({
+    id: `marketing_ruleset_${storeId}`,
+    storeId: store.id,
+    learningSnapshotId: null,
+    status: 'active',
+    version: 1,
+    ruleset: { brandPositioning: '테스트 룰셋' }
+  });
+  repos.rulesetFields.create({
+    id: `ruleset_field_${storeId}`,
+    rulesetId: ruleset.id,
+    fieldKey: 'brand_positioning',
+    fieldValue: '테스트 룰셋',
+    aiValue: '테스트 룰셋',
+    userValue: null,
+    finalValue: '테스트 룰셋',
+    source: 'ai',
+    locked: 0,
+    evidenceItemIds: [],
+    metadata: {},
+    confidence: 0.8
+  });
+  repos.v2BlogFormulaSets.create({
+    id: `v2_formula_set_${storeId}`,
+    storeId: store.id,
+    version: 'v2',
+    status: 'active',
+    formula: { titlePattern: '테스트 포뮬라' },
+    sourcePostIds: [`blog_post_${storeId}`],
+    model: 'test-model'
+  });
   const generation = repos.contentGenerations.create({
     id: `content_generation_${storeId}`,
     storeId: store.id,
@@ -161,6 +192,8 @@ describe('SQL DB dashboard API', () => {
         storeName: '테스트 매장',
         learnedPlaceCount: 1,
         learnedBlogCount: 1,
+        rulesetV1Exists: true,
+        rulesetV2Exists: true,
         ragInfoExists: true,
         ragReviewsExists: true,
         generatedBlogPostCount: 1
@@ -216,9 +249,51 @@ describe('SQL DB dashboard API', () => {
         storeId: 'store_dashboard',
         learnedPlaceCount: 0,
         learnedBlogCount: 0,
+        rulesetV2Exists: false,
         generatedBlogPostCount: 1
       })
     );
+  });
+
+  it('resets ruleset v1 and v2 independently from learning and generated blog rows', async () => {
+    seedDashboardStore(connection);
+
+    const v1Response = await fetch(`${baseUrl}/api/store-learning/db-dashboard/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId: 'store_dashboard', target: 'ruleset_v1' })
+    });
+    expect(v1Response.status).toBe(200);
+
+    const afterV1 = await readJson(await fetch(`${baseUrl}/api/store-learning/db-dashboard`));
+    expect(afterV1.stores[0]).toEqual(
+      expect.objectContaining({
+        learnedBlogCount: 1,
+        rulesetV1Exists: false,
+        rulesetV2Exists: true,
+        generatedBlogPostCount: 1
+      })
+    );
+
+    const v2Response = await fetch(`${baseUrl}/api/store-learning/db-dashboard/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId: 'store_dashboard', target: 'ruleset_v2' })
+    });
+    expect(v2Response.status).toBe(200);
+
+    const repos = createStoreLearningRepositories(connection);
+    const afterV2 = await readJson(await fetch(`${baseUrl}/api/store-learning/db-dashboard`));
+    expect(afterV2.stores[0]).toEqual(
+      expect.objectContaining({
+        learnedBlogCount: 1,
+        rulesetV1Exists: false,
+        rulesetV2Exists: false,
+        generatedBlogPostCount: 1
+      })
+    );
+    expect(repos.marketingRulesets.listByStoreId('store_dashboard')).toHaveLength(0);
+    expect(repos.v2BlogFormulaSets.listByStoreId('store_dashboard')).toHaveLength(0);
   });
 
   it('resets generated blog posts independently and keeps Blog learning rows', async () => {

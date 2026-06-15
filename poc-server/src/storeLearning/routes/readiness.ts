@@ -43,7 +43,7 @@ export function createStoreLearningReadinessRoutes({
       }
       const body = z.object({
         storeId: z.string().trim().min(1),
-        target: z.enum(['all', 'place', 'blog', 'rag_info', 'rag_reviews', 'generated_blog'])
+        target: z.enum(['all', 'place', 'blog', 'ruleset_v1', 'ruleset_v2', 'rag_info', 'rag_reviews', 'generated_blog'])
       }).parse(req.body ?? {});
       res.json(resetSqlDbDashboardStore(connection, body, { ragOutputRoot }));
     } catch (error) {

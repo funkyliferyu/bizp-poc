@@ -7,6 +7,8 @@
     all: '삭제',
     place: '초기화',
     blog: '초기화',
+    ruleset_v1: '초기화',
+    ruleset_v2: '초기화',
     rag_info: '초기화',
     rag_reviews: '초기화',
     generated_blog: '초기화'
@@ -16,6 +18,8 @@
     all: '전체',
     place: '플레이스',
     blog: '블로그',
+    ruleset_v1: '룰셋v1',
+    ruleset_v2: '룰셋v2(블로그 작성 포뮬라)',
     rag_info: 'RAG 인포',
     rag_reviews: 'RAG 리뷰',
     generated_blog: '생성 블로그'
@@ -54,7 +58,7 @@
   function renderRows(stores) {
     if (!tableBody) return;
     if (!stores.length) {
-      tableBody.innerHTML = '<tr><td colspan="7" class="empty">등록된 스토어가 없습니다.</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="9" class="empty">등록된 스토어가 없습니다.</td></tr>';
       return;
     }
     tableBody.innerHTML = stores
@@ -71,6 +75,8 @@
             </td>
             <td>${metricCell(`<span class="num">${Number(store.learnedPlaceCount ?? 0)}</span>건`, 'place', storeId)}</td>
             <td>${metricCell(`<span class="num">${Number(store.learnedBlogCount ?? 0)}</span>건`, 'blog', storeId)}</td>
+            <td>${metricCell(stateBadge(Boolean(store.rulesetV1Exists)), 'ruleset_v1', storeId)}</td>
+            <td>${metricCell(stateBadge(Boolean(store.rulesetV2Exists)), 'ruleset_v2', storeId)}</td>
             <td>${metricCell(stateBadge(Boolean(store.ragInfoExists)), 'rag_info', storeId)}</td>
             <td>${metricCell(stateBadge(Boolean(store.ragReviewsExists)), 'rag_reviews', storeId)}</td>
             <td>${metricCell(`<span class="num">${Number(store.generatedBlogPostCount ?? 0)}</span>건`, 'generated_blog', storeId)}</td>

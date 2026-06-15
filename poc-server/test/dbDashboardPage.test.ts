@@ -22,12 +22,16 @@ describe('SQL DB dashboard page', () => {
     expect(html).toContain('<th>삭제</th>');
     expect(html).toContain('<th>플레이스</th>');
     expect(html).toContain('<th>블로그</th>');
+    expect(html).toContain('<th>룰셋v1</th>');
+    expect(html).toContain('<th>룰셋v2(블로그 작성 포뮬라)</th>');
     expect(html).not.toContain('<th>학습 플레이스</th>');
     expect(html).not.toContain('<th>학습 블로그</th>');
     expect(html).not.toContain('<th>초기화</th>');
     expect(js).toContain("fetch('/api/store-learning/db-dashboard')");
     expect(js).toContain("fetch('/api/store-learning/db-dashboard/reset'");
     expect(js).toContain("all: '삭제'");
+    expect(js).toContain("ruleset_v1: '초기화'");
+    expect(js).toContain("ruleset_v2: '초기화'");
     expect(js).toContain("generated_blog: '초기화'");
     expect(js).toContain('metric-cell');
     expect(js).toContain('data-reset-target="all"');
