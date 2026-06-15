@@ -1,26 +1,54 @@
 import express from 'express';
+import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
 import type { LlmAuditLog } from '../../repositories/llm_audit_logs.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
 import { buildProviderReadiness } from '../readiness/providerReadiness.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
+import { buildSqlDbDashboard, resetSqlDbDashboardStore } from '../dbDashboard/dbDashboardService.js';
 
 type StoreLearningReadinessRoutesOptions = {
   env?: ProviderEnv;
   now?: () => string;
   connection?: DbConnection;
+  ragOutputRoot?: string;
 };
 
 export function createStoreLearningReadinessRoutes({
   env = process.env,
   now,
-  connection
+  connection,
+  ragOutputRoot
 }: StoreLearningReadinessRoutesOptions = {}) {
   const router = express.Router();
   const repos = connection ? createStoreLearningRepositories(connection) : null;
 
   router.get('/provider-readiness', (_req, res) => {
     res.json(buildProviderReadiness(env, now));
+  });
+
+  router.get('/db-dashboard', (_req, res) => {
+    if (!connection) {
+      res.status(503).json({ error: 'DB dashboard is unavailable without a store-learning database connection.' });
+      return;
+    }
+    res.json(buildSqlDbDashboard(connection, { ragOutputRoot }));
+  });
+
+  router.post('/db-dashboard/reset', (req, res, next) => {
+    try {
+      if (!connection) {
+        res.status(503).json({ error: 'DB dashboard is unavailable without a store-learning database connection.' });
+        return;
+      }
+      const body = z.object({
+        storeId: z.string().trim().min(1),
+        target: z.enum(['all', 'place', 'blog', 'rag_info', 'rag_reviews'])
+      }).parse(req.body ?? {});
+      res.json(resetSqlDbDashboardStore(connection, body, { ragOutputRoot }));
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get('/llm-audit-logs', (req, res) => {
