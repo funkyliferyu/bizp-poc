@@ -104,6 +104,10 @@ const BlogFormulaV2GeneratePostBodySchema = z.object({
   providerMode: z.enum(['deterministic', 'safe_mock', 'openai', 'auto']).optional()
 });
 
+const BlogFormulaV2BatchCandidateQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(10).default(3)
+});
+
 const RulesetPreviewRequestSchema = z.object({
   channel: z.literal('blog'),
   topic: z.string().trim().min(1).max(120).default('딸기 생크림 케이크 예약 안내'),
@@ -779,7 +783,8 @@ export function createStoreRoutes({
 
   router.get('/:storeId/blog-posts/v2-batch-candidates', (req, res, next) => {
     try {
-      res.json({ topicBriefSets: selectTopicBriefSetsForV2Batch(repos, req.params.storeId, 3) });
+      const query = BlogFormulaV2BatchCandidateQuerySchema.parse(req.query);
+      res.json({ topicBriefSets: selectTopicBriefSetsForV2Batch(repos, req.params.storeId, query.limit) });
     } catch (error) {
       next(error);
     }

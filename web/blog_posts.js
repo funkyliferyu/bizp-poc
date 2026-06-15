@@ -18,6 +18,8 @@
   const aiContentPendingCount = document.getElementById('ai-content-pending-count');
   const aiContentSourceNote = document.getElementById('ai-content-source-note');
   const autoLastUpdated = document.getElementById('blog-auto-last-updated');
+  const autoGenerateCount = document.getElementById('blog-auto-generate-count');
+  const autoGenerateCountInput = document.getElementById('blog-auto-generate-count-input');
   const autoNextRun = document.getElementById('blog-auto-next-run');
   const autoNextRunInput = document.getElementById('blog-auto-next-run-input');
   const generateButton = document.getElementById('blog-generate-btn');
@@ -28,8 +30,9 @@
   const v2BatchModalClose = document.getElementById('blog-v2-batch-modal-close');
   const v2BatchSpinner = document.getElementById('blog-v2-batch-spinner');
   const v2BatchElapsed = document.getElementById('blog-v2-batch-elapsed');
-  const v2BatchStepLabels = ['1/3', '2/3', '3/3'];
   const AUTO_GENERATION_INTERVAL_DAYS = 14;
+  const AUTO_GENERATION_MIN_COUNT = 1;
+  const AUTO_GENERATION_MAX_COUNT = 10;
   let batchStartedAt = 0;
   let batchTimer = null;
 
@@ -131,6 +134,23 @@
     if (autoNextRunInput) autoNextRunInput.value = nextRunText;
   }
 
+  function clampAutoGenerationCount(value) {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(parsed)) return 2;
+    return Math.min(AUTO_GENERATION_MAX_COUNT, Math.max(AUTO_GENERATION_MIN_COUNT, parsed));
+  }
+
+  function currentAutoGenerationCount() {
+    return clampAutoGenerationCount(autoGenerateCountInput ? autoGenerateCountInput.value : 2);
+  }
+
+  function syncAutoGenerationCount() {
+    const count = currentAutoGenerationCount();
+    if (autoGenerateCountInput) autoGenerateCountInput.value = String(count);
+    if (autoGenerateCount) autoGenerateCount.textContent = `${count}건`;
+    return count;
+  }
+
   function elapsedLabel(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const minutes = Math.floor(totalSeconds / 60);
@@ -163,7 +183,7 @@
     if (v2BatchModalClose) v2BatchModalClose.style.display = open && closable ? 'inline-flex' : 'none';
   }
 
-  function renderBatchSteps(candidates, activeIndex, completedIds) {
+  function renderBatchSteps(candidates, activeIndex, completedIds, targetCount) {
     if (!v2BatchSteps) return;
     v2BatchSteps.innerHTML = candidates
       .map((candidate, index) => {
@@ -173,7 +193,7 @@
         const color = done ? '#2F9E44' : active ? '#3B5BDB' : '#6B7280';
         return `
           <div class="auto-gen-chip" data-topic-brief-set-id="${escapeHtml(candidate.id)}" style="justify-content:space-between;height:auto;min-height:28px">
-            <span>${escapeHtml(v2BatchStepLabels[index] || `${index + 1}/3`)} ${escapeHtml(candidate.topic || candidate.mainKeyword || '토픽')}</span>
+            <span>${escapeHtml(`${index + 1}/${targetCount}`)} ${escapeHtml(candidate.topic || candidate.mainKeyword || '토픽')}</span>
             <strong style="color:${color}">${label}</strong>
           </div>
         `;
@@ -276,15 +296,16 @@
     }
   }
 
-  async function loadV2BatchCandidates() {
-    const response = await fetch(`/api/stores/${storeId}/blog-posts/v2-batch-candidates`);
+  async function loadV2BatchCandidates(targetCount) {
+    const response = await fetch(`/api/stores/${storeId}/blog-posts/v2-batch-candidates?limit=${targetCount}`);
     if (!response.ok) throw new Error(`토픽 브리프 후보를 불러오지 못했습니다. (${response.status})`);
     const payload = await response.json();
-    return Array.isArray(payload.topicBriefSets) ? payload.topicBriefSets.slice(0, 3) : [];
+    return Array.isArray(payload.topicBriefSets) ? payload.topicBriefSets.slice(0, targetCount) : [];
   }
 
   async function generateV2Batch() {
     const completedIds = new Set();
+    const targetCount = syncAutoGenerationCount();
     const originalText = v2BatchButton ? v2BatchButton.textContent : '';
     if (v2BatchButton) {
       v2BatchButton.disabled = true;
@@ -293,16 +314,16 @@
     startBatchTimer();
     try {
       setBatchModal(true, '토픽 브리프를 확인하고 있습니다.');
-      const candidates = await loadV2BatchCandidates();
-      if (candidates.length < 3) {
-        renderBatchSteps(candidates, -1, completedIds);
+      const candidates = await loadV2BatchCandidates(targetCount);
+      if (candidates.length < targetCount) {
+        renderBatchSteps(candidates, -1, completedIds, targetCount);
         stopBatchTimer();
-        setBatchModal(true, '생성 가능한 토픽 브리프가 3건 미만입니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.', true);
+        setBatchModal(true, `생성 가능한 토픽 브리프가 ${targetCount}건 미만입니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.`, true);
         return;
       }
-      for (let index = 0; index < 3; index += 1) {
-        renderBatchSteps(candidates, index, completedIds);
-        setBatchModal(true, `${v2BatchStepLabels[index]} 블로그 초안을 생성하고 있습니다.`);
+      for (let index = 0; index < targetCount; index += 1) {
+        renderBatchSteps(candidates, index, completedIds, targetCount);
+        setBatchModal(true, `${index + 1}/${targetCount} 블로그 초안을 생성하고 있습니다.`);
         const response = await fetch(`/api/stores/${storeId}/blog-posts/generate-from-v2-formula`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -311,9 +332,9 @@
         if (!response.ok) throw new Error(`${index + 1}번째 블로그 초안을 생성하지 못했습니다. (${response.status})`);
         completedIds.add(candidates[index].id);
       }
-      renderBatchSteps(candidates, -1, completedIds);
+      renderBatchSteps(candidates, -1, completedIds, targetCount);
       stopBatchTimer();
-      setBatchModal(true, '3/3 블로그 초안 생성이 완료되었습니다. 목록을 새로고침합니다.');
+      setBatchModal(true, `${targetCount}/${targetCount} 블로그 초안 생성이 완료되었습니다. 목록을 새로고침합니다.`);
       await loadPosts();
       window.setTimeout(() => setBatchModal(false, ''), 800);
     } catch (error) {
@@ -355,6 +376,13 @@
   if (v2BatchModalClose) {
     v2BatchModalClose.addEventListener('click', () => setBatchModal(false, ''));
   }
+  if (autoGenerateCountInput) {
+    autoGenerateCountInput.addEventListener('input', syncAutoGenerationCount);
+    autoGenerateCountInput.addEventListener('change', syncAutoGenerationCount);
+  }
 
-  document.addEventListener('DOMContentLoaded', loadPosts);
+  document.addEventListener('DOMContentLoaded', () => {
+    syncAutoGenerationCount();
+    loadPosts();
+  });
 })();

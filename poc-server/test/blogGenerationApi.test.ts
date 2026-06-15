@@ -329,7 +329,7 @@ describe('ruleset based blog generation API', () => {
     });
   });
 
-  it('returns up to three V2 batch candidates and prefers distinct topics without creating posts', async () => {
+  it('returns V2 batch candidates for the requested 1-10 generation count without creating posts', async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     connection.close();
 
@@ -358,6 +358,12 @@ describe('ruleset based blog generation API', () => {
     expect(body.topicBriefSets.map((set: { topic: string }) => set.topic)).toEqual(['리팟레이저', '써마지', '울쎄라']);
     expect(body.topicBriefSets.map((set: { id: string }) => set.id)).toEqual(['topic_set_ripot', 'topic_set_thermage', 'topic_set_ulthera']);
     expect(afterCount).toBe(beforeCount);
+
+    const fourResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/blog-posts/v2-batch-candidates?limit=4`);
+    const fourBody = await readJson(fourResponse);
+
+    expect(fourResponse.status).toBe(200);
+    expect(fourBody.topicBriefSets).toHaveLength(4);
   });
 
   it('generates an approval-pending blog post through the OpenAI blog provider with an LLM audit log when configured', async () => {

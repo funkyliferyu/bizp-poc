@@ -79,7 +79,7 @@
         </span>
         <span class="auto-gen-summary-chips">
           <span class="auto-gen-chip">주기 <strong>2주마다</strong></span>
-          <span class="auto-gen-chip">생성 <strong>2건</strong></span>
+          <span class="auto-gen-chip">생성 <strong id="blog-auto-generate-count">2건</strong></span>
           <span class="auto-gen-chip">다음 <strong id="blog-auto-next-run">2026.06.29</strong></span>
           <span class="auto-gen-chip">발행 방식 <strong>승인 후 발행 요청</strong></span>
           <span class="auto-gen-chip">알림 <strong>ON</strong></span>
@@ -107,11 +107,7 @@
         </div>
         <div class="auto-gen-field">
           <label>생성 개수</label>
-          <select>
-            <option>1건</option>
-            <option selected>2건</option>
-            <option>3건</option>
-          </select>
+          <input id="blog-auto-generate-count-input" type="number" min="1" max="10" step="1" value="2" inputmode="numeric">
         </div>
         <div class="auto-gen-field">
           <label>다음 생성 예정일</label>
