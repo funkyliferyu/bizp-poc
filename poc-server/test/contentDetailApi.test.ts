@@ -443,6 +443,16 @@ describe('content detail API', () => {
     expect(previewResponse.status).toBe(200);
     expect(previewBody.preview.html).toContain('<article');
     expect(previewBody.preview.title).toContain('분당');
+    expect(previewBody.preview.bodySections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          heading: expect.any(String),
+          body: expect.any(String)
+        })
+      ])
+    );
+    expect(previewBody.preview.cta).toEqual(expect.any(String));
+    expect(previewBody.preview.html).not.toContain(`<h1>${previewBody.preview.title}</h1>`);
 
     const publishResponse = await fetch(`${baseUrl}/api/blog-posts/blog_post_demo_pending_approval/request-publish`, {
       method: 'POST'

@@ -465,9 +465,9 @@ function previewHtml(post: BlogPost, mediaAssets: MediaAsset[]) {
   return {
     title: post.title,
     metaDescription: article.metaDescription,
-    html: `<article class="blog-preview"><h1>${escapeHtml(post.title)}</h1><p class="meta">${escapeHtml(
-      article.metaDescription
-    )}</p>${bodyHtml}<p class="cta">${escapeHtml(article.cta)}</p></article>`,
+    bodySections: article.bodySections,
+    cta: article.cta,
+    html: `<article class="blog-preview">${bodyHtml}<p class="cta">${escapeHtml(article.cta)}</p></article>`,
     mediaAssets: media
   };
 }

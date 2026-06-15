@@ -98,4 +98,88 @@ describe('AI content detail page API wiring', () => {
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     }
   });
+
+  it('renders blog preview without duplicate title or intro and places image slots between full sections', async () => {
+    const app = express();
+    app.get('/api/blog-posts/post_preview_layout/preview', (_req, res) => {
+      res.json({
+        preview: {
+          title: '울쎄라600샷가격, 성공적인 치료를 위한 중요한 요소는?',
+          metaDescription: '검색 결과용 요약 문장입니다.',
+          bodySections: [
+            {
+              heading: '울쎄라 치료의 비용 및 효과 상담 전 확인할 점',
+              body: '첫 번째 단락 전체 문장입니다. 중간에 잘리지 않고 마지막 문장까지 보여야 합니다.'
+            },
+            {
+              heading: '울쎄라600샷가격 핵심 안내',
+              body: '두 번째 단락 전체 문장입니다. 가격과 상담 기준을 끝까지 설명합니다.'
+            }
+          ],
+          cta: '상담으로 본인에게 맞는 계획을 확인해 주세요.',
+          html: '<article><h1>중복되면 안 되는 제목</h1><p>중복 인트로</p></article>',
+          mediaAssets: [
+            { id: 'media_1', prompt: '대표 이미지: 단락의 내용을 표현하는 이미지 설명 - 불필요한 본문', alt: null },
+            { id: 'media_2', prompt: '본문 이미지 2: 단락의 내용을 표현하는 이미지 설명 - 불필요한 본문', alt: null }
+          ]
+        },
+        seoScore: { totalScore: 86 }
+      });
+    });
+    app.get('/api/blog-posts/post_preview_layout', (_req, res) => {
+      res.json({
+        blogPost: {
+          id: 'post_preview_layout',
+          status: 'pending_approval',
+          title: '울쎄라600샷가격, 성공적인 치료를 위한 중요한 요소는?',
+          createdAt: '2026-06-15T00:00:00.000Z',
+          article: null
+        },
+        article: {
+          title: '울쎄라600샷가격, 성공적인 치료를 위한 중요한 요소는?',
+          bodySections: [{ heading: '상세 본문', body: '상세 본문입니다.' }]
+        },
+        mediaAssets: [],
+        seoScore: { totalScore: 86, rubric: {} }
+      });
+    });
+    app.use(express.static(webRoot));
+
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const port = (server.address() as AddressInfo).port;
+    const browser = await chromium.launch({ headless: true });
+
+    try {
+      const page = await browser.newPage();
+      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_preview_layout`);
+      await page.click('#openBlogPreviewBtn');
+      await page.waitForSelector('#modal-blog-preview[style*="flex"]');
+
+      const titleCount = await page.locator('.blog-preview-article h1').count();
+      const duplicateServerTitleCount = await page.locator('#blogPreviewBody h1').count();
+      const imageCount = await page.locator('#blogPreviewBody .blog-preview-image').count();
+      const bodyText = await page.locator('#blogPreviewBody').textContent();
+      const firstImagePosition = await page.locator('#blogPreviewBody > *').evaluateAll((nodes) =>
+        nodes.map((node) => Array.from(node.classList).join(' ') || node.tagName.toLowerCase())
+      );
+
+      expect(titleCount).toBe(1);
+      expect(duplicateServerTitleCount).toBe(0);
+      expect(imageCount).toBe(2);
+      expect(bodyText).toContain('첫 번째 단락 전체 문장입니다. 중간에 잘리지 않고 마지막 문장까지 보여야 합니다.');
+      expect(bodyText).toContain('두 번째 단락 전체 문장입니다. 가격과 상담 기준을 끝까지 설명합니다.');
+      expect(bodyText).not.toContain('검색 결과용 요약 문장입니다.');
+      expect(firstImagePosition).toEqual([
+        'blog-preview-section',
+        'blog-preview-image',
+        'blog-preview-section',
+        'blog-preview-image',
+        'blog-preview-cta'
+      ]);
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    }
+  });
 });
