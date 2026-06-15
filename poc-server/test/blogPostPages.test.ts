@@ -22,6 +22,12 @@ describe('blog post list page API wiring', () => {
   it('calls only poc-server blog post APIs from browser code', () => {
     const js = readFileSync(path.join(webRoot, 'blog_posts.js'), 'utf8');
 
+    expect(js).toContain("const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId'");
+    expect(js).toContain("const LEGACY_STORE_ID_KEY = 'storeLearningStoreId'");
+    expect(js).toContain("params.get('storeId')");
+    expect(js).toContain('window.localStorage.getItem(STORE_ID_KEY)');
+    expect(js).toContain('window.localStorage.getItem(LEGACY_STORE_ID_KEY)');
+    expect(js).toContain('window.localStorage.setItem(STORE_ID_KEY, storeId)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts?source=blog_formula_v2`)');
     expect(js).toContain('fetch(`/api/stores/${storeId}/blog-posts/generate`');
     expect(js).toContain('09_AI콘텐츠생성_상세.html?postId=${post.id}');

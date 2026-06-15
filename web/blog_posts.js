@@ -1,8 +1,14 @@
 (function () {
+  const STORE_ID_KEY = 'bizplanet.storeRegistration.storeId';
+  const LEGACY_STORE_ID_KEY = 'storeLearningStoreId';
   const params = new URLSearchParams(window.location.search);
-  const storeId = params.get('storeId') || window.localStorage.getItem('storeLearningStoreId') || 'store_demo_cake';
+  const storeId =
+    params.get('storeId') ||
+    window.localStorage.getItem(STORE_ID_KEY) ||
+    window.localStorage.getItem(LEGACY_STORE_ID_KEY) ||
+    'store_demo_cake';
 
-  window.localStorage.setItem('storeLearningStoreId', storeId);
+  window.localStorage.setItem(STORE_ID_KEY, storeId);
 
   const blogList = document.getElementById('blog-post-list');
   const aiContentList = document.getElementById('ai-content-list');
