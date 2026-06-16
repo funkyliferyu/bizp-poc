@@ -79,6 +79,14 @@
     button.textContent = busy ? label : button.dataset.originalText;
   }
 
+  function imagePromptForDisplay(media, fallback) {
+    const prompt = media?.prompt || media?.alt || fallback;
+    const trimMarker = '표현하는 이미지 설명';
+    const markerIndex = String(prompt || '').indexOf(trimMarker);
+    if (markerIndex === -1) return prompt;
+    return String(prompt).slice(0, markerIndex + trimMarker.length).trim();
+  }
+
   function renderBody(article, mediaAssets) {
     const sections = Array.isArray(article?.bodySections) ? article.bodySections : [];
     if (!sections.length) {
@@ -90,7 +98,7 @@
       .map((section, index) => {
         const media = mediaAssets[index];
         const imageSlot = media
-          ? `<div class="content-image-slot" data-image-slot="${index + 1}">[이미지${index + 1} 배치] <span>${escapeHtml(media.prompt || media.alt || '이미지 프롬프트')}</span></div>`
+          ? `<div class="content-image-slot" data-image-slot="${index + 1}">[이미지${index + 1} 배치] <span>${escapeHtml(imagePromptForDisplay(media, '이미지 프롬프트'))}</span></div>`
           : '';
         return `<p><strong>${escapeHtml(section.heading)}</strong><br>${escapeHtml(section.body)}</p>${imageSlot}`;
       })
@@ -113,11 +121,46 @@
               이미지 ${index + 1}
               ${index === 0 ? '<div class="sel-dot"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>' : ''}
             </div>
-            <div style="font-size:11px;color:#6B7280;line-height:1.5;padding:8px;border-top:1px solid #EDF2F7">${escapeHtml(media.prompt || media.alt || 'placeholder')}</div>
+            <div style="font-size:11px;color:#6B7280;line-height:1.5;padding:8px;border-top:1px solid #EDF2F7">${escapeHtml(imagePromptForDisplay(media, 'placeholder'))}</div>
           </div>
         `
       )
       .join('');
+  }
+
+  function renderPreviewImage(media, index) {
+    if (!media) return '';
+    return `
+      <div class="blog-preview-image" data-preview-image-slot="${index + 1}">
+        <div class="blog-preview-image-label">이미지 ${index + 1}</div>
+        <div class="blog-preview-image-copy">${escapeHtml(imagePromptForDisplay(media, '이미지 프롬프트'))}</div>
+      </div>
+    `;
+  }
+
+  function renderPreviewBody(preview, mediaAssets) {
+    const sections = Array.isArray(preview?.bodySections) ? preview.bodySections : [];
+    if (!sections.length) return preview?.html || '';
+    const bodyHtml = sections
+      .map((section, index) => {
+        const paragraphs = String(section.body || '')
+          .split(/\n{2,}/u)
+          .map((paragraph) => paragraph.trim())
+          .filter(Boolean);
+        const paragraphHtml = paragraphs.length
+          ? paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')
+          : '<p>본문이 없습니다.</p>';
+        return `
+          <section class="blog-preview-section">
+            <h2>${escapeHtml(section.heading || `본문 ${index + 1}`)}</h2>
+            ${paragraphHtml}
+          </section>
+          ${renderPreviewImage(mediaAssets[index], index)}
+        `;
+      })
+      .join('');
+    const cta = preview?.cta ? `<div class="blog-preview-cta">${escapeHtml(preview.cta)}</div>` : '';
+    return `${bodyHtml}${cta}`;
   }
 
   function renderSeo(seoScore) {
@@ -298,16 +341,15 @@
       if (!response.ok) throw new Error(`미리보기를 불러오지 못했습니다. (${response.status})`);
       const payload = await response.json();
       const preview = payload.preview || {};
+      const mediaAssets = Array.isArray(preview.mediaAssets) ? preview.mediaAssets : [];
       if (previewTitleEl) previewTitleEl.textContent = preview.title || titleEl.textContent || '';
-      if (previewMetaEl) previewMetaEl.textContent = preview.metaDescription || 'AI 자동 생성 초안';
-      if (previewBodyEl) previewBodyEl.innerHTML = preview.html || '';
+      if (previewMetaEl) {
+        previewMetaEl.textContent = '';
+        previewMetaEl.style.display = 'none';
+      }
+      if (previewBodyEl) previewBodyEl.innerHTML = renderPreviewBody(preview, mediaAssets);
       if (previewImagesEl) {
-        const mediaAssets = Array.isArray(preview.mediaAssets) ? preview.mediaAssets : [];
         previewImagesEl.innerHTML = `
-          <div class="blog-preview-side-card">
-            <div class="blog-preview-side-title">적용 이미지</div>
-            ${mediaAssets.map((media, index) => `<div class="blog-preview-thumb">이미지 ${index + 1} · ${escapeHtml(media.prompt || media.alt || 'placeholder')}</div>`).join('')}
-          </div>
           <div class="blog-preview-side-card">
             <div class="blog-preview-side-title">SEO 요약</div>
             <div style="font-size:12px;color:#4A5568;line-height:1.6">총점 ${payload.seoScore?.totalScore ?? '-'}점 · 발행 전 검토용 미리보기</div>

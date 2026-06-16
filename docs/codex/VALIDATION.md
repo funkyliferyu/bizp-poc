@@ -1,5 +1,83 @@
 # Validation
 
+## Blog Formula V2 Blog Management Batch Generation Validation (13i)
+
+Date: 2026-06-15
+
+Branch:
+
+- `codex/blog-formula-v2-batch-blog-posts`, created from `develop` after
+  PR #53 merge.
+
+Develop integration:
+
+- Draft PR [#54](https://github.com/funkyliferyu/bizp-poc/pull/54) is open
+  against `develop`. Feature-branch validation below passed; PR merge and
+  post-merge develop validation are the next gate.
+
+Scope:
+
+- Added a Blog Management demo batch button (`생성배치 실행`) that appends
+  three new approval-pending posts while keeping existing approval-pending
+  posts intact.
+- Added sequential batch progress UI for the three generated posts.
+- Added server APIs to select up to three Blog Formula V2 topic-brief
+  candidates and generate approval-pending blog posts from the V2 formula +
+  topic brief path.
+- Replaced content-detail mock article data for this lane with persisted
+  V2-generated article data; SEO score remains the existing mock rubric.
+- Persisted paragraph-specific image descriptions as image prompt media assets
+  instead of generic placeholders.
+
+TDD evidence (RED/GREEN):
+
+- Baseline focused suite before adding tests:
+  `cd poc-server && npx vitest run test/blogGenerationApi.test.ts
+  test/blogPostPages.test.ts test/contentDetailApi.test.ts` -> PASS
+  (15 tests).
+- RED after adding tests: page test failed because the batch UI hooks did not
+  exist, and API/detail tests failed on missing V2 blog-post generation
+  endpoints.
+- GREEN after implementation: same focused suite -> PASS (19 tests).
+
+Feature-branch validation:
+
+- `cd poc-server && npx tsc --noEmit -p tsconfig.json` -> PASS.
+- `cd poc-server && npx vitest run` -> PASS: 67 files passed, 3 skipped;
+  416 tests passed, 6 skipped.
+- `cd poc-server && node --check ../web/blog_posts.js` -> PASS.
+- `cd poc-server && node --check ../web/content_detail.js` -> PASS.
+- `git diff --check` -> PASS.
+
+Boundary checks:
+
+- Existing approval-pending posts are preserved; the new batch lane appends
+  three generated V2 posts.
+- Browser code calls only `poc-server` APIs and does not expose provider keys.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- `.DS_Store` and `docs/.BLOG_FORMULA_V2_HANDOFF.md.swp` were left untouched.
+
+Manual-smoke follow-up on 2026-06-15:
+
+- Root cause of the "mock-looking" generated rows during manual smoke: the
+  rows observed in the snapshot were saved under `store_demo_cake`, while the
+  current `store_1020864025` Blog Formula V2 draft table contained
+  terrace-clinic drafts. The Blog Management list now requests
+  `source=blog_formula_v2` and renders only Blog Formula V2 API-linked posts.
+- `serializeBlogPost` now labels V2 batch posts as
+  `generationSource.type = blog_formula_v2` so the filtered list and counts are
+  based on API-linked generated rows only.
+- The batch modal now shows a spinner and elapsed timer while sequential
+  generation is running.
+- The Blog Management auto-generation summary now says `최종 업데이트`, uses
+  the latest Blog Formula V2 generated row date (or today before any linked
+  rows exist), and calculates the next run as 14 days later.
+- Fresh validation after the follow-up: `cd poc-server && npx tsc --noEmit -p
+  tsconfig.json && npx vitest run` -> PASS: 67 files passed, 3 skipped; 416
+  tests passed, 6 skipped. `node --check ../web/blog_posts.js` and
+  `git diff --check` -> PASS.
+
 ## Blog Formula V2 OpenAI Draft Generation Validation (13h)
 
 Date: 2026-06-14

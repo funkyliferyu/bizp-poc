@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL DB 대시보드</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    body{background:#F5F7FB;color:#111827}
+    .page{max-width:1180px;margin:0 auto;padding:48px 20px 40px}
+    .dashboard-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:16px;margin-bottom:18px}
+    .eyebrow{font-size:12px;font-weight:700;color:#64748B;margin-bottom:8px}
+    h1{font-size:22px;margin:0;color:#111827}
+    .subtitle{margin-top:8px;font-size:13px;color:#64748B;line-height:1.5}
+    .panel{background:#fff;border:1px solid #DDE5F0;border-radius:8px;overflow:hidden}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:1120px}
+    th,td{padding:11px 12px;border-bottom:1px solid #E5EAF2;text-align:left;font-size:13px;vertical-align:top}
+    th{background:#F8FAFC;color:#64748B;font-size:12px;font-weight:800}
+    tr:last-child td{border-bottom:0}
+    .store-name{font-weight:800;color:#111827}
+    .store-id{font-size:12px;color:#64748B;margin-top:4px}
+    .num{font-weight:800;color:#1F2937}
+    .state{display:inline-flex;align-items:center;justify-content:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:800}
+    .state-ok{background:#DCFCE7;color:#15803D}
+    .state-empty{background:#EEF2F7;color:#64748B}
+    .delete-cell{width:72px}
+    .metric-cell{display:grid;gap:7px;justify-items:start;align-content:start;min-height:54px}
+    .metric-value{min-height:24px;display:flex;align-items:center;gap:2px}
+    .reset-under-value{height:24px;padding:0 8px;font-size:11px}
+    .btn-danger-soft{border:1px solid #FCA5A5;background:#FFF7F7;color:#DC2626}
+    .btn-danger-strong{border:1px solid #DC2626;background:#DC2626;color:#fff}
+    .status-line{padding:12px 14px;border-top:1px solid #E5EAF2;color:#64748B;font-size:12px}
+    .empty{padding:32px;text-align:center;color:#64748B}
+    @media (max-width:720px){
+      .page{padding-top:36px}
+      .dashboard-header{grid-template-columns:1fr}
+      #db-dashboard-refresh{justify-self:start}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="dashboard-header">
+      <div>
+        <div class="eyebrow">Store Learning POC · DB Utilities</div>
+        <h1>SQL DB 대시보드</h1>
+        <div class="subtitle">스토어 등록, 학습 데이터, RAG 문서, 생성 블로그 저장 상태를 간략히 확인하고 항목별로 초기화합니다.</div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="db-dashboard-refresh" type="button">새로고침</button>
+    </div>
+
+    <section class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>삭제</th>
+              <th>스토어</th>
+              <th>플레이스</th>
+              <th>블로그</th>
+              <th>룰셋v1</th>
+              <th>룰셋v2(블로그 작성 포뮬라)</th>
+              <th>RAG 인포</th>
+              <th>RAG 리뷰</th>
+              <th>생성 블로그</th>
+            </tr>
+          </thead>
+          <tbody id="db-dashboard-table-body">
+            <tr><td colspan="9" class="empty">불러오는 중입니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="status-line" id="db-dashboard-status">-</div>
+    </section>
+  </main>
+  <script src="sql_db_dashboard.js"></script>
+</body>
+</html>

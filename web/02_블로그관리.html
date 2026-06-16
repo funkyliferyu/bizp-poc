@@ -50,8 +50,9 @@
   <div class="topbar-breadcrumb">마케팅 채널관리 &rsaquo; <span>블로그 관리</span></div>
 </div>
 <div class="main-content">
-  <div class="blog-page-head">
+  <div class="blog-page-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
     <div class="page-title" style="margin-bottom:0">블로그 관리</div>
+    <button class="btn btn-primary btn-sm" id="blog-v2-batch-generate-btn">생성배치 실행</button>
   </div>
 
   <!-- 승인 대기 alert (승인 대기 건 있을 때만 노출) -->
@@ -69,7 +70,7 @@
       <div class="auto-gen-summary-main">
         <span class="auto-gen-update">
           <span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span>
-          성과 데이터 마지막 업데이트: <strong>2026.05.16</strong>
+          최종 업데이트: <strong id="blog-auto-last-updated">2026.06.15</strong>
         </span>
         <span class="auto-gen-divider" aria-hidden="true"></span>
         <span class="auto-gen-title-inline">
@@ -78,8 +79,8 @@
         </span>
         <span class="auto-gen-summary-chips">
           <span class="auto-gen-chip">주기 <strong>2주마다</strong></span>
-          <span class="auto-gen-chip">생성 <strong>2건</strong></span>
-          <span class="auto-gen-chip">다음 <strong>2026.05.30</strong></span>
+          <span class="auto-gen-chip">생성 <strong id="blog-auto-generate-count">2건</strong></span>
+          <span class="auto-gen-chip">다음 <strong id="blog-auto-next-run">2026.06.29</strong></span>
           <span class="auto-gen-chip">발행 방식 <strong>승인 후 발행 요청</strong></span>
           <span class="auto-gen-chip">알림 <strong>ON</strong></span>
         </span>
@@ -106,15 +107,11 @@
         </div>
         <div class="auto-gen-field">
           <label>생성 개수</label>
-          <select>
-            <option>1건</option>
-            <option selected>2건</option>
-            <option>3건</option>
-          </select>
+          <input id="blog-auto-generate-count-input" type="number" min="1" max="10" step="1" value="2" inputmode="numeric">
         </div>
         <div class="auto-gen-field">
           <label>다음 생성 예정일</label>
-          <input value="2026.05.30" readonly>
+          <input id="blog-auto-next-run-input" value="2026.06.29" readonly>
         </div>
         <label class="auto-gen-option" style="margin:0">
           <input type="checkbox" checked>
@@ -256,6 +253,22 @@
     <button class="pg-btn">2</button>
     <button class="pg-btn">3</button>
     <button class="pg-btn"><span class="icon-chevron-right" data-icon="chevron-right" data-size="12" data-color="currentColor"></span></button>
+  </div>
+</div>
+<div id="blog-v2-batch-modal" class="modal-backdrop" style="display:none" role="status" aria-live="polite">
+  <div class="modal modal-sm">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span style="display:inline-flex;align-items:center;gap:8px">
+        <span class="spinner" id="blog-v2-batch-spinner" aria-hidden="true"></span>
+        블로그 생성배치 실행 중
+      </span>
+      <span id="blog-v2-batch-elapsed" style="font-size:11px;font-weight:700;color:#6B7280">00:00</span>
+    </div>
+    <div class="modal-desc" id="blog-v2-batch-modal-desc">토픽 브리프를 확인하고 있습니다.</div>
+    <div id="blog-v2-batch-steps" style="display:grid;gap:8px;margin-top:12px"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-ghost btn-sm" id="blog-v2-batch-modal-close" type="button" style="display:none">확인</button>
+    </div>
   </div>
 </div>
 <script src="blog_posts.js"></script>

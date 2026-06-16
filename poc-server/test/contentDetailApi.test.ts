@@ -5,11 +5,83 @@ import { createDatabaseConnection, type DbConnection } from '../src/db/connectio
 import { migrateDatabase } from '../src/db/migrate.js';
 import { createStoreLearningRepositories } from '../src/repositories/storeLearningRepositories.js';
 import { seedDemoStore } from '../src/seedStoreLearning.js';
+import { extractBlogFormulaV2WithProvider } from '../src/storeLearning/blogFormulaV2/blogFormulaV2Service.js';
+import { createSafeMockBlogFormulaV2Provider } from '../src/storeLearning/blogFormulaV2/providers/safeMockBlogFormulaProvider.js';
 import { createBlogPostRoutes } from '../src/storeLearning/routes/blogPosts.js';
+import { createStoreRoutes } from '../src/storeLearning/routes/stores.js';
+import { BLOG_FORMULA_V2_STORE_ID, seedBlogFormulaV2Fixture } from './helpers/blogFormulaV2Fixtures.js';
 
 async function readJson(response: Response) {
   const text = await response.text();
   return text ? JSON.parse(text) : null;
+}
+
+function fakeV2DraftClient() {
+  return {
+    beta: {
+      chat: {
+        completions: {
+          parse: async () => ({
+            choices: [
+              {
+                message: {
+                  parsed: {
+                    titleCandidates: ['리팟레이저 상담 전 확인할 점'],
+                    selectedTitle: '리팟레이저 상담 전 확인할 점',
+                    blogDraft: [
+                      '리팟레이저 상담을 고민하는 분에게 필요한 기준을 먼저 정리합니다. 개인차와 부작용 가능성은 의료진 상담으로 확인해야 합니다.',
+                      '기존 블로그 흐름처럼 걱정 지점을 먼저 다루고 리팟레이저 원리와 판단 기준을 차분히 이어갑니다.',
+                      '상담 전에는 기대 범위와 회복 과정, 예약 가능 여부를 함께 확인하는 것이 좋습니다.',
+                      '원문 네 번째 문단은 상담 체크리스트를 더 자세히 풀어 설명합니다.',
+                      '원문 다섯 번째 문단은 마무리 CTA와 주의사항을 함께 안내합니다.'
+                    ].join('\n\n'),
+                    styleComplianceReport: { appliedBlocks: ['titleFormula', 'bodyFormula', 'ctaFormula'] },
+                    safetyCheck: {
+                      requiredDisclosures: ['개인차', '부작용 가능성', '의료진 상담'],
+                      bannedPhrasesAvoided: true
+                    },
+                    seoCheck: {
+                      mainKeywordInTitle: true,
+                      mainKeywordInIntro: true,
+                      secondaryKeywordsUsed: []
+                    }
+                  }
+                }
+              }
+            ]
+          })
+        }
+      }
+    }
+  };
+}
+
+async function seedV2GenerationInputs(connection: DbConnection) {
+  seedBlogFormulaV2Fixture(connection);
+  const repos = createStoreLearningRepositories(connection);
+  const { formulaSet } = await extractBlogFormulaV2WithProvider(
+    repos,
+    BLOG_FORMULA_V2_STORE_ID,
+    createSafeMockBlogFormulaV2Provider()
+  );
+  repos.v2BlogTopicBriefSets.create({
+    id: 'topic_set_detail_ripot',
+    formulaSetId: formulaSet.id,
+    storeId: BLOG_FORMULA_V2_STORE_ID,
+    sourcePostId: 'collection_item_v2_owner_1',
+    topic: '리팟레이저',
+    mainKeyword: '리팟레이저',
+    secondaryKeywords: ['색소침착'],
+    targetReader: '리팟레이저 상담을 고민하는 고객',
+    coreConcern: '부작용 가능성',
+    mainAngle: '상담 전 확인 기준 안내',
+    mustInclude: ['개인차', '부작용 가능성', '의료진 상담'],
+    mustAvoid: ['효과보장'],
+    ctaDirection: '상담으로 본인 상태를 확인하도록 안내',
+    confidence: 0.7,
+    status: 'candidate'
+  });
+  return { formulaSetId: formulaSet.id };
 }
 
 describe('content detail API', () => {
@@ -96,6 +168,152 @@ describe('content detail API', () => {
     });
     expect(post?.title).toBe(body.blogPost.title);
     expect(scores.at(-1)?.totalScore).toBe(body.seoScore.totalScore);
+  });
+
+  it('returns V2-generated article detail with paragraph-specific image descriptions', async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    connection.close();
+
+    connection = createDatabaseConnection({ filename: ':memory:' });
+    migrateDatabase(connection);
+    const { formulaSetId } = await seedV2GenerationInputs(connection);
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/api/stores',
+      createStoreRoutes({
+        connection,
+        env: { OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'test-v2-draft-model' },
+        blogDraftV2ProviderOptions: {
+          openAIClient: fakeV2DraftClient(),
+          model: 'test-v2-draft-model'
+        }
+      })
+    );
+    app.use('/api/blog-posts', createBlogPostRoutes({ connection, env: {} }));
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    });
+    server = app.listen(0);
+    const address = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const generateResponse = await fetch(`${baseUrl}/api/stores/${BLOG_FORMULA_V2_STORE_ID}/blog-posts/generate-from-v2-formula`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        formulaSetId,
+        topicBriefSetId: 'topic_set_detail_ripot',
+        providerMode: 'openai'
+      })
+    });
+    const generated = await readJson(generateResponse);
+    const detailResponse = await fetch(`${baseUrl}/api/blog-posts/${generated.blogPost.id}`);
+    const detail = await readJson(detailResponse);
+
+    expect(generateResponse.status).toBe(200);
+    expect(detailResponse.status).toBe(200);
+    expect(detail.article.bodySections.length).toBeGreaterThanOrEqual(3);
+    expect(detail.article.bodyText).toContain('리팟레이저 상담을 고민하는 분');
+    expect(detail.article.bodyText).toContain('원문 네 번째 문단');
+    expect(detail.article.bodyText).toContain('원문 다섯 번째 문단');
+    expect(detail.mediaAssets).toHaveLength(detail.article.bodySections.length);
+    expect(detail.mediaAssets[0].prompt).toContain('리팟레이저');
+    expect(detail.mediaAssets[0].prompt).not.toMatch(/placeholder/i);
+    expect(detail.seoScore.rubric.imageAltPrompt.feedback).toEqual(expect.any(String));
+  });
+
+  it('hydrates legacy V2 detail and preview from the full stored draft when saved article sections were truncated', async () => {
+    const repos = createStoreLearningRepositories(connection);
+    const timestamp = new Date().toISOString();
+    const legacyDraft = [
+      '레거시 첫 번째 문단입니다.',
+      '레거시 두 번째 문단입니다.',
+      '레거시 세 번째 문단입니다.',
+      '레거시 네 번째 문단은 이전 저장 article에는 없지만 원문에는 남아 있습니다.',
+      '레거시 다섯 번째 문단도 미리보기에서 보여야 합니다.'
+    ].join('\n\n');
+    const truncatedSections = [
+      { heading: '첫 번째', body: '레거시 첫 번째 문단입니다.' },
+      { heading: '두 번째', body: '레거시 두 번째 문단입니다.' },
+      { heading: '세 번째', body: '레거시 세 번째 문단입니다.' }
+    ];
+    repos.contentGenerations.create({
+      id: 'content_generation_legacy_v2_truncated',
+      storeId: 'store_demo_cake',
+      rulesetId: null,
+      status: 'generated',
+      contentType: 'blog_post',
+      prompt: {
+        action: 'generate_blog_post_from_v2_formula',
+        topicBrief: {
+          topic: '레거시 주제',
+          mainKeyword: '레거시 키워드',
+          secondaryKeywords: [],
+          targetReader: '검증 고객',
+          coreConcern: '검증',
+          mainAngle: '검증',
+          mustInclude: [],
+          mustAvoid: [],
+          ctaDirection: '상담 안내'
+        }
+      },
+      output: {
+        title: '레거시 V2 글',
+        metaDescription: '레거시 V2 글 요약입니다.',
+        bodySections: truncatedSections,
+        seoKeywords: ['레거시 키워드'],
+        cta: '상담으로 확인해 주세요.',
+        imagePrompts: truncatedSections.map((section) => `레거시 키워드 이미지: ${section.heading}`),
+        generator: 'openai_blog_formula_v2',
+        source: 'blog_formula_v2',
+        v2DraftOutput: {
+          titleCandidates: ['레거시 V2 글'],
+          selectedTitle: '레거시 V2 글',
+          blogDraft: legacyDraft
+        }
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+    repos.blogPosts.create({
+      id: 'blog_post_legacy_v2_truncated',
+      storeId: 'store_demo_cake',
+      contentGenerationId: 'content_generation_legacy_v2_truncated',
+      status: 'pending_approval',
+      title: '레거시 V2 글',
+      article: {
+        title: '레거시 V2 글',
+        metaDescription: '레거시 V2 글 요약입니다.',
+        bodySections: truncatedSections,
+        seoKeywords: ['레거시 키워드'],
+        cta: '상담으로 확인해 주세요.',
+        imagePrompts: truncatedSections.map((section) => `레거시 키워드 이미지: ${section.heading}`),
+        generator: 'openai_blog_formula_v2',
+        source: 'blog_formula_v2',
+        status: 'pending_approval'
+      },
+      publishedUrl: null,
+      scheduledAt: null,
+      publishedAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+
+    const detailResponse = await fetch(`${baseUrl}/api/blog-posts/blog_post_legacy_v2_truncated`);
+    const detail = await readJson(detailResponse);
+    const previewResponse = await fetch(`${baseUrl}/api/blog-posts/blog_post_legacy_v2_truncated/preview`);
+    const preview = await readJson(previewResponse);
+
+    expect(detailResponse.status).toBe(200);
+    expect(previewResponse.status).toBe(200);
+    expect(detail.article.bodyText).toContain('레거시 네 번째 문단');
+    expect(detail.article.bodyText).toContain('레거시 다섯 번째 문단');
+    expect(detail.mediaAssets).toHaveLength(detail.article.bodySections.length);
+    expect(preview.preview.bodySections).toHaveLength(detail.article.bodySections.length);
+    expect(preview.preview.html).toContain('레거시 다섯 번째 문단');
   });
 
   it('regenerates text and SEO through the OpenAI blog provider with an LLM audit log when configured', async () => {
@@ -320,6 +538,16 @@ describe('content detail API', () => {
     expect(previewResponse.status).toBe(200);
     expect(previewBody.preview.html).toContain('<article');
     expect(previewBody.preview.title).toContain('분당');
+    expect(previewBody.preview.bodySections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          heading: expect.any(String),
+          body: expect.any(String)
+        })
+      ])
+    );
+    expect(previewBody.preview.cta).toEqual(expect.any(String));
+    expect(previewBody.preview.html).not.toContain(`<h1>${previewBody.preview.title}</h1>`);
 
     const publishResponse = await fetch(`${baseUrl}/api/blog-posts/blog_post_demo_pending_approval/request-publish`, {
       method: 'POST'

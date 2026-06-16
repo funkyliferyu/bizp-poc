@@ -80,7 +80,6 @@
 .full-comparison-card{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:12px}
 .full-comparison-label{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:6px}
 .full-comparison-copy{font-size:11px;line-height:1.6;color:#4A5568;margin-bottom:6px}
-.writing-preview-card{margin-top:16px}
 .writing-style-grid{display:flex;flex-direction:column;gap:12px}
 .writing-style-row{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:stretch;border:1px solid #E2E8F0;border-radius:8px;background:#fff;padding:12px;margin-bottom:0}
 .writing-style-row .ruleset-val{white-space:pre-line}
@@ -96,25 +95,6 @@
 .writing-ai-copy{font-size:12px;line-height:1.55;color:#1A1A2E}
 .writing-ai-evidence{font-size:11px;line-height:1.5;color:#6B7280}
 .writing-ai-evidence strong{color:#1A1A2E}
-.writing-preview{padding:0}
-.writing-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-.writing-preview-title{font-size:13px;font-weight:700;color:#1A1A2E}
-.writing-preview-channel{font-size:11px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 9px;white-space:nowrap}
-.writing-preview-actions{display:flex;align-items:center;gap:8px}
-.writing-preview-variant{font-size:11px;font-weight:700;color:#6B7280;background:#F7F8FA;border:1px solid #E2E8F0;border-radius:999px;padding:3px 8px;white-space:nowrap}
-.writing-preview-layout{display:grid;grid-template-columns:190px 1fr;gap:12px}
-.writing-preview-criteria{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:12px}
-.writing-preview-criteria-label{font-size:10px;font-weight:700;color:#9AA0B4;margin-bottom:4px}
-.writing-preview-criteria-val{font-size:12px;color:#1A1A2E;line-height:1.55;margin-bottom:10px}
-.writing-preview-criteria-val:last-child{margin-bottom:0}
-.writing-preview-inputs{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}
-.writing-preview-input{font-size:10px;font-weight:700;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:2px 7px}
-.writing-preview-note{border-top:1px solid #E2E8F0;margin-top:10px;padding-top:10px;font-size:11px;color:#6B7280;line-height:1.55}
-.writing-preview-surface{border:1px solid #D8E0EC;border-radius:8px;background:#fff;padding:16px;min-height:178px}
-.writing-preview-meta{font-size:11px;color:#6B7280;font-weight:700;margin-bottom:8px}
-.writing-preview-body{font-size:13px;color:#1A1A2E;line-height:1.75;white-space:pre-line}
-.writing-preview-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-.writing-preview-tag{font-size:11px;color:#3B5BDB;background:#EEF2FF;border-radius:999px;padding:3px 8px;font-weight:700}
 .formula-v2-status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
 .formula-v2-stat{border:1px solid #E2E8F0;border-radius:8px;background:#FAFBFC;padding:10px;min-height:68px}
 .formula-v2-label{font-size:10px;font-weight:800;color:#9AA0B4;margin-bottom:5px}
@@ -203,7 +183,6 @@
   .comparison-scroll{overflow-x:auto}
   .similar-compare-layout,.full-comparison-grid{grid-template-columns:1fr}
   .writing-style-row{grid-template-columns:1fr}
-  .writing-preview-layout{grid-template-columns:1fr}
   .formula-v2-status,.formula-v2-layout,.formula-v2-form,.formula-v2-result-grid{grid-template-columns:1fr}
   .ruleset-title-actions{margin-left:0;width:100%;justify-content:flex-start}
 }
@@ -624,48 +603,6 @@
       </div>
     </div>
 
-    <div class="card writing-preview-card" id="writingStylePreview">
-      <div class="card-header">
-        <span>스타일·매장 분석 결합 미리보기</span>
-        <div class="writing-preview-actions">
-          <span class="writing-preview-variant" id="writingPreviewVariantLabel">미리보기 1/1</span>
-          <button type="button" class="btn btn-ghost btn-sm" id="regenerateWritingPreviewBtn" onclick="regenerateWritingPreview()">다시 생성하기</button>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="writing-preview">
-          <div class="writing-preview-head">
-            <div class="writing-preview-title">한 번에 하나씩 생성 결과를 확인하세요</div>
-            <span class="writing-preview-channel" id="writingPreviewChannel">블로그</span>
-          </div>
-          <div class="writing-preview-layout">
-            <div class="writing-preview-criteria">
-              <div class="writing-preview-criteria-label">샘플 소재</div>
-              <div class="writing-preview-criteria-val">딸기 생크림 케이크 예약 안내</div>
-              <div class="writing-preview-criteria-label">결합되는 우리 매장 분석</div>
-              <div class="writing-preview-inputs" id="writingPreviewInputs">
-                <span class="writing-preview-input">포지셔닝</span>
-                <span class="writing-preview-input">대표 메뉴</span>
-                <span class="writing-preview-input">주 타겟층</span>
-                <span class="writing-preview-input">콘텐츠 소재 키워드</span>
-                <span class="writing-preview-input">리뷰 강점</span>
-                <span class="writing-preview-input">리뷰 약점</span>
-              </div>
-              <div class="writing-preview-criteria-label">적용 룰</div>
-              <div class="writing-preview-criteria-val" id="writingPreviewRules">검색 유입형 정보 전달 문장 · 키워드 자연 배치 · 예약 CTA</div>
-              <div class="writing-preview-criteria-label">제외 표현</div>
-              <div class="writing-preview-criteria-val">전국 최고, 무조건 가능, 효능 보장, 과장된 원조 표현</div>
-              <div class="writing-preview-note"># 전체 글 예시는 LLM API 연동 및 프롬프트 테스트 단계에서 업데이트합니다.</div>
-            </div>
-            <div class="writing-preview-surface">
-              <div class="writing-preview-meta" id="writingPreviewMeta">콘텐츠 예시</div>
-              <div class="writing-preview-body" id="writingPreviewBody">미리보기 글을 불러오는 중입니다.</div>
-              <div class="writing-preview-tags" id="writingPreviewTags"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- Blog Formula V2 -->
@@ -876,8 +813,6 @@ let benchmarkFixture = null;
 let selectedBenchmarkType = 'recommended';
 let selectedComparisonType = 'recommended';
 let selectedCompanyIndex = 0;
-let activeWritingChannel = 'blog';
-let writingPreviewIndexes = { blog: 0 };
 
 function escapeHtml(value){
   return String(value ?? '')
@@ -1072,68 +1007,9 @@ function showSub(parent, id, el){
   document.getElementById(parent+'-'+id).style.display='block';
   el.closest('.card-body').querySelectorAll('.sub-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  if (parent === 'write') renderWritingPreview(id);
-}
-
-function previewChannelForTab(id){
-  return id === 'blog' ? 'blog' : 'blog';
-}
-
-function writingPreviewChannelLabel(channel){
-  return '블로그';
-}
-
-function renderWritingPreviewPayload(payload){
-  const preview = payload?.preview || {};
-  const variantIndex = Number.isInteger(payload?.variantIndex) ? payload.variantIndex : 0;
-  const tags = Array.isArray(preview.tags) ? preview.tags : [];
-  document.getElementById('writingPreviewChannel').textContent = writingPreviewChannelLabel(payload?.channel);
-  document.getElementById('writingPreviewRules').textContent = '현재 룰셋과 매장 분석을 결합한 서버 생성 미리보기';
-  document.getElementById('writingPreviewVariantLabel').textContent = `미리보기 ${variantIndex + 1}`;
-  document.getElementById('writingPreviewMeta').textContent = preview.meta || '콘텐츠 예시';
-  document.getElementById('writingPreviewBody').textContent = preview.body || '미리보기 글을 불러오지 못했습니다.';
-  document.getElementById('writingPreviewTags').innerHTML = tags
-    .map((tag) => `<span class="writing-preview-tag">${escapeHtml(tag)}</span>`)
-    .join('');
-}
-
-async function renderWritingPreview(id){
-  activeWritingChannel = id;
-  const variantIndex = writingPreviewIndexes[id] || 0;
-  document.getElementById('writingPreviewChannel').textContent = writingPreviewChannelLabel(previewChannelForTab(id));
-  document.getElementById('writingPreviewRules').textContent = '현재 룰셋과 매장 분석을 결합한 서버 생성 미리보기';
-  document.getElementById('writingPreviewVariantLabel').textContent = `미리보기 ${variantIndex + 1}`;
-  document.getElementById('writingPreviewMeta').textContent = '생성 중';
-  document.getElementById('writingPreviewBody').textContent = '미리보기를 생성하는 중입니다.';
-  document.getElementById('writingPreviewTags').innerHTML = '';
-  try {
-    const response = await fetch(`/api/stores/${currentStoreId()}/strategy-ruleset/regenerate-preview`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channel: previewChannelForTab(id),
-        topic: '분당 딸기 생크림 케이크 예약 안내',
-        variantIndex
-      })
-    });
-    if (!response.ok) throw new Error('Failed to generate writing preview');
-    const payload = await response.json();
-    renderWritingPreviewPayload(payload);
-  } catch {
-    document.getElementById('writingPreviewVariantLabel').textContent = '미리보기 실패';
-    document.getElementById('writingPreviewMeta').textContent = '서버 미리보기';
-    document.getElementById('writingPreviewBody').textContent = '미리보기를 생성하지 못했습니다.';
-    document.getElementById('writingPreviewTags').innerHTML = '';
-  }
-}
-
-async function regenerateWritingPreview(){
-  writingPreviewIndexes[activeWritingChannel] = ((writingPreviewIndexes[activeWritingChannel] || 0) + 1) % 21;
-  await renderWritingPreview(activeWritingChannel);
 }
 
 loadBenchmarkFixture();
-renderWritingPreview('blog');
 </script>
 <script src="blog_formula_v2.js"></script>
 <script src="ruleset_editor.js"></script>

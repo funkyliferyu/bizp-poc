@@ -114,6 +114,13 @@ stays a separate, deterministic, manual step — it is not auto-run on load).
 V1 writing-style fields remain under the existing `글쓰기 스타일` tab and keep
 using `ruleset_editor.js`.
 
+`web/02_블로그관리.html` exposes a demo-only `생성배치 실행` button. The batch
+uses the 자동 생성 설정의 `생성 개수` value (number input, 1-10; default 2) as
+the run size, asks the server for the same number of V2 topic-brief candidates,
+then sequentially creates that many approval-pending Blog Formula V2 posts. The
+progress modal labels each row as `n/total`, so the UI does not assume a fixed
+3-post batch.
+
 ## Validation Layer
 
 The deterministic validator checks:

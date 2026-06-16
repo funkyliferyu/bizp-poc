@@ -30,14 +30,23 @@ import {
 import { buildRulesetBenchmarkPayload } from '../rulesets/rulesetBenchmarkService.js';
 import { buildRulesetPreviewPayload } from '../rulesets/rulesetPreviewService.js';
 import { generateApprovalPendingBlogPost, listBlogPostsForStore } from '../blog/blogGenerator.js';
+import {
+  generateApprovalPendingBlogPostFromV2Formula,
+  selectTopicBriefSetsForV2Batch
+} from '../blog/blogFormulaV2PostGenerator.js';
 import type { BlogContentProvider } from '../blog/blogProvider.js';
 import { createBlogContentProvider, type OpenAIBlogParseClient } from '../blog/openAIBlogProvider.js';
+import {
+  createBlogDraftV2ProviderForMode,
+  type BlogDraftV2ProviderFactoryOptions
+} from '../blogFormulaV2/providers/draftProviderFactory.js';
 
 type StoreRoutesOptions = {
   connection: DbConnection;
   env?: ProviderEnv;
   blogProvider?: BlogContentProvider | null;
   blogProviderClient?: OpenAIBlogParseClient | null;
+  blogDraftV2ProviderOptions?: BlogDraftV2ProviderFactoryOptions;
 };
 
 const OptionalTextSchema = z.preprocess(
@@ -87,6 +96,16 @@ const TrainingSettingsBodySchema = z.object({
 
 const RulesetFieldPatchSchema = z.object({
   userValue: z.string().trim().min(1).max(4000)
+});
+
+const BlogFormulaV2GeneratePostBodySchema = z.object({
+  formulaSetId: z.string().trim().min(1).optional(),
+  topicBriefSetId: z.string().trim().min(1),
+  providerMode: z.enum(['deterministic', 'safe_mock', 'openai', 'auto']).optional()
+});
+
+const BlogFormulaV2BatchCandidateQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(10).default(3)
 });
 
 const RulesetPreviewRequestSchema = z.object({
@@ -486,7 +505,8 @@ export function createStoreRoutes({
   connection,
   env = process.env,
   blogProvider,
-  blogProviderClient
+  blogProviderClient,
+  blogDraftV2ProviderOptions
 }: StoreRoutesOptions) {
   const router = express.Router();
   const repos = createStoreLearningRepositories(connection);
@@ -761,8 +781,38 @@ export function createStoreRoutes({
     }
   });
 
+  router.get('/:storeId/blog-posts/v2-batch-candidates', (req, res, next) => {
+    try {
+      const query = BlogFormulaV2BatchCandidateQuerySchema.parse(req.query);
+      res.json({ topicBriefSets: selectTopicBriefSetsForV2Batch(repos, req.params.storeId, query.limit) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/:storeId/blog-posts/generate-from-v2-formula', async (req, res, next) => {
+    try {
+      const body = BlogFormulaV2GeneratePostBodySchema.parse(req.body ?? {});
+      const providerMode = body.providerMode ?? 'openai';
+      const provider = createBlogDraftV2ProviderForMode(providerMode, {
+        env,
+        ...(blogDraftV2ProviderOptions ?? {})
+      });
+      const payload = await generateApprovalPendingBlogPostFromV2Formula(repos, req.params.storeId, {
+        formulaSetId: body.formulaSetId,
+        topicBriefSetId: body.topicBriefSetId,
+        providerMode,
+        provider
+      });
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get('/:storeId/blog-posts', (req, res) => {
-    const payload = listBlogPostsForStore(repos, req.params.storeId);
+    const source = req.query.source === 'blog_formula_v2' ? 'blog_formula_v2' : undefined;
+    const payload = listBlogPostsForStore(repos, req.params.storeId, { source });
     if (!payload) {
       res.status(404).json({ error: `Store not found: ${req.params.storeId}` });
       return;

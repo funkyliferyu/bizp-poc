@@ -186,6 +186,8 @@ describe('web static flow connectivity', () => {
     expect(nav).toContain('event.preventDefault()');
     expect(nav).toContain('onclick="navigateMain(event,this)"');
     expect(nav).toContain('href="02_블로그관리.html" target="main" class="sb-item" onclick="navigateMain(event,this)"');
+    expect(nav).toContain('href="sql_db_dashboard.html" target="main" class="sb-item sub" onclick="navigateMain(event,this)"');
+    expect(nav).toContain('LNB: DB관리');
     expect(nav).not.toContain('onclick="setActive(this)"');
   });
 
@@ -325,12 +327,14 @@ describe('web static flow connectivity', () => {
     expect(settings).toContain('<summary class="auto-gen-summary"');
     expect(settings).not.toMatch(/<details[^>]*\sopen\b/);
     expect(settings).toContain('class="auto-gen-summary-main"');
-    expect(settings).toContain('성과 데이터 마지막 업데이트');
+    expect(settings).toContain('최종 업데이트');
+    expect(settings).toContain('id="blog-auto-last-updated"');
     expect(settings).toContain('class="auto-gen-summary-chips"');
     expect(settings).toContain('자동 생성');
     expect(settings).toContain('2주마다');
     expect(settings).toContain('2건');
-    expect(settings).toContain('2026.05.30');
+    expect(settings).toContain('id="blog-auto-next-run"');
+    expect(settings).toContain('2026.06.29');
     expect(settings).toContain('발행 방식');
     expect(settings).toContain('상세 설정');
     expect(settings).toContain('class="auto-gen-detail-panel"');
@@ -441,39 +445,33 @@ describe('web static flow connectivity', () => {
     expect(ruleset).toContain('id="modal-benchmark-evidence"');
   });
 
-  it('shows a separate regeneratable writing preview block that combines style and store analysis signals', () => {
+  it('removes the style and store-analysis combined preview block from writing style', () => {
     const ruleset = readWeb('07_마케팅전략룰셋.html');
     const writeSection = ruleset.match(/<!-- 글쓰기 스타일 -->[\s\S]*?<!-- 유사업체비교 -->/)?.[0] ?? '';
 
-    expect(writeSection).toContain('id="writingStylePreview"');
-    expect(writeSection).toContain('class="card writing-preview-card"');
-    expect(writeSection).toContain('스타일·매장 분석 결합 미리보기');
-    expect(writeSection).toContain('다시 생성하기');
-    expect(writeSection).toContain('id="regenerateWritingPreviewBtn"');
-    expect(writeSection).toContain('id="writingPreviewVariantLabel"');
-    expect(writeSection).toContain('id="writingPreviewChannel"');
-    expect(writeSection).toContain('id="writingPreviewBody"');
-    expect(writeSection).toContain('id="writingPreviewMeta"');
-    expect(writeSection).toContain('id="writingPreviewInputs"');
-    expect(writeSection).toContain('결합되는 우리 매장 분석');
-    expect(writeSection).toContain('포지셔닝');
-    expect(writeSection).toContain('대표 메뉴');
-    expect(writeSection).toContain('주 타겟층');
-    expect(writeSection).toContain('리뷰 강점');
-    expect(writeSection).toContain('리뷰 약점');
-    expect(writeSection).toContain('# 전체 글 예시는 LLM API 연동 및 프롬프트 테스트 단계에서 업데이트합니다.');
-    expect(ruleset).toContain('/strategy-ruleset/regenerate-preview');
-    expect(ruleset).toContain('previewChannelForTab');
-    expect(ruleset).toContain('renderWritingPreviewPayload');
-    expect(ruleset).toContain('미리보기를 생성하는 중입니다.');
+    expect(writeSection).not.toContain('id="writingStylePreview"');
+    expect(writeSection).not.toContain('class="card writing-preview-card"');
+    expect(writeSection).not.toContain('스타일·매장 분석 결합 미리보기');
+    expect(writeSection).not.toContain('다시 생성하기');
+    expect(writeSection).not.toContain('id="regenerateWritingPreviewBtn"');
+    expect(writeSection).not.toContain('id="writingPreviewVariantLabel"');
+    expect(writeSection).not.toContain('id="writingPreviewChannel"');
+    expect(writeSection).not.toContain('id="writingPreviewBody"');
+    expect(writeSection).not.toContain('id="writingPreviewMeta"');
+    expect(writeSection).not.toContain('id="writingPreviewInputs"');
+    expect(writeSection).not.toContain('결합되는 우리 매장 분석');
+    expect(writeSection).not.toContain('# 전체 글 예시는 LLM API 연동 및 프롬프트 테스트 단계에서 업데이트합니다.');
+    expect(ruleset).not.toContain('/strategy-ruleset/regenerate-preview');
+    expect(ruleset).not.toContain('previewChannelForTab');
+    expect(ruleset).not.toContain('renderWritingPreviewPayload');
+    expect(ruleset).not.toContain('미리보기를 생성하는 중입니다.');
     expect(ruleset).not.toContain('const WRITING_PREVIEWS');
-    expect(ruleset).toContain('let activeWritingChannel');
-    expect(ruleset).toContain('let writingPreviewIndexes');
-    expect(ruleset).toContain('renderWritingPreview');
-    expect(ruleset).toContain('regenerateWritingPreview');
-    expect(ruleset).toContain("renderWritingPreview(id)");
-    expect(ruleset).toContain("renderWritingPreview('blog')");
-    expect(ruleset).toContain('분당 딸기 생크림 케이크 예약 안내');
+    expect(ruleset).not.toContain('let activeWritingChannel');
+    expect(ruleset).not.toContain('let writingPreviewIndexes');
+    expect(ruleset).not.toContain('renderWritingPreview');
+    expect(ruleset).not.toContain('regenerateWritingPreview');
+    expect(ruleset).not.toContain("renderWritingPreview('blog')");
+    expect(ruleset).not.toContain('분당 딸기 생크림 케이크 예약 안내');
   });
 
   it('shows detailed SEO scoring, image slots, and a fullscreen blog preview in AI content detail', () => {
