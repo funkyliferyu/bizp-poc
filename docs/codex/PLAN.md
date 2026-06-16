@@ -66,18 +66,16 @@ Current next todo as of 2026-06-15:
    through PR #52, followed by PR #53 UI fixes for empty topic-brief library,
    extend progress overlay, persisted compliance rendering on load, and the
    unvalidated-draft validation prompt.
-4. NEXT (13i, user-approved 2026-06-15): Blog Formula V2 to Blog Management
-   demo batch generation is implemented, feature-branch validated, and open
-   as draft PR #54 from `codex/blog-formula-v2-batch-blog-posts`. The Blog
-   Management title row
-   has a `생성배치 실행` button; clicking it keeps existing approval-pending
-   posts and appends three new approval-pending blog posts generated from V2
-   formula/topic briefs with sequential progress UI. Next gate: review/merge
-   PR #54 to `develop`, then run develop validation. Plan:
-   `NEXT_SESSION_BLOG_FORMULA_V2_BATCH_BLOG_POSTS_PLAN.md`.
-5. The first not-validated milestone after the V2 Blog Management batch work
-   is 14 (final docs/validation cleanup or `develop` -> `main` promotion prep),
-   which remains gated on explicit user publication approval.
+4. Blog Formula V2 to Blog Management demo batch generation (13i) is merged
+   to `develop` through [PR #54](https://github.com/funkyliferyu/bizp-poc/pull/54),
+   merge `db761a1`. The Blog Management title row has a `생성배치 실행` button;
+   clicking it keeps existing approval-pending posts and appends three new
+   approval-pending blog posts generated from V2 formula/topic briefs with
+   sequential progress UI. SQL DB dashboard added. Develop validation passed
+   2026-06-16: typecheck PASS, 424/432 tests PASS (2 Playwright browser tests
+   skipped — no Chromium binary in CI environment), demo seed PASS.
+5. NEXT: Milestone 14 (final docs/validation cleanup or `develop` -> `main`
+   promotion) is gated on explicit user publication approval.
 6. Hybrid/combined V1+V2 generation is still out of scope until the user
    explicitly approves it separately.
 7. Keep the current ruleset preview endpoint as deterministic server/mock
@@ -114,7 +112,7 @@ Current next todo as of 2026-06-15:
 | 13f | Blog Formula V2 Formula Quality Contract | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_FORMULA_QUALITY_CONTRACT_PLAN.md), [#50](https://github.com/funkyliferyu/bizp-poc/pull/50), merge `1d929d1` | Develop validation recorded 2026-06-13 |
 | 13g | Blog Formula V2 provider 비교 + 추출 버튼 openai 연결 | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_PROVIDER_COMPARISON_PLAN.md), [#51](https://github.com/funkyliferyu/bizp-poc/pull/51) | Develop validation recorded 2026-06-13 |
 | 13h | Blog Formula V2 OpenAI 초안 생성 (SL-G1) | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_OPENAI_DRAFT_PLAN.md), [#52](https://github.com/funkyliferyu/bizp-poc/pull/52), follow-up [#53](https://github.com/funkyliferyu/bizp-poc/pull/53) | Develop has PR #52 and PR #53; validation reported in 2026-06-15 handoff |
-| 13i | Blog Formula V2 블로그 관리 배치 생성 연결 | Implementation PR open | [plan](NEXT_SESSION_BLOG_FORMULA_V2_BATCH_BLOG_POSTS_PLAN.md), [#54](https://github.com/funkyliferyu/bizp-poc/pull/54), branch `codex/blog-formula-v2-batch-blog-posts` | Pending PR merge and develop validation |
+| 13i | Blog Formula V2 블로그 관리 배치 생성 연결 | Validated on develop | [plan](NEXT_SESSION_BLOG_FORMULA_V2_BATCH_BLOG_POSTS_PLAN.md), [#54](https://github.com/funkyliferyu/bizp-poc/pull/54), merge `db761a1` | Develop validation recorded 2026-06-16 |
 | 14 | 최종 문서/검증 정리 | Not started | - | Run after LLM call audit follow-up or when user approves publication cleanup |
 
 ## Sequential Checklist
