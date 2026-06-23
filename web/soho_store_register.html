@@ -159,9 +159,13 @@
 .rag-doc-panel{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:10px 12px;border:1px solid #E8EEF7;border-radius:6px;background:#FAFBFC}
 .rag-doc-status{font-size:11px;color:#6B7280;line-height:1.5}
 .rag-download-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rag-doc-item{display:inline-flex;align-items:center;gap:4px}
 .rag-download-link{font-size:11px;font-weight:700;color:#3B5BDB;text-decoration:none;border:1px solid #D8E0EC;border-radius:5px;background:#fff;padding:5px 9px}
 .rag-download-link:hover{background:#EEF2FF;border-color:#A7B7FF}
 .rag-download-link[hidden]{display:none}
+.rag-doc-reset{width:22px;height:22px;border:1px solid #D8E0EC;border-radius:50%;background:#fff;color:#9AA0B4;font-size:13px;font-weight:800;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.rag-doc-reset:hover{border-color:#F03E3E;color:#C92A2A;background:#FFF5F5}
+.rag-doc-reset[hidden]{display:none}
 
 /* 자동입력 강조 */
 .field input.autofilled,.field select.autofilled,.field textarea.autofilled,.day-checks.autofilled,.radio-row.autofilled{border-color:#2F9E44;background:#F8FFF9}
@@ -343,8 +347,14 @@
         <div class="rag-doc-panel">
           <div id="rag-doc-status" class="rag-doc-status">매장을 불러오면 RAG 문서를 생성할 수 있습니다.</div>
           <div class="rag-download-links">
-            <a id="rag-info-download" class="rag-download-link" href="#" hidden>업체 정보 DOCX</a>
-            <a id="rag-reviews-download" class="rag-download-link" href="#" hidden>리뷰 DOCX</a>
+            <span class="rag-doc-item">
+              <a id="rag-info-download" class="rag-download-link" href="#" hidden>업체 정보 DOCX</a>
+              <button type="button" id="rag-info-reset" class="rag-doc-reset" onclick="resetRagDocument('info')" aria-label="업체 정보 RAG 문서 초기화" hidden>x</button>
+            </span>
+            <span class="rag-doc-item">
+              <a id="rag-reviews-download" class="rag-download-link" href="#" hidden>리뷰 DOCX</a>
+              <button type="button" id="rag-reviews-reset" class="rag-doc-reset" onclick="resetRagDocument('reviews')" aria-label="리뷰 RAG 문서 초기화" hidden>x</button>
+            </span>
           </div>
         </div>
         <div id="place-metadata-empty" class="metadata-empty" hidden>불러온 네이버 플레이스 부가 정보가 없습니다.</div>
@@ -523,8 +533,14 @@
               <div class="upload-source-title">RAG용 생성 문서</div>
               <div id="rag-doc-source-empty" class="upload-source-empty">업체에 최적화된 응답을 제공하기 위해 RAG 용 문서를 생성해주세요.</div>
               <div class="upload-source-docs">
-                <a id="rag-doc-source-info" class="rag-download-link" href="#" hidden>업체 정보 DOCX</a>
-                <a id="rag-doc-source-reviews" class="rag-download-link" href="#" hidden>리뷰 DOCX</a>
+                <span class="rag-doc-item">
+                  <a id="rag-doc-source-info" class="rag-download-link" href="#" hidden>업체 정보 DOCX</a>
+                  <button type="button" id="rag-doc-source-info-reset" class="rag-doc-reset" onclick="resetRagDocument('info')" aria-label="업체 정보 RAG 문서 초기화" hidden>x</button>
+                </span>
+                <span class="rag-doc-item">
+                  <a id="rag-doc-source-reviews" class="rag-download-link" href="#" hidden>리뷰 DOCX</a>
+                  <button type="button" id="rag-doc-source-reviews-reset" class="rag-doc-reset" onclick="resetRagDocument('reviews')" aria-label="리뷰 RAG 문서 초기화" hidden>x</button>
+                </span>
               </div>
             </div>
             <div class="upload-zone" onclick="triggerUpload('doc')">

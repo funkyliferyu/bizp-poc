@@ -180,6 +180,13 @@ window.__APOLLO_STATE__ = ${JSON.stringify({
             },
             {
               __typename: 'WorkingHoursInfo',
+              day: '수(6/17)',
+              businessHours: { __typename: 'StartEndTime', start: '08:30', end: '19:00' },
+              breakHours: [{ __typename: 'StartEndTime', start: '13:30', end: '14:30' }],
+              description: null
+            },
+            {
+              __typename: 'WorkingHoursInfo',
               day: '목',
               businessHours: { __typename: 'StartEndTime', start: '08:30', end: '20:00' },
               breakHours: [{ __typename: 'StartEndTime', start: '13:30', end: '14:30' }],
@@ -509,6 +516,16 @@ describe('Naver Place rendered provider', () => {
         description: null
       },
       {
+        day: 'wed',
+        dayLabel: '수(6/17)',
+        closed: false,
+        openTime: '08:30',
+        closeTime: '19:00',
+        breakStart: '13:30',
+        breakEnd: '14:30',
+        description: null
+      },
+      {
         day: 'thu',
         dayLabel: '목',
         closed: false,
@@ -541,6 +558,7 @@ describe('Naver Place rendered provider', () => {
     ]);
     expect(profile.businessHours).toEqual([
       '화 08:30 - 19:00 / 브레이크타임 13:30 - 14:30',
+      '수(6/17) 08:30 - 19:00 / 브레이크타임 13:30 - 14:30',
       '목 08:30 - 20:00 / 브레이크타임 13:30 - 14:30',
       '토 08:30 - 13:00',
       '일 정기휴무 (매주 일요일)'

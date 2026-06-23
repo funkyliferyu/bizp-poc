@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DbConnection } from '../../db/connection.js';
@@ -8,6 +8,9 @@ import { createInfoDocxBuffer, createReviewsDocxBuffer } from './docxWriter.js';
 import { buildStoreInfoRagDocument } from './storeInfoRagBuilder.js';
 import { buildStoreReviewRagDocument } from './reviewRagBuilder.js';
 import { refreshPlaceReviewsForRag } from './ragReviewRefresh.js';
+import { RAG_REVIEW_LIMIT } from './ragReviewPolicy.js';
+
+export { RAG_REVIEW_LIMIT } from './ragReviewPolicy.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultOutputRoot = path.resolve(dirname, '../../../data/rag-documents');
@@ -35,6 +38,8 @@ export type GenerateRagDocumentsOptions = {
   refreshReviews?: boolean;
   reviewLimit?: number;
 };
+
+export type RagDocumentFileType = 'info' | 'reviews';
 
 function safeFileName(value: string) {
   const cleaned = value
@@ -67,6 +72,29 @@ export function readRagDocumentManifest(options: RagDocumentServiceOptions, stor
   return JSON.parse(readFileSync(filePath, 'utf8')) as RagDocumentManifest;
 }
 
+export function resetRagDocumentFile(
+  options: RagDocumentServiceOptions,
+  storeId: string,
+  documentType: RagDocumentFileType
+): RagDocumentManifest | null {
+  const outputRoot = options.outputRoot ?? defaultOutputRoot;
+  const filePath = manifestPath(outputRoot, storeId);
+  const manifest = readRagDocumentManifest(options, storeId);
+  if (!manifest) return null;
+
+  const targetPath = manifest.files[documentType].path;
+  if (existsSync(targetPath)) rmSync(targetPath, { force: true });
+
+  const hasInfo = existsSync(manifest.files.info.path);
+  const hasReviews = existsSync(manifest.files.reviews.path);
+  if (!hasInfo && !hasReviews) {
+    rmSync(filePath, { force: true });
+    return null;
+  }
+
+  return manifest;
+}
+
 export async function generateRagDocuments(
   options: RagDocumentServiceOptions,
   storeId: string,
@@ -77,7 +105,10 @@ export async function generateRagDocuments(
   const store = repos.stores.findById(storeId);
   if (!store) throw new Error(`Store not found: ${storeId}`);
 
-  const requestedReviewLimit = Math.max(1, Math.min(100, Math.floor(generateOptions.reviewLimit ?? 100)));
+  const requestedReviewLimit = Math.max(
+    1,
+    Math.min(RAG_REVIEW_LIMIT, Math.floor(generateOptions.reviewLimit ?? RAG_REVIEW_LIMIT))
+  );
   const latestRunId = generateOptions.refreshReviews
     ? await refreshPlaceReviewsForRag({
         connection: options.connection,
@@ -103,14 +134,6 @@ export async function generateRagDocuments(
   writeFileSync(reviewsFilePath, await createReviewsDocxBuffer(reviewDocument));
 
   const warnings = [...infoDocument.warnings, ...reviewDocument.warnings];
-  if (generateOptions.reviewLimit && generateOptions.reviewLimit !== 100) {
-    warnings.push('현재 RAG 리뷰 문서 정책은 최대 100개 고정 기준으로 생성됩니다.');
-  }
-  if (generateOptions.refreshReviews && reviewDocument.includedReviewCount < requestedReviewLimit) {
-    warnings.push(
-      `네이버플레이스 리뷰 ${requestedReviewLimit}개 수집을 시도했지만 ${reviewDocument.includedReviewCount}개만 수집되어 해당 리뷰만 문서에 포함했습니다.`
-    );
-  }
 
   const manifest: RagDocumentManifest = {
     generatedAt: new Date().toISOString(),

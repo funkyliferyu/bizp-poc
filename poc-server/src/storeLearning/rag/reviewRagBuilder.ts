@@ -6,6 +6,7 @@ import {
   type StoreReviewEntry,
   type StoreReviewRagDocument
 } from './ragDocumentTypes.js';
+import { RAG_REVIEW_LIMIT } from './ragReviewPolicy.js';
 import { selectReviewSample } from './reviewSampler.js';
 
 type JsonRecord = Record<string, JsonValue>;
@@ -73,10 +74,65 @@ function sortReviews(items: CollectionItem[]) {
   });
 }
 
-function reviewKeywords(metadata: JsonRecord): string[] {
-  const raw = metadata.reviewKeywords ?? metadata.keywords;
-  if (!Array.isArray(raw)) return [];
-  return raw.map((item) => cleanText(item)).filter((item): item is string => Boolean(item));
+function ownerReplyKey(text: string): string {
+  return text
+    .replace(/[~!?.。！？]+/g, '.')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function sentenceParts(text: string): string[] {
+  return text
+    .split(/[.!?。！？\n]+/)
+    .map((part) => part.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+function isPlaceholderOwnerReply(text: string): boolean {
+  return /^(?:사장님\s*)?(?:답글|댓글)\s*(?:없음|없습니다|미등록)$/i.test(text);
+}
+
+function isGenericOwnerReply(text: string): boolean {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  return [
+    /^감사(?:합니다|드립니다)[.!~\s]*$/i,
+    /^고맙습니다[.!~\s]*$/i,
+    /^소중한\s*(?:리뷰|후기|방문)?\s*감사(?:합니다|드립니다)[.!~\s]*$/i,
+    /^방문해\s*주셔서\s*감사(?:합니다|드립니다)[.!~\s]*$/i,
+    /^이용해\s*주셔서\s*감사(?:합니다|드립니다)[.!~\s]*$/i,
+    /^좋은\s*하루\s*되세요[.!~\s]*$/i,
+    /^또\s*방문해\s*주세요[.!~\s]*$/i
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function hasRepeatedSentenceOnly(text: string): boolean {
+  const parts = sentenceParts(text);
+  if (parts.length < 2) return false;
+  return new Set(parts.map((part) => ownerReplyKey(part))).size === 1;
+}
+
+function candidateOwnerReply(value: unknown): string | null {
+  const text = cleanText(value);
+  if (!text || isPlaceholderOwnerReply(text) || isGenericOwnerReply(text) || hasRepeatedSentenceOnly(text)) return null;
+  return text;
+}
+
+function ownerReplyCounts(items: CollectionItem[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const reply = candidateOwnerReply(asRecord(item.metadata).ownerReplyText);
+    if (!reply) continue;
+    const key = ownerReplyKey(reply);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function meaningfulOwnerReply(value: unknown, counts: Map<string, number>): string | null {
+  const reply = candidateOwnerReply(value);
+  if (!reply) return null;
+  return (counts.get(ownerReplyKey(reply)) ?? 0) > 1 ? null : reply;
 }
 
 export function buildStoreReviewRagDocument(input: ReviewDocumentInput): StoreReviewRagDocument {
@@ -88,10 +144,11 @@ export function buildStoreReviewRagDocument(input: ReviewDocumentInput): StoreRe
   const sampledReviews = selectReviewSample(collectedReviews, {
     seed: `${input.store.id}:${input.latestRunId ?? 'unknown_run'}`
   });
+  const replyCounts = ownerReplyCounts(sampledReviews);
 
   const entries: StoreReviewEntry[] = sampledReviews.map((item, index) => {
     const metadata = asRecord(item.metadata);
-    const ownerReplyText = cleanText(metadata.ownerReplyText);
+    const ownerReplyText = meaningfulOwnerReply(metadata.ownerReplyText, replyCounts);
     return {
       ordinal: index + 1,
       reviewId: item.id,
@@ -101,8 +158,8 @@ export function buildStoreReviewRagDocument(input: ReviewDocumentInput): StoreRe
       bodyText: cleanText(item.bodyText) ?? '',
       ownerReplyText,
       replyStatus: ownerReplyText ? 'replied' : 'not_replied',
-      sourceUrl: item.sourceUrl,
-      keywords: reviewKeywords(metadata)
+      sourceUrl: null,
+      keywords: []
     };
   });
 
@@ -114,8 +171,8 @@ export function buildStoreReviewRagDocument(input: ReviewDocumentInput): StoreRe
     totalCollectedReviews: collectedReviews.length,
     includedReviewCount: entries.length,
     samplingStrategy:
-      collectedReviews.length > 100
-        ? '최근 20개와 이전 리뷰 80개를 seeded random interval 방식으로 샘플링했습니다.'
+      collectedReviews.length > RAG_REVIEW_LIMIT
+        ? `최근 20개와 이전 리뷰 ${RAG_REVIEW_LIMIT - 20}개를 seeded random interval 방식으로 샘플링했습니다.`
         : '수집된 방문자 리뷰 전체를 포함했습니다.',
     entries,
     warnings: collectedReviews.length === 0 ? ['수집된 방문자 리뷰가 없습니다.'] : []

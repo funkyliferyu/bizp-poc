@@ -467,6 +467,7 @@ const VISITOR_REVIEWS_QUERY = `query visitorReviews($input: VisitorReviewsInput)
     items {
       id
       reviewId
+      cursor
       body
       rating
       created
@@ -547,34 +548,37 @@ async function collectGraphQlReviewFallback(input: {
   const baseInput = visitorReviewInputFromApolloState(input.html);
   if (!baseInput) return null;
   const size = graphQlBatchSize(input.env, input.limit);
-  let nextItem = String(baseInput.item ?? '0');
-  const seenCursors = new Set<string>();
+  let afterCursor: string | null = null;
+  const seenAfterCursors = new Set<string>();
   const maxPages = Math.min(40, Math.ceil(input.limit / size) + 2);
   let availableTotal: number | null = null;
 
   for (let page = 0; page < maxPages && input.reviews.length < input.limit; page += 1) {
-    if (seenCursors.has(nextItem)) break;
-    seenCursors.add(nextItem);
+    if (afterCursor) {
+      if (seenAfterCursors.has(afterCursor)) break;
+      seenAfterCursors.add(afterCursor);
+    }
     if (input.reviews.length >= input.limit) break;
-    const result = await fetchGraphQlVisitorReviews(
-      {
-        ...baseInput,
-        item: nextItem,
-        includeContent: true,
-        size
-      },
+    const pageInput: Record<string, unknown> = {
+      ...baseInput,
+      includeContent: true,
+      size,
+      ...(afterCursor ? { after: afterCursor } : {})
+    };
+    const result: Awaited<ReturnType<typeof fetchGraphQlVisitorReviews>> | null = await fetchGraphQlVisitorReviews(
+      pageInput,
       input.finalUrl,
       input.env
     ).catch(() => null);
-    const reviews = result?.reviews ?? [];
+    const reviews: RenderedPlaceReview[] = result?.reviews ?? [];
     if (result?.total !== null && result?.total !== undefined) {
       availableTotal = Math.max(availableTotal ?? 0, result.total);
     }
     if (reviews.length === 0) break;
     addUniqueReviews(input.reviews, input.seenReviews, reviews, input.limit);
-    const nextCursor = reviews[reviews.length - 1]?.cursor;
-    if (!nextCursor) break;
-    nextItem = nextCursor;
+    const nextCursor: string | null = reviews[reviews.length - 1]?.cursor ?? null;
+    if (!nextCursor || seenAfterCursors.has(nextCursor)) break;
+    afterCursor = nextCursor;
   }
   return availableTotal;
 }

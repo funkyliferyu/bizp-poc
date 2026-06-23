@@ -1,5 +1,5 @@
 import express from 'express';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -130,23 +130,70 @@ describe('RAG document API', () => {
     expect(download.subarray(0, 2).toString()).toBe('PK');
   });
 
+  it('resets individual generated RAG document files and clears the manifest when none remain', async () => {
+    const generateResponse = await fetch(`${baseUrl}/api/stores/store_haehwaro/rag-documents/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshReviews: false, reviewLimit: 100 })
+    });
+    const generated = await readJson(generateResponse);
+    const infoFilePath = path.join(outputRoot, 'store_haehwaro', generated.manifest.files.info.fileName);
+    const reviewsFilePath = path.join(outputRoot, 'store_haehwaro', generated.manifest.files.reviews.fileName);
+
+    expect(existsSync(infoFilePath)).toBe(true);
+    expect(existsSync(reviewsFilePath)).toBe(true);
+
+    const resetInfoResponse = await fetch(`${baseUrl}/api/stores/store_haehwaro/rag-documents/info`, {
+      method: 'DELETE'
+    });
+    const resetInfo = await readJson(resetInfoResponse);
+
+    expect(resetInfoResponse.status).toBe(200);
+    expect(existsSync(infoFilePath)).toBe(false);
+    expect(existsSync(reviewsFilePath)).toBe(true);
+    expect(resetInfo.manifest.files.info).toBeNull();
+    expect(resetInfo.manifest.files.reviews).toEqual({
+      fileName: 'reviews_해화로in수산.docx',
+      downloadPath: '/api/stores/store_haehwaro/rag-documents/reviews/download'
+    });
+
+    const missingInfoDownload = await fetch(`${baseUrl}/api/stores/store_haehwaro/rag-documents/info/download`);
+    expect(missingInfoDownload.status).toBe(404);
+
+    const reviewsDownload = await fetch(`${baseUrl}/api/stores/store_haehwaro/rag-documents/reviews/download`);
+    expect(reviewsDownload.status).toBe(200);
+
+    const resetReviewsResponse = await fetch(`${baseUrl}/api/stores/store_haehwaro/rag-documents/reviews`, {
+      method: 'DELETE'
+    });
+    const resetReviews = await readJson(resetReviewsResponse);
+
+    expect(resetReviewsResponse.status).toBe(200);
+    expect(existsSync(reviewsFilePath)).toBe(false);
+    expect(resetReviews.manifest).toBeNull();
+
+    const listResponse = await fetch(`${baseUrl}/api/stores/store_haehwaro/rag-documents`);
+    expect(listResponse.status).toBe(404);
+  });
+
   it('refreshes persisted Place reviews before generating RAG documents when requested', async () => {
     const generateResponse = await fetch(`${baseUrl}/api/stores/store_haehwaro/rag-documents/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshReviews: true, reviewLimit: 100 })
+      body: JSON.stringify({ refreshReviews: true, reviewLimit: 200 })
     });
     const body = await readJson(generateResponse);
 
     expect(generateResponse.status).toBe(200);
-    expect(body.manifest.reviewCount).toBe(100);
+    expect(body.manifest.reviewCount).toBe(200);
     expect(body.manifest.sourceCollectionRunId).toEqual(expect.stringContaining('collection_run_store_haehwaro_rag_'));
+    expect(JSON.stringify(body.manifest.warnings)).not.toContain('수집을 시도했지만');
 
     const repos = createStoreLearningRepositories(connection);
     const refreshedReviews = repos.collectionItems
       .listByRunId(body.manifest.sourceCollectionRunId)
       .filter((item) => item.channel === 'place' && item.sourceType === 'review' && item.status === 'collected');
-    expect(refreshedReviews).toHaveLength(100);
+    expect(refreshedReviews).toHaveLength(200);
     expect(refreshedReviews[0].metadata).toEqual(
       expect.objectContaining({
         provider: 'mock',

@@ -1,7 +1,9 @@
 (function () {
   const STORAGE_KEY = 'bizplanet.storeRegistration.storeId';
+  const RAG_REGENERATE_CONFIRM_MESSAGE = '기존 RAG 문서를 삭제하고 새로운 문서를 생성합니다';
   let currentStoreId = initialStoreId();
   let currentStore = null;
+  let currentRagManifest = null;
   let menuExpanded = false;
   let currentMenuImageUrls = [];
   let currentMenuImageIndex = 0;
@@ -108,7 +110,7 @@
   }
 
   function normalizeDayValue(value) {
-    const day = cleanText(value);
+    const day = cleanText(value).replace(/\([^)]*\)/g, '').trim();
     const dayMap = {
       mon: 'mon',
       tue: 'tue',
@@ -125,7 +127,7 @@
       토: 'sat',
       일: 'sun'
     };
-    return dayMap[day] || '';
+    return dayMap[day] || dayMap[day.match(/[월화수목금토일]/)?.[0]] || '';
   }
 
   function dayLabelFor(day) {
@@ -140,7 +142,7 @@
     const rows = new Map();
     asArray(lines).forEach((line) => {
       const text = cleanText(line);
-      const match = text.match(/^([월화수목금토일])\s+(.+)$/);
+      const match = text.match(/^([월화수목금토일])(?:\([^)]*\))?\s+(.+)$/);
       if (!match) return;
 
       const day = normalizeDayValue(match[1]);
@@ -872,17 +874,42 @@
     if (file.fileName) link.textContent = file.fileName;
   }
 
+  function setRagReset(id, file) {
+    const button = field(id);
+    if (!button) return;
+    button.hidden = !cleanText(file?.downloadPath);
+  }
+
+  function hasGeneratedRagDocuments() {
+    return Boolean(
+      cleanText(currentRagManifest?.files?.info?.downloadPath) ||
+        cleanText(currentRagManifest?.files?.reviews?.downloadPath)
+    );
+  }
+
   function clearRagDocuments(message) {
+    currentRagManifest = null;
     setRagStatus(message || '업체에 최적화된 응답을 제공하기 위해 RAG 용 문서를 생성해주세요.');
     setRagLink('rag-info-download', null);
     setRagLink('rag-reviews-download', null);
     setRagLink('rag-doc-source-info', null);
     setRagLink('rag-doc-source-reviews', null);
+    setRagReset('rag-info-reset', null);
+    setRagReset('rag-reviews-reset', null);
+    setRagReset('rag-doc-source-info-reset', null);
+    setRagReset('rag-doc-source-reviews-reset', null);
     setHidden('rag-doc-source-empty', false);
   }
 
   function setRagDownloads(manifest) {
     if (!manifest) {
+      clearRagDocuments();
+      return;
+    }
+    const infoFile = manifest.files?.info || null;
+    const reviewsFile = manifest.files?.reviews || null;
+    currentRagManifest = manifest;
+    if (!cleanText(infoFile?.downloadPath) && !cleanText(reviewsFile?.downloadPath)) {
       clearRagDocuments();
       return;
     }
@@ -893,10 +920,14 @@
     const warnings = asArray(manifest.warnings).map(cleanText).filter(Boolean);
     const warningText = warnings.length ? ` · ${warnings.join(' ')}` : '';
     setRagStatus(`챗봇용 RAG 문서 생성 완료 · 리뷰 ${reviewCount}개 포함 · ${generatedLabel}${warningText}`);
-    setRagLink('rag-info-download', manifest.files?.info);
-    setRagLink('rag-reviews-download', manifest.files?.reviews);
-    setRagLink('rag-doc-source-info', manifest.files?.info);
-    setRagLink('rag-doc-source-reviews', manifest.files?.reviews);
+    setRagLink('rag-info-download', infoFile);
+    setRagLink('rag-reviews-download', reviewsFile);
+    setRagLink('rag-doc-source-info', infoFile);
+    setRagLink('rag-doc-source-reviews', reviewsFile);
+    setRagReset('rag-info-reset', infoFile);
+    setRagReset('rag-reviews-reset', reviewsFile);
+    setRagReset('rag-doc-source-info-reset', infoFile);
+    setRagReset('rag-doc-source-reviews-reset', reviewsFile);
     setHidden('rag-doc-source-empty', true);
   }
 
@@ -926,9 +957,11 @@
       return;
     }
 
+    if (hasGeneratedRagDocuments() && !window.confirm(RAG_REGENERATE_CONFIRM_MESSAGE)) return;
+    if (hasGeneratedRagDocuments()) clearRagDocuments('기존 RAG 문서를 초기화하고 새 문서 생성을 시작합니다.');
     setButtonBusy(field('rag-generate-button'), true, '생성 중');
     if (ragPhaseTimer) window.clearTimeout(ragPhaseTimer);
-    setRagStatus('네이버플레이스 리뷰를 가져오는 중입니다. 최대 100개 기준으로 더보기 범위를 확장합니다.');
+    setRagStatus('네이버플레이스 리뷰를 가져오는 중입니다. 최대 200개 기준으로 더보기 범위를 확장합니다.');
     ragPhaseTimer = window.setTimeout(() => {
       setRagStatus('RAG 문서를 생성하는 중입니다. 수집된 리뷰와 매장 정보를 DOCX로 정리하고 있습니다.');
     }, 2500);
@@ -938,7 +971,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           refreshReviews: true,
-          reviewLimit: 100
+          reviewLimit: 200
         })
       });
       const payload = await readResponse(response);
@@ -952,6 +985,28 @@
         ragPhaseTimer = null;
       }
       setButtonBusy(field('rag-generate-button'), false);
+    }
+  }
+
+  async function resetRagDocument(documentType) {
+    if (!currentStoreId) {
+      alert('먼저 네이버 플레이스 정보를 불러오거나 저장된 매장을 조회해주세요.');
+      return;
+    }
+    if (!['info', 'reviews'].includes(documentType)) return;
+
+    try {
+      const response = await fetch(`/api/stores/${currentStoreId}/rag-documents/${documentType}`, {
+        method: 'DELETE'
+      });
+      const payload = await readResponse(response);
+      if (payload.manifest) {
+        setRagDownloads(payload.manifest);
+      } else {
+        clearRagDocuments();
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'RAG 문서를 초기화하지 못했습니다.');
     }
   }
 
@@ -1236,6 +1291,7 @@
   window.submitForm = saveStoreToApi;
   window.openRawData = openRawData;
   window.generateRagDocuments = generateRagDocuments;
+  window.resetRagDocument = resetRagDocument;
   window.toggleMenuList = toggleMenuList;
   window.openMenuImageViewer = openMenuImageViewer;
   window.openSourceImageViewer = openSourceImageViewer;

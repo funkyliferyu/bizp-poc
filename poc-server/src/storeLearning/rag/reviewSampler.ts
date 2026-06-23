@@ -1,3 +1,5 @@
+import { RAG_REVIEW_LIMIT } from './ragReviewPolicy.js';
+
 export type ReviewSampleOptions = {
   seed: string;
   maxCount?: number;
@@ -25,7 +27,7 @@ function createRandom(seed: string) {
 }
 
 export function selectReviewSample<T>(reviews: readonly T[], options: ReviewSampleOptions): T[] {
-  const maxCount = options.maxCount ?? 100;
+  const maxCount = options.maxCount ?? RAG_REVIEW_LIMIT;
   const latestCount = Math.min(options.latestCount ?? 20, maxCount);
   if (reviews.length <= maxCount) return [...reviews];
 

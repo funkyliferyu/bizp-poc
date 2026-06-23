@@ -14,24 +14,24 @@ function reviews(count: number): ReviewFixture[] {
 }
 
 describe('RAG review sampler', () => {
-  it('keeps every collected review when there are at most 100', () => {
-    const selected = selectReviewSample(reviews(50), { seed: 'store:run' });
+  it('keeps every collected review when there are at most 200', () => {
+    const selected = selectReviewSample(reviews(200), { seed: 'store:run' });
 
-    expect(selected).toHaveLength(50);
-    expect(selected.map((review) => review.id)).toEqual(reviews(50).map((review) => review.id));
+    expect(selected).toHaveLength(200);
+    expect(selected.map((review) => review.id)).toEqual(reviews(200).map((review) => review.id));
   });
 
-  it('keeps latest 20 and samples 80 older reviews when there are more than 100', () => {
-    const selected = selectReviewSample(reviews(120), { seed: 'store:run' });
+  it('keeps latest 20 and samples 180 older reviews when there are more than 200', () => {
+    const selected = selectReviewSample(reviews(240), { seed: 'store:run' });
 
-    expect(selected).toHaveLength(100);
+    expect(selected).toHaveLength(200);
     expect(selected.slice(0, 20).map((review) => review.id)).toEqual(reviews(20).map((review) => review.id));
-    expect(new Set(selected.map((review) => review.id)).size).toBe(100);
+    expect(new Set(selected.map((review) => review.id)).size).toBe(200);
   });
 
   it('is deterministic for the same seed', () => {
-    const first = selectReviewSample(reviews(150), { seed: 'store:run' }).map((review) => review.id);
-    const second = selectReviewSample(reviews(150), { seed: 'store:run' }).map((review) => review.id);
+    const first = selectReviewSample(reviews(240), { seed: 'store:run' }).map((review) => review.id);
+    const second = selectReviewSample(reviews(240), { seed: 'store:run' }).map((review) => review.id);
 
     expect(second).toEqual(first);
   });

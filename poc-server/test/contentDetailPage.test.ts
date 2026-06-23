@@ -83,7 +83,12 @@ describe('AI content detail page API wiring', () => {
 
     try {
       const page = await browser.newPage();
-      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_prompt_trim`);
+      await page.route('https://fonts.googleapis.com/**', (route) =>
+        route.fulfill({ contentType: 'text/css', body: '' })
+      );
+      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_prompt_trim`, {
+        waitUntil: 'domcontentloaded'
+      });
       await page.waitForSelector('[data-image-slot="1"]');
 
       const inlinePrompt = await page.locator('[data-image-slot="1"]').textContent();
@@ -152,7 +157,12 @@ describe('AI content detail page API wiring', () => {
 
     try {
       const page = await browser.newPage();
-      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_preview_layout`);
+      await page.route('https://fonts.googleapis.com/**', (route) =>
+        route.fulfill({ contentType: 'text/css', body: '' })
+      );
+      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_preview_layout`, {
+        waitUntil: 'domcontentloaded'
+      });
       await page.click('#openBlogPreviewBtn');
       await page.waitForSelector('#modal-blog-preview[style*="flex"]');
 
