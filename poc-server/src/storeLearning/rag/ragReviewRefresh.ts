@@ -5,6 +5,7 @@ import { createMockCollectionProvider } from '../collection/mockCollectionProvid
 import { createNaverPlaceRenderedCollectionProvider } from '../collection/naverPlaceRenderedCollectionProvider.js';
 import { configuredPlaceProvider, sourceMetadata, type SourceKind } from '../providers/ownerSourcePolicy.js';
 import { createStoreLearningRepositories } from '../../repositories/storeLearningRepositories.js';
+import { RAG_REVIEW_LIMIT } from './ragReviewPolicy.js';
 
 type RefreshPlaceReviewsOptions = {
   connection: DbConnection;
@@ -76,7 +77,7 @@ function finalStatus(items: Array<{ status: string }>) {
 
 export async function refreshPlaceReviewsForRag(options: RefreshPlaceReviewsOptions): Promise<string> {
   const env = options.env ?? process.env;
-  const reviewLimit = Math.max(1, Math.min(100, Math.floor(options.reviewLimit || 100)));
+  const reviewLimit = Math.max(1, Math.min(RAG_REVIEW_LIMIT, Math.floor(options.reviewLimit || RAG_REVIEW_LIMIT)));
   const repos = createStoreLearningRepositories(options.connection);
   const store = repos.stores.findById(options.storeId);
   if (!store) throw new Error(`Store not found: ${options.storeId}`);

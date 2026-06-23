@@ -4,8 +4,11 @@ import { z } from 'zod';
 import type { DbConnection } from '../../db/connection.js';
 import type { ProviderEnv } from '../providers/placeImportTypes.js';
 import {
+  RAG_REVIEW_LIMIT,
   generateRagDocuments,
   readRagDocumentManifest,
+  resetRagDocumentFile,
+  type RagDocumentFileType,
   type RagDocumentManifest,
   type RagDocumentServiceOptions
 } from '../rag/ragDocumentService.js';
@@ -17,14 +20,24 @@ type RagDocumentRouteOptions = RagDocumentServiceOptions & {
 
 const GenerateRagDocumentsRequestSchema = z.object({
   refreshReviews: z.boolean().optional().default(false),
-  reviewLimit: z.number().int().positive().optional().default(100)
+  reviewLimit: z.number().int().positive().optional().default(RAG_REVIEW_LIMIT)
 });
+const RagDocumentTypeSchema = z.enum(['info', 'reviews']);
 
 function storeIdFrom(req: express.Request) {
   return (req.params as Record<string, string>).storeId;
 }
 
 function toPublicManifest(manifest: RagDocumentManifest) {
+  const publicFile = (documentType: RagDocumentFileType) => {
+    const file = manifest.files[documentType];
+    if (!existsSync(file.path)) return null;
+    return {
+      fileName: file.fileName,
+      downloadPath: file.downloadPath
+    };
+  };
+
   return {
     generatedAt: manifest.generatedAt,
     storeId: manifest.storeId,
@@ -32,14 +45,8 @@ function toPublicManifest(manifest: RagDocumentManifest) {
     reviewCount: manifest.reviewCount,
     sourceCollectionRunId: manifest.sourceCollectionRunId,
     files: {
-      info: {
-        fileName: manifest.files.info.fileName,
-        downloadPath: manifest.files.info.downloadPath
-      },
-      reviews: {
-        fileName: manifest.files.reviews.fileName,
-        downloadPath: manifest.files.reviews.downloadPath
-      }
+      info: publicFile('info'),
+      reviews: publicFile('reviews')
     },
     warnings: manifest.warnings
   };
@@ -69,6 +76,16 @@ export function createRagDocumentRoutes(options: RagDocumentRouteOptions) {
         return;
       }
       res.json({ manifest: toPublicManifest(manifest) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/:documentType', (req, res, next) => {
+    try {
+      const documentType = RagDocumentTypeSchema.parse(req.params.documentType);
+      const manifest = resetRagDocumentFile(options, storeIdFrom(req), documentType);
+      res.json({ manifest: manifest ? toPublicManifest(manifest) : null });
     } catch (error) {
       next(error);
     }

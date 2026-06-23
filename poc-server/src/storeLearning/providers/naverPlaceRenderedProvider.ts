@@ -292,6 +292,8 @@ function detailValue(record: Record<string, unknown> | null, keyName: string) {
 }
 
 function dayValue(koreanDay: string) {
+  const normalizedDay = koreanDay.replace(/\([^)]*\)/g, '').trim();
+  const matchedDay = normalizedDay.match(/공휴일|[월화수목금토일]/)?.[0] ?? normalizedDay;
   return (
     {
       월: 'mon',
@@ -303,7 +305,7 @@ function dayValue(koreanDay: string) {
       일: 'sun',
       공휴일: 'hol'
     } as const
-  )[koreanDay as '월' | '화' | '수' | '목' | '금' | '토' | '일' | '공휴일'] ?? null;
+  )[matchedDay as '월' | '화' | '수' | '목' | '금' | '토' | '일' | '공휴일'] ?? null;
 }
 
 function daysFromText(value: unknown) {

@@ -28,6 +28,8 @@ describe('store registration static page API wiring', () => {
     expect(html).toContain('id="rag-doc-status"');
     expect(html).toContain('id="rag-info-download"');
     expect(html).toContain('id="rag-reviews-download"');
+    expect(html).toContain('id="rag-info-reset"');
+    expect(html).toContain('id="rag-reviews-reset"');
     expect(html).toContain('store_raw_data.html?storeId=');
     expect(html).toMatch(/id="place-metadata-section"[\s\S]*form-section-header[\s\S]*id="raw-data-button"/);
     expect(rawHtml).toContain('id="raw-section-tabs"');
@@ -57,8 +59,11 @@ describe('store registration static page API wiring', () => {
     expect(js).toContain('fetch(`/api/stores/${storeId}`');
     expect(js).toContain('fetch(`/api/stores/${currentStoreId}/rag-documents/generate`');
     expect(js).toContain('fetch(`/api/stores/${currentStoreId}/rag-documents`');
+    expect(js).toContain('fetch(`/api/stores/${currentStoreId}/rag-documents/${documentType}`');
     expect(js).toContain('refreshReviews: true');
-    expect(js).toContain('reviewLimit: 100');
+    expect(js).toContain('reviewLimit: 200');
+    expect(js).not.toContain('reviewLimit: 50');
+    expect(js).not.toContain('reviewLimit: 100');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
@@ -154,6 +159,8 @@ describe('store registration static page API wiring', () => {
     expect(html).toContain('saveBusinessHoursModal()');
     expect(js).toContain('let currentWeeklyBusinessHours');
     expect(js).toContain('function normalizeWeeklyBusinessHours');
+    expect(js).toContain("cleanText(value).replace(/\\([^)]*\\)/g, '').trim()");
+    expect(js).toContain('text.match(/^([월화수목금토일])(?:\\([^)]*\\))?\\s+(.+)$/)');
     expect(js).toContain('function writeWeeklyBusinessHours');
     expect(js).toContain('function renderBusinessHoursModalRows');
     expect(js).toContain('function openBusinessHoursModal');
@@ -268,6 +275,8 @@ describe('store registration static page API wiring', () => {
     expect(html).toContain('id="rag-doc-source-panel"');
     expect(html).toContain('id="rag-doc-source-info"');
     expect(html).toContain('id="rag-doc-source-reviews"');
+    expect(html).toContain('id="rag-doc-source-info-reset"');
+    expect(html).toContain('id="rag-doc-source-reviews-reset"');
     expect(html).toContain('RAG용 생성 문서');
 
     expect(js).toContain('function renderUploadSourceAssets');
@@ -280,6 +289,8 @@ describe('store registration static page API wiring', () => {
     expect(js).toContain("'place-menu-source-panel'");
     expect(js).toContain("setRagLink('rag-doc-source-info'");
     expect(js).toContain("setRagLink('rag-doc-source-reviews'");
+    expect(js).toContain("setRagReset('rag-doc-source-info-reset'");
+    expect(js).toContain("setRagReset('rag-doc-source-reviews-reset'");
     expect(js).toContain('function openSourceImageViewer');
     expect(js).toContain('window.openSourceImageViewer = openSourceImageViewer');
   });
@@ -288,6 +299,9 @@ describe('store registration static page API wiring', () => {
     const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
 
     expect(js).toContain('네이버플레이스 리뷰를 가져오는 중입니다.');
+    expect(js).toContain('최대 200개 기준으로 더보기 범위를 확장합니다.');
+    expect(js).not.toContain('최대 50개 기준으로 더보기 범위를 확장합니다.');
+    expect(js).not.toContain('최대 100개 기준으로 더보기 범위를 확장합니다.');
     expect(js).toContain('RAG 문서를 생성하는 중입니다.');
     expect(js).toContain('ragPhaseTimer');
     expect(js).toContain('manifest.warnings');
@@ -304,5 +318,22 @@ describe('store registration static page API wiring', () => {
     expect(html).not.toMatch(/>\s*RAG 문서 생성\s*</);
     expect(html).not.toContain('아직 생성된 RAG 문서가 없습니다.');
     expect(js).not.toContain('아직 생성된 RAG 문서가 없습니다.');
+  });
+
+  it('supports resetting each generated RAG document and confirming overwrite regeneration', () => {
+    const html = readFileSync(path.join(webRoot, 'soho_store_register.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'soho_store_register.js'), 'utf8');
+
+    expect(html).toContain("onclick=\"resetRagDocument('info')\"");
+    expect(html).toContain("onclick=\"resetRagDocument('reviews')\"");
+    expect(html).toContain('aria-label="업체 정보 RAG 문서 초기화"');
+    expect(html).toContain('aria-label="리뷰 RAG 문서 초기화"');
+    expect(js).toContain("const RAG_REGENERATE_CONFIRM_MESSAGE = '기존 RAG 문서를 삭제하고 새로운 문서를 생성합니다';");
+    expect(js).toContain('function hasGeneratedRagDocuments');
+    expect(js).toContain('if (hasGeneratedRagDocuments() && !window.confirm(RAG_REGENERATE_CONFIRM_MESSAGE)) return;');
+    expect(js).toContain("clearRagDocuments('기존 RAG 문서를 초기화하고 새 문서 생성을 시작합니다.')");
+    expect(js).toContain("async function resetRagDocument(documentType)");
+    expect(js).toContain("method: 'DELETE'");
+    expect(js).toContain("window.resetRagDocument = resetRagDocument");
   });
 });

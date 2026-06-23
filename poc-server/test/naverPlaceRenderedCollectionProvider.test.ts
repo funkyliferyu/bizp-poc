@@ -343,12 +343,24 @@ describe('Naver Place rendered collection provider', () => {
     expect(reviews[2].metadata).toEqual(expect.objectContaining({ ownerReplyText: '두 번째 답글' }));
   });
 
-  it('uses the Naver GraphQL fallback when the rendered snapshot only contains the first review batch', async () => {
+  it('uses the Naver GraphQL fallback after cursor to collect up to 200 rendered reviews', async () => {
     const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body ?? '[]')) as Array<{ variables?: { input?: { item?: string } } }>;
-      const item = body[0]?.variables?.input?.item;
-      const items = item === 'cursor-50' ? graphQlReviewItems(51, 100) : graphQlReviewItems(1, 50);
-      return new Response(JSON.stringify([{ data: { visitorReviews: { total: 120, items } } }]), {
+      const body = JSON.parse(String(init?.body ?? '[]')) as Array<{
+        query?: string;
+        variables?: { input?: { after?: string; item?: string } };
+      }>;
+      const query = body[0]?.query ?? '';
+      const after = body[0]?.variables?.input?.after;
+      const page =
+        after === 'cursor-150'
+          ? graphQlReviewItems(151, 200)
+          : after === 'cursor-100'
+            ? graphQlReviewItems(101, 150)
+            : after === 'cursor-50'
+              ? graphQlReviewItems(51, 100)
+              : graphQlReviewItems(1, 50);
+      const items = query.includes('cursor') ? page : page.map(({ cursor: _cursor, ...review }) => review);
+      return new Response(JSON.stringify([{ data: { visitorReviews: { total: 240, items } } }]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -364,7 +376,7 @@ describe('Naver Place rendered collection provider', () => {
 
       const items = await provider.collect({
         env: {},
-        plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 100 },
+        plan: { blogPostLimit: 0, includePlaceProfile: false, placeReviewLimit: 200 },
         store: {
           id: 'store_graphql_fallback',
           name: '그래프큐엘 테스트 매장',
@@ -381,21 +393,32 @@ describe('Naver Place rendered collection provider', () => {
       });
 
       const collectedReviews = items.filter((item) => item.sourceType === 'review' && item.status !== 'failed');
-      expect(collectedReviews).toHaveLength(100);
+      expect(collectedReviews).toHaveLength(200);
       expect(fetchMock).toHaveBeenCalledWith('https://api.place.naver.com/graphql', expect.any(Object));
       expect(fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body ?? '[]'))[0].variables.input.item)).toEqual([
         '0',
-        'cursor-50'
+        '0',
+        '0',
+        '0'
       ]);
+      expect(fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body ?? '[]'))[0].variables.input.after)).toEqual([
+        undefined,
+        'cursor-50',
+        'cursor-100',
+        'cursor-150'
+      ]);
+      expect(fetchMock.mock.calls.every((call) => JSON.parse(String(call[1]?.body ?? '[]'))[0].query.includes('cursor'))).toBe(
+        true
+      );
       expect(collectedReviews.at(-1)).toEqual(
         expect.objectContaining({
-          bodyText: 'GraphQL fallback review 100',
-          title: '방문자 리뷰 - gql-100'
+          bodyText: 'GraphQL fallback review 200',
+          title: '방문자 리뷰 - gql-200'
         })
       );
       expect(collectedReviews.at(-1)?.metadata).toEqual(
         expect.objectContaining({
-          ownerReplyText: 'GraphQL owner reply 100',
+          ownerReplyText: 'GraphQL owner reply 200',
           reviewKeywords: ['신선해요'],
           bodyAvailability: 'rendered_place_visitor_review'
         })
@@ -405,22 +428,22 @@ describe('Naver Place rendered collection provider', () => {
     }
   });
 
-  it('paginates Naver GraphQL fallback with supported media fields and review cursors', async () => {
+  it('paginates Naver GraphQL fallback with supported media fields and after cursors', async () => {
     const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body ?? '[]')) as Array<{
         query?: string;
-        variables?: { input?: { item?: string; sort?: string; size?: number } };
+        variables?: { input?: { after?: string; item?: string; sort?: string; size?: number } };
       }>;
       const query = body[0]?.query ?? '';
       expect(query).not.toContain('imageUrl');
       expect(query).not.toContain('origin');
       expect(query).not.toContain('thumbnailUrl');
 
-      const item = body[0]?.variables?.input?.item ?? '0';
+      const after = body[0]?.variables?.input?.after;
       const page =
-        item === '0'
+        after === undefined
           ? graphQlReviewItems(1, 10)
-          : item === 'cursor-10'
+          : after === 'cursor-10'
             ? graphQlReviewItems(11, 20)
             : graphQlReviewItems(21, 25);
       return new Response(JSON.stringify([{ data: { visitorReviews: { total: 25, items: page } } }]), {
@@ -460,6 +483,11 @@ describe('Naver Place rendered collection provider', () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body ?? '[]'))[0].variables.input.item)).toEqual([
         '0',
+        '0',
+        '0'
+      ]);
+      expect(fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body ?? '[]'))[0].variables.input.after)).toEqual([
+        undefined,
         'cursor-10',
         'cursor-20'
       ]);

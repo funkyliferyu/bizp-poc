@@ -82,28 +82,223 @@ function timeRangeLine(label: string, start: unknown, end: unknown): string | nu
   return kv(label, firstText(startText, endText));
 }
 
-function externalLinkLines(parsed: JsonRecord): string[] {
-  const homepageLinks = asArray(parsed.homepageLinks).flatMap((item) => {
-    const record = asRecord(item);
-    const url = cleanText(record.url);
-    if (!url) return [];
-    const type = cleanText(record.type ?? record.homepageType) ?? '외부채널';
-    return [`외부채널 링크(${type}): ${url}`];
-  });
-  const homepageUrl = cleanText(parsed.homepageUrl ?? parsed.homepage);
-  const homepageType = cleanText(parsed.homepageType) ?? '대표';
-  const reprHomepage = asRecord(parsed.homepages).repr;
-  const reprUrl = isRecord(reprHomepage) ? cleanText(reprHomepage.url) : null;
-  const reprType = isRecord(reprHomepage) ? cleanText(reprHomepage.type) ?? homepageType : homepageType;
-
-  return [
-    ...homepageLinks,
-    homepageUrl ? `외부채널 링크(${homepageType}): ${homepageUrl}` : null,
-    reprUrl ? `외부채널 링크(${reprType}): ${reprUrl}` : null
-  ].filter((line): line is string => Boolean(line));
+function isClosedValue(value: unknown): boolean {
+  return value === true || value === 'true' || value === 1 || value === '1';
 }
 
-function businessHourLines(parsed: JsonRecord): string[] {
+function timeRangeFrom(value: JsonValue | undefined): { start: string; end: string } | null {
+  const record = asRecord(value);
+  const start = firstText(record.start, record.from, record.openTime, record.open, record.begin);
+  const end = firstText(record.end, record.to, record.closeTime, record.close, record.finish);
+  return start && end ? { start, end } : null;
+}
+
+function firstTimeRange(value: JsonValue | undefined): { start: string; end: string } | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const range = firstTimeRange(item);
+      if (range) return range;
+    }
+    return null;
+  }
+  return timeRangeFrom(value);
+}
+
+function weeklyBusinessHourLine(value: JsonValue): string | null {
+  const record = asRecord(value);
+  const day = firstText(record.dayLabel, record.day, record.dayName, record.name) ?? '요일';
+  const description = cleanText(record.description);
+  const closed = isClosedValue(record.closed) || Boolean(description && /휴무|휴진|휴업/.test(description));
+  const directRange = timeRangeFrom(record);
+  const nestedRange = firstTimeRange(record.businessHours);
+  const range = directRange ?? nestedRange;
+  const breakStart = firstText(record.breakStart, record.breakOpen, record.breakFrom);
+  const breakEnd = firstText(record.breakEnd, record.breakClose, record.breakTo);
+  const breakRange = firstTimeRange(record.breakHours);
+  const breakText =
+    breakStart && breakEnd
+      ? `${breakStart}~${breakEnd}`
+      : breakRange
+        ? `${breakRange.start}~${breakRange.end}`
+        : firstText(record.breakTime, record.breakText);
+
+  if (closed) return `${day}: ${description || '휴무'}`;
+  const time = range ? `${range.start}~${range.end}` : firstText(record.time, record.text, description);
+  if (!time) return null;
+  return `${day}: ${time}${breakText ? ` / 브레이크타임 ${breakText}` : ''}`;
+}
+
+function canonicalDayKey(value: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.replace(/\([^)]*\)/g, '').trim().toLowerCase();
+  const matched = normalized.match(/공휴일|[월화수목금토일]|mon|tue|wed|thu|fri|sat|sun/)?.[0] ?? normalized;
+  const dayMap: Record<string, string> = {
+    mon: 'mon',
+    tue: 'tue',
+    wed: 'wed',
+    thu: 'thu',
+    fri: 'fri',
+    sat: 'sat',
+    sun: 'sun',
+    월: 'mon',
+    화: 'tue',
+    수: 'wed',
+    목: 'thu',
+    금: 'fri',
+    토: 'sat',
+    일: 'sun',
+    공휴일: 'hol'
+  };
+  return dayMap[matched] ?? matched;
+}
+
+function weeklyBusinessHourDayKey(value: JsonValue): string | null {
+  const record = asRecord(value);
+  const day = firstText(record.day, record.dayLabel, record.dayName, record.name);
+  return canonicalDayKey(day);
+}
+
+function weeklyBusinessHourLines(value: JsonValue | undefined): string[] {
+  return asArray(value)
+    .map(weeklyBusinessHourLine)
+    .filter((line): line is string => Boolean(line));
+}
+
+type ParsedBusinessHourLine = {
+  dayKey: string;
+  line: string;
+};
+
+function parsedBusinessHourLine(value: JsonValue): ParsedBusinessHourLine | null {
+  const text = cleanText(value);
+  const match = text?.match(/^([월화수목금토일])(?:\([^)]*\))?\s+(.+)$/);
+  if (!match) return null;
+
+  const dayLabel = match[1];
+  const content = match[2];
+  const businessRange = content.match(/(\d{1,2}:\d{2})\s*[-~]\s*(\d{1,2}:\d{2})/);
+  const breakRange = content.match(/브레이크타임\s*(\d{1,2}:\d{2})\s*[-~]\s*(\d{1,2}:\d{2})/);
+  const closed = /휴무|휴진|휴업/.test(content);
+  if (closed) {
+    return { dayKey: canonicalDayKey(dayLabel) ?? dayLabel, line: `${dayLabel}: ${content}` };
+  }
+  if (!businessRange) return null;
+  return {
+    dayKey: canonicalDayKey(dayLabel) ?? dayLabel,
+    line: `${dayLabel}: ${businessRange[1]}~${businessRange[2]}${breakRange ? ` / 브레이크타임 ${breakRange[1]}~${breakRange[2]}` : ''}`
+  };
+}
+
+function businessHourLineRows(value: JsonValue | undefined): ParsedBusinessHourLine[] {
+  return asArray(value)
+    .map(parsedBusinessHourLine)
+    .filter((line): line is ParsedBusinessHourLine => Boolean(line));
+}
+
+function mergeMissingBusinessHourLineRows(primaryRows: JsonValue[], fallbackRows: ParsedBusinessHourLine[]): string[] {
+  const seenDays = new Set(primaryRows.map(weeklyBusinessHourDayKey).filter((day): day is string => Boolean(day)));
+  const lines = weeklyBusinessHourLines(primaryRows);
+  for (const fallback of fallbackRows) {
+    if (seenDays.has(fallback.dayKey)) continue;
+    seenDays.add(fallback.dayKey);
+    lines.push(fallback.line);
+  }
+  return uniqueLines(lines);
+}
+
+type ExternalLinkCandidate = {
+  label: string | null;
+  url: string;
+};
+
+function normalizeExternalLinkLabel(value: string | null): string {
+  const label = cleanText(value) ?? '외부채널';
+  const lower = label.toLowerCase();
+  const known: Record<string, string> = {
+    blog: '블로그',
+    naver_blog: '블로그',
+    instagram: '인스타그램',
+    youtube: '유튜브',
+    tiktok: '틱톡',
+    daangn: '당근',
+    karrot: '당근'
+  };
+  return known[lower] ?? label;
+}
+
+function looksLikeUrl(value: string | null): value is string {
+  return Boolean(value && /^https?:\/\//i.test(value));
+}
+
+function collectExternalLinks(value: unknown, fallbackLabel: string | null, links: ExternalLinkCandidate[], depth = 0): void {
+  if (depth > 5 || value === null || value === undefined) return;
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectExternalLinks(item, fallbackLabel, links, depth + 1));
+    return;
+  }
+
+  if (typeof value !== 'object') {
+    const url = cleanText(value);
+    if (looksLikeUrl(url)) links.push({ label: fallbackLabel, url });
+    return;
+  }
+
+  const record = asRecord(value as JsonValue);
+  const url = firstText(record.url, record.landingUrl, record.href, record.link, record.sourceUrl, record.homepageUrl);
+  if (looksLikeUrl(url)) {
+    links.push({
+      label: firstText(
+        record.label,
+        record.type,
+        record.homepageType,
+        record.typeI18n,
+        record.name,
+        record.iconName,
+        record.title,
+        record.channel,
+        fallbackLabel
+      ),
+      url
+    });
+  }
+
+  for (const nested of Object.values(record)) {
+    if (nested && typeof nested === 'object') collectExternalLinks(nested, fallbackLabel, links, depth + 1);
+  }
+}
+
+function externalLinkLines(parsed: JsonRecord): string[] {
+  const links: ExternalLinkCandidate[] = [];
+  collectExternalLinks(parsed.homepageLinks, null, links);
+  collectExternalLinks(parsed.homepages, null, links);
+  collectExternalLinks(parsed.externalLinks, null, links);
+  collectExternalLinks(parsed.externalChannelLinks, null, links);
+
+  const homepageUrl = cleanText(parsed.homepageUrl ?? parsed.homepage);
+  const homepageType = cleanText(parsed.homepageType) ?? '대표';
+  collectExternalLinks(homepageUrl, homepageType, links);
+
+  const seen = new Set<string>();
+  return links
+    .filter((link) => {
+      if (seen.has(link.url)) return false;
+      seen.add(link.url);
+      return true;
+    })
+    .map((link) => `외부채널 링크(${normalizeExternalLinkLabel(link.label)}): ${link.url}`);
+}
+
+function businessHourLines(parsed: JsonRecord, metadata: JsonRecord): string[] {
+  const fallbackLineRows = businessHourLineRows(parsed.businessHours);
+  const editedWeeklyRows = asArray(metadata.weeklyBusinessHours);
+  if (editedWeeklyRows.length > 0) return mergeMissingBusinessHourLineRows(editedWeeklyRows, fallbackLineRows);
+
+  const importedWeeklyRows = asArray(parsed.weeklyBusinessHours);
+  if (importedWeeklyRows.length > 0) return mergeMissingBusinessHourLineRows(importedWeeklyRows, fallbackLineRows);
+
+  if (fallbackLineRows.length > 0) return uniqueLines(fallbackLineRows.map((row) => row.line));
+
   const businessHours = asArray(parsed.businessHours);
   const detailedLines = businessHours
     .map((item) => {
@@ -265,6 +460,45 @@ function bookingLines(parsed: JsonRecord): string[] {
   ]);
 }
 
+type NameCountItem = {
+  name: string;
+  count: number | null;
+};
+
+function nameCountItems(value: JsonValue | undefined): NameCountItem[] {
+  return asArray(value)
+    .map((item) => {
+      const record = asRecord(item);
+      const name = cleanText(record.name ?? item);
+      if (!name) return null;
+      return {
+        name,
+        count: typeof record.count === 'number' && Number.isFinite(record.count) ? record.count : null
+      };
+    })
+    .filter((item): item is NameCountItem => Boolean(item));
+}
+
+function nameCountLine(label: string, items: NameCountItem[], unit: string): string | null {
+  if (items.length === 0) return null;
+  const text = items
+    .map((item) => `${item.name}${item.count !== null ? ` ${item.count}${unit}` : ''}`)
+    .join(', ');
+  return `${label}: ${text}`;
+}
+
+function hospitalInfoLines(parsed: JsonRecord): string[] {
+  const hospitalInfo = asRecord(parsed.hospitalInfo);
+  const subjects = textList(hospitalInfo.subjects);
+  return uniqueLines([
+    subjects.length > 0 ? `진료과목: ${subjects.join(', ')}` : null,
+    nameCountLine('진료과목별 전문의', nameCountItems(hospitalInfo.specialistSubjects), '명'),
+    nameCountLine('특수진료장비', nameCountItems(hospitalInfo.specialEquipments), '개'),
+    nameCountLine('특수진료', nameCountItems(hospitalInfo.specialOperations), '건'),
+    nameCountLine('특수진료과목', nameCountItems(hospitalInfo.specialSubjects), '건')
+  ]);
+}
+
 export function buildStoreInfoRagDocument(store: Store): StoreInfoRagDocument {
   const metadata = asRecord(store.metadata);
   const parsed = asRecord(metadata.naverPlaceParsed);
@@ -281,6 +515,10 @@ export function buildStoreInfoRagDocument(store: Store): StoreInfoRagDocument {
   const aiSummary = firstText(parsed.aiSummary, parsed.summary, parsed.microReview, parsed.microReviews);
   const keywords = textList(parsed.keywords ?? metadata.representativeKeywords);
   const facilities = textList(parsed.facilities);
+  const hoursLines = businessHourLines(parsed, metadata);
+  const usesWeeklyHours =
+    weeklyBusinessHourLines(metadata.weeklyBusinessHours).length > 0 ||
+    weeklyBusinessHourLines(parsed.weeklyBusinessHours).length > 0;
 
   const sections = [
     section('기본 정보', [
@@ -298,8 +536,8 @@ export function buildStoreInfoRagDocument(store: Store): StoreInfoRagDocument {
       parkingLine(parsed)
     ]),
     section('영업시간', [
-      ...businessHourLines(parsed),
-      kv('정기휴무', textList(parsed.closedDays ?? parsed.comingRegularClosedDays).join(', '))
+      ...hoursLines,
+      usesWeeklyHours ? null : kv('정기휴무', textList(parsed.closedDays ?? parsed.comingRegularClosedDays).join(', '))
     ]),
     section('편의시설 및 서비스', [
       facilities.length > 0 ? facilities.join(', ') : null,
@@ -311,6 +549,7 @@ export function buildStoreInfoRagDocument(store: Store): StoreInfoRagDocument {
     ]),
     section('사진 자료', photoLines(parsed)),
     section('메뉴판', menuLines(parsed)),
+    section('병원 정보', hospitalInfoLines(parsed)),
     section('예약 안내', bookingLines(parsed)),
     section('리뷰 지표', reviewStatsLines(parsed)),
     section('방송 정보', broadcastLines(parsed)),
@@ -320,7 +559,7 @@ export function buildStoreInfoRagDocument(store: Store): StoreInfoRagDocument {
   return StoreInfoRagDocumentSchema.parse({
     storeId: store.id,
     storeName,
-    title: `${storeName} 식당 정보`,
+    title: `${storeName} 정보`,
     generatedAt: new Date().toISOString(),
     sections,
     warnings

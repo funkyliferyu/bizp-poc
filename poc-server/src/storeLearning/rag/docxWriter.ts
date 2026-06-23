@@ -58,9 +58,7 @@ export async function createReviewsDocxBuffer(document: StoreReviewRagDocument):
     const rating = entry.rating !== null ? ` / 평점 ${entry.rating}` : '';
     children.push(heading(`[리뷰 ${entry.ordinal}]${date}${reviewer}${rating}`, HeadingLevel.HEADING_2));
     children.push(paragraph(entry.bodyText));
-    children.push(paragraph(`▶ 사장님 답글: ${entry.ownerReplyText ?? '사장님 답글 없음'}`));
-    if (entry.keywords.length > 0) children.push(muted(`키워드: ${entry.keywords.join(', ')}`));
-    if (entry.sourceUrl) children.push(muted(`출처: ${entry.sourceUrl}`));
+    if (entry.ownerReplyText) children.push(paragraph(`▶ 사장님 답글: ${entry.ownerReplyText}`));
   }
 
   if (document.warnings.length > 0) {
