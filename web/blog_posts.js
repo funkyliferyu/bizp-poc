@@ -324,7 +324,7 @@
   async function loadPosts() {
     try {
       const response = await fetch(`/api/stores/${storeId}/blog-posts?source=blog_formula_v2`);
-      if (!response.ok) throw new Error(`블로그 목록을 불러오지 못했습니다. (${response.status})`);
+      if (!response.ok) throw new Error('블로그 글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
       const payload = await response.json();
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
       const apiLinkedPosts = posts.filter((post) => post.generationSource?.type === 'blog_formula_v2');
@@ -334,7 +334,7 @@
       updateSummary(null, apiLinkedPosts);
     } catch (error) {
       updateAutoGenerationSchedule([]);
-      const message = error instanceof Error ? error.message : '블로그 목록을 불러오지 못했습니다.';
+      const message = '블로그 글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
       if (blogList) blogList.innerHTML = emptyRow(7, message);
       if (aiContentList) aiContentList.innerHTML = emptyRow(4, message);
     }
@@ -362,7 +362,7 @@
       if (candidates.length < targetCount) {
         renderBatchSteps(candidates, -1, completedIds, targetCount);
         stopBatchTimer();
-        setBatchModal(true, `생성 가능한 토픽 브리프가 ${targetCount}건 미만입니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.`, true);
+        setBatchModal(true, `블로그 글을 만들 토픽이 부족합니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.`, true);
         return;
       }
       for (let index = 0; index < targetCount; index += 1) {
@@ -373,7 +373,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topicBriefSetId: candidates[index].id, providerMode: 'openai' })
         });
-        if (!response.ok) throw new Error(`${index + 1}번째 블로그 초안을 생성하지 못했습니다. (${response.status})`);
+        if (!response.ok) throw new Error('글 생성에 실패했습니다. 다시 시도해 주세요.');
         completedIds.add(candidates[index].id);
       }
       renderBatchSteps(candidates, -1, completedIds, targetCount);
@@ -383,7 +383,7 @@
       window.setTimeout(() => setBatchModal(false, ''), 800);
     } catch (error) {
       stopBatchTimer();
-      setBatchModal(true, error instanceof Error ? error.message : '생성배치 실행에 실패했습니다.', true);
+      setBatchModal(true, error instanceof Error ? error.message : '글 생성에 실패했습니다. 다시 시도해 주세요.', true);
     } finally {
       if (v2BatchButton) {
         v2BatchButton.disabled = false;
@@ -402,10 +402,10 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
-        if (!response.ok) throw new Error(`블로그 초안을 생성하지 못했습니다. (${response.status})`);
+        if (!response.ok) throw new Error('글 생성에 실패했습니다. 다시 시도해 주세요.');
         await loadPosts();
       } catch (error) {
-        const message = error instanceof Error ? error.message : '블로그 초안을 생성하지 못했습니다.';
+        const message = error instanceof Error ? error.message : '글 생성에 실패했습니다. 다시 시도해 주세요.';
         if (aiContentList) aiContentList.innerHTML = emptyRow(4, message);
       } finally {
         generateButton.disabled = false;

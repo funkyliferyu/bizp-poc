@@ -292,10 +292,10 @@
     try {
       setLoading('콘텐츠 상세를 불러오는 중입니다.');
       const response = await fetch(`/api/blog-posts/${postId}`);
-      if (!response.ok) throw new Error(`콘텐츠 상세를 불러오지 못했습니다. (${response.status})`);
+      if (!response.ok) throw new Error('글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
       renderDetail(await response.json());
     } catch (error) {
-      setError(error instanceof Error ? error.message : '콘텐츠 상세를 불러오지 못했습니다.');
+      setError('글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
     }
   }
 
@@ -374,7 +374,7 @@
   async function openPreview() {
     try {
       const response = await fetch(`/api/blog-posts/${postId}/preview`);
-      if (!response.ok) throw new Error(`미리보기를 불러오지 못했습니다. (${response.status})`);
+      if (!response.ok) throw new Error('미리보기를 불러오지 못했습니다. 글 내용은 그대로 보존됩니다.');
       const payload = await response.json();
       const preview = payload.preview || {};
       const mediaAssets = Array.isArray(preview.mediaAssets) ? preview.mediaAssets : [];
@@ -394,7 +394,7 @@
       }
       if (previewModal) previewModal.style.display = 'flex';
     } catch (error) {
-      setError(error instanceof Error ? error.message : '미리보기를 불러오지 못했습니다.');
+      setError('미리보기를 불러오지 못했습니다. 글 내용은 그대로 보존됩니다.');
     }
   }
 
@@ -415,7 +415,8 @@
       const scheduleModal = document.getElementById('modal-schedule');
       if (scheduleModal) scheduleModal.style.display = 'none';
     } catch (error) {
-      setError(error instanceof Error ? error.message : '발행 요청 상태로 변경하지 못했습니다.');
+      setReviewStep('publish');
+      setError('발행 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       if (!completed) setButtonBusy(button, false);
     }

@@ -64,6 +64,9 @@ describe('AI content detail page API wiring', () => {
     expect(js).toContain('function setReviewStep');
     expect(js).toContain('function renderReviewConfidence');
     expect(js).toContain("setReviewStep('article')");
+    expect(js).toContain('글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+    expect(js).toContain('미리보기를 불러오지 못했습니다. 글 내용은 그대로 보존됩니다.');
+    expect(js).toContain('발행 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     expect(js).toContain('fetch(`/api/blog-posts/${postId}`)');
     expect(js).toContain('fetch(`/api/blog-posts/${postId}/preview`)');
     expect(js).toContain('fetch(`/api/blog-posts/${postId}/request-publish`');

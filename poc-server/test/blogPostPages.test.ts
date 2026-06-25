@@ -111,6 +111,9 @@ describe('blog post list page API wiring', () => {
     expect(js).toContain('function sortPostsForOwnerReview');
     expect(js).toContain("status === 'pending_approval'");
     expect(js).toContain('검토할 블로그 글');
+    expect(js).toContain('지금 확인할 블로그 글이 없습니다.');
+    expect(js).toContain('글 생성에 실패했습니다. 다시 시도해 주세요.');
+    expect(js).toContain('블로그 글을 만들 토픽이 부족합니다.');
     expect(js).toContain('const orderedPosts = sortPostsForOwnerReview(posts);');
     expect(js).toContain("orderedPosts.find((post) => post.status === 'pending_approval')");
     expect(js).toContain('renderBlogManagement(apiLinkedPosts);');
