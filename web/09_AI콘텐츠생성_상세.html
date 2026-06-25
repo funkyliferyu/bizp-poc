@@ -69,6 +69,7 @@
 .review-confidence-item:first-child{border-top:none;padding-top:0}
 .review-confidence-label{font-weight:700;color:#1A1A2E}
 .review-step-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px}
+.publish-feedback-message{display:none;border:1px solid #FED7D7;background:#FFF5F5;color:#C92A2A;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;margin-bottom:12px}
 @media(max-width:980px){.content-review-layout{grid-template-columns:1fr}.review-step-nav,.review-confidence-panel{position:static}.review-step-button{display:inline-flex;width:auto;margin-right:6px}.review-step-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}}
 @media(max-width:900px){
   .seo-score-items{grid-template-columns:1fr}
@@ -163,6 +164,7 @@
             <div class="review-section-title">발행 요청</div>
             <div class="review-section-desc">검토가 끝났다면 대행사에 발행을 요청하세요. 바로 요청하거나 원하는 일시를 지정할 수 있습니다.</div>
           </div>
+          <div class="publish-feedback-message" id="publish-feedback-message" role="alert" aria-live="polite"></div>
           <div class="action-bar">
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-ghost" id="openBlogPreviewBtn" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>

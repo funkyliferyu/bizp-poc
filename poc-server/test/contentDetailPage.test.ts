@@ -274,4 +274,54 @@ describe('AI content detail page API wiring', () => {
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     }
   });
+
+  it('keeps publish failures visible on the publish step', async () => {
+    const app = express();
+    app.get('/api/blog-posts/post_publish_failure', (_req, res) => {
+      res.json({
+        blogPost: {
+          id: 'post_publish_failure',
+          status: 'pending_approval',
+          title: '분당 케이크 맛집 추천',
+          createdAt: '2026-06-15T00:00:00.000Z',
+          article: null
+        },
+        article: {
+          title: '분당 케이크 맛집 추천',
+          bodySections: [{ heading: '본문', body: '상세 본문입니다.' }]
+        },
+        mediaAssets: [{ id: 'media_1', prompt: '대표 이미지', alt: null }],
+        seoScore: { totalScore: 84, rubric: {} }
+      });
+    });
+    app.post('/api/blog-posts/post_publish_failure/request-publish', (_req, res) => {
+      res.status(500).json({ error: 'publish failed' });
+    });
+    app.use(express.static(webRoot));
+
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const port = (server.address() as AddressInfo).port;
+    const browser = await chromium.launch({ headless: true });
+
+    try {
+      const page = await browser.newPage();
+      await page.route('https://fonts.googleapis.com/**', (route) =>
+        route.fulfill({ contentType: 'text/css', body: '' })
+      );
+      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_publish_failure`, {
+        waitUntil: 'domcontentloaded'
+      });
+      await page.click('[data-review-step="publish"]');
+      await page.click('#request-publish-btn');
+
+      await expect.poll(() => page.locator('#review-step-publish').textContent()).toContain(
+        '발행 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      );
+      await expect.poll(() => page.locator('#review-step-publish').evaluate((node) => node.classList.contains('active'))).toBe(true);
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    }
+  });
 });

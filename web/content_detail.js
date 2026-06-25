@@ -31,6 +31,7 @@
   const reviewConfidenceSeo = document.getElementById('review-confidence-seo');
   const reviewConfidenceImages = document.getElementById('review-confidence-images');
   const reviewConfidenceStatus = document.getElementById('review-confidence-status');
+  const publishFeedbackEl = document.getElementById('publish-feedback-message');
 
   function setReviewStep(step) {
     reviewStepButtons.forEach((button) => {
@@ -104,6 +105,12 @@
 
   function setError(message) {
     bodyEl.innerHTML = `<p style="color:#E03131">${escapeHtml(message)}</p>`;
+  }
+
+  function setPublishFeedback(message) {
+    if (!publishFeedbackEl) return;
+    publishFeedbackEl.textContent = message || '';
+    publishFeedbackEl.style.display = message ? 'block' : 'none';
   }
 
   function setButtonBusy(button, busy, label) {
@@ -405,6 +412,7 @@
   async function requestPublish(button) {
     let completed = false;
     setButtonBusy(button, true, '발행 요청 중');
+    setPublishFeedback('');
     try {
       const response = await fetch(`/api/blog-posts/${postId}/request-publish`, {
         method: 'POST',
@@ -416,7 +424,7 @@
       if (scheduleModal) scheduleModal.style.display = 'none';
     } catch (error) {
       setReviewStep('publish');
-      setError('발행 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      setPublishFeedback('발행 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       if (!completed) setButtonBusy(button, false);
     }
