@@ -105,11 +105,16 @@ describe('blog post list page API wiring', () => {
     expect(html).toContain('id="blog-review-primary-action"');
     expect(html).toContain('id="blog-review-empty"');
     expect(html).toContain('id="blog-auto-generation-summary"');
+    expect(html).toContain('<th style="width:60px">검토상태</th>');
     expect(js).toContain('function postStatusPriority');
     expect(js).toContain('function blogReadinessLabel');
     expect(js).toContain('function sortPostsForOwnerReview');
     expect(js).toContain("status === 'pending_approval'");
     expect(js).toContain('검토할 블로그 글');
+    expect(js).toContain('const orderedPosts = sortPostsForOwnerReview(posts);');
+    expect(js).toContain("orderedPosts.find((post) => post.status === 'pending_approval')");
+    expect(js).toContain('renderBlogManagement(apiLinkedPosts);');
+    expect(js).not.toContain('renderBlogManagement(sortPostsForOwnerReview(apiLinkedPosts))');
     expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');

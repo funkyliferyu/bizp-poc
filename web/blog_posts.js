@@ -291,9 +291,10 @@
   }
 
   function updateSummary(summary, posts) {
-    const count = summary?.pendingApprovalCount ?? posts.filter((post) => post.status === 'pending_approval').length;
+    const orderedPosts = sortPostsForOwnerReview(posts);
+    const count = summary?.pendingApprovalCount ?? orderedPosts.filter((post) => post.status === 'pending_approval').length;
     const firstPendingApprovalHref =
-      summary?.firstPendingApprovalHref || postDetailUrl(posts.find((post) => post.status === 'pending_approval') || {});
+      summary?.firstPendingApprovalHref || postDetailUrl(orderedPosts.find((post) => post.status === 'pending_approval') || {});
     updateCounts(count);
 
     if (blogPendingAlert) blogPendingAlert.style.display = count > 0 ? 'flex' : 'none';
@@ -328,7 +329,7 @@
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
       const apiLinkedPosts = posts.filter((post) => post.generationSource?.type === 'blog_formula_v2');
       updateAutoGenerationSchedule(apiLinkedPosts);
-      renderBlogManagement(sortPostsForOwnerReview(apiLinkedPosts));
+      renderBlogManagement(apiLinkedPosts);
       renderAiContentList(apiLinkedPosts);
       updateSummary(null, apiLinkedPosts);
     } catch (error) {
