@@ -54,6 +54,22 @@
 .blog-preview-side-title{font-size:12px;font-weight:700;color:#1A1A2E;margin-bottom:8px}
 .blog-preview-thumb{height:92px;border-radius:6px;background:#F7F8FA;border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#6B7280;margin-bottom:8px}
 .action-bar{background:#F7F8FA;border:1px solid #E2E8F0;border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px}
+.content-review-layout{display:grid;grid-template-columns:190px minmax(0,1fr) 240px;gap:14px;align-items:start}
+.review-step-nav{background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:12px;position:sticky;top:70px}
+.review-step-title{font-size:12px;font-weight:800;color:#1A1A2E;margin-bottom:10px}
+.review-step-button{width:100%;border:1px solid #E2E8F0;background:#F8FAFC;color:#4A5568;border-radius:7px;padding:9px 10px;text-align:left;font-size:12px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;margin-bottom:8px}
+.review-step-button.active{background:#EEF2FF;border-color:#BAC8FF;color:#3B5BDB}
+.review-step-section{display:none}
+.review-step-section.active{display:block}
+.review-section-head{margin-bottom:12px}
+.review-section-title{font-size:16px;font-weight:800;color:#1A1A2E;margin-bottom:4px}
+.review-section-desc{font-size:12px;color:#6B7280;line-height:1.6}
+.review-confidence-panel{background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:12px;position:sticky;top:70px}
+.review-confidence-item{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border-top:1px solid #EDF2F7;padding:9px 0;font-size:12px;color:#4A5568;line-height:1.5}
+.review-confidence-item:first-child{border-top:none;padding-top:0}
+.review-confidence-label{font-weight:700;color:#1A1A2E}
+.review-step-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:980px){.content-review-layout{grid-template-columns:1fr}.review-step-nav,.review-confidence-panel{position:static}.review-step-button{display:inline-flex;width:auto;margin-right:6px}.review-step-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}}
 @media(max-width:900px){
   .seo-score-items{grid-template-columns:1fr}
   .seo-score-item,.seo-score-item:nth-child(2n),.seo-score-item:nth-last-child(-n+2){border-right:none;border-bottom:1px solid #EDF2F7}
@@ -73,113 +89,109 @@
     <span style="font-size:13px;color:#4A5568">목록으로</span>
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <div>
-        <div id="content-detail-title" style="font-size:15px;font-weight:700;color:#1A1A2E;margin-bottom:4px">분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</div>
-        <div id="content-detail-meta" style="font-size:11px;color:#9AA0B4">2026.05.23 생성 · 블로그</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn btn-ghost btn-sm" id="openBlogPreviewBtn" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
-        <span class="badge b-orange" id="content-detail-status">승인 대기</span>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="content-provenance-line" id="content-provenance-line"></div>
+  <div class="content-review-layout">
+    <nav class="review-step-nav" id="content-review-steps" aria-label="콘텐츠 검토 단계">
+      <div class="review-step-title">검토 단계</div>
+      <button class="review-step-button active" type="button" data-review-step="article">1. 글 내용 확인</button>
+      <button class="review-step-button" type="button" data-review-step="assets">2. 이미지와 SEO 확인</button>
+      <button class="review-step-button" type="button" data-review-step="publish">3. 발행 요청</button>
+    </nav>
 
-      <!-- 본문 -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:6px">본문</div>
-        <div class="content-body-box" id="draftContentBody">
-          <p>분당에서 케이크 맛집을 찾고 계신다면 이곳을 추천드려요. 커스텀 레터링 케이크부터 당일 제작까지 가능한 베이커리인데요. 직접 방문해보니 매장 분위기도 깔끔하고 케이크 퀄리티가 생각보다 훨씬 좋았어요.</p>
-          <div class="content-image-slot" data-image-slot="1">[이미지1 배치] <span>대표 케이크 사진 · 본문 첫 화면 노출</span></div>
-          <p>특히 레터링 케이크는 원하는 문구를 자유롭게 넣을 수 있어서 생일, 기념일 선물로 딱이더라고요. 가격도 합리적인 편이고 당일 제작도 가능해서 급하게 필요할 때도 믿고 맡길 수 있어요.</p>
-          <div class="content-image-slot" data-image-slot="2">[이미지2 배치] <span>레터링 디테일 또는 매장 내부 사진</span></div>
-          <p>위치는 분당구 정자동에 있고, 주차도 가능합니다. 영업시간은 평일 10시부터 8시까지예요.</p>
-        </div>
-        <div style="font-size:11px;color:#3B5BDB;margin-top:6px;cursor:pointer">전체 보기 ↓</div>
-      </div>
-
-      <hr class="divider">
-
-      <!-- SEO 점수 -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px">SEO 점수</div>
-        <div class="seo-bar">
-          <span id="seo-total-score" style="font-size:22px;font-weight:700;color:#2F9E44">84</span>
-          <div class="seo-track"><div class="seo-fill" id="seo-score-fill"></div></div>
-          <span id="seo-score-summary" style="font-size:11px;color:#4A5568">지역 키워드 보강 권장</span>
-        </div>
-        <div class="seo-breakdown" id="seoScoreBreakdown">
-          <div class="seo-breakdown-head">
-            <div class="seo-breakdown-title">SEO 세부 평가</div>
-            <span class="badge b-green" id="seo-score-badge">총점 84점</span>
+    <div>
+      <section class="card review-step-section active" id="review-step-article" data-review-panel="article">
+        <div class="card-header">
+          <div>
+            <div id="content-detail-title" style="font-size:15px;font-weight:700;color:#1A1A2E;margin-bottom:4px">분당 케이크 맛집 추천 — 커스텀 케이크 전문점 솔직 후기</div>
+            <div id="content-detail-meta" style="font-size:11px;color:#9AA0B4">2026.05.23 생성 · 블로그</div>
           </div>
-          <div class="seo-score-items" id="seoScoreItems">
-            <div class="seo-score-item">
-              <div class="seo-score-top"><span class="seo-score-name">제목 키워드</span><span class="seo-score-val">18/20</span></div>
-              <div class="seo-score-copy">분당, 케이크 맛집, 커스텀 케이크가 제목에 포함되어 검색 의도가 명확합니다.</div>
-            </div>
-            <div class="seo-score-item">
-              <div class="seo-score-top"><span class="seo-score-name">본문 키워드</span><span class="seo-score-val">17/20</span></div>
-              <div class="seo-score-copy">지역과 메뉴 키워드는 충분하지만 수지, 레터링케이크 반복이 조금 더 필요합니다.</div>
-            </div>
-            <div class="seo-score-item">
-              <div class="seo-score-top"><span class="seo-score-name">메타 설명</span><span class="seo-score-val">14/15</span></div>
-              <div class="seo-score-copy">핵심 혜택이 요약되어 있으나 당일 제작 조건을 더 짧게 넣으면 좋습니다.</div>
-            </div>
-            <div class="seo-score-item">
-              <div class="seo-score-top"><span class="seo-score-name">이미지 ALT</span><span class="seo-score-val">12/15</span></div>
-              <div class="seo-score-copy">대표 이미지의 대체 텍스트는 적절하며, 두 번째 이미지는 메뉴명을 더 구체화해야 합니다.</div>
-            </div>
-            <div class="seo-score-item">
-              <div class="seo-score-top"><span class="seo-score-name">가독성</span><span class="seo-score-val">15/15</span></div>
-              <div class="seo-score-copy">문단 길이와 문장 흐름이 블로그 발행용으로 무난합니다.</div>
-            </div>
-            <div class="seo-score-item">
-              <div class="seo-score-top"><span class="seo-score-name">발행 준비도</span><span class="seo-score-val">10/10</span></div>
-              <div class="seo-score-copy">본문, 이미지 배치, 발행 요청 상태가 모두 준비되어 있습니다.</div>
-            </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" id="openBlogPreviewBtn" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
+            <span class="badge b-orange" id="content-detail-status">승인 대기</span>
           </div>
         </div>
-      </div>
-
-      <hr class="divider">
-
-      <!-- 이미지 선택 -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px">이미지 <span style="color:#9AA0B4;font-weight:400">· 발행할 이미지를 선택하세요</span></div>
-        <div id="content-image-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-          <div class="img-card selected" onclick="selectImg(this)">
-            <div class="img-thumb"><span class="icon-image" data-icon="image" data-size="24" data-color="#9AA0B4"></span></div>
-            <div class="img-label">이미지 1 <div class="sel-dot"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div></div>
+        <div class="card-body">
+          <div class="review-section-head">
+            <div class="review-section-title">글 내용 확인</div>
+            <div class="review-section-desc">제목과 본문 흐름을 먼저 확인하세요. 수정이 필요하면 글 재생성을 사용할 수 있습니다.</div>
           </div>
-          <div class="img-card" onclick="selectImg(this)">
-            <div class="img-thumb"><span class="icon-image" data-icon="image" data-size="24" data-color="#9AA0B4"></span></div>
-            <div class="img-label">이미지 2</div>
-          </div>
-          <div class="img-card" onclick="selectImg(this)">
-            <div class="img-thumb"><span class="icon-image" data-icon="image" data-size="24" data-color="#9AA0B4"></span></div>
-            <div class="img-label">이미지 3</div>
+          <div class="content-provenance-line" id="content-provenance-line"></div>
+          <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:6px">본문</div>
+          <div class="content-body-box" id="draftContentBody"></div>
+          <div class="review-step-actions">
+            <button class="btn btn-ghost btn-sm" id="regenerate-text-btn"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 글 재생성</button>
+            <button class="btn btn-primary btn-sm" id="detail-next-assets-btn" type="button">이미지와 SEO 확인</button>
           </div>
         </div>
+      </section>
+
+      <section class="card review-step-section" id="review-step-assets" data-review-panel="assets">
+        <div class="card-body">
+          <div class="review-section-head">
+            <div class="review-section-title">이미지와 SEO 확인</div>
+            <div class="review-section-desc">발행 전에 이미지 프롬프트와 검색 준비도를 확인합니다. 세부 평가는 접힌 영역 안에서 확인합니다.</div>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px">SEO 준비도</div>
+            <div class="seo-bar">
+              <span id="seo-total-score" style="font-size:22px;font-weight:700;color:#2F9E44">84</span>
+              <div class="seo-track"><div class="seo-fill" id="seo-score-fill"></div></div>
+              <span id="seo-score-summary" style="font-size:11px;color:#4A5568">발행 준비도 양호</span>
+            </div>
+            <details class="seo-breakdown" id="seoScoreBreakdown">
+              <summary class="seo-breakdown-head">
+                <div class="seo-breakdown-title">SEO 세부 평가</div>
+                <span class="badge b-green" id="seo-score-badge">총점 84점</span>
+              </summary>
+              <div class="seo-score-items" id="seoScoreItems"></div>
+            </details>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#4A5568;margin-bottom:8px">이미지 <span style="color:#9AA0B4;font-weight:400">· 발행할 이미지를 선택하세요</span></div>
+            <div id="content-image-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+          </div>
+          <div class="review-step-actions">
+            <button class="btn btn-ghost btn-sm" id="regenerate-images-btn"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 이미지 재생성</button>
+            <button class="btn btn-ghost btn-sm" id="seo-rescore-btn"><span class="icon-search" data-icon="search" data-size="12" data-color="currentColor"></span> SEO 재평가</button>
+            <button class="btn btn-primary btn-sm" id="detail-next-publish-btn" type="button">발행 요청으로 이동</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card review-step-section" id="review-step-publish" data-review-panel="publish">
+        <div class="card-body">
+          <div class="review-section-head">
+            <div class="review-section-title">발행 요청</div>
+            <div class="review-section-desc">검토가 끝났다면 대행사에 발행을 요청하세요. 바로 요청하거나 원하는 일시를 지정할 수 있습니다.</div>
+          </div>
+          <div class="action-bar">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
+              <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-cancel').style.display='flex'">취소</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" onclick="document.getElementById('modal-schedule').style.display='flex'" data-flow-target="modal:schedule-publish" data-flow-label="상태: 발행 일시 모달">일시 지정 발행 요청</button>
+              <button class="btn btn-primary" id="request-publish-btn" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">바로 발행 요청</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="review-confidence-panel" id="review-confidence-panel">
+      <div class="review-step-title">검토 요약</div>
+      <div class="review-confidence-item">
+        <span class="review-confidence-label">SEO</span>
+        <span id="review-confidence-seo">불러오는 중</span>
       </div>
-
-    </div>
-  </div>
-
-  <!-- 액션 바 -->
-  <div class="action-bar">
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost btn-sm" id="regenerate-text-btn"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 글 재생성</button>
-      <button class="btn btn-ghost btn-sm" id="regenerate-images-btn"><span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span> 이미지 재생성</button>
-      <button class="btn btn-ghost btn-sm" id="seo-rescore-btn"><span class="icon-search" data-icon="search" data-size="12" data-color="currentColor"></span> SEO 재평가</button>
-      <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-cancel').style.display='flex'">취소</button>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost" onclick="document.getElementById('modal-schedule').style.display='flex'" data-flow-target="modal:schedule-publish" data-flow-label="상태: 발행 일시 모달">일시 지정 발행 요청</button>
-      <button class="btn btn-primary" id="request-publish-btn" data-flow-target="10_블로그_발행대기_상세.html" data-flow-label="다음: 발행 대기">바로 발행 요청</button>
-    </div>
+      <div class="review-confidence-item">
+        <span class="review-confidence-label">이미지</span>
+        <span id="review-confidence-images">불러오는 중</span>
+      </div>
+      <div class="review-confidence-item">
+        <span class="review-confidence-label">상태</span>
+        <span id="review-confidence-status">승인 대기</span>
+      </div>
+    </aside>
   </div>
 </div>
 

@@ -24,6 +24,36 @@
   const requestPublishBtn = document.getElementById('request-publish-btn');
   const scheduleRequestPublishBtn = document.getElementById('schedule-request-publish-btn');
   let latestContentProvenance = null;
+  const reviewStepButtons = Array.from(document.querySelectorAll('[data-review-step]'));
+  const reviewStepPanels = Array.from(document.querySelectorAll('[data-review-panel]'));
+  const nextAssetsBtn = document.getElementById('detail-next-assets-btn');
+  const nextPublishBtn = document.getElementById('detail-next-publish-btn');
+  const reviewConfidenceSeo = document.getElementById('review-confidence-seo');
+  const reviewConfidenceImages = document.getElementById('review-confidence-images');
+  const reviewConfidenceStatus = document.getElementById('review-confidence-status');
+
+  function setReviewStep(step) {
+    reviewStepButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.reviewStep === step);
+    });
+    reviewStepPanels.forEach((panel) => {
+      panel.classList.toggle('active', panel.dataset.reviewPanel === step);
+    });
+  }
+
+  function renderReviewConfidence(payload) {
+    const total = payload?.seoScore?.totalScore ?? payload?.seoScore?.score;
+    if (reviewConfidenceSeo) {
+      reviewConfidenceSeo.textContent = Number(total) >= 80 ? `${total}점 · 발행 가능` : `${total ?? '-'}점 · 확인 필요`;
+    }
+    if (reviewConfidenceImages) {
+      const count = Array.isArray(payload?.mediaAssets) ? payload.mediaAssets.length : 0;
+      reviewConfidenceImages.textContent = count > 0 ? `${count}개 준비됨` : '이미지 확인 필요';
+    }
+    if (reviewConfidenceStatus) {
+      reviewConfidenceStatus.textContent = statusLabel(payload?.blogPost?.status);
+    }
+  }
 
   if (!titleEl || !bodyEl) return;
 
@@ -251,6 +281,7 @@
     renderSeo(payload.seoScore);
     latestContentProvenance = payload.contentProvenance || null;
     renderContentProvenance(payload.contentProvenance, payload.seoScore?.provenance);
+    renderReviewConfidence(payload);
   }
 
   async function loadDetail() {
@@ -392,9 +423,17 @@
   if (scheduleRequestPublishBtn) {
     scheduleRequestPublishBtn.addEventListener('click', () => requestPublish(scheduleRequestPublishBtn));
   }
+  reviewStepButtons.forEach((button) => {
+    button.addEventListener('click', () => setReviewStep(button.dataset.reviewStep || 'article'));
+  });
+  if (nextAssetsBtn) nextAssetsBtn.addEventListener('click', () => setReviewStep('assets'));
+  if (nextPublishBtn) nextPublishBtn.addEventListener('click', () => setReviewStep('publish'));
 
   window.openBlogPreview = openPreview;
   window.closeBlogPreview = closePreview;
 
-  document.addEventListener('DOMContentLoaded', loadDetail);
+  document.addEventListener('DOMContentLoaded', () => {
+    setReviewStep('article');
+    loadDetail();
+  });
 })();

@@ -48,6 +48,28 @@ describe('AI content detail page API wiring', () => {
     expect(js).not.toContain('NAVER_CLIENT');
   });
 
+  it('keeps existing detail APIs while adding the three-step owner review flow', () => {
+    const html = readFileSync(path.join(webRoot, '09_AI콘텐츠생성_상세.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'content_detail.js'), 'utf8');
+
+    expect(html).toContain('id="content-review-steps"');
+    expect(html).toContain('id="review-step-article"');
+    expect(html).toContain('id="review-step-assets"');
+    expect(html).toContain('id="review-step-publish"');
+    expect(html).toContain('id="review-confidence-panel"');
+    expect(html).toContain('id="detail-next-assets-btn"');
+    expect(html).toContain('id="detail-next-publish-btn"');
+    expect(js).toContain('function setReviewStep');
+    expect(js).toContain('function renderReviewConfidence');
+    expect(js).toContain("setReviewStep('article')");
+    expect(js).toContain('fetch(`/api/blog-posts/${postId}`)');
+    expect(js).toContain('fetch(`/api/blog-posts/${postId}/preview`)');
+    expect(js).toContain('fetch(`/api/blog-posts/${postId}/request-publish`');
+    expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
+
   it('trims paragraph excerpts from rendered image prompts in the article and image list', async () => {
     const app = express();
     app.get('/api/blog-posts/post_prompt_trim', (_req, res) => {
