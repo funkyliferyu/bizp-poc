@@ -41,11 +41,15 @@
     });
   }
 
-  function renderReviewConfidence(payload) {
-    const total = payload?.seoScore?.totalScore ?? payload?.seoScore?.score;
+  function renderReviewConfidenceSeo(seoScore) {
+    const total = seoScore?.totalScore ?? seoScore?.score;
     if (reviewConfidenceSeo) {
       reviewConfidenceSeo.textContent = Number(total) >= 80 ? `${total}점 · 발행 가능` : `${total ?? '-'}점 · 확인 필요`;
     }
+  }
+
+  function renderReviewConfidence(payload) {
+    renderReviewConfidenceSeo(payload?.seoScore);
     if (reviewConfidenceImages) {
       const count = Array.isArray(payload?.mediaAssets) ? payload.mediaAssets.length : 0;
       reviewConfidenceImages.textContent = count > 0 ? `${count}개 준비됨` : '이미지 확인 필요';
@@ -359,6 +363,7 @@
       const payload = await response.json();
       renderSeo(payload.seoScore);
       renderContentProvenance(latestContentProvenance, payload.seoScore?.provenance);
+      renderReviewConfidenceSeo(payload.seoScore);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'SEO 점수를 계산하지 못했습니다.');
     } finally {

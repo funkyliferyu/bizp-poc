@@ -59,6 +59,8 @@ describe('AI content detail page API wiring', () => {
     expect(html).toContain('id="review-confidence-panel"');
     expect(html).toContain('id="detail-next-assets-btn"');
     expect(html).toContain('id="detail-next-publish-btn"');
+    expect(html).toMatch(/id="review-step-publish"[\s\S]*id="openBlogPreviewBtn"/);
+    expect(html).not.toMatch(/id="review-step-article"[\s\S]*id="openBlogPreviewBtn"[\s\S]*id="review-step-assets"/);
     expect(js).toContain('function setReviewStep');
     expect(js).toContain('function renderReviewConfidence');
     expect(js).toContain("setReviewStep('article')");
@@ -185,6 +187,7 @@ describe('AI content detail page API wiring', () => {
       await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_preview_layout`, {
         waitUntil: 'domcontentloaded'
       });
+      await page.click('[data-review-step="publish"]');
       await page.click('#openBlogPreviewBtn');
       await page.waitForSelector('#modal-blog-preview[style*="flex"]');
 
@@ -209,6 +212,60 @@ describe('AI content detail page API wiring', () => {
         'blog-preview-image',
         'blog-preview-cta'
       ]);
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    }
+  });
+
+  it('updates the review confidence SEO summary after rescoring', async () => {
+    const app = express();
+    app.use(express.json());
+    app.get('/api/blog-posts/post_rescore_summary', (_req, res) => {
+      res.json({
+        blogPost: {
+          id: 'post_rescore_summary',
+          status: 'pending_approval',
+          title: '분당 케이크 맛집 추천',
+          createdAt: '2026-06-15T00:00:00.000Z',
+          article: null
+        },
+        article: {
+          title: '분당 케이크 맛집 추천',
+          bodySections: [{ heading: '본문', body: '상세 본문입니다.' }]
+        },
+        mediaAssets: [{ id: 'media_1', prompt: '대표 이미지', alt: null }],
+        seoScore: { totalScore: 72, rubric: {} }
+      });
+    });
+    app.post('/api/blog-posts/post_rescore_summary/seo-score', (_req, res) => {
+      res.json({
+        seoScore: {
+          totalScore: 91,
+          rubric: {},
+          provenance: { provider: 'mock', action: 'seo_rescore' }
+        }
+      });
+    });
+    app.use(express.static(webRoot));
+
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const port = (server.address() as AddressInfo).port;
+    const browser = await chromium.launch({ headless: true });
+
+    try {
+      const page = await browser.newPage();
+      await page.route('https://fonts.googleapis.com/**', (route) =>
+        route.fulfill({ contentType: 'text/css', body: '' })
+      );
+      await page.goto(`http://127.0.0.1:${port}/09_AI%EC%BD%98%ED%85%90%EC%B8%A0%EC%83%9D%EC%84%B1_%EC%83%81%EC%84%B8.html?postId=post_rescore_summary`, {
+        waitUntil: 'domcontentloaded'
+      });
+      await expect.poll(() => page.locator('#review-confidence-seo').textContent()).toBe('72점 · 확인 필요');
+      await page.click('[data-review-step="assets"]');
+      await page.click('#seo-rescore-btn');
+      await expect.poll(() => page.locator('#review-confidence-seo').textContent()).toBe('91점 · 발행 가능');
     } finally {
       await browser.close();
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));

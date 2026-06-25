@@ -105,7 +105,7 @@
             <div id="content-detail-meta" style="font-size:11px;color:#9AA0B4">2026.05.23 생성 · 블로그</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost btn-sm" id="openBlogPreviewBtn" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
+            <button class="btn btn-ghost btn-sm" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
             <span class="badge b-orange" id="content-detail-status">승인 대기</span>
           </div>
         </div>
@@ -165,7 +165,7 @@
           </div>
           <div class="action-bar">
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-ghost" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
+              <button class="btn btn-ghost" id="openBlogPreviewBtn" onclick="openBlogPreview()"><span class="icon-maximize-2" data-icon="maximize-2" data-size="12" data-color="currentColor"></span> 블로그 적용 미리보기</button>
               <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-cancel').style.display='flex'">취소</button>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
