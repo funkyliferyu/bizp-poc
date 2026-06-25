@@ -69,6 +69,38 @@
     return 'b-gray';
   }
 
+  function postStatusPriority(status) {
+    if (status === 'pending_approval') return 0;
+    if (status === 'publish_requested') return 1;
+    if (status === 'published') return 2;
+    if (status === 'cancelled') return 3;
+    return 4;
+  }
+
+  function sortPostsForOwnerReview(posts) {
+    return [...posts].sort((a, b) => {
+      const statusDelta = postStatusPriority(a.status) - postStatusPriority(b.status);
+      if (statusDelta !== 0) return statusDelta;
+      return new Date(b.createdAt || b.updatedAt || 0).getTime() - new Date(a.createdAt || a.updatedAt || 0).getTime();
+    });
+  }
+
+  function blogReadinessLabel(post) {
+    if (post.status === 'pending_approval' && Number(post.seoScore) >= 80) {
+      return { label: '좋음', className: 'b-green' };
+    }
+    if (post.status === 'pending_approval') {
+      return { label: '확인 필요', className: 'b-yellow' };
+    }
+    if (post.status === 'publish_requested') {
+      return { label: '요청 완료', className: 'b-green' };
+    }
+    if (post.status === 'published') {
+      return { label: '발행 완료', className: 'b-green' };
+    }
+    return { label: '보관', className: 'b-gray' };
+  }
+
   function formatDate(value) {
     if (!value) return '-';
     const date = new Date(value);
@@ -203,12 +235,13 @@
 
   function renderBlogManagement(posts) {
     if (!blogList) return;
-    if (!posts.length) {
-      blogList.innerHTML = emptyRow(7, '승인 대기 블로그 초안이 없습니다.');
+    const orderedPosts = sortPostsForOwnerReview(posts);
+    if (!orderedPosts.length) {
+      blogList.innerHTML = emptyRow(7, '지금 확인할 블로그 글이 없습니다.');
       return;
     }
 
-    blogList.innerHTML = posts
+    blogList.innerHTML = orderedPosts
       .map(
         (post) => `
           <tr onclick="location.href='${postDetailUrl(post)}'" style="cursor:pointer" data-blog-post-id="${escapeHtml(post.id)}" data-generation-source="${escapeHtml(generationSourceType(post))}">
@@ -221,7 +254,7 @@
             <td><span class="badge ${statusClass(post.status)}">${statusLabel(post.status)}</span></td>
             <td class="td-empty">-</td>
             <td class="td-empty">-</td>
-            <td><span class="badge ${scoreClass(post.seoScore)}" style="font-size:10px">${post.seoScore ?? '-'}점</span></td>
+            <td><span class="badge ${blogReadinessLabel(post).className}" style="font-size:10px">${escapeHtml(blogReadinessLabel(post).label)}</span></td>
             <td>${formatShortDate(post.publishedAt || post.scheduledAt || post.createdAt)}</td>
           </tr>
         `
@@ -253,6 +286,8 @@
   function updateCounts(count) {
     if (blogPendingCount) blogPendingCount.textContent = `승인 대기 ${count}건`;
     if (aiContentPendingCount) aiContentPendingCount.textContent = `${count}건`;
+    const queueTitle = document.getElementById('blog-review-queue-title');
+    if (queueTitle) queueTitle.textContent = `검토할 블로그 글 ${count}건`;
   }
 
   function updateSummary(summary, posts) {
@@ -267,6 +302,14 @@
         window.location.href = firstPendingApprovalHref;
       };
       blogPendingAction.dataset.flowTarget = firstPendingApprovalHref;
+    }
+    const reviewPrimaryAction = document.getElementById('blog-review-primary-action');
+    const reviewEmpty = document.getElementById('blog-review-empty');
+    if (reviewEmpty) reviewEmpty.classList.toggle('is-visible', count === 0);
+    if (reviewPrimaryAction) {
+      reviewPrimaryAction.disabled = count === 0;
+      reviewPrimaryAction.textContent = count > 0 ? '첫 글 확인' : '검토할 글 없음';
+      reviewPrimaryAction.onclick = count > 0 ? () => { window.location.href = firstPendingApprovalHref; } : null;
     }
     if (aiContentSourceNote) {
       const generatedCount = summary?.generatedDraftCount ?? posts.filter((post) => post.generationSource?.type !== 'manual').length;
@@ -285,7 +328,7 @@
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
       const apiLinkedPosts = posts.filter((post) => post.generationSource?.type === 'blog_formula_v2');
       updateAutoGenerationSchedule(apiLinkedPosts);
-      renderBlogManagement(apiLinkedPosts);
+      renderBlogManagement(sortPostsForOwnerReview(apiLinkedPosts));
       renderAiContentList(apiLinkedPosts);
       updateSummary(null, apiLinkedPosts);
     } catch (error) {

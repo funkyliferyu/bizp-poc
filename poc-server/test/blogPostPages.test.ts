@@ -95,4 +95,23 @@ describe('blog post list page API wiring', () => {
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
   });
+
+  it('prioritizes pending approval posts as an owner review queue', () => {
+    const html = readFileSync(path.join(webRoot, '02_블로그관리.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'blog_posts.js'), 'utf8');
+
+    expect(html).toContain('id="blog-review-queue"');
+    expect(html).toContain('id="blog-review-queue-title"');
+    expect(html).toContain('id="blog-review-primary-action"');
+    expect(html).toContain('id="blog-review-empty"');
+    expect(html).toContain('id="blog-auto-generation-summary"');
+    expect(js).toContain('function postStatusPriority');
+    expect(js).toContain('function blogReadinessLabel');
+    expect(js).toContain('function sortPostsForOwnerReview');
+    expect(js).toContain("status === 'pending_approval'");
+    expect(js).toContain('검토할 블로그 글');
+    expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
 });
