@@ -24,6 +24,41 @@
   const requestPublishBtn = document.getElementById('request-publish-btn');
   const scheduleRequestPublishBtn = document.getElementById('schedule-request-publish-btn');
   let latestContentProvenance = null;
+  const reviewStepButtons = Array.from(document.querySelectorAll('[data-review-step]'));
+  const reviewStepPanels = Array.from(document.querySelectorAll('[data-review-panel]'));
+  const nextAssetsBtn = document.getElementById('detail-next-assets-btn');
+  const nextPublishBtn = document.getElementById('detail-next-publish-btn');
+  const reviewConfidenceSeo = document.getElementById('review-confidence-seo');
+  const reviewConfidenceImages = document.getElementById('review-confidence-images');
+  const reviewConfidenceStatus = document.getElementById('review-confidence-status');
+  const publishFeedbackEl = document.getElementById('publish-feedback-message');
+
+  function setReviewStep(step) {
+    reviewStepButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.reviewStep === step);
+    });
+    reviewStepPanels.forEach((panel) => {
+      panel.classList.toggle('active', panel.dataset.reviewPanel === step);
+    });
+  }
+
+  function renderReviewConfidenceSeo(seoScore) {
+    const total = seoScore?.totalScore ?? seoScore?.score;
+    if (reviewConfidenceSeo) {
+      reviewConfidenceSeo.textContent = Number(total) >= 80 ? `${total}점 · 발행 가능` : `${total ?? '-'}점 · 확인 필요`;
+    }
+  }
+
+  function renderReviewConfidence(payload) {
+    renderReviewConfidenceSeo(payload?.seoScore);
+    if (reviewConfidenceImages) {
+      const count = Array.isArray(payload?.mediaAssets) ? payload.mediaAssets.length : 0;
+      reviewConfidenceImages.textContent = count > 0 ? `${count}개 준비됨` : '이미지 확인 필요';
+    }
+    if (reviewConfidenceStatus) {
+      reviewConfidenceStatus.textContent = statusLabel(payload?.blogPost?.status);
+    }
+  }
 
   if (!titleEl || !bodyEl) return;
 
@@ -70,6 +105,12 @@
 
   function setError(message) {
     bodyEl.innerHTML = `<p style="color:#E03131">${escapeHtml(message)}</p>`;
+  }
+
+  function setPublishFeedback(message) {
+    if (!publishFeedbackEl) return;
+    publishFeedbackEl.textContent = message || '';
+    publishFeedbackEl.style.display = message ? 'block' : 'none';
   }
 
   function setButtonBusy(button, busy, label) {
@@ -251,16 +292,17 @@
     renderSeo(payload.seoScore);
     latestContentProvenance = payload.contentProvenance || null;
     renderContentProvenance(payload.contentProvenance, payload.seoScore?.provenance);
+    renderReviewConfidence(payload);
   }
 
   async function loadDetail() {
     try {
       setLoading('콘텐츠 상세를 불러오는 중입니다.');
       const response = await fetch(`/api/blog-posts/${postId}`);
-      if (!response.ok) throw new Error(`콘텐츠 상세를 불러오지 못했습니다. (${response.status})`);
+      if (!response.ok) throw new Error('글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
       renderDetail(await response.json());
     } catch (error) {
-      setError(error instanceof Error ? error.message : '콘텐츠 상세를 불러오지 못했습니다.');
+      setError('글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
     }
   }
 
@@ -328,6 +370,7 @@
       const payload = await response.json();
       renderSeo(payload.seoScore);
       renderContentProvenance(latestContentProvenance, payload.seoScore?.provenance);
+      renderReviewConfidenceSeo(payload.seoScore);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'SEO 점수를 계산하지 못했습니다.');
     } finally {
@@ -338,7 +381,7 @@
   async function openPreview() {
     try {
       const response = await fetch(`/api/blog-posts/${postId}/preview`);
-      if (!response.ok) throw new Error(`미리보기를 불러오지 못했습니다. (${response.status})`);
+      if (!response.ok) throw new Error('미리보기를 불러오지 못했습니다. 글 내용은 그대로 보존됩니다.');
       const payload = await response.json();
       const preview = payload.preview || {};
       const mediaAssets = Array.isArray(preview.mediaAssets) ? preview.mediaAssets : [];
@@ -358,7 +401,7 @@
       }
       if (previewModal) previewModal.style.display = 'flex';
     } catch (error) {
-      setError(error instanceof Error ? error.message : '미리보기를 불러오지 못했습니다.');
+      setError('미리보기를 불러오지 못했습니다. 글 내용은 그대로 보존됩니다.');
     }
   }
 
@@ -369,6 +412,7 @@
   async function requestPublish(button) {
     let completed = false;
     setButtonBusy(button, true, '발행 요청 중');
+    setPublishFeedback('');
     try {
       const response = await fetch(`/api/blog-posts/${postId}/request-publish`, {
         method: 'POST',
@@ -379,7 +423,8 @@
       const scheduleModal = document.getElementById('modal-schedule');
       if (scheduleModal) scheduleModal.style.display = 'none';
     } catch (error) {
-      setError(error instanceof Error ? error.message : '발행 요청 상태로 변경하지 못했습니다.');
+      setReviewStep('publish');
+      setPublishFeedback('발행 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       if (!completed) setButtonBusy(button, false);
     }
@@ -392,9 +437,17 @@
   if (scheduleRequestPublishBtn) {
     scheduleRequestPublishBtn.addEventListener('click', () => requestPublish(scheduleRequestPublishBtn));
   }
+  reviewStepButtons.forEach((button) => {
+    button.addEventListener('click', () => setReviewStep(button.dataset.reviewStep || 'article'));
+  });
+  if (nextAssetsBtn) nextAssetsBtn.addEventListener('click', () => setReviewStep('assets'));
+  if (nextPublishBtn) nextPublishBtn.addEventListener('click', () => setReviewStep('publish'));
 
   window.openBlogPreview = openPreview;
   window.closeBlogPreview = closePreview;
 
-  document.addEventListener('DOMContentLoaded', loadDetail);
+  document.addEventListener('DOMContentLoaded', () => {
+    setReviewStep('article');
+    loadDetail();
+  });
 })();

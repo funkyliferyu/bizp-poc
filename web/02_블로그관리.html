@@ -5,7 +5,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="common.css">
 <style>
-.blog-page-head{margin-bottom:20px}
+.blog-review-queue{background:#fff;border:1px solid #D8E0F0;border-radius:8px;margin-bottom:16px;overflow:hidden}
+.blog-review-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:14px 16px;border-bottom:1px solid #EDF1F7;background:#fff}
+.blog-review-title{font-size:16px;font-weight:800;color:#1A1A2E;margin-bottom:4px}
+.blog-review-desc{font-size:12px;color:#6B7280;line-height:1.6}
+.blog-review-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:#FAFBFC;border-bottom:1px solid #EDF1F7}
+.blog-review-empty{display:none;padding:16px;font-size:12px;color:#6B7280;line-height:1.6}
+.blog-review-empty.is-visible{display:block}
+.blog-table-note{font-size:11px;color:#6B7280;margin-top:3px;line-height:1.45}
 .auto-gen-settings{width:100%;background:#fff;border:1px solid #D8E0F0;border-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.04);overflow:hidden;margin-bottom:16px}
 .auto-gen-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;cursor:pointer;list-style:none}
 .auto-gen-summary::-webkit-details-marker{display:none}
@@ -50,23 +57,27 @@
   <div class="topbar-breadcrumb">마케팅 채널관리 &rsaquo; <span>블로그 관리</span></div>
 </div>
 <div class="main-content">
-  <div class="blog-page-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <div class="page-title" style="margin-bottom:0">블로그 관리</div>
-    <button class="btn btn-primary btn-sm" id="blog-v2-batch-generate-btn">생성배치 실행</button>
-  </div>
-
-  <!-- 승인 대기 alert (승인 대기 건 있을 때만 노출) -->
-  <div id="blog-pending-alert" style="background:#FFF4E6;border:1px solid #FFA94D;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
-    <div style="display:flex;align-items:center;gap:8px">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8590C" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <span id="blog-pending-count" style="font-size:13px;font-weight:600;color:#E8590C">승인 대기 2건</span>
-      <span style="font-size:12px;color:#E8590C;opacity:.8">AI가 생성한 콘텐츠를 검토하고 발행 요청해 주세요.</span>
+  <section class="blog-review-queue" id="blog-review-queue">
+    <div class="blog-review-head">
+      <div>
+        <div class="blog-review-title" id="blog-review-queue-title">검토할 블로그 글 0건</div>
+        <div class="blog-review-desc">AI가 만든 글 중 사장님 확인이 필요한 글을 먼저 보여드립니다.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-primary btn-sm" id="blog-review-primary-action" disabled>검토할 글 없음</button>
+        <button class="btn btn-ghost btn-sm" id="blog-v2-batch-generate-btn">생성배치 실행</button>
+      </div>
     </div>
-    <button class="btn btn-sm" id="blog-pending-action" style="background:#E8590C;color:#fff;border:none" onclick="location.href='09_AI콘텐츠생성_상세.html'" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="다음: 콘텐츠 상세">지금 확인</button>
-  </div><!-- /approval-alert -->
+    <div class="blog-review-summary" id="blog-pending-alert">
+      <span class="badge b-orange" id="blog-pending-count">승인 대기 0건</span>
+      <span style="font-size:12px;color:#6B7280">글을 읽고 문제가 없으면 발행 요청해 주세요.</span>
+      <button class="btn btn-sm" id="blog-pending-action" style="background:#E8590C;color:#fff;border:none" data-flow-target="09_AI콘텐츠생성_상세.html" data-flow-label="다음: 콘텐츠 상세">첫 글 확인</button>
+    </div>
+    <div class="blog-review-empty" id="blog-review-empty">지금 확인할 블로그 글이 없습니다. 다음 자동 생성 예정일을 확인해 주세요.</div>
+  </section>
 
   <details class="auto-gen-settings" id="blogAutoGenerationSettings">
-    <summary class="auto-gen-summary">
+    <summary class="auto-gen-summary" id="blog-auto-generation-summary">
       <div class="auto-gen-summary-main">
         <span class="auto-gen-update">
           <span class="icon-refresh-cw" data-icon="refresh-cw" data-size="12" data-color="currentColor"></span>
@@ -166,7 +177,7 @@
           <th style="width:88px">발행상태</th>
           <th style="width:60px">조회수</th>
           <th style="width:48px">댓글</th>
-          <th style="width:60px">SEO</th>
+          <th style="width:60px">검토상태</th>
           <th style="width:72px">발행일</th>
         </tr>
       </thead>

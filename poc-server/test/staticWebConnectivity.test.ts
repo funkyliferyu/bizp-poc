@@ -474,19 +474,20 @@ describe('web static flow connectivity', () => {
     expect(ruleset).not.toContain('분당 딸기 생크림 케이크 예약 안내');
   });
 
-  it('shows detailed SEO scoring, image slots, and a fullscreen blog preview in AI content detail', () => {
+  it('exposes dynamic SEO scoring, image slots, and a fullscreen blog preview in AI content detail', () => {
     const detail = readWeb('09_AI콘텐츠생성_상세.html');
+    const detailScript = readWeb('content_detail.js');
 
     expect(detail).toContain('id="seoScoreBreakdown"');
     expect(detail).toContain('SEO 세부 평가');
-    expect(detail).toContain('제목 키워드');
-    expect(detail).toContain('본문 키워드');
-    expect(detail).toContain('메타 설명');
-    expect(detail).toContain('이미지 ALT');
-    expect(detail).toContain('가독성');
-    expect(detail).toContain('[이미지1 배치]');
-    expect(detail).toContain('[이미지2 배치]');
-    expect(detail).toContain('class="content-image-slot"');
+    expect(detail).toContain('id="seoScoreItems"');
+    expect(detail).toContain('id="content-image-list"');
+    expect(detailScript).toContain('function renderSeo');
+    expect(detailScript).toContain('function renderImages');
+    expect(detailScript).toContain('function renderBody');
+    expect(detailScript).toContain('seoScore?.rubric');
+    expect(detailScript).toContain('class="content-image-slot"');
+    expect(detailScript).toContain('data-image-slot');
     expect(detail).toContain('id="openBlogPreviewBtn"');
     expect(detail).toContain('블로그 적용 미리보기');
     expect(detail).toContain('openBlogPreview');

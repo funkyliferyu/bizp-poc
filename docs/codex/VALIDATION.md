@@ -1,5 +1,41 @@
 # Validation
 
+## Soho Owner Core Screen Redesign Validation
+
+Date: 2026-06-25
+
+Branch:
+
+- `codex/soho-owner-core-screen-redesign`
+
+Scope:
+
+- Redesigned the marketing dashboard, Blog Management, and AI content detail
+  owner flow around today's work, review queue, and three-step content review.
+- Kept the implementation on a Draft PR branch targeting `develop`; `main` and
+  `develop` are unchanged by this local branch work.
+
+Validation:
+
+- `cd poc-server && npm run typecheck` -> PASS.
+- `cd poc-server && npm test` -> PASS: 70 files passed, 3 skipped; 441 tests
+  passed, 6 skipped.
+- `cd poc-server && node --check ../web/blog_posts.js` -> PASS.
+- `cd poc-server && node --check ../web/content_detail.js` -> PASS.
+- `git diff --check` -> PASS.
+- Local browser smoke through `poc-server` -> PASS for dashboard, Blog
+  Management, and content detail review flow.
+- Playwright responsive audit at 1280px, 900px, and 390px -> PASS with no
+  horizontal overflow or visible button text overflow on the three redesigned
+  screens.
+
+Boundary checks:
+
+- Browser code still calls only `poc-server` APIs for the redesigned flows.
+- No `admin/`, `pc-web/`, `README_POC.md`, or
+  `web/event_operation_poc.html` changes.
+- `.DS_Store` remains unstaged and was not included in commits.
+
 ## Blog Formula V2 Blog Management Batch Generation Validation (13i)
 
 Date: 2026-06-15

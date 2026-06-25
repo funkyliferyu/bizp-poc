@@ -69,6 +69,38 @@
     return 'b-gray';
   }
 
+  function postStatusPriority(status) {
+    if (status === 'pending_approval') return 0;
+    if (status === 'publish_requested') return 1;
+    if (status === 'published') return 2;
+    if (status === 'cancelled') return 3;
+    return 4;
+  }
+
+  function sortPostsForOwnerReview(posts) {
+    return [...posts].sort((a, b) => {
+      const statusDelta = postStatusPriority(a.status) - postStatusPriority(b.status);
+      if (statusDelta !== 0) return statusDelta;
+      return new Date(b.createdAt || b.updatedAt || 0).getTime() - new Date(a.createdAt || a.updatedAt || 0).getTime();
+    });
+  }
+
+  function blogReadinessLabel(post) {
+    if (post.status === 'pending_approval' && Number(post.seoScore) >= 80) {
+      return { label: '좋음', className: 'b-green' };
+    }
+    if (post.status === 'pending_approval') {
+      return { label: '확인 필요', className: 'b-yellow' };
+    }
+    if (post.status === 'publish_requested') {
+      return { label: '요청 완료', className: 'b-green' };
+    }
+    if (post.status === 'published') {
+      return { label: '발행 완료', className: 'b-green' };
+    }
+    return { label: '보관', className: 'b-gray' };
+  }
+
   function formatDate(value) {
     if (!value) return '-';
     const date = new Date(value);
@@ -203,12 +235,13 @@
 
   function renderBlogManagement(posts) {
     if (!blogList) return;
-    if (!posts.length) {
-      blogList.innerHTML = emptyRow(7, '승인 대기 블로그 초안이 없습니다.');
+    const orderedPosts = sortPostsForOwnerReview(posts);
+    if (!orderedPosts.length) {
+      blogList.innerHTML = emptyRow(7, '지금 확인할 블로그 글이 없습니다.');
       return;
     }
 
-    blogList.innerHTML = posts
+    blogList.innerHTML = orderedPosts
       .map(
         (post) => `
           <tr onclick="location.href='${postDetailUrl(post)}'" style="cursor:pointer" data-blog-post-id="${escapeHtml(post.id)}" data-generation-source="${escapeHtml(generationSourceType(post))}">
@@ -221,7 +254,7 @@
             <td><span class="badge ${statusClass(post.status)}">${statusLabel(post.status)}</span></td>
             <td class="td-empty">-</td>
             <td class="td-empty">-</td>
-            <td><span class="badge ${scoreClass(post.seoScore)}" style="font-size:10px">${post.seoScore ?? '-'}점</span></td>
+            <td><span class="badge ${blogReadinessLabel(post).className}" style="font-size:10px">${escapeHtml(blogReadinessLabel(post).label)}</span></td>
             <td>${formatShortDate(post.publishedAt || post.scheduledAt || post.createdAt)}</td>
           </tr>
         `
@@ -253,12 +286,15 @@
   function updateCounts(count) {
     if (blogPendingCount) blogPendingCount.textContent = `승인 대기 ${count}건`;
     if (aiContentPendingCount) aiContentPendingCount.textContent = `${count}건`;
+    const queueTitle = document.getElementById('blog-review-queue-title');
+    if (queueTitle) queueTitle.textContent = `검토할 블로그 글 ${count}건`;
   }
 
   function updateSummary(summary, posts) {
-    const count = summary?.pendingApprovalCount ?? posts.filter((post) => post.status === 'pending_approval').length;
+    const orderedPosts = sortPostsForOwnerReview(posts);
+    const count = summary?.pendingApprovalCount ?? orderedPosts.filter((post) => post.status === 'pending_approval').length;
     const firstPendingApprovalHref =
-      summary?.firstPendingApprovalHref || postDetailUrl(posts.find((post) => post.status === 'pending_approval') || {});
+      summary?.firstPendingApprovalHref || postDetailUrl(orderedPosts.find((post) => post.status === 'pending_approval') || {});
     updateCounts(count);
 
     if (blogPendingAlert) blogPendingAlert.style.display = count > 0 ? 'flex' : 'none';
@@ -267,6 +303,14 @@
         window.location.href = firstPendingApprovalHref;
       };
       blogPendingAction.dataset.flowTarget = firstPendingApprovalHref;
+    }
+    const reviewPrimaryAction = document.getElementById('blog-review-primary-action');
+    const reviewEmpty = document.getElementById('blog-review-empty');
+    if (reviewEmpty) reviewEmpty.classList.toggle('is-visible', count === 0);
+    if (reviewPrimaryAction) {
+      reviewPrimaryAction.disabled = count === 0;
+      reviewPrimaryAction.textContent = count > 0 ? '첫 글 확인' : '검토할 글 없음';
+      reviewPrimaryAction.onclick = count > 0 ? () => { window.location.href = firstPendingApprovalHref; } : null;
     }
     if (aiContentSourceNote) {
       const generatedCount = summary?.generatedDraftCount ?? posts.filter((post) => post.generationSource?.type !== 'manual').length;
@@ -280,7 +324,7 @@
   async function loadPosts() {
     try {
       const response = await fetch(`/api/stores/${storeId}/blog-posts?source=blog_formula_v2`);
-      if (!response.ok) throw new Error(`블로그 목록을 불러오지 못했습니다. (${response.status})`);
+      if (!response.ok) throw new Error('블로그 글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
       const payload = await response.json();
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
       const apiLinkedPosts = posts.filter((post) => post.generationSource?.type === 'blog_formula_v2');
@@ -290,7 +334,7 @@
       updateSummary(null, apiLinkedPosts);
     } catch (error) {
       updateAutoGenerationSchedule([]);
-      const message = error instanceof Error ? error.message : '블로그 목록을 불러오지 못했습니다.';
+      const message = '블로그 글을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
       if (blogList) blogList.innerHTML = emptyRow(7, message);
       if (aiContentList) aiContentList.innerHTML = emptyRow(4, message);
     }
@@ -318,7 +362,7 @@
       if (candidates.length < targetCount) {
         renderBatchSteps(candidates, -1, completedIds, targetCount);
         stopBatchTimer();
-        setBatchModal(true, `생성 가능한 토픽 브리프가 ${targetCount}건 미만입니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.`, true);
+        setBatchModal(true, `블로그 글을 만들 토픽이 부족합니다. 블로그 작성 포뮬라 탭에서 토픽 브리프를 먼저 생성해 주세요.`, true);
         return;
       }
       for (let index = 0; index < targetCount; index += 1) {
@@ -329,7 +373,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topicBriefSetId: candidates[index].id, providerMode: 'openai' })
         });
-        if (!response.ok) throw new Error(`${index + 1}번째 블로그 초안을 생성하지 못했습니다. (${response.status})`);
+        if (!response.ok) throw new Error('글 생성에 실패했습니다. 다시 시도해 주세요.');
         completedIds.add(candidates[index].id);
       }
       renderBatchSteps(candidates, -1, completedIds, targetCount);
@@ -339,7 +383,7 @@
       window.setTimeout(() => setBatchModal(false, ''), 800);
     } catch (error) {
       stopBatchTimer();
-      setBatchModal(true, error instanceof Error ? error.message : '생성배치 실행에 실패했습니다.', true);
+      setBatchModal(true, error instanceof Error ? error.message : '글 생성에 실패했습니다. 다시 시도해 주세요.', true);
     } finally {
       if (v2BatchButton) {
         v2BatchButton.disabled = false;
@@ -358,10 +402,10 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
-        if (!response.ok) throw new Error(`블로그 초안을 생성하지 못했습니다. (${response.status})`);
+        if (!response.ok) throw new Error('글 생성에 실패했습니다. 다시 시도해 주세요.');
         await loadPosts();
       } catch (error) {
-        const message = error instanceof Error ? error.message : '블로그 초안을 생성하지 못했습니다.';
+        const message = error instanceof Error ? error.message : '글 생성에 실패했습니다. 다시 시도해 주세요.';
         if (aiContentList) aiContentList.innerHTML = emptyRow(4, message);
       } finally {
         generateButton.disabled = false;

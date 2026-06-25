@@ -95,4 +95,31 @@ describe('blog post list page API wiring', () => {
     expect(js).not.toContain('OPENAI');
     expect(js).not.toContain('NAVER_CLIENT');
   });
+
+  it('prioritizes pending approval posts as an owner review queue', () => {
+    const html = readFileSync(path.join(webRoot, '02_블로그관리.html'), 'utf8');
+    const js = readFileSync(path.join(webRoot, 'blog_posts.js'), 'utf8');
+
+    expect(html).toContain('id="blog-review-queue"');
+    expect(html).toContain('id="blog-review-queue-title"');
+    expect(html).toContain('id="blog-review-primary-action"');
+    expect(html).toContain('id="blog-review-empty"');
+    expect(html).toContain('id="blog-auto-generation-summary"');
+    expect(html).toContain('<th style="width:60px">검토상태</th>');
+    expect(js).toContain('function postStatusPriority');
+    expect(js).toContain('function blogReadinessLabel');
+    expect(js).toContain('function sortPostsForOwnerReview');
+    expect(js).toContain("status === 'pending_approval'");
+    expect(js).toContain('검토할 블로그 글');
+    expect(js).toContain('지금 확인할 블로그 글이 없습니다.');
+    expect(js).toContain('글 생성에 실패했습니다. 다시 시도해 주세요.');
+    expect(js).toContain('블로그 글을 만들 토픽이 부족합니다.');
+    expect(js).toContain('const orderedPosts = sortPostsForOwnerReview(posts);');
+    expect(js).toContain("orderedPosts.find((post) => post.status === 'pending_approval')");
+    expect(js).toContain('renderBlogManagement(apiLinkedPosts);');
+    expect(js).not.toContain('renderBlogManagement(sortPostsForOwnerReview(apiLinkedPosts))');
+    expect(js).not.toMatch(/fetch\(['"`]https?:\/\/(?!localhost|127\.0\.0\.1)/);
+    expect(js).not.toContain('OPENAI');
+    expect(js).not.toContain('NAVER_CLIENT');
+  });
 });
